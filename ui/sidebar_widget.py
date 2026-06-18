@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QSizePolicy,
 )
 
-from icons import get_icon
+from ui.icons import get_icon
 
 
 def _qicon(name: str) -> QIcon:

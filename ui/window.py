@@ -13,28 +13,28 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
 )
 
-from sidebar_widget import SidebarWidget
+from ui.sidebar_widget import SidebarWidget
 
-from icons import get_icon, app_icon
-from nowplaying_bar import NowPlayingBar
-from player import PlayerEngine, PlaybackState
-from audio_chain import DacConfig, get_quality_label
-from library_db import (
+from ui.icons import get_icon, app_icon
+from ui.nowplaying_bar import NowPlayingBar
+from audio.player import PlayerEngine, PlaybackState
+from audio.audio_chain import DacConfig, get_quality_label
+from library.library_db import (
     LibraryDB, DB_PATH, ScannerWorker, MediaItem,
     AUDIO_EXTS, ALL_EXTS, media_kind, get_mounted_devices, scan_device_music,
 )
-from transmit_manager import TransmitManager
+from streaming.transmit_manager import TransmitManager
 
-from subsonic_client import (
+from streaming.subsonic_client import (
     SubsonicClient, ServerConfig, load_servers, save_servers,
     SubsonicError, AuthError, ServerNotFoundError,
 )
-from server_dialog import ServerDialog
-from remote_browser import RemoteBrowser
-from coverflow import CoverFlowWidget
-from album_art import load_covers_for_albums
-from expanded_view import ExpandedNowPlaying
-from radio_widget import RadioWidget
+from streaming.server_dialog import ServerDialog
+from streaming.remote_browser import RemoteBrowser
+from library.coverflow import CoverFlowWidget
+from library.album_art import load_covers_for_albums
+from ui.expanded_view import ExpandedNowPlaying
+from streaming.radio_widget import RadioWidget
 
 
 class MediaTableModel(QStandardItemModel):
@@ -128,7 +128,7 @@ class MainWindow(QMainWindow):
 
     def _toggle_sync(self):
         if not hasattr(self, '_sync_mgr'):
-            from sync_manager import SyncManager
+            from sync.sync_manager import SyncManager
             self._sync_mgr = SyncManager(self._db, self)
             self._sync_mgr.sync_started.connect(
                 lambda p: self._sync_action.setText(
@@ -149,7 +149,7 @@ class MainWindow(QMainWindow):
             self._sync_action.setChecked(True)
 
     def _show_preferences(self):
-        from preferences_window import PreferencesWindow
+        from ui.preferences_window import PreferencesWindow
         dlg = PreferencesWindow(self)
         dlg.exec()
 
@@ -447,7 +447,7 @@ class MainWindow(QMainWindow):
 
     def _on_sidebar_menu(self, pos):
         widget = self._sidebar.childAt(pos)
-        from sidebar_widget import _Item
+        from ui.sidebar_widget import _Item
         item = None
         while widget:
             if isinstance(widget, _Item):
@@ -657,7 +657,7 @@ class MainWindow(QMainWindow):
         # Update track info
         current = self._player._current
         name = os.path.basename(current) if current else ""
-        from audio_chain import get_quality_label
+        from audio.audio_chain import get_quality_label
         qual, _ = get_quality_label(current) if current else ("", "")
         artist = ""
         for i in self._all_items:
@@ -772,7 +772,7 @@ class MainWindow(QMainWindow):
         self._player_bar.set_track(name, artist)
         self._player_bar.set_quality(quality_str)
 
-        from album_art import find_cover_in_dir
+        from library.album_art import find_cover_in_dir
         cover = find_cover_in_dir(os.path.dirname(filepath))
         if cover:
             from PySide6.QtGui import QPixmap
@@ -852,7 +852,7 @@ class MainWindow(QMainWindow):
             "}")
 
     def _open_eq(self):
-        from eq_panel import EqDialog
+        from ui.eq_panel import EqDialog
         dlg = EqDialog(self)
         dlg.eq_bands_graphic_changed.connect(
             lambda bands: self._player.set_eq_graphic(bands))
@@ -929,7 +929,7 @@ class MainWindow(QMainWindow):
         dlg = QDialog(self)
         dlg.setWindowTitle("Añadir dispositivo")
         dlg.setMinimumWidth(380)
-        from theme import apply_dialog_shadow
+        from ui.theme import apply_dialog_shadow
         apply_dialog_shadow(dlg)
 
         layout = QFormLayout(dlg)
@@ -972,7 +972,7 @@ class MainWindow(QMainWindow):
         dlg = QDialog(self)
         dlg.setWindowTitle("Administrar dispositivos")
         dlg.setMinimumWidth(400)
-        from theme import apply_dialog_shadow
+        from ui.theme import apply_dialog_shadow
         apply_dialog_shadow(dlg)
 
         layout = QVBoxLayout(dlg)

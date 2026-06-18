@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QProgressDialog, QApplication,
 )
 
-from subsonic_client import ServerConfig, SubsonicClient
+from streaming.subsonic_client import ServerConfig, SubsonicClient
 
 
 class ServerDialog(QDialog):
@@ -15,7 +15,7 @@ class ServerDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Añadir servidor")
         self.setMinimumWidth(420)
-        from theme import apply_dialog_shadow
+        from ui.theme import apply_dialog_shadow
         apply_dialog_shadow(self)
         self._server = None
 

@@ -10,7 +10,7 @@ import urllib.request
 import urllib.error
 import socket
 
-from subsonic_client import (
+from streaming.subsonic_client import (
     SubsonicClient, RemoteArtist, RemoteAlbum, RemoteTrack,
     SubsonicError, AuthError, ServerNotFoundError,
 )

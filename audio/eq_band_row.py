@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QComboBox, QSlider, QLabel, QPushButton, QSizePolicy,
 )
 
-from eq_biquad import FILTER_LABELS
+from audio.eq_biquad import FILTER_LABELS
 
 
 class BandRow(QWidget):

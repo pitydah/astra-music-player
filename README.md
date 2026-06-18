@@ -43,42 +43,71 @@ python3 main.py
 ## Estructura del proyecto
 
 ```
-music_player/
-├── main.py               # Punto de entrada
-├── window.py             # Ventana principal
-├── player.py             # Motor GStreamer
-├── nowplaying_bar.py     # Barra de reproducción
-├── sidebar_widget.py     # Sidebar con secciones colapsables
-├── library_db.py         # Base de datos SQLite
-├── album_art.py          # Gestión de carátulas
-├── coverflow.py          # Carrusel 3D de álbumes
-├── expanded_view.py      # Vista expandida
-├── eq_panel.py           # Panel del ecualizador
-├── eq_basic.py           # EQ gráfico
-├── eq_advanced.py        # EQ paramétrico
-├── eq_biquad.py          # Cálculo de biquads
-├── eq_band_row.py        # Fila de banda EQ
-├── eq_curve.py           # Curva de respuesta
-├── eq_presets.py         # Presets de EQ
-├── eq_autoeq.py          # AutoEQ
-├── spectrum.py           # Analizador de espectro
-├── audio_chain.py        # Cadena de audio GStreamer
-├── dff_parser.py         # Parser DFF (DSD)
-├── theme.py              # Paleta y QSS
-├── icons.py              # Resolución de iconos
-├── blur_manager.py       # Efecto blur KWin
-├── subsonic_client.py    # Cliente API Subsonic
-├── remote_browser.py     # Navegador remoto
-├── server_dialog.py      # Diálogo de servidor
-├── sync_manager.py       # Sincronización Android
-├── sync_server.py        # Servidor HTTP sync
-├── sync_protocol.py      # Protocolo sync
-├── sync_discovery.py     # Descubrimiento UDP
-├── transmit_manager.py   # Transmisión a dispositivos
-├── radio_manager.py      # Gestión de emisoras
-├── radio_widget.py       # Widget de radio
-├── radio_dialog.py       # Diálogo de radio
-└── icons/                # Iconos SVG y PNG
+astra-music-player/
+├── main.py                     # Entry point
+├── LICENSE                      # GPL-3.0-or-later
+├── NOTICE                       # Miro Player origin credit
+├── pyproject.toml               # Package config
+├── requirements.txt             # Pip dependencies
+├── install_arch.sh / install_ubuntu.sh
+├── data/astra-music-player.desktop
+│
+├── audio/                       # Audio engine
+│   ├── player.py                # GStreamer playback engine
+│   ├── audio_chain.py           # DAC config, EQ sink builders
+│   ├── eq_biquad.py            # Biquad filter calculations
+│   ├── eq_basic.py             # Graphic EQ widget
+│   ├── eq_advanced.py          # Parametric EQ widget
+│   ├── eq_band_row.py          # EQ band row
+│   ├── eq_curve.py             # Frequency response curve
+│   ├── eq_presets.py           # EQ preset management
+│   ├── eq_autoeq.py            # AutoEQ integration
+│   ├── eq_convert.py           # EQ conversion
+│   ├── spectrum.py             # Spectrum analyzer
+│   └── dff_parser.py           # DFF/DSD parser
+│
+├── library/                     # Library & database
+│   ├── library_db.py           # SQLite schema, scanner, metadata
+│   ├── album_art.py            # Cover art extraction
+│   └── coverflow.py            # 3D CoverFlow carousel
+│
+├── ui/                          # User interface
+│   ├── window.py               # Main window + menus + sidebar
+│   ├── nowplaying_bar.py       # Bottom playback bar
+│   ├── sidebar_widget.py       # Collapsible section sidebar
+│   ├── expanded_view.py        # Expanded player view
+│   ├── eq_panel.py             # EQ dialog panel
+│   ├── preferences_window.py   # 14-category settings dialog
+│   ├── theme.py                # QPalette + QSS
+│   ├── icons.py                # Icon resolution
+│   └── blur_manager.py         # KWin blur utilities
+│
+├── streaming/                   # Streaming & radio
+│   ├── subsonic_client.py      # Subsonic API client
+│   ├── remote_browser.py       # Remote library browser
+│   ├── server_dialog.py        # Server connection dialog
+│   ├── radio_manager.py        # Radio station management
+│   ├── radio_widget.py         # Radio station list widget
+│   ├── radio_dialog.py         # Add/edit radio dialog
+│   └── transmit_manager.py     # Audio transmission manager
+│
+├── sync/                        # Android sync
+│   ├── sync_server.py          # HTTP REST API server
+│   ├── sync_protocol.py        # Sync data protocol
+│   ├── sync_discovery.py       # UDP multicast discovery
+│   └── sync_manager.py         # Sync session manager
+│
+├── core/                        # Core infrastructure
+│   └── settings_manager.py     # QSettings wrapper
+│
+├── adapters/                    # System integrations
+│   └── mpris.py                # MPRIS DBus adapter (KDE)
+│
+├── docs/                        # Documentation
+│   ├── architecture.md
+│   └── roadmap.md
+│
+└── icons/                       # Icons (SVG + PNG)
 ```
 
 ## Tecnologías

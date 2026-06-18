@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen, QIcon, QPainterPath
 
 BREEZE = "/usr/share/icons/breeze"
-HERE = Path(__file__).parent
+HERE = Path(__file__).parent.parent
 
 # ── Custom SVG icons (top priority) ──
 

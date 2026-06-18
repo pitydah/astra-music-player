@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QMenu,
 )
 
-from icons import get_icon
+from ui.icons import get_icon
 
 
 def _make_btn(icon_name: str, size: int) -> QPushButton:

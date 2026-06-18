@@ -7,7 +7,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
-from eq_biquad import eval_response
+from audio.eq_biquad import eval_response
 
 
 class EqCurveWidget(QWidget):

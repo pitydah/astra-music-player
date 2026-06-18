@@ -6,15 +6,15 @@ from PySide6.QtWidgets import (
     QLabel, QCheckBox, QMessageBox, QTabWidget, QWidget,
 )
 
-from eq_basic import GraphicEqWidget
-from eq_advanced import AdvancedEqWidget
-from eq_curve import EqCurveWidget
-from spectrum import SpectrumWidget
-from eq_presets import (
+from audio.eq_basic import GraphicEqWidget
+from audio.eq_advanced import AdvancedEqWidget
+from audio.eq_curve import EqCurveWidget
+from audio.spectrum import SpectrumWidget
+from audio.eq_presets import (
     GRAPHIC_PRESETS, PARAMETRIC_PRESETS,
     load_graphic_preset, load_parametric_preset,
 )
-from eq_convert import graphic_to_parametric, parametric_to_graphic
+from audio.eq_convert import graphic_to_parametric, parametric_to_graphic
 
 
 class EqDialog(QDialog):
@@ -31,7 +31,7 @@ class EqDialog(QDialog):
         self.setWindowTitle("Ecualizador")
         self.resize(900, 620)
         self.setMinimumSize(750, 450)
-        from theme import apply_dialog_shadow
+        from ui.theme import apply_dialog_shadow
         apply_dialog_shadow(self)
         self._mode = "basic"
         self._ab_state = None  # for A/B comparison
@@ -154,7 +154,7 @@ class EqDialog(QDialog):
             self._curve.set_bands(bands, 0.0)
 
     def _save_preset(self):
-        from eq_presets import save_custom_presets, load_custom_presets
+        from audio.eq_presets import save_custom_presets, load_custom_presets
         presets = load_custom_presets()
         if self._mode == "basic":
             presets[f"Custom_{len(presets)}"] = {

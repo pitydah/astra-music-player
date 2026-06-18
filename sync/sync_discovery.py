@@ -11,7 +11,7 @@ import threading
 import time
 
 from PySide6.QtCore import QObject, Signal
-from sync_protocol import (
+from sync.sync_protocol import (
     AnnounceMessage, MULTICAST_GROUP, MULTICAST_PORT,
     ANNOUNCE_INTERVAL,
 )

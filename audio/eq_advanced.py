@@ -7,8 +7,8 @@ from PySide6.QtWidgets import (
     QLabel, QScrollArea, QComboBox, QCheckBox, QFileDialog,
 )
 
-from eq_band_row import BandRow
-from eq_biquad import FILTER_LABELS
+from audio.eq_band_row import BandRow
+from audio.eq_biquad import FILTER_LABELS
 
 
 class AdvancedEqWidget(QWidget):

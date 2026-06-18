@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QScrollArea,
 )
 
-from eq_presets import ISO_31_LABELS
+from audio.eq_presets import ISO_31_LABELS
 
 
 def _db_to_y(db: float, h: int) -> int:

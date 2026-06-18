@@ -17,7 +17,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
-from album_art import CoverFlowItem
+from library.album_art import CoverFlowItem
 
 
 class CoverFlowWidget(QWidget):

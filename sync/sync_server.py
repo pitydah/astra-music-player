@@ -22,13 +22,13 @@ import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from concurrent.futures import ThreadPoolExecutor
 
-from sync_protocol import (
+from sync.sync_protocol import (
     SessionToken, TrackDto, LibraryResponse,
     RegisterRequest, RegisterResponse,
     SyncStateRequest, SyncStateEntry,
     make_track_id, make_device_id,
 )
-from library_db import LibraryDB, MediaItem
+from library.library_db import LibraryDB, MediaItem
 from PySide6.QtCore import QObject, Signal
 
 

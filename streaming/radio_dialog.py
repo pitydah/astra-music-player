@@ -42,7 +42,7 @@ class RadioDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-        from theme import apply_dialog_shadow
+        from ui.theme import apply_dialog_shadow
         apply_dialog_shadow(self)
 
     def get_data(self) -> tuple:

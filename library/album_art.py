@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from PySide6.QtGui import QPixmap, QColor, QPainter, QFont, QPen, QPainterPath
 from PySide6.QtCore import Qt, QRectF, QPointF
 
-from library_db import MediaItem, DB_PATH
+from library.library_db import MediaItem, DB_PATH
 
 COVER_FILENAMES = ["cover.jpg", "cover.png", "folder.jpg", "folder.png",
                    "front.jpg", "front.png", "albumart.jpg", "albumart.png",

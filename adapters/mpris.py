@@ -8,7 +8,7 @@ import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 
 from PySide6.QtCore import QObject
-from player import PlaybackState, PlayerEngine
+from audio.player import PlaybackState, PlayerEngine
 
 SERVICE_NAME = "org.mpris.MediaPlayer2.astra"
 OBJECT_PATH = "/org/mpris/MediaPlayer2"

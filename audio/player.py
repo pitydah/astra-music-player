@@ -22,9 +22,9 @@ from gi.repository import Gst, GLib
 
 from PySide6.QtCore import QObject, Signal, QTimer
 
-from audio_chain import DacConfig, build_eq_graphic_sink, build_eq_parametric_sink
-from dff_parser import parse_dff
-from eq_biquad import compute_biquad
+from audio.audio_chain import DacConfig, build_eq_graphic_sink, build_eq_parametric_sink
+from audio.dff_parser import parse_dff
+from audio.eq_biquad import compute_biquad
 
 Gst.init(None)
 
@@ -109,7 +109,7 @@ class GStreamerEngine(QObject):
 
     def _load_settings(self):
         try:
-            import settings_manager as sm
+            import core.settings_manager as sm
             self._dac.device = sm.get("audio/device")
             self._dac.mode = sm.get("audio/mode")
             self._dac.buffer_ms = sm.get("audio/buffer_ms")
@@ -139,7 +139,7 @@ class GStreamerEngine(QObject):
 
         self._current = filepath_or_url
         if self._db and not filepath_or_url.startswith("http"):
-            from sync_protocol import make_track_id
+            from sync.sync_protocol import make_track_id
             self._db.update_play_history(make_track_id(filepath_or_url))
 
     def _play_uri(self, uri: str, is_dsd: bool = False):

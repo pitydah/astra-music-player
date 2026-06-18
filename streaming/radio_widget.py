@@ -7,9 +7,9 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QPushButton, QLabel, QMenu, QMessageBox,
 )
 
-from icons import get_icon
-from radio_manager import RadioManager, RadioStation
-from radio_dialog import RadioDialog
+from ui.icons import get_icon
+from streaming.radio_manager import RadioManager, RadioStation
+from streaming.radio_dialog import RadioDialog
 
 
 class RadioWidget(QWidget):

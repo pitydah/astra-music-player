@@ -1,8 +1,8 @@
 """Conversion between graphic (31-band) and parametric EQ modes."""
 
 import numpy as np
-from eq_presets import ISO_31_FREQS
-from eq_biquad import eval_response
+from audio.eq_presets import ISO_31_FREQS
+from audio.eq_biquad import eval_response
 
 
 def graphic_to_parametric(graphic_bands: list[float]) -> tuple[list[dict], float]:

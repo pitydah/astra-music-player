@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor, QIcon
 
-from icons import get_icon
-import settings_manager as sm
+from ui.icons import get_icon
+import core.settings_manager as sm
 import os
 
 

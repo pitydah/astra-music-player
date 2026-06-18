@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "astra-music-player"
-version = "1.0.0"
+version = "0.1.0-alpha"
 description = "Modern music player for Linux/KDE built with Python, PySide6 and GStreamer"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.10"
 authors = [
-    {name = "Cristian", email = "cristian@example.com"}
+    {name = "Cristian"}
 ]
 keywords = [
     "music-player", "linux", "kde", "plasma", "gstreamer",
@@ -18,7 +18,7 @@ keywords = [
     "audio-player", "sqlite"
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Environment :: X11 Applications :: Qt",
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
@@ -51,4 +51,5 @@ Issues = "https://github.com/pitydah/astra-music-player/issues"
 astra-music-player = "main:main"
 
 [tool.setuptools]
+packages = ["adapters", "audio", "core", "library", "streaming", "sync", "ui"]
 py-modules = ["main"]

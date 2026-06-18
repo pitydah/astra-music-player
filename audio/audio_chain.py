@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 import numpy as np
 
-from eq_biquad import compute_biquad, FILTER_TYPES
+from audio.eq_biquad import compute_biquad, FILTER_TYPES
 
 
 @dataclass
@@ -72,7 +72,7 @@ def build_dsd_pipeline(filepath: str, dac: DacConfig, is_dsf: bool) -> str:
         )
 
     # DFF: need manual pipeline with appsrc
-    from dff_parser import parse_dff
+    from audio.dff_parser import parse_dff
     header = parse_dff(filepath)
 
     caps = (
@@ -95,7 +95,7 @@ def get_quality_label(filepath: str) -> tuple[str, str]:
 
     if ext in (".dsf", ".dff"):
         try:
-            from dff_parser import parse_dff
+            from audio.dff_parser import parse_dff
             header = parse_dff(filepath) if ext == ".dff" else None
             rate = header.sample_rate if header else 2822400
             dsd_speed = rate // 44100

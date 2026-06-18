@@ -10,8 +10,8 @@ import sys
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFont
 
-from theme import build_plasma_palette, PLASMA_QSS
-from window import MainWindow
+from ui.theme import build_plasma_palette, PLASMA_QSS
+from ui.window import MainWindow
 
 
 def main():

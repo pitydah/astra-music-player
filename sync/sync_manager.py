@@ -7,9 +7,9 @@ Toggle on/off from the UI, managed here.
 import os
 from PySide6.QtCore import QObject, Signal
 
-from library_db import LibraryDB
-from sync_server import SyncServer
-from sync_discovery import DiscoveryServer
+from library.library_db import LibraryDB
+from sync.sync_server import SyncServer
+from sync.sync_discovery import DiscoveryServer
 
 
 class SyncManager(QObject):
