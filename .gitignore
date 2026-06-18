@@ -1,0 +1,22 @@
+# Bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Configuración local
+*.log
