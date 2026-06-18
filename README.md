@@ -88,6 +88,30 @@ music_player/
 - **GStreamer 1.0** (motor de audio)
 - **SQLite** (biblioteca y persistencia)
 - **mutagen** (metadatos)
+- **dbus-python** (MPRIS / integración KDE)
+
+## Estado de funcionalidades
+
+| Funcionalidad | Estado |
+|--------------|--------|
+| Reproducción local (MP3, FLAC, OGG, WAV, DSD) | ✅ Estable |
+| Biblioteca SQLite + metadatos + carátulas | ✅ Estable |
+| Ecualizador gráfico 31-bandas + paramétrico | ✅ Estable |
+| Playlists (crear, editar, eliminar) | ✅ Estable |
+| CoverFlow 3D | ✅ Estable |
+| Persistencia de cola entre sesiones | ✅ Estable |
+| Fondo adaptativo (colores de carátula) | ✅ Estable |
+| Glassmorphism oscuro con textura interna | ✅ Estable |
+| Preferencias (14 categorías) | ✅ Estable |
+| Atajos de teclado | ✅ Estable |
+| MPRIS (integración KDE Plasma) | ✅ Estable |
+| Sidebar con secciones colapsables | ✅ Estable |
+| Subsonic / Navidrome / Jellyfin | ⚠️ Experimental |
+| Radio por Internet | ⚠️ Experimental |
+| Transmisión HTTP / Snapcast | ⚠️ Experimental |
+| Sincronización Android (API REST) | ⚠️ Experimental |
+| DSD/DFF nativo | ⚠️ Experimental |
+| AutoEQ | ⚠️ Experimental |
 
 ## Licencia
 
