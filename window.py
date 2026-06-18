@@ -92,6 +92,14 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         self._load_library()
 
+        self._mpris = None
+        try:
+            from adapters.mpris import MPRISAdapter
+            self._mpris = MPRISAdapter(self)
+            self._mpris.player.set_engine(self._player)
+        except Exception:
+            pass
+
         self._transmit_mgr = TransmitManager(self)
         self._transmit_mgr.device_changed.connect(self._on_transmit_devices_changed)
         self._transmit_mgr.active_changed.connect(self._on_transmit_active_changed)
@@ -775,6 +783,19 @@ class MainWindow(QMainWindow):
                 self._reset_background()
         else:
             self._reset_background()
+
+        if self._mpris:
+            dur = 0
+            album = ""
+            cover_path = ""
+            for item in self._all_items:
+                if item.filepath == filepath:
+                    dur = int(item.duration)
+                    album = item.album or ""
+                    break
+            self._mpris.player.set_metadata(
+                title=name, artist=artist or "",
+                album=album, duration=dur)
 
         self.setWindowTitle(f"Astra Music Player — {name}")
 

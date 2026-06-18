@@ -12,6 +12,7 @@ sudo pacman -S --needed \
   python-numpy \
   python-gobject \
   python-cairo \
+  python-dbus \
   gstreamer \
   gst-plugins-base \
   gst-plugins-good \

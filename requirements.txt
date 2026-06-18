@@ -3,3 +3,4 @@ mutagen>=1.47
 numpy>=1.24
 pycairo>=1.29
 PyGObject>=3.46
+dbus-python>=1.3

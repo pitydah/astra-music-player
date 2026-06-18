@@ -15,7 +15,8 @@ sudo apt install -y \
   gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-ugly \
   gstreamer1.0-libav \
-  python3-numpy
+  python3-numpy \
+  python3-dbus
 
 echo "→ Installing Python dependencies..."
 pip install --user -r requirements.txt
