@@ -3,7 +3,7 @@
 import os
 
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QIcon, QPixmap, QColor, QPalette
+from PySide6.QtGui import QIcon, QPixmap, QColor
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QGridLayout, QPushButton,
     QSlider, QLabel, QMenu, QSizePolicy, QGraphicsDropShadowEffect,
@@ -119,23 +119,13 @@ class NowPlayingBar(QWidget):
 
         self.setAutoFillBackground(True)
 
-        bg_color = self.palette().color(QPalette.Window)
-        self._dark_mode = bg_color.lightness() <= 128
-
-        if self._dark_mode:
-            self._bg_rgba = "rgba(28, 28, 30, 230)"
-            self._text_color = "#ffffff"
-            self._text_sec = "rgba(255,255,255,0.6)"
-            self._accent = "#ffffff"
-            self._border = "rgba(255,255,255,0.06)"
-            self._shadow_alpha = 80
-        else:
-            self._bg_rgba = "rgba(245, 245, 247, 230)"
-            self._text_color = "#1c1c1e"
-            self._text_sec = "rgba(28,28,30,0.6)"
-            self._accent = "#007AFF"
-            self._border = "rgba(0,0,0,0.06)"
-            self._shadow_alpha = 30
+        self._dark_mode = True  # force dark for glassmorphism
+        self._bg_rgba = "rgba(28, 28, 35, 220)"
+        self._text_color = "#ffffff"
+        self._text_sec = "rgba(255,255,255,0.6)"
+        self._accent = "#ffffff"
+        self._border = "rgba(255,255,255,0.06)"
+        self._shadow_alpha = 80
 
         # ─── 3-COLUMN LAYOUT: left(0) | center(1) | right(0) ───
         layout = QHBoxLayout(self)

@@ -142,9 +142,10 @@ class SidebarWidget(QWidget):
         self._sections: dict[str, _Section] = {}
         self._items: dict[str, _Item] = {}
         self._current_key = "library"
+        self._dark = True  # force dark for glassmorphism
 
-        from theme import is_dark_mode
-        self._dark = is_dark_mode()
+        self.setObjectName("sidebarGlass")
+        self.setAutoFillBackground(True)
 
         txt = "#f5f5f7" if self._dark else "#1c1c1e"
         sep_c = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.06)"

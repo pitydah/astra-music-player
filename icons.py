@@ -32,6 +32,7 @@ CUSTOM_ICONS = {
     "warm_vol_medium":    "icons/warm_vol_medium.svg",
     "warm_vol_high":      "icons/warm_vol_high.svg",
     "warm_transmit":      "icons/warm_transmit.svg",
+    "warm_settings":      "icons/warm_settings.svg",
 }
 
 # ── Map: icon name → Breeze 24px SVG path ──

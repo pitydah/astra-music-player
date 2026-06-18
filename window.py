@@ -1,8 +1,9 @@
 """MainWindow — 2 panels + nowplaying bar with library, EQ, and streaming."""
 
 import os
+import random
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem, QBrush, QColor, QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem, QBrush, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel,
     QFrame, QHBoxLayout, QLineEdit, QPushButton, QListWidget, QComboBox,
@@ -88,6 +89,7 @@ class MainWindow(QMainWindow):
         self._setup_menu()
         self._setup_ui()
         self._connect_signals()
+        self._setup_shortcuts()
         self._load_library()
 
         self._transmit_mgr = TransmitManager(self)
@@ -139,26 +141,9 @@ class MainWindow(QMainWindow):
             self._sync_action.setChecked(True)
 
     def _show_preferences(self):
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Preferencias")
-        dlg.setMinimumWidth(380)
-        layout = QFormLayout(dlg)
-        dev = QComboBox()
-        dev.addItem("Default (PipeWire/PulseAudio)", "default")
-        dev.addItem("hw:1,0 (ALC1220 Analog)", "hw:1,0")
-        dev.addItem("hw:0,3 (HDMI)", "hw:0,3")
-        layout.addRow("Audio:", dev)
-        info = QLabel("Cambia tras reiniciar reproducción.")
-        info.setStyleSheet("color: #8e8e93; font-size: 11px;")
-        layout.addRow("", info)
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btns.accepted.connect(dlg.accept)
-        btns.rejected.connect(dlg.reject)
-        layout.addRow(btns)
-        from theme import apply_dialog_shadow
-        apply_dialog_shadow(dlg)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            self._player._dac.device = dev.currentData()
+        from preferences_window import PreferencesWindow
+        dlg = PreferencesWindow(self)
+        dlg.exec()
 
     def _show_about(self):
         QMessageBox.about(self, "Acerca de",
@@ -172,9 +157,10 @@ class MainWindow(QMainWindow):
         self._sidebar.setMaximumWidth(288)
         self._sidebar.setMinimumWidth(242)
         self._sidebar.setStyleSheet("""
-            SidebarWidget {
-                background: rgb(238, 241, 243);
-                border-radius: 8px;
+            QWidget#sidebarGlass {
+                background: rgba(28, 28, 35, 0.88);
+                border-radius: 12px;
+                border: 1px solid rgba(255,255,255,0.04);
             }
         """)
         self._sidebar.item_clicked.connect(self._on_sidebar_click)
@@ -184,17 +170,17 @@ class MainWindow(QMainWindow):
         # ── Header ──
         header = QFrame()
         header.setStyleSheet("""
-            QFrame { background: #f5f5f7; padding: 8px 14px;
-                     border-bottom: 1px solid rgba(0,0,0,0.06); }
+            QFrame { background: rgba(20,20,25,200); padding: 8px 14px;
+                     border-bottom: 1px solid rgba(255,255,255,0.04); }
         """)
         hl = QHBoxLayout(header); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(10)
         self._section_title = QLabel("Biblioteca")
-        self._section_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #1c1c1e;")
+        self._section_title.setStyleSheet("font-size: 16px; font-weight: bold; color: rgba(255,255,255,0.85);")
         self._search = QLineEdit()
         self._search.setPlaceholderText("Buscar..."); self._search.setClearButtonEnabled(True)
         self._search.setFixedWidth(200); self._search.textChanged.connect(self._on_search)
         self._count = QLabel("0 elementos")
-        self._count.setStyleSheet("color: #8e8e93; font-size: 12px;")
+        self._count.setStyleSheet("color: rgba(255,255,255,0.4); font-size: 12px;")
 
         # View selector buttons (always visible)
         self._btn_list = QPushButton(QIcon(get_icon("list")), " Lista")
@@ -211,9 +197,9 @@ class MainWindow(QMainWindow):
 
         self._view_mode = "list"
 
-        self._settings_btn = QPushButton(QIcon(get_icon("eq")), "")
+        self._settings_btn = QPushButton(QIcon(get_icon("warm_settings")), "")
         self._settings_btn.setFlat(True)
-        self._settings_btn.setFixedSize(28, 28)
+        self._settings_btn.setFixedSize(46, 46)
         self._settings_btn.setToolTip("Preferencias")
         self._settings_btn.clicked.connect(self._show_preferences)
 
@@ -243,7 +229,7 @@ class MainWindow(QMainWindow):
 
         placeholder = QLabel("Añade una carpeta o abre un archivo")
         placeholder.setAlignment(Qt.AlignCenter)
-        placeholder.setStyleSheet("color: #8e8e93; font-size: 16px;")
+        placeholder.setStyleSheet("color: rgba(255,255,255,0.3); font-size: 16px;")
 
         # ── Expanded view (created on demand) ──
         self._expanded = None
@@ -277,12 +263,14 @@ class MainWindow(QMainWindow):
         self._player_bar = NowPlayingBar()
 
         bar_wrapper = QWidget()
+        bar_wrapper.setAttribute(Qt.WA_TranslucentBackground)
         wl = QHBoxLayout(bar_wrapper)
         wl.setContentsMargins(24, 0, 24, 12)
         wl.addWidget(self._player_bar)
 
         cent = QWidget()
-        layout = QVBoxLayout(cent); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(0)
+        cent.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(cent); layout.setContentsMargins(8, 8, 8, 8); layout.setSpacing(0)
         layout.addWidget(sp, stretch=1)
         layout.addWidget(bar_wrapper, stretch=0)
         self.setCentralWidget(cent)
@@ -302,6 +290,22 @@ class MainWindow(QMainWindow):
         pb.cover_clicked.connect(self._show_expanded)
         pb.transmit_clicked.connect(self._show_transmit_menu)
         pb.cover_loaded.connect(self._apply_adaptive_background)
+
+    def _setup_shortcuts(self):
+        from PySide6.QtGui import QShortcut, QKeySequence
+        QShortcut(QKeySequence("Space"), self, self._player.toggle)
+        QShortcut(QKeySequence("Ctrl+Right"), self, self._player.play_next)
+        QShortcut(QKeySequence("Ctrl+Left"), self, self._player.play_prev)
+        QShortcut(QKeySequence("Ctrl+Up"), self,
+                  lambda: self._player_bar.volume_changed.emit(
+                      min(100, self._player_bar._vol.value() + 5)))
+        QShortcut(QKeySequence("Ctrl+Down"), self,
+                  lambda: self._player_bar.volume_changed.emit(
+                      max(0, self._player_bar._vol.value() - 5)))
+        QShortcut(QKeySequence("Ctrl+M"), self,
+                  lambda: self._player_bar.volume_changed.emit(0))
+        QShortcut(QKeySequence("Ctrl+F"), self,
+                  lambda: self._search.setFocus())
 
     # ── Library ──
 
@@ -370,7 +374,7 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QGraphicsDropShadowEffect
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(18); shadow.setXOffset(3); shadow.setYOffset(0)
-        shadow.setColor(QColor(0, 0, 0, 30))
+        shadow.setColor(QColor(0, 0, 0, 40))
         self._sidebar.setGraphicsEffect(shadow)
 
     def _on_sidebar_click(self, key: str):
@@ -539,7 +543,7 @@ class MainWindow(QMainWindow):
     def _set_active_button(self, active_btn):
         for btn in [self._btn_list, self._btn_grid, self._btn_cf]:
             if btn == active_btn:
-                btn.setStyleSheet("""
+                    btn.setStyleSheet("""
                     QPushButton {
                         background: #FF7A00;
                         color: #ffffff;
@@ -552,12 +556,12 @@ class MainWindow(QMainWindow):
                 btn.setStyleSheet("""
                     QPushButton {
                         background: transparent;
-                        color: #8e8e93;
+                        color: rgba(255,255,255,0.6);
                         border-radius: 6px;
                         padding: 2px 8px;
                     }
                     QPushButton:hover {
-                        background: rgba(255,122,0,0.10);
+                        background: rgba(255,255,255,0.08);
                     }
                 """)
 
@@ -822,7 +826,7 @@ class MainWindow(QMainWindow):
     def _reset_background(self):
         self._content.setStyleSheet(
             "QStackedWidget {"
-            "  background: qlineargradient(y1:0, y2:1, stop:0 #e8e8ed, stop:1 #d8d8dd);"
+            "  background: rgba(255,255,255,0.04);"
             "  border-radius: 12px;"
             "}")
 
@@ -993,6 +997,23 @@ class MainWindow(QMainWindow):
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
         dlg.exec()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = self.rect()
+        grad = QLinearGradient(0, 0, rect.width(), rect.height())
+        grad.setColorAt(0, QColor(25, 25, 30))
+        grad.setColorAt(0.5, QColor(18, 18, 22))
+        grad.setColorAt(1, QColor(12, 12, 16))
+        painter.fillRect(rect, grad)
+        # subtle noise texture
+        noise = QImage(rect.width() // 2, rect.height() // 2, QImage.Format_Grayscale8)
+        for y in range(noise.height()):
+            for x in range(noise.width()):
+                noise.setPixel(x, y, random.randint(0, 5))
+        painter.setOpacity(0.03)
+        painter.drawImage(rect, noise.scaled(rect.size()))
 
     def closeEvent(self, event):
         try:

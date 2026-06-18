@@ -105,6 +105,19 @@ class GStreamerEngine(QObject):
             self._queue_index = idx
             self.queue_changed.emit(self._queue)
 
+        self._load_settings()
+
+    def _load_settings(self):
+        try:
+            import settings_manager as sm
+            self._dac.device = sm.get("audio/device")
+            self._dac.mode = sm.get("audio/mode")
+            self._dac.buffer_ms = sm.get("audio/buffer_ms")
+            self._eq.mode = sm.get("eq/mode")
+            self._eq.preamp_db = sm.get("eq/preamp")
+        except Exception:
+            pass
+
     @property
     def state(self) -> PlaybackState:
         return self._state
