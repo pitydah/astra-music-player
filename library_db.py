@@ -35,7 +35,7 @@ AUDIO_EXTS = frozenset({
 })
 ALL_EXTS = AUDIO_EXTS
 
-DB_PATH = os.path.expanduser("~/.local/share/music_player/library.db")
+DB_PATH = os.path.expanduser("~/.local/share/astra-music-player/library.db")
 
 
 def media_kind(ext: str) -> str:

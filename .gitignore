@@ -20,3 +20,4 @@ Thumbs.db
 
 # Configuración local
 *.log
+dist/\nbuild/\n*.egg-info/\nPKG-INFO

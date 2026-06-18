@@ -77,15 +77,15 @@ class SyncManager(QObject):
         self._discovery._alias = alias
 
     def _load_alias(self) -> str:
-        path = os.path.expanduser("~/.local/share/music_player/sync_alias")
+        path = os.path.expanduser("~/.local/share/astra-music-player/sync_alias")
         if os.path.exists(path):
             with open(path) as f:
                 return f.read().strip()
         return os.environ.get("USER", "AstraMusicPlayer")
 
     def _save_alias(self, alias: str):
-        os.makedirs(os.path.expanduser("~/.local/share/music_player"),
+        os.makedirs(os.path.expanduser("~/.local/share/astra-music-player"),
                    exist_ok=True)
         with open(os.path.expanduser(
-            "~/.local/share/music_player/sync_alias"), "w") as f:
+            "~/.local/share/astra-music-player/sync_alias"), "w") as f:
             f.write(alias)

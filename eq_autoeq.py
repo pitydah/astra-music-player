@@ -5,7 +5,7 @@ import os
 import hashlib
 import urllib.request
 
-CACHE_DIR = os.path.expanduser("~/.local/share/music_player/autoeq")
+CACHE_DIR = os.path.expanduser("~/.local/share/astra-music-player/autoeq")
 
 
 def search_headphone(query: str) -> list[str]:

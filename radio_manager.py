@@ -4,7 +4,7 @@ import os
 import json
 from dataclasses import dataclass, asdict
 
-CONFIG_DIR = os.path.expanduser("~/.local/share/music_player")
+CONFIG_DIR = os.path.expanduser("~/.local/share/astra-music-player")
 RADIO_FILE = os.path.join(CONFIG_DIR, "radio_stations.json")
 
 

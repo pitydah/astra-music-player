@@ -237,7 +237,7 @@ class SubsonicClient:
 
 # ── Server persistence ──
 
-CONFIG_DIR = os.path.expanduser("~/.local/share/music_player")
+CONFIG_DIR = os.path.expanduser("~/.local/share/astra-music-player")
 SERVERS_PATH = os.path.join(CONFIG_DIR, "subsonic_servers.json")
 
 
