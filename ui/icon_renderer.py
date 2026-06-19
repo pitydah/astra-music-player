@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtSvg import QSvgRenderer
 
 
-def render_svg_icon(path: str, size: int = 20) -> QPixmap:
+def render_svg_icon(path: str, size: int = 24, padding: int = 2) -> QPixmap:
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.transparent)
 
@@ -16,27 +16,22 @@ def render_svg_icon(path: str, size: int = 20) -> QPixmap:
     if not renderer.isValid():
         return pixmap
 
-    view = renderer.viewBoxF()
-
     painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.Antialiasing)
-    painter.setRenderHint(QPainter.SmoothPixmapTransform)
+    painter.setRenderHint(QPainter.Antialiasing, True)
+    painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
 
-    padding = max(1, int(size * 0.10))
-    target = size - padding * 2
+    target = max(1, size - padding * 2)
+    view = renderer.viewBoxF()
 
     if view.isEmpty() or view.width() <= 0 or view.height() <= 0:
         renderer.render(painter, QRectF(padding, padding, target, target))
-        painter.end()
-        return pixmap
+    else:
+        scale = min(target / view.width(), target / view.height())
+        w = view.width() * scale
+        h = view.height() * scale
+        x = (size - w) / 2
+        y = (size - h) / 2
+        renderer.render(painter, QRectF(x, y, w, h))
 
-    scale = min(target / view.width(), target / view.height())
-    w = view.width() * scale
-    h = view.height() * scale
-    x = (size - w) / 2
-    y = (size - h) / 2
-
-    renderer.render(painter, QRectF(x, y, w, h))
     painter.end()
-
     return pixmap
