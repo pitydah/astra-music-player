@@ -2,7 +2,7 @@
 
 import os
 import random
-from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QVariantAnimation
 from PySide6.QtGui import QIcon, QPixmap, QStandardItemModel, QStandardItem, QBrush, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel,
@@ -716,6 +716,7 @@ class MainWindow(QMainWindow):
         if self._coverflow is None:
             self._coverflow = CoverFlowWidget()
             self._coverflow.double_clicked.connect(self._on_coverflow_dbl)
+            self._coverflow.cover_snapped.connect(self._on_coverflow_snap)
             if self._content.count() > 3:
                 self._content.removeWidget(self._content.widget(3))
             self._content.insertWidget(3, self._coverflow)
@@ -732,10 +733,16 @@ class MainWindow(QMainWindow):
         data = item.data or {}
         tracks = data.get("tracks", [])
         if tracks:
-            # Add entire album to queue and start playing
             filepaths = [t.filepath for t in tracks]
             self._player.enqueue(filepaths, play_now=True)
             self._show_expanded()
+
+    def _on_coverflow_snap(self, index: int):
+        if not self._coverflow or index >= len(self._coverflow._items):
+            return
+        item = self._coverflow._items[index]
+        if item and item.pixmap and not item.pixmap.isNull():
+            self._apply_adaptive_background(item.pixmap)
 
     # ── Expanded View ──
 
@@ -952,33 +959,35 @@ class MainWindow(QMainWindow):
 
     def _extract_colors(self, pixmap):
         from PySide6.QtGui import QColor
-        small = pixmap.scaled(10, 10, Qt.IgnoreAspectRatio,
-                             Qt.SmoothTransformation)
-        img = small.toImage()
-        r1 = g1 = b1 = r2 = g2 = b2 = 0
-        n = 50
-        for y in range(5):
-            for x in range(10):
-                c = img.pixelColor(x, y)
-                r1 += c.red(); g1 += c.green(); b1 += c.blue()
-        for y in range(5, 10):
-            for x in range(10):
-                c = img.pixelColor(x, y)
-                r2 += c.red(); g2 += c.green(); b2 += c.blue()
-        c1 = QColor(r1 // n, g1 // n, b1 // n).darker(160)
-        c2 = QColor(r2 // n, g2 // n, b2 // n).darker(180)
-        return c1.name(), c2.name()
+        img = pixmap.toImage().scaled(1, 1, Qt.IgnoreAspectRatio,
+                                      Qt.SmoothTransformation)
+        avg = img.pixelColor(0, 0)
+        return avg.name(), avg.darker(150).name()
 
     def _apply_adaptive_background(self, pixmap):
         if pixmap is None or pixmap.isNull():
             self._reset_background()
             return
-        c1, c2 = self._extract_colors(pixmap)
-        self._content.setStyleSheet(
-            f"QStackedWidget {{"
-            f"  background: qlineargradient(y1:0, y2:1, stop:0 {c1}, stop:1 {c2});"
-            f"  border-radius: 12px;"
-            f"}}")
+        c1, _ = self._extract_colors(pixmap)
+        c1_color = QColor(c1)
+
+        if not hasattr(self, '_last_bg_color'):
+            self._last_bg_color = QColor("#1a1a1e")
+
+        anim = QVariantAnimation(self)
+        anim.setDuration(800)
+        anim.setStartValue(self._last_bg_color)
+        anim.setEndValue(c1_color)
+        anim.valueChanged.connect(
+            lambda v: self._content.setStyleSheet(
+                f"QStackedWidget {{"
+                f"  background: qlineargradient(y1:0, y2:1, stop:0 {v.name()}, stop:1 {v.name()});"
+                f"  border-radius: 12px;"
+                f"}}"))
+        anim.start()
+        self._last_bg_color = c1_color
+        # Keep reference to prevent GC
+        self._bg_fade_anim = anim
 
     def _reset_background(self):
         self._content.setStyleSheet(

@@ -103,6 +103,7 @@ class CoverFlowWidget(QGraphicsView):
     selection_changed = Signal(int)
     double_clicked = Signal(int)
     clicked = Signal(int)
+    cover_snapped = Signal(int)  # emitted when snapping to a cover
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -207,6 +208,7 @@ class CoverFlowWidget(QGraphicsView):
         self._snap_anim.setStartValue(self._current)
         self._snap_anim.setEndValue(float(target))
         self._snap_anim.start()
+        self.cover_snapped.emit(target)
 
     # ── Mouse events ──
 
