@@ -3,7 +3,7 @@
 import os
 import random
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem, QBrush, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
+from PySide6.QtGui import QIcon, QPixmap, QStandardItemModel, QStandardItem, QBrush, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel,
     QFrame, QHBoxLayout, QLineEdit, QPushButton, QListWidget, QComboBox,
@@ -24,6 +24,8 @@ from library.library_db import (
     LibraryDB, DB_PATH, ScannerWorker, MediaItem,
     AUDIO_EXTS, ALL_EXTS, media_kind, get_mounted_devices, scan_device_music,
 )
+from ui.folder_browser import FolderBrowserWidget
+
 from streaming.transmit_manager import TransmitManager
 
 from streaming.subsonic_client import (
@@ -240,6 +242,10 @@ class MainWindow(QMainWindow):
         self._album_grid.album_double_clicked.connect(
             lambda fps: self._player.enqueue(fps, play_now=True))
 
+        self._folder_browser = FolderBrowserWidget()
+        self._folder_browser.folder_selected.connect(
+            lambda fps: self._player.enqueue(fps, play_now=True))
+
         self._content = QStackedWidget()
         self._content.setMinimumHeight(200)
         self._content.addWidget(placeholder)      # 0: empty
@@ -249,6 +255,7 @@ class MainWindow(QMainWindow):
         self._content.addWidget(placeholder)      # 4: expanded view placeholder
         self._content.addWidget(self._radio_widget)  # 5: radio
         self._content.addWidget(self._album_grid)    # 6: album grid
+        self._content.addWidget(self._folder_browser)  # 7: folder browser
         self._content.setCurrentIndex(0)
 
         # ── Content wrapper ──
@@ -304,7 +311,11 @@ class MainWindow(QMainWindow):
         pb.cover_loaded.connect(self._apply_adaptive_background)
 
     def _setup_tray(self):
-        self._tray = QSystemTrayIcon(QIcon(get_icon("tray_icon")), self)
+        tray_pix = QPixmap(get_icon("tray_icon"))
+        if not tray_pix.isNull():
+            tray_pix = tray_pix.scaled(48, 48, Qt.KeepAspectRatio,
+                                       Qt.SmoothTransformation)
+        self._tray = QSystemTrayIcon(QIcon(tray_pix), self)
         self._tray.setToolTip("Astra Music Player")
         tray_menu = QMenu()
         tray_menu.addAction("Mostrar", self.show)
@@ -420,6 +431,7 @@ class MainWindow(QMainWindow):
         self._sidebar.add_item("lib", "library", "Todas las canciones",
                                "sidebar_library")
         self._sidebar.add_item("lib", "albums", "Álbumes", "sidebar_albums")
+        self._sidebar.add_item("lib", "folders", "Carpetas", "add")
 
         # Playlists
         self._sidebar.add_section("pl", "Playlist", "sidebar_playlists")
@@ -489,6 +501,11 @@ class MainWindow(QMainWindow):
             self._section_title.setText("Álbumes")
             self._show_coverflow()
             self._search.show()
+
+        elif key == "folders":
+            self._section_title.setText("Carpetas")
+            self._content.setCurrentIndex(7)
+            self._search.hide()
 
         elif key == "new_playlist":
             self._create_playlist()
