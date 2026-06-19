@@ -14,7 +14,10 @@ import random
 import os
 import sys
 import time
+import logging
 from dataclasses import dataclass
+
+logger = logging.getLogger("astra.subsonic")
 
 
 class SubsonicError(Exception):
@@ -165,7 +168,8 @@ class SubsonicClient:
         try:
             self._get("ping")
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug("ping failed for %s: %s", self.server.name, e)
             return False
 
     def get_artists(self) -> list[RemoteArtist]:
@@ -231,7 +235,8 @@ class SubsonicClient:
             for a in resp.get("searchResult3", {}).get("artist", []):
                 artists.append(RemoteArtist(id=a["id"], name=a["name"]))
             return artists
-        except Exception:
+        except Exception as e:
+            logger.warning("search failed for %s: %s", self.server.name, e)
             return []
 
 

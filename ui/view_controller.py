@@ -10,23 +10,35 @@ class ViewController(QObject):
     def __init__(self, stack: QStackedWidget, parent=None):
         super().__init__(parent)
         self._stack = stack
-        self._views: dict[str, int] = {}
+        self._views: dict[str, QWidget] = {}
         self._current = ""
 
     def register(self, name: str, widget: QWidget):
-        idx = self._stack.addWidget(widget)
-        self._views[name] = idx
+        self._views[name] = widget
+        if self._stack.indexOf(widget) < 0:
+            self._stack.addWidget(widget)
+
+    def replace(self, name: str, widget: QWidget, delete_old: bool = True):
+        old = self._views.get(name)
+        if old is widget:
+            return
+        if old is not None:
+            self._stack.removeWidget(old)
+            if delete_old:
+                old.deleteLater()
+        self._views[name] = widget
+        self._stack.addWidget(widget)
 
     def show(self, name: str):
-        if name in self._views:
-            self._stack.setCurrentIndex(self._views[name])
-            self._current = name
-            self.view_changed.emit(name)
+        widget = self._views.get(name)
+        if widget is None:
+            return
+        self._stack.setCurrentWidget(widget)
+        self._current = name
+        self.view_changed.emit(name)
 
     def current(self) -> str:
         return self._current
 
     def widget(self, name: str) -> QWidget | None:
-        if name in self._views:
-            return self._stack.widget(self._views[name])
-        return None
+        return self._views.get(name)

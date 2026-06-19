@@ -36,10 +36,17 @@ class FolderBrowserWidget(QWidget):
         home_btn.clicked.connect(self._go_home)
         browse_btn = QPushButton("Abrir carpeta...")
         browse_btn.clicked.connect(self._browse_folder)
+        self._play_btn = QPushButton("▶ Reproducir carpeta")
+        self._play_btn.setFlat(True)
+        self._play_btn.setStyleSheet(
+            "QPushButton { color: #FF7A00; font-size: 12px; }"
+            "QPushButton:hover { color: #ff9f33; }")
+        self._play_btn.clicked.connect(self._play_folder)
         toolbar.addWidget(home_btn)
         toolbar.addWidget(up_btn)
         toolbar.addWidget(self._root_label)
         toolbar.addStretch()
+        toolbar.addWidget(self._play_btn)
         toolbar.addWidget(browse_btn)
         layout.addLayout(toolbar)
 
@@ -63,7 +70,6 @@ class FolderBrowserWidget(QWidget):
             }
         """)
         self._tree.itemDoubleClicked.connect(self._on_item)
-        self._tree.itemClicked.connect(self._on_click)
         layout.addWidget(self._tree)
 
         self._load(self._root)
@@ -95,15 +101,10 @@ class FolderBrowserWidget(QWidget):
         elif kind == "file":
             self.folder_selected.emit([path])
 
-    def _on_click(self, item, col):
-        kind = item.data(0, Qt.UserRole + 1)
-        path = item.data(0, Qt.UserRole)
-        if kind == "file":
-            # Select all audio files in the same folder
-            folder = os.path.dirname(path)
-            all_files = list_audio_files(folder)
-            if all_files:
-                self.folder_selected.emit(all_files)
+    def _play_folder(self):
+        all_files = list_audio_files(self._root)
+        if all_files:
+            self.folder_selected.emit(all_files)
 
     def _go_up(self):
         parent = os.path.dirname(self._root)

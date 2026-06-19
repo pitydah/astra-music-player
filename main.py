@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFont
 
 from ui.theme import build_plasma_palette, PLASMA_QSS
+from ui.theme_manager import create_theme_manager
 from ui.window import MainWindow
 
 
@@ -32,6 +33,12 @@ def main():
 
     window = MainWindow()
     window.show()
+
+    # Initialize theme manager (detects system theme, starts polling)
+    theme_mgr = create_theme_manager(window)
+    # Keep reference alive
+    window._theme_mgr = theme_mgr
+
     sys.exit(app.exec())
 
 

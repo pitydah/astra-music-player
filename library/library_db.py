@@ -12,7 +12,10 @@ import os
 import sqlite3
 import time
 import hashlib
+import logging
 from dataclasses import dataclass, field
+
+logger = logging.getLogger("astra.library")
 from typing import Callable
 
 import gi
@@ -286,6 +289,10 @@ class LibraryDB:
             data        BLOB NOT NULL
         );
         """)
+        self._conn.commit()
+
+        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_pl_filepath ON playlist_items(filepath)")
+        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_pl_playlist ON playlist_items(playlist_id)")
         self._conn.commit()
 
     def _run_migrations(self):
@@ -572,8 +579,8 @@ def get_mounted_devices() -> list[dict]:
             if any(mount.startswith(x) for x in ("/sys", "/proc", "/dev", "/run/")): continue
             label = parts[3] if len(parts) > 3 else os.path.basename(mount)
             devices.append({"name": label, "mount": mount})
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("get_mounted_devices lsblk failed: %s", e)
     for base in ("/run/media/" + os.environ.get("USER", ""), "/media"):
         if os.path.isdir(base):
             for e in os.listdir(base):

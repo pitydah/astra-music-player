@@ -11,6 +11,7 @@ DAC: bit-perfect, DoP, standard. EQ: graphic 31-band, parametric biquads.
 
 import os
 import threading
+import logging
 import numpy as np
 from enum import Enum
 from dataclasses import dataclass
@@ -121,8 +122,8 @@ class GStreamerEngine(QObject):
             self._eq.preamp_db = sm.get("eq/preamp")
             self._crossfade = sm.get("playback/crossfade")
             self._replaygain = sm.get("playback/replaygain")
-        except Exception:
-            pass
+        except Exception as e:
+            logging.getLogger("astra.player").debug("Settings load failed: %s", e)
 
     @property
     def state(self) -> PlaybackState:
@@ -171,10 +172,12 @@ class GStreamerEngine(QObject):
         try:
             header = parse_dff(filepath)
         except Exception as e:
+            logging.getLogger("astra.player").warning("DSF/DFF parse failed: %s", e)
             self.error_occurred.emit(str(e))
             return
 
         if header.is_dst:
+            logging.getLogger("astra.player").warning("DST-compressed DFF not supported: %s", filepath)
             self.error_occurred.emit("DST-compressed DFF not supported")
             return
 

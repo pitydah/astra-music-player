@@ -223,36 +223,7 @@ class CoverFlowWidget(QGraphicsView):
         self._scene = QGraphicsScene(self)
         self.setScene(self._scene)
 
-        # Central album text (title + artist)
-        self._title_text = QGraphicsTextItem()
-        self._title_text.setDefaultTextColor(QColor("#ffffff"))
-        self._title_text.setFont(QFont("sans-serif", 14, QFont.Bold))
-        self._title_text.setZValue(2000)
-        self._title_effect = QGraphicsOpacityEffect()
-        self._title_effect.setOpacity(1.0)
-        self._title_text.setGraphicsEffect(self._title_effect)
-        self._scene.addItem(self._title_text)
-
-        self._artist_text = QGraphicsTextItem()
-        self._artist_text.setDefaultTextColor(QColor(245, 245, 247, 140))
-        self._artist_text.setFont(QFont("sans-serif", 12))
-        self._artist_text.setZValue(2000)
-        self._artist_effect = QGraphicsOpacityEffect()
-        self._artist_effect.setOpacity(1.0)
-        self._artist_text.setGraphicsEffect(self._artist_effect)
-        self._scene.addItem(self._artist_text)
-
-        # Empty state message
-        self._empty_msg = QGraphicsTextItem()
-        self._empty_msg.setHtml(
-            '<div style="text-align:center">'
-            '<p style="font-size:16pt;color:rgba(245,245,247,140)">'
-            '📂 No hay álbumes en tu biblioteca</p>'
-            '<p style="font-size:12pt;color:rgba(245,245,247,80)">'
-            'Ctrl+D para añadir música</p>'
-            '</div>')
-        self._empty_msg.setZValue(3000)
-        self._scene.addItem(self._empty_msg)
+        self._create_overlay_items()
 
         # Async album art loading
         from library.album_art_worker import AlbumArtManager
@@ -294,18 +265,7 @@ class CoverFlowWidget(QGraphicsView):
         self._current = 0.0
         self._velocity = 0.0
 
-        # Re-create text items (destroyed by scene.clear)
-        self._title_text = QGraphicsTextItem()
-        self._title_text.setDefaultTextColor(QColor("#ffffff"))
-        self._title_text.setFont(QFont("sans-serif", 14, QFont.Bold))
-        self._title_text.setZValue(2000)
-        self._scene.addItem(self._title_text)
-
-        self._artist_text = QGraphicsTextItem()
-        self._artist_text.setDefaultTextColor(QColor(245, 245, 247, 140))
-        self._artist_text.setFont(QFont("sans-serif", 12))
-        self._artist_text.setZValue(2000)
-        self._scene.addItem(self._artist_text)
+        self._create_overlay_items()
 
         for i, item in enumerate(items):
             ci = CoverItem(item.pixmap, i, self._cover_w, self._cover_h)
@@ -313,6 +273,37 @@ class CoverFlowWidget(QGraphicsView):
             self._cover_items.append(ci)
 
         self._update_layout()
+
+    def _create_overlay_items(self):
+        """Re-create text items after scene.clear()."""
+        self._title_text = QGraphicsTextItem()
+        self._title_text.setDefaultTextColor(QColor("#ffffff"))
+        self._title_text.setFont(QFont("sans-serif", 14, QFont.Bold))
+        self._title_text.setZValue(2000)
+        self._title_effect = QGraphicsOpacityEffect()
+        self._title_effect.setOpacity(1.0)
+        self._title_text.setGraphicsEffect(self._title_effect)
+        self._scene.addItem(self._title_text)
+
+        self._artist_text = QGraphicsTextItem()
+        self._artist_text.setDefaultTextColor(QColor(245, 245, 247, 140))
+        self._artist_text.setFont(QFont("sans-serif", 12))
+        self._artist_text.setZValue(2000)
+        self._artist_effect = QGraphicsOpacityEffect()
+        self._artist_effect.setOpacity(1.0)
+        self._artist_text.setGraphicsEffect(self._artist_effect)
+        self._scene.addItem(self._artist_text)
+
+        self._empty_msg = QGraphicsTextItem()
+        self._empty_msg.setHtml(
+            '<div style="text-align:center">'
+            '<p style="font-size:16pt;color:rgba(245,245,247,140)">'
+            '📂 No hay álbumes en tu biblioteca</p>'
+            '<p style="font-size:12pt;color:rgba(245,245,247,80)">'
+            'Ctrl+D para añadir música</p>'
+            '</div>')
+        self._empty_msg.setZValue(3000)
+        self._scene.addItem(self._empty_msg)
 
     def _on_cover_loaded(self, idx: int, pixmap: QPixmap):
         """Async callback — apply loaded cover with fade-in."""
@@ -364,13 +355,18 @@ class CoverFlowWidget(QGraphicsView):
 
         idx = max(0, min(len(self._items) - 1, int(round(self._current))))
 
+        # Signal throttling — only emit if index changed
+        if getattr(self, '_last_emitted_idx', -1) != idx:
+            self.selection_changed.emit(idx)
+            self._last_emitted_idx = idx
+
         # Update central text with crossfade
         if self._items and 0 <= idx < len(self._items):
             item = self._items[idx]
             artist = (
                 item.subtitle.split(" · ")[0]
                 if item.subtitle and " · " in item.subtitle
-                else "Desconocido")
+                else item.subtitle or "Desconocido")
             self._animate_text_change(item.title, artist)
         else:
             self._animate_text_change("", "")
@@ -392,7 +388,6 @@ class CoverFlowWidget(QGraphicsView):
             ar = self._artist_text.boundingRect()
             self._title_text.setPos(vw / 2 - tr.width() / 2, vh - 85)
             self._artist_text.setPos(vw / 2 - ar.width() / 2, vh - 65)
-            # Fade back in
             self._title_effect.setOpacity(1.0)
             self._artist_effect.setOpacity(1.0)
 
@@ -401,12 +396,7 @@ class CoverFlowWidget(QGraphicsView):
             lambda v: (self._title_effect.setOpacity(v),
                        self._artist_effect.setOpacity(v)))
         anim.start()
-        self._text_anim = anim  # keep reference
-
-        # 3. Signal throttling — only emit if index changed
-        if getattr(self, '_last_emitted_idx', -1) != idx:
-            self.selection_changed.emit(idx)
-            self._last_emitted_idx = idx
+        self._text_anim = anim
 
     # ── Physics ──
 
@@ -515,8 +505,8 @@ class CoverFlowWidget(QGraphicsView):
 
         self._update_layout()
 
-        # Reset physics and restart snap timer
+        # Reset physics and restart snap timer with debounce
         self._dragging = False
         self._velocity = 0.0
         self._phys_timer.start(16)
-        self._trigger_snap()
+        QTimer.singleShot(150, self._trigger_snap)

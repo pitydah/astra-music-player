@@ -8,6 +8,7 @@ from PySide6.QtGui import QPixmap, QColor, QPainter, QFont, QPen, QPainterPath
 from PySide6.QtCore import Qt, QRectF, QPointF
 
 from library.library_db import MediaItem, DB_PATH
+from library.artwork_cache import get_cached, cache_cover
 
 COVER_FILENAMES = ["cover.jpg", "cover.png", "folder.jpg", "folder.png",
                    "front.jpg", "front.png", "albumart.jpg", "albumart.png",
@@ -99,6 +100,14 @@ def load_cover_pixmap(filepath: str, size: int = 280) -> QPixmap:
     """Try to find and load cover art for a media file. Returns QPixmap."""
     directory = os.path.dirname(filepath)
 
+    # Determine cache size name
+    if size <= 96:
+        size_name = "thumb"
+    elif size <= 260:
+        size_name = "medium"
+    else:
+        size_name = "large"
+
     dir_name = os.path.basename(directory)
     embedded = _get_embedded_cover(dir_name)
     if embedded:
@@ -107,10 +116,16 @@ def load_cover_pixmap(filepath: str, size: int = 280) -> QPixmap:
 
     cover_path = find_cover_in_dir(directory)
     if cover_path:
+        # Check disk cache first
+        cached = get_cached(cover_path, size_name)
+        if cached:
+            return cached
         pix = QPixmap(cover_path)
         if not pix.isNull():
-            return pix.scaled(size, size, Qt.KeepAspectRatio,
-                             Qt.SmoothTransformation)
+            scaled = pix.scaled(size, size, Qt.KeepAspectRatio,
+                                Qt.SmoothTransformation)
+            cache_cover(cover_path, pix, size_name)
+            return scaled
 
     title = os.path.basename(directory)
     return make_default_cover(title, size)

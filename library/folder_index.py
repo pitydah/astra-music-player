@@ -15,7 +15,7 @@ def list_audio_files(directory: str) -> list[str]:
                 if os.path.isfile(full):
                     if os.path.splitext(f)[1].lower() in exts:
                         files.append(full)
-    except PermissionError:
+    except (PermissionError, FileNotFoundError):
         pass
     return files
 
@@ -29,7 +29,7 @@ def list_subfolders(directory: str) -> list[str]:
                 full = os.path.join(directory, f)
                 if os.path.isdir(full):
                     dirs.append(full)
-    except PermissionError:
+    except (PermissionError, FileNotFoundError):
         pass
     return dirs
 

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from ui.icons import get_icon
 from ui.adaptive_artwork_background import AdaptiveArtworkBackground
+from ui.lyrics_widget import LyricsWidget
 
 
 def _make_btn(icon_name: str, size: int) -> QPushButton:
@@ -36,6 +37,7 @@ class ExpandedNowPlaying(QWidget):
         self._state = "stopped"
         self._seeking = False
         self._duration = 0.0
+        self._setting_queue = False
 
         main = QVBoxLayout(self)
         main.setContentsMargins(0, 0, 0, 0)
@@ -179,6 +181,13 @@ class ExpandedNowPlaying(QWidget):
         act_row.addWidget(dl_btn)
         body.addLayout(act_row)
 
+        body.addSpacing(12)
+
+        # ── Synced Lyrics ──
+        self._lyrics = LyricsWidget(self)
+        self._lyrics.setFixedHeight(240)
+        body.addWidget(self._lyrics)
+
         main.addLayout(body)
 
         # ── Separator ──
@@ -230,8 +239,10 @@ class ExpandedNowPlaying(QWidget):
         if fp:
             self.track_from_queue.emit(fp)
 
-    def _on_queue_reorder(self):
+    def _on_queue_reorder(self, *args):
         """Emit new filepath order after drag & drop."""
+        if getattr(self, '_setting_queue', False):
+            return
         filepaths = []
         for i in range(self._queue_list.count()):
             item = self._queue_list.item(i)
@@ -279,6 +290,10 @@ class ExpandedNowPlaying(QWidget):
         else:
             self._artwork_bg.clear()
 
+    def load_lyrics(self, title: str, artist: str = "",
+                    album: str = "", duration: float = 0.0):
+        self._lyrics.load_lyrics(title, artist, album, duration)
+
     def set_state(self, state: str):
         self._state = state
         self._play_btn.setIcon(QIcon(get_icon(
@@ -289,11 +304,13 @@ class ExpandedNowPlaying(QWidget):
         self._time_lbl.setText(_fmt(seconds))
         if self._duration > 0:
             self._seek.setValue(int(seconds / self._duration * 1000))
+        self._lyrics.set_position(seconds)
 
     def set_duration(self, seconds: float):
         if seconds > 0:
             self._duration = seconds
             self._dur_lbl.setText(_fmt(seconds))
+        self._lyrics.set_duration(seconds)
 
     def set_volume(self, vol: int):
         self._vol.blockSignals(True)
@@ -301,6 +318,7 @@ class ExpandedNowPlaying(QWidget):
         self._vol.blockSignals(False)
 
     def set_queue(self, items: list[dict]):
+        self._setting_queue = True
         self._queue_list.clear()
         self._queue_label.setText(f"Cola ({len(items)} canciones)")
         for item in items:
@@ -312,6 +330,7 @@ class ExpandedNowPlaying(QWidget):
             qi.setData(Qt.UserRole, item.get("filepath", ""))
             qi.setSizeHint(QSize(0, 36))
             self._queue_list.addItem(qi)
+        self._setting_queue = False
 
 
 def _fmt(t: float) -> str:

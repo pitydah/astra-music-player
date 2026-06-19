@@ -3,7 +3,7 @@
 import os
 import random
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QVariantAnimation
-from PySide6.QtGui import QIcon, QPixmap, QStandardItemModel, QStandardItem, QBrush, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
+from PySide6.QtGui import QIcon, QPixmap, QBrush, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel,
     QFrame, QHBoxLayout, QLineEdit, QPushButton, QListWidget, QComboBox,
@@ -12,10 +12,12 @@ from PySide6.QtWidgets import (
     QInputDialog, QMessageBox, QMenu, QDialog, QFormLayout,
     QDialogButtonBox, QGraphicsOpacityEffect, QSystemTrayIcon,
 )
+from PySide6.QtWidgets import QApplication
 
 from ui.sidebar_widget import SidebarWidget
 from ui.view_switcher import SegmentedViewSwitcher
 from ui.view_controller import ViewController
+from ui.sidebar_controller import SidebarController
 
 from ui.icons import get_icon, app_icon
 from ui.nowplaying_bar import NowPlayingBar
@@ -26,6 +28,12 @@ from library.library_db import (
     AUDIO_EXTS, ALL_EXTS, media_kind, get_mounted_devices, scan_device_music,
 )
 from ui.folder_browser import FolderBrowserWidget
+from ui.loading_overlay import LoadingOverlay
+from ui.search_controller import SearchController
+from sources.local_source import LocalSource
+from sources.radio_source import RadioSource
+from sources.base_source import TrackRef
+from library.trackref_model import TrackRefTableModel
 
 from streaming.transmit_manager import TransmitManager
 
@@ -40,33 +48,7 @@ from library.album_grid import AlbumGridWidget
 from library.album_art import load_covers_for_albums
 from ui.expanded_view import ExpandedNowPlaying
 from streaming.radio_widget import RadioWidget
-
-
-class MediaTableModel(QStandardItemModel):
-    COL_TITLE = 0; COL_ARTIST = 1; COL_ALBUM = 2
-    COL_YEAR = 3; COL_GENRE = 4; COL_DURATION = 5; COL_FILEPATH = 6
-
-    def __init__(self, parent=None):
-        super().__init__(0, 7, parent)
-        self.setHorizontalHeaderLabels(
-            ["Título", "Artista", "Álbum", "Año", "Género", "Duración", ""])
-
-    def populate(self, items: list[MediaItem]):
-        self.removeRows(0, self.rowCount())
-        for item in items:
-            t = QStandardItem(item.title or item.filename)
-            t.setEditable(False); t.setToolTip(item.filepath)
-            a = QStandardItem(item.artist); a.setEditable(False)
-            al = QStandardItem(item.album); al.setEditable(False)
-            y = QStandardItem(str(item.year) if item.year else ""); y.setEditable(False)
-            y.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-            y.setForeground(QBrush(QColor("#8e8e93")))
-            g = QStandardItem(item.genre); g.setEditable(False)
-            d = QStandardItem(item.duration_str); d.setEditable(False)
-            d.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            d.setForeground(QBrush(QColor("#8e8e93")))
-            fp = QStandardItem(item.filepath); fp.setEditable(False)
-            self.appendRow([t, a, al, y, g, d, fp])
+from streaming.radio_manager import RadioManager
 
 
 class MainWindow(QMainWindow):
@@ -83,10 +65,17 @@ class MainWindow(QMainWindow):
 
         self._db = LibraryDB(DB_PATH)
         self._player = PlayerEngine(parent=self)
-        self._player.set_volume(70)
+        from audio.player_service import PlayerService
+        self._playback = PlayerService(self._player, self)
+        self._playback.set_volume(70)
         self._player.set_library_db(self._db)
-        self._model = MediaTableModel(self)
+        self._model = TrackRefTableModel(self)
+        self._search_ctrl = SearchController(self)
+        self._search_ctrl.register("local", LocalSource(self._db))
+        self._search_ctrl.register("radio", RadioSource(RadioManager()))
+        self._search_ctrl.results_ready.connect(self._on_search_results)
         self._all_items: list[MediaItem] = []
+        self._current_ref: TrackRef | None = None
         self._kind_filter: str | None = None
         self._search_text = ""
         self._current_playlist: int | None = None
@@ -134,6 +123,7 @@ class MainWindow(QMainWindow):
         tm.addAction("Administrar dispositivos...", self._manage_transmit_devices)
 
         hm = mb.addMenu("A&yuda")
+        hm.addAction("Atajos de teclado", self._show_shortcuts)
         hm.addAction("Acerca de", self._show_about)
 
     def _toggle_sync(self):
@@ -163,6 +153,29 @@ class MainWindow(QMainWindow):
         dlg = PreferencesWindow(self)
         dlg.exec()
 
+    def _show_shortcuts(self):
+        shortcuts = [
+            ("Ctrl+O", "Abrir archivo"),
+            ("Ctrl+D", "Añadir carpeta"),
+            ("Space", "Reproducir / Pausar"),
+            ("Ctrl+Right", "Siguiente canción"),
+            ("Ctrl+Left", "Canción anterior"),
+            ("Ctrl+Up", "Subir volumen"),
+            ("Ctrl+Down", "Bajar volumen"),
+            ("Ctrl+M", "Silenciar"),
+            ("Ctrl+F", "Buscar"),
+            ("Ctrl+P", "Preferencias"),
+            ("Ctrl+Q", "Salir"),
+        ]
+        text = "<table>"
+        text += "<tr><th style='text-align:left;padding:4px 12px;color:#FF7A00'>Atajo</th>" \
+                "<th style='text-align:left;padding:4px 12px;color:#FF7A00'>Acción</th></tr>"
+        for key, action in shortcuts:
+            text += f"<tr><td style='padding:3px 12px'>{key}</td>" \
+                    f"<td style='padding:3px 12px;color:rgba(245,245,247,0.7)'>{action}</td></tr>"
+        text += "</table>"
+        QMessageBox.information(self, "Atajos de teclado", text)
+
     def _show_about(self):
         QMessageBox.about(self, "Acerca de",
             "<h2>Astra Music Player</h2><p>Sincronización Android, ecualizador paramétrico, "
@@ -174,7 +187,9 @@ class MainWindow(QMainWindow):
         self._sidebar = SidebarWidget()
         self._sidebar.setMinimumWidth(240)
         self._sidebar.setMaximumWidth(270)
-        self._sidebar.item_clicked.connect(self._on_sidebar_click)
+        self._sidebar_controller = SidebarController(self._sidebar, self._db)
+        self._sidebar_controller.navigation_requested.connect(
+            self._on_sidebar_navigate)
         self._sidebar.setContextMenuPolicy(Qt.CustomContextMenu)
         self._sidebar.customContextMenuRequested.connect(self._on_sidebar_menu)
 
@@ -248,11 +263,11 @@ class MainWindow(QMainWindow):
 
         self._album_grid = AlbumGridWidget()
         self._album_grid.album_double_clicked.connect(
-            lambda fps: self._player.enqueue(fps, play_now=True))
+            lambda fps: self._playback.enqueue(fps, play_now=True))
 
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
-            lambda fps: self._player.enqueue(fps, play_now=True))
+            lambda fps: self._playback.enqueue(fps, play_now=True))
 
         self._content = QStackedWidget()
         self._content.setMinimumHeight(200)
@@ -310,11 +325,11 @@ class MainWindow(QMainWindow):
         self._player.duration_changed.connect(pb.set_duration)
         self._player.state_changed.connect(self._on_state)
         self._player.error_occurred.connect(lambda m: print(f"Error: {m}"))
-        pb.play_clicked.connect(self._player.toggle)
-        pb.shuffle_clicked.connect(self._player.toggle_shuffle)
-        pb.repeat_clicked.connect(self._player.toggle_repeat)
-        pb.seek_requested.connect(self._player.seek)
-        pb.volume_changed.connect(self._player.set_volume)
+        pb.play_clicked.connect(self._playback.toggle)
+        pb.shuffle_clicked.connect(self._playback.toggle_shuffle)
+        pb.repeat_clicked.connect(self._playback.toggle_repeat)
+        pb.seek_requested.connect(self._playback.seek)
+        pb.volume_changed.connect(self._playback.set_volume)
         pb.eq_clicked.connect(self._open_eq)
         pb.cover_clicked.connect(self._show_expanded)
         pb.transmit_clicked.connect(self._show_transmit_menu)
@@ -329,9 +344,9 @@ class MainWindow(QMainWindow):
         self._tray.setToolTip("Astra Music Player")
         tray_menu = QMenu()
         tray_menu.addAction("Mostrar", self.show)
-        tray_menu.addAction("Reproducir/Pausa", self._player.toggle)
-        tray_menu.addAction("Siguiente", self._player.play_next)
-        tray_menu.addAction("Anterior", self._player.play_prev)
+        tray_menu.addAction("Reproducir/Pausa", self._playback.toggle)
+        tray_menu.addAction("Siguiente", self._playback.play_next)
+        tray_menu.addAction("Anterior", self._playback.play_prev)
         tray_menu.addSeparator()
         tray_menu.addAction("Salir", self.close)
         self._tray.setContextMenu(tray_menu)
@@ -351,19 +366,35 @@ class MainWindow(QMainWindow):
             return
         from ui.playlist_io import import_playlist
         files = import_playlist(path)
-        if files:
-            for fp in files:
-                self._db.add_file(fp)
-            self._load_library()
-            self._player.enqueue(files, play_now=False)
-            self._player_bar.set_track(
-                f"Importados {len(files)} temas", "Playlist")
-        else:
+        if not files:
             QMessageBox.information(
                 self, "Importar", "No se encontraron archivos válidos.")
+            return
+
+        added = 0
+        missing = 0
+        for fp in files:
+            if os.path.isfile(fp):
+                self._db.add_file(fp)
+                added += 1
+            else:
+                missing += 1
+
+        self._load_library()
+        if added:
+            self._playback.enqueue(files[:added], play_now=False)
+            self._player_bar.set_track(
+                f"Importados {added} temas", "Playlist")
+
+        summary = f"<p><b>{added}</b> archivos añadidos a la biblioteca.</p>"
+        if missing:
+            summary += f"<p><b>{missing}</b> archivos no encontrados en disco.</p>"
+        summary += f"<p>Total entradas en playlist: <b>{len(files)}</b></p>"
+        QMessageBox.information(self, "Importar playlist", summary)
 
     def _export_playlist(self):
-        if not self._player._queue:
+        queue = self._playback.get_queue()
+        if not queue:
             QMessageBox.information(
                 self, "Exportar", "La cola de reproducción está vacía.")
             return
@@ -373,27 +404,15 @@ class MainWindow(QMainWindow):
         if not path:
             return
         from ui.playlist_io import export_m3u
-        export_m3u(path, self._player._queue)
+        export_m3u(path, [q["filepath"] for q in queue])
         QMessageBox.information(
             self, "Exportar", f"Playlist exportada a {path}")
 
     def _setup_shortcuts(self):
         from PySide6.QtGui import QShortcut, QKeySequence
-        QShortcut(QKeySequence("Space"), self, self._player.toggle)
-        QShortcut(QKeySequence("Ctrl+Right"), self, self._player.play_next)
-        QShortcut(QKeySequence("Ctrl+Left"), self, self._player.play_prev)
-        QShortcut(QKeySequence("Ctrl+Up"), self,
-                  lambda: self._player_bar.volume_changed.emit(
-                      min(100, self._player_bar._vol.value() + 5)))
-        QShortcut(QKeySequence("Ctrl+Down"), self,
-                  lambda: self._player_bar.volume_changed.emit(
-                      max(0, self._player_bar._vol.value() - 5)))
-        QShortcut(QKeySequence("Ctrl+M"), self,
-                  lambda: self._player_bar.volume_changed.emit(0))
-        QShortcut(QKeySequence("Ctrl+F"), self,
-                  lambda: self._search.setFocus())
-        QShortcut(QKeySequence("Ctrl+Right"), self, self._player.play_next)
-        QShortcut(QKeySequence("Ctrl+Left"), self, self._player.play_prev)
+        QShortcut(QKeySequence("Space"), self, self._playback.toggle)
+        QShortcut(QKeySequence("Ctrl+Right"), self, self._playback.play_next)
+        QShortcut(QKeySequence("Ctrl+Left"), self, self._playback.play_prev)
         QShortcut(QKeySequence("Ctrl+Up"), self,
                   lambda: self._player_bar.volume_changed.emit(
                       min(100, self._player_bar._vol.value() + 5)))
@@ -409,71 +428,17 @@ class MainWindow(QMainWindow):
 
     def _load_library(self):
         self._all_items = self._db.get_all()
+        self._search_ctrl.set_active("local")
         self._apply_filters()
         self._rebuild_sidebar()
 
     def _apply_filters(self):
-        items = self._all_items
-        if self._kind_filter:
-            items = [i for i in items if i.kind == self._kind_filter]
-        if self._search_text:
-            q = self._search_text.lower()
-            items = [i for i in items if q in i.title.lower() or q in i.artist.lower()
-                     or q in i.album.lower() or q in i.filename.lower()]
-        self._model.populate(items)
-        self._count.setText(f"{len(items)} elementos" if items else "0 elementos")
-        if items:
-            self._views.show("library")
-            self._table.setModel(self._model)
-            self._table.setColumnWidth(0, 280); self._table.setColumnWidth(1, 170)
-            self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 55)
-            self._table.setColumnWidth(4, 110); self._table.setColumnWidth(5, 75)
-        else:
-            self._views.show("empty")
+        self._search_ctrl.search(self._search_text)
 
     # ── Sidebar ──
 
     def _rebuild_sidebar(self):
-        self._sidebar._clear()
-
-        # Biblioteca
-        self._sidebar.add_section("lib", "Biblioteca", "sidebar_library")
-        self._sidebar.add_item("lib", "library", "Todas las canciones",
-                               "sidebar_library")
-        self._sidebar.add_item("lib", "albums", "Álbumes", "sidebar_albums")
-        self._sidebar.add_item("lib", "folders", "Carpetas", "add")
-
-        # Playlists
-        self._sidebar.add_section("pl", "Playlist", "sidebar_playlists")
-        for p in self._db.get_playlists():
-            self._sidebar.add_item("pl", f"pl:{p['id']}", p['name'],
-                                   "sidebar_playlist_item")
-        self._sidebar.add_item("pl", "new_playlist", "+ Nueva playlist", "add")
-
-        # Smart Mixes
-        self._sidebar.add_section("mix", "Descubrir", "sidebar_playlists")
-        self._sidebar.add_item("mix", "mix_daily", "Mix diario", "add")
-        self._sidebar.add_item("mix", "mix_unplayed", "No escuchadas", "add")
-        self._sidebar.add_item("mix", "mix_popular", "Más escuchadas", "add")
-
-        # Radio
-        self._sidebar.add_section("rad", "Radio", "sidebar_radio")
-        self._sidebar.add_item("rad", "radio", "Emisoras", "sidebar_radio")
-
-        # Servidores
-        self._sidebar.add_section("srv", "Servidores", "sidebar_servers")
-        for srv in load_servers():
-            ico = "sidebar_navidrome" if srv.stype == "navidrome" else "sidebar_jellyfin"
-            self._sidebar.add_item("srv", f"srv:{srv.name}", srv.name, ico)
-        self._sidebar.add_item("srv", "add_server", "+ Añadir servidor", "add")
-
-        # Dispositivos
-        self._sidebar.add_section("dev", "Dispositivos", "sidebar_devices")
-        for d in get_mounted_devices():
-            self._sidebar.add_item("dev", f"dev:{d['mount']}", d['name'],
-                                   "sidebar_devices")
-
-        self._sidebar.set_active("library")
+        self._sidebar_controller.rebuild(load_servers())
 
         # Sidebar shadow
         from PySide6.QtWidgets import QGraphicsDropShadowEffect
@@ -482,12 +447,13 @@ class MainWindow(QMainWindow):
         shadow.setColor(QColor(0, 0, 0, 40))
         self._sidebar.setGraphicsEffect(shadow)
 
-    def _on_sidebar_click(self, key: str):
+    def _on_sidebar_navigate(self, key: str):
         self._current_playlist = None
 
         if key == "library":
             self._section_title.setText("Biblioteca")
             self._kind_filter = None
+            self._search_ctrl.set_active("local")
             self._apply_filters()
             self._view_mode = "list"
             self._view_switcher.set_view("list", emit=False)
@@ -497,8 +463,21 @@ class MainWindow(QMainWindow):
             pid = int(key.split(":", 1)[1])
             self._current_playlist = pid
             items = self._db.get_playlist_items(pid)
-            self._model.populate(items)
-            self._count.setText(f"{len(items)} temas")
+            refs = [TrackRef(
+                uri=i.filepath, title=i.title, artist=i.artist,
+                album=i.album, duration=i.duration,
+                cover_path=i.filepath, track_number=i.track_number,
+                year=i.year, genre=i.genre,
+            ) for i in items]
+            self._model.populate(refs)
+
+            # Check for missing files
+            missing = sum(1 for r in refs if not os.path.exists(r.uri))
+            count_text = f"{len(items)} temas"
+            if missing:
+                count_text += f" ({missing} no encontrados)"
+
+            self._count.setText(count_text)
             self._views.show("library"); self._table.setModel(self._model)
             self._table.setColumnWidth(0, 280); self._table.setColumnWidth(1, 170)
             self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 55)
@@ -514,16 +493,20 @@ class MainWindow(QMainWindow):
 
         elif key == "folders":
             self._section_title.setText("Carpetas")
+            from sources.folder_source import FolderSource
+            self._search_ctrl.register("folders", FolderSource(os.path.expanduser("~")))
+            self._search_ctrl.set_active("folders")
             self._views.show("folders")
-            self._search.hide()
+            self._search.show()
 
         elif key == "new_playlist":
             self._create_playlist()
 
         elif key == "radio":
             self._section_title.setText("📻 Radio")
-            self._views.show("radio")
-            self._search.hide()
+            self._search_ctrl.set_active("radio")
+            self._apply_filters()
+            self._search.show()
 
         elif key == "add_server":
             self._add_server()
@@ -535,14 +518,12 @@ class MainWindow(QMainWindow):
         elif key and key.startswith("dev:"):
             mount = key.split(":", 1)[1]
             files = scan_device_music(mount)
-            items = []
-            for fp in files:
-                n = os.path.basename(fp); e = os.path.splitext(fp)[1].lower()
-                k = media_kind(e)
-                items.append(MediaItem(filepath=fp, filename=n,
-                             directory=os.path.dirname(fp), ext=e, kind=k, title=n))
-            self._model.populate(items)
-            self._count.setText(f"{len(items)} archivos")
+            refs = [TrackRef(
+                uri=fp, title=os.path.basename(fp),
+                duration=0.0, cover_path=fp,
+            ) for fp in files]
+            self._model.populate(refs)
+            self._count.setText(f"{len(files)} archivos")
             self._views.show("library"); self._table.setModel(self._model)
             self._section_title.setText(os.path.basename(mount))
             self._search.show()
@@ -560,7 +541,7 @@ class MainWindow(QMainWindow):
             if fn:
                 files = fn()
                 if files:
-                    self._player.enqueue(files, play_now=True)
+                    self._playback.enqueue(files, play_now=True)
                     self._show_expanded()
 
     def _on_sidebar_menu(self, pos):
@@ -619,15 +600,16 @@ class MainWindow(QMainWindow):
             client = SubsonicClient(srv_data)
             self._remote_browser = RemoteBrowser(client, name)
             self._remote_browser.track_selected.connect(self._play_stream)
-
-            if self._content.count() > 2:
-                self._content.removeWidget(self._content.widget(2))
-            self._content.insertWidget(2, self._remote_browser)
+            self._views.replace("remote", self._remote_browser)
             self._views.show("remote")
 
             self._remote_browser.load_artists()
             self._section_title.setText(f"🌐 {name}")
-            self._search.hide()
+            from sources.subsonic_source import SubsonicSource
+            srv_key = f"srv:{name}"
+            self._search_ctrl.register(srv_key, SubsonicSource(client))
+            self._search_ctrl.set_active(srv_key)
+            self._search.show()
         except AuthError as e:
             QMessageBox.warning(self, "Error de autenticación",
                 f"No se pudo autenticar con '{name}':\n{e}")
@@ -649,20 +631,31 @@ class MainWindow(QMainWindow):
             self._load_library()
 
     def _play_stream(self, url: str, title: str, artist: str, album: str = ""):
-        self._player.play_url(url, title, artist)
-        self._player_bar.set_track(title, f"{artist} · Navidrome")
-        self.setWindowTitle(f"Astra Music Player — {title}")
+        self._play_trackref(TrackRef(
+            uri=url, title=title, artist=artist, album=album))
 
     def _play_radio(self, url: str, name: str):
-        self._player.play_url(url, name, "Radio")
-        self._player_bar.set_track(name, "📻 Radio")
-        self.setWindowTitle(f"Astra Music Player — {name}")
+        self._play_trackref(TrackRef(
+            uri=url, title=name, artist="Radio"))
 
     # ── Search ──
 
     def _on_search(self, text: str):
         self._search_text = text.strip()
         self._apply_filters()
+
+    def _on_search_results(self, results: list):
+        self._model.populate(results)
+        n = len(results)
+        self._count.setText(f"{n} elementos" if n else "0 elementos")
+        if n:
+            self._views.show("library")
+            self._table.setModel(self._model)
+            self._table.setColumnWidth(0, 280); self._table.setColumnWidth(1, 170)
+            self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 55)
+            self._table.setColumnWidth(4, 110); self._table.setColumnWidth(5, 75)
+        else:
+            self._views.show("empty")
 
     # ── CoverFlow ──
 
@@ -726,9 +719,7 @@ class MainWindow(QMainWindow):
             self._coverflow = CoverFlowWidget()
             self._coverflow.double_clicked.connect(self._on_coverflow_dbl)
             self._coverflow.cover_snapped.connect(self._on_coverflow_snap)
-            if self._content.count() > 3:
-                self._content.removeWidget(self._content.widget(3))
-            self._content.insertWidget(3, self._coverflow)
+            self._views.replace("coverflow", self._coverflow)
 
         self._coverflow.set_items(covers)
         self._views.show("coverflow")
@@ -743,7 +734,7 @@ class MainWindow(QMainWindow):
         tracks = data.get("tracks", [])
         if tracks:
             filepaths = [t.filepath for t in tracks]
-            self._player.enqueue(filepaths, play_now=True)
+            self._playback.enqueue(filepaths, play_now=True)
             self._show_expanded()
 
     def _on_coverflow_snap(self, index: int):
@@ -756,19 +747,19 @@ class MainWindow(QMainWindow):
     # ── Expanded View ──
 
     def _show_expanded(self):
-        if not self._player._current:
+        if not self._playback.current:
             return
 
         if self._expanded is None:
             self._expanded = ExpandedNowPlaying()
             self._expanded.go_back.connect(self._on_expanded_back)
-            self._expanded.play_clicked.connect(self._player.toggle)
+            self._expanded.play_clicked.connect(self._playback.toggle)
             self._expanded.prev_clicked.connect(self._on_expanded_prev)
             self._expanded.next_clicked.connect(self._on_expanded_next)
-            self._expanded.seek_requested.connect(self._player.seek)
-            self._expanded.volume_changed.connect(self._player.set_volume)
+            self._expanded.seek_requested.connect(self._playback.seek)
+            self._expanded.volume_changed.connect(self._playback.set_volume)
             self._expanded.track_from_queue.connect(self._on_queue_track)
-            self._expanded.queue_reordered.connect(self._player.reorder_queue)
+            self._expanded.queue_reordered.connect(self._playback.reorder_queue)
 
             # Sync position/duration
             self._player.position_changed.connect(self._expanded.set_position)
@@ -778,39 +769,47 @@ class MainWindow(QMainWindow):
                     "playing" if s == PlaybackState.PLAYING else
                     "paused" if s == PlaybackState.PAUSED else "stopped"))
 
-            if self._content.count() > 4:
-                self._content.removeWidget(self._content.widget(4))
-            self._content.insertWidget(4, self._expanded)
+            self._views.replace("expanded", self._expanded)
 
-        # Update track info
-        current = self._player._current
+        # Update track info — prioritize _current_ref, fallback to _all_items
+        current = self._playback.current
         name = os.path.basename(current) if current else ""
-        from audio.audio_chain import get_quality_label
         qual, _ = get_quality_label(current) if current else ("", "")
         artist = ""
-        for i in self._all_items:
-            if i.filepath == current:
-                artist = i.artist
-                album = i.album
-                subtitle_parts = []
-                if artist: subtitle_parts.append(artist)
-                if album: subtitle_parts.append(album)
-                if i.year: subtitle_parts.append(str(i.year))
-                subtitle = " · ".join(subtitle_parts) if subtitle_parts else ""
-                cover_path = ""
-                from library.album_art import find_cover_in_dir
-                cover = find_cover_in_dir(os.path.dirname(current))
-                if cover:
-                    cover_path = cover
-                self._expanded.set_track(
-                    i.title or name, artist, album, qual, cover_path)
-                break
+        album = ""
+        dur = 0.0
+        cover_path = ""
+
+        if self._current_ref and self._current_ref.uri == current:
+            ref = self._current_ref
+            name = ref.title or name
+            artist = ref.artist
+            album = ref.album
+            dur = ref.duration
+            cover_path = ref.cover_path
+            title = ref.title or name
         else:
-            self._expanded.set_track(name, artist, "", qual, "")
+            title = name
+            for i in self._all_items:
+                if i.filepath == current:
+                    artist = i.artist
+                    album = i.album
+                    dur = i.duration
+                    title = i.title or name
+                    break
+
+        if not cover_path:
+            from library.album_art import find_cover_in_dir
+            cover = find_cover_in_dir(os.path.dirname(current))
+            if cover:
+                cover_path = cover
+
+        self._expanded.set_track(title, artist, album, qual, cover_path)
+        self._expanded.load_lyrics(title, artist, album, dur)
 
         self._expanded.set_state(
-            "playing" if self._player.state == PlaybackState.PLAYING else "paused")
-        self._expanded.set_queue(self._player.get_queue())
+            "playing" if self._playback.state == PlaybackState.PLAYING else "paused")
+        self._expanded.set_queue(self._playback.get_queue())
         self._section_title.setText("Reproduciendo")
 
         self._views.show("expanded")
@@ -820,15 +819,15 @@ class MainWindow(QMainWindow):
         self._section_title.setText("Biblioteca")
 
     def _on_expanded_prev(self):
-        self._player.play_prev()
+        self._playback.play_prev()
         self._show_expanded()
 
     def _on_expanded_next(self):
-        self._player.play_next()
+        self._playback.play_next()
         self._show_expanded()
 
     def _on_queue_track(self, filepath: str):
-        self._player.play(filepath)
+        self._playback.play(filepath)
         self._show_expanded()
 
     # ── File open / scan ──
@@ -854,17 +853,30 @@ class MainWindow(QMainWindow):
         from PySide6.QtCore import QThread
         worker = ScannerWorker(self._db, path)
         thread = QThread()
-        progress = QProgressDialog("Escaneando...", "Cancelar", 0, 100, self)
-        progress.setWindowModality(Qt.WindowModal); progress.setMinimumDuration(300)
-        worker.moveToThread(thread)
+
+        overlay = LoadingOverlay(self._content)
+        overlay.set_text("Escaneando...")
+        overlay.show(delay_ms=100)
+
         worker.progress.connect(
-            lambda c, t, f: progress.setLabelText(f"[{c}/{t}] {os.path.basename(f)[:60]}"))
-        worker.progress.connect(lambda c, t, f: progress.setValue(int(c / max(t, 1) * 100)))
-        worker.finished.connect(lambda a: self._on_scan_done(a, progress, thread))
-        progress.canceled.connect(worker.cancel)
+            lambda c, t, f: overlay.set_text(
+                f"Escaneando [{c}/{t}]\n{os.path.basename(f)[:60]}"))
+
+        def _on_done(added):
+            overlay.hide()
+            overlay.deleteLater()
+            self._load_library()
+            from ui.toast_notification import ToastNotification
+            ToastNotification.success(
+                f"Escaneo completado: {added} archivos añadidos", self)
+
+        worker.moveToThread(thread)
+        worker.finished.connect(lambda a: _on_done(a))
         thread.started.connect(worker.run)
-        worker.finished.connect(thread.quit); worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater); thread.start()
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.start()
 
     def _on_scan_done(self, added, progress, thread):
         progress.close()
@@ -876,15 +888,19 @@ class MainWindow(QMainWindow):
         idx = self._table.indexAt(pos)
         if not idx.isValid():
             return
-        fp = self._model.index(idx.row(), MediaTableModel.COL_FILEPATH)
+        fp = self._model.index(idx.row(), TrackRefTableModel.COL_URI)
         fp = self._model.data(fp, Qt.DisplayRole)
         if not fp:
             return
+        is_remote = fp.startswith("http://") or fp.startswith("https://")
         menu = QMenu(self)
         menu.addAction("Reproducir", lambda: self._play_file(fp))
-        menu.addAction("Añadir a cola", lambda: self._player.enqueue([fp], play_now=False))
+        menu.addAction("Añadir a cola", lambda: self._playback.enqueue([fp], play_now=False))
         menu.addSeparator()
-        menu.addAction("Editar metadatos...", lambda: self._edit_tags(fp))
+        if is_remote:
+            menu.addAction("Copiar URL", lambda: QApplication.clipboard().setText(fp))
+        else:
+            menu.addAction("Editar metadatos...", lambda: self._edit_tags(fp))
         menu.exec(self._table.viewport().mapToGlobal(pos))
 
     def _edit_tags(self, filepath: str):
@@ -895,66 +911,85 @@ class MainWindow(QMainWindow):
             self._load_library()
 
     def _on_table_dbl(self, idx):
-        fp = self._model.index(idx.row(), MediaTableModel.COL_FILEPATH)
-        fp = self._model.data(fp, Qt.DisplayRole)
-        if fp:
-            self._play_file(fp)
+        track = self._model.get_trackref(idx.row())
+        if track:
+            self._play_trackref(track)
 
-    def _play_file(self, filepath: str, add_to_queue: bool = False):
-        if add_to_queue:
-            self._player.enqueue([filepath], play_now=False)
+    def _play_trackref(self, track: TrackRef):
+        self._current_ref = track
+
+        if track.uri.startswith("http"):
+            self._playback.play_url(track.uri, track.title, track.artist)
         else:
-            self._player.enqueue([filepath], play_now=True)
+            self._playback.enqueue([track.uri], play_now=True)
 
-        name = os.path.basename(filepath)
-        qual, _ = get_quality_label(filepath)
-        artist = qual or ""
-        quality_str = qual
+        name = track.title or os.path.basename(track.uri)
+        artist = track.artist or ""
+        quality_str = ""
+        album = track.album or ""
+
+        # Fallback: enrich with MediaItem for local files
         for item in self._all_items:
-            if item.filepath == filepath:
-                artist = item.artist or qual or ""
+            if item.filepath == track.uri:
+                artist = item.artist or artist
+                album = item.album or album
                 ext = item.ext.upper().lstrip(".")
                 if item.sample_rate:
-                    if item.sample_rate >= 1000:
-                        quality_str = f"{ext} · {item.sample_rate/1000:.1f}kHz"
-                    else:
-                        quality_str = f"{ext} · {item.sample_rate}Hz"
+                    quality_str = (
+                        f"{ext} · {item.sample_rate/1000:.1f}kHz"
+                        if item.sample_rate >= 1000
+                        else f"{ext} · {item.sample_rate}Hz")
                 elif item.bitrate and item.bitrate >= 1000:
                     quality_str = f"{ext} · {item.bitrate//1000}kbps"
-                else:
+                elif item.ext:
                     quality_str = ext
                 break
+
+        if not quality_str:
+            qual, _ = get_quality_label(track.uri)
+            quality_str = qual
+
         self._player_bar.set_track(name, artist)
         self._player_bar.set_quality(quality_str)
 
-        from library.album_art import find_cover_in_dir
-        cover = find_cover_in_dir(os.path.dirname(filepath))
-        if cover:
-            from PySide6.QtGui import QPixmap
-            pix = QPixmap(cover)
+        # Cover art
+        if track.uri.startswith("http") and track.cover_path:
+            pix = QPixmap(track.cover_path)
             if not pix.isNull():
                 self._apply_adaptive_background(pix)
+        else:
+            from library.album_art import find_cover_in_dir
+            cover = find_cover_in_dir(os.path.dirname(track.uri))
+            if cover:
+                pix = QPixmap(cover)
+                if not pix.isNull():
+                    self._apply_adaptive_background(pix)
+                else:
+                    self._reset_background()
             else:
                 self._reset_background()
-        else:
-            self._reset_background()
 
+        # MPRIS
         if self._mpris:
-            dur = 0
-            album = ""
-            cover_path = ""
-            for item in self._all_items:
-                if item.filepath == filepath:
-                    dur = int(item.duration)
-                    album = item.album or ""
-                    break
+            dur = int(track.duration)
+            if dur <= 0:
+                for item in self._all_items:
+                    if item.filepath == track.uri:
+                        dur = int(item.duration)
+                        break
             self._mpris.player.set_metadata(
                 title=name, artist=artist or "",
                 album=album, duration=dur)
 
         self._notify_track(name, artist)
-
         self.setWindowTitle(f"Astra Music Player — {name}")
+
+    def _play_file(self, filepath: str, add_to_queue: bool = False):
+        track = TrackRef(uri=filepath, title=os.path.basename(filepath))
+        if filepath.startswith("http"):
+            self._play_trackref(track)
+        else:
+            self._play_trackref(track)
 
     def _on_state(self, state: PlaybackState):
         s = "playing" if state == PlaybackState.PLAYING else \
@@ -964,7 +999,7 @@ class MainWindow(QMainWindow):
             self._player_bar.set_position(0)
 
     def _on_stop(self):
-        self._player.stop()
+        self._playback.stop()
         self._player_bar.set_state("stopped"); self._player_bar.set_position(0)
         self._player_bar.set_duration(0)
         self._player_bar.set_track("Sin reproducción", "Añade música a la biblioteca")
@@ -1062,11 +1097,11 @@ class MainWindow(QMainWindow):
     def _activate_transmit_device(self, device):
         if device is None:
             self._transmit_mgr.set_active(None)
-            self._player.set_output_device(None)
+            self._playback.set_output_device(None)
             self._player_bar._transmit_btn.setStyleSheet("")
         else:
             self._transmit_mgr.set_active(device)
-            self._player.set_output_device(device)
+            self._playback.set_output_device(device)
             self._player_bar._transmit_btn.setStyleSheet(
                 "QPushButton { color: #FF7A00; }")
 
@@ -1199,11 +1234,12 @@ class MainWindow(QMainWindow):
         try:
             if hasattr(self, '_sync_mgr') and self._sync_mgr.is_active:
                 self._sync_mgr.stop()
-            if self._player._queue and self._db:
-                self._db.save_queue(self._player._queue, self._player._queue_index)
+            engine = self._playback.engine
+            if engine._queue and self._db:
+                self._db.save_queue(engine._queue, engine._queue_index)
         except Exception:
             pass
-        self._player.stop()
+        self._playback.stop()
         self._db.close()
         event.accept()
 
@@ -1241,4 +1277,4 @@ class MainWindow(QMainWindow):
             if len(files) == 1:
                 self._play_file(files[0])
             else:
-                self._player.enqueue(files, play_now=True)
+                self._playback.enqueue(files, play_now=True)
