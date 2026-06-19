@@ -125,6 +125,14 @@ class CoverItem(QGraphicsObject):
             painter.drawPixmap(0, 0, self._real_cover)
             painter.restore()
 
+        # Depth shading for side covers
+        if hasattr(self, '_darken_alpha') and self._darken_alpha > 0:
+            painter.save()
+            painter.setCompositionMode(QPainter.CompositionMode_SourceAtop)
+            painter.fillRect(0, 0, int(self._w), int(self._h * 2),
+                            QColor(0, 0, 0, self._darken_alpha))
+            painter.restore()
+
     def update_transform(self, current_offset: float, view_width: float,
                          view_height: float):
         dist = self._index - current_offset
@@ -142,6 +150,7 @@ class CoverItem(QGraphicsObject):
         else:
             is_left = dist < 0
             ad = abs(dist)
+            self._darken_alpha = min(150, int(ad * 40))
             self.setZValue(1000 - int(ad * 10))
             rot = max_rot if ad >= 1.0 else max_rot * ad
             if is_left:
@@ -232,12 +241,22 @@ class CoverFlowWidget(QGraphicsView):
     def set_items(self, items: list[CoverFlowItem]):
         self._items = items
         self._scene.clear()
-        # Re-add text items after clear (they get removed by scene.clear)
-        self._scene.addItem(self._title_text)
-        self._scene.addItem(self._artist_text)
         self._cover_items.clear()
         self._current = 0.0
         self._velocity = 0.0
+
+        # Re-create text items (destroyed by scene.clear)
+        self._title_text = QGraphicsTextItem()
+        self._title_text.setDefaultTextColor(QColor("#ffffff"))
+        self._title_text.setFont(QFont("sans-serif", 14, QFont.Bold))
+        self._title_text.setZValue(2000)
+        self._scene.addItem(self._title_text)
+
+        self._artist_text = QGraphicsTextItem()
+        self._artist_text.setDefaultTextColor(QColor(245, 245, 247, 140))
+        self._artist_text.setFont(QFont("sans-serif", 12))
+        self._artist_text.setZValue(2000)
+        self._scene.addItem(self._artist_text)
 
         for i, item in enumerate(items):
             ci = CoverItem(item.pixmap, i, self._cover_w, self._cover_h)
@@ -261,17 +280,30 @@ class CoverFlowWidget(QGraphicsView):
     def _update_layout(self):
         if not self._cover_items:
             return
+
         vw = self.viewport().width()
         vh = self.viewport().height()
+
+        # 1. Sliding window (virtualization) — only render ±12 from center
         for ci in self._cover_items:
+            dist = ci._index - self._current
+            if abs(dist) > 12:
+                ci.setVisible(False)
+                continue
+
+            ci.setVisible(True)
             ci.update_transform(self._current, vw, vh)
+
         idx = max(0, min(len(self._items) - 1, int(round(self._current))))
 
-        # Update central text
+        # 2. Update central text
         if self._items and 0 <= idx < len(self._items):
             item = self._items[idx]
             self._title_text.setPlainText(item.title)
-            artist = item.subtitle.split(" · ")[0]
+            artist = (
+                item.subtitle.split(" · ")[0]
+                if item.subtitle and " · " in item.subtitle
+                else "Desconocido")
             self._artist_text.setPlainText(artist)
             tr = self._title_text.boundingRect()
             ar = self._artist_text.boundingRect()
@@ -281,7 +313,10 @@ class CoverFlowWidget(QGraphicsView):
             self._title_text.setPlainText("")
             self._artist_text.setPlainText("")
 
-        self.selection_changed.emit(idx)
+        # 3. Signal throttling — only emit if index changed
+        if getattr(self, '_last_emitted_idx', -1) != idx:
+            self.selection_changed.emit(idx)
+            self._last_emitted_idx = idx
 
     # ── Physics ──
 
@@ -305,6 +340,39 @@ class CoverFlowWidget(QGraphicsView):
         self._snap_anim.setEndValue(float(target))
         self._snap_anim.start()
         self.cover_snapped.emit(target)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_layout()
+
+    def keyPressEvent(self, event):
+        if not self._items:
+            return super().keyPressEvent(event)
+        current_idx = int(round(self._current))
+
+        if event.key() == Qt.Key_Left:
+            self.scroll_to(current_idx - 1)
+            event.accept()
+        elif event.key() == Qt.Key_Right:
+            self.scroll_to(current_idx + 1)
+            event.accept()
+        elif event.key() == Qt.Key_PageUp:
+            self.scroll_to(current_idx - 5)
+            event.accept()
+        elif event.key() == Qt.Key_PageDown:
+            self.scroll_to(current_idx + 5)
+            event.accept()
+        elif event.key() == Qt.Key_Home:
+            self.scroll_to(0)
+            event.accept()
+        elif event.key() == Qt.Key_End:
+            self.scroll_to(len(self._items) - 1)
+            event.accept()
+        elif event.key() in (Qt.Key_Enter, Qt.Key_Return):
+            self.double_clicked.emit(current_idx)
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     # ── Mouse events ──
 
