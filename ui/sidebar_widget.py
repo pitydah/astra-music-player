@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit,
-    QFrame, QScrollArea,
+    QFrame, QScrollArea, QGraphicsOpacityEffect,
 )
 
 from ui.icons import get_icon
@@ -77,15 +77,18 @@ class _Item(QFrame):
         layout.addStretch()
 
         self._icon_label: QLabel | None = None
+        self._icon_effect: QGraphicsOpacityEffect | None = None
         if icon:
-            pix = QPixmap(get_icon(icon))
-            if not pix.isNull():
+            qicon = QIcon(get_icon(icon)) if get_icon(icon) else QIcon()
+            if not qicon.isNull():
+                pix = qicon.pixmap(QSize(22, 22))
                 self._icon_label = QLabel()
-                self._icon_label.setFixedSize(20, 20)
+                self._icon_label.setFixedSize(22, 22)
                 self._icon_label.setStyleSheet("background:transparent; border:none;")
-                self._icon_label.setPixmap(
-                    pix.scaled(20, 20, Qt.KeepAspectRatio,
-                              Qt.SmoothTransformation))
+                self._icon_label.setPixmap(pix)
+                self._icon_effect = QGraphicsOpacityEffect()
+                self._icon_effect.setOpacity(0.55)
+                self._icon_label.setGraphicsEffect(self._icon_effect)
                 layout.addWidget(self._icon_label)
 
         self._refresh_styles()
@@ -119,9 +122,7 @@ class _Item(QFrame):
                 "font-size:13px; color:rgba(255,255,255,0.6);"
                 "background:transparent; border:none;")
         if self._icon_label:
-            self._icon_label.setStyleSheet(
-                "background:transparent; border:none;"
-                f"opacity: {'1.0' if self._active else '0.6'};")
+            self._icon_effect.setOpacity(1.0 if self._active else 0.55)
 
     def enterEvent(self, event):
         if not self._active:
@@ -200,14 +201,26 @@ class SidebarWidget(QWidget):
         self.setObjectName("sidebarGlass")
         self.setAutoFillBackground(True)
 
+        self.setStyleSheet("""
+            QWidget#sidebarGlass {
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(36,36,42,0.92),
+                    stop:1 rgba(28,28,34,0.88)
+                );
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 18px;
+            }
+        """)
+
         txt = "#f5f5f7" if self._dark else "#1c1c1e"
         sep_c = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.06)"
         sbg = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.04)"
         sbd = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.08)"
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(8, 8, 4, 8)
-        outer.setSpacing(4)
+        outer.setContentsMargins(12, 12, 10, 12)
+        outer.setSpacing(6)
 
         h = QLabel("✦ ASTRA")
         h.setStyleSheet(f"font-size:15px;font-weight:700;color:{txt};padding:4px 10px 0px 10px;")

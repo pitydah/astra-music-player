@@ -120,7 +120,7 @@ class NowPlayingBar(QWidget):
         self.setAutoFillBackground(True)
 
         self._dark_mode = True  # force dark for glassmorphism
-        self._bg_rgba = "rgba(28, 28, 35, 220)"
+        self._bg_rgba = "rgba(42, 42, 48, 220)"
         self._text_color = "#ffffff"
         self._text_sec = "rgba(255,255,255,0.6)"
         self._accent = "#ffffff"

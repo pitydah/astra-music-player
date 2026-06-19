@@ -20,6 +20,7 @@ CUSTOM_ICONS = {
     "sidebar_jellyfin":   "icons/sidebar_jellyfin.svg",
     "sidebar_devices":    "icons/sidebar_devices.svg",
     "sidebar_radio":      "icons/sidebar_radio.svg",
+    "sidebar_albums":     "icons/sidebar_albums.svg",
     "warm_play":          "icons/warm_play.svg",
     "warm_pause":         "icons/warm_pause.svg",
     "warm_prev":          "icons/warm_prev.svg",
@@ -33,9 +34,9 @@ CUSTOM_ICONS = {
     "warm_vol_high":      "icons/warm_vol_high.svg",
     "warm_transmit":      "icons/warm_transmit.svg",
     "warm_settings":      "icons/warm_settings.svg",
-    "warm_view_grid":     "icons/warm_view_grid.svg",
-    "warm_view_list":     "icons/warm_view_list.svg",
-    "warm_view_coverflow": "icons/warm_view_coverflow.svg",
+    "warm_view_grid":     "/home/cristian/Descargas/iloveimg-resized(2)/view-cover.svg",
+    "warm_view_list":     "/home/cristian/Descargas/iloveimg-resized(2)/view-list.svg",
+    "warm_view_coverflow": "/home/cristian/Descargas/iloveimg-resized(2)/view-coverflow.svg",
 }
 
 # ── Map: icon name → Breeze 24px SVG path ──
@@ -82,7 +83,8 @@ def get_icon(name: str) -> str:
     # 1. Custom SVG
     custom_path = CUSTOM_ICONS.get(name)
     if custom_path:
-        full = HERE / custom_path
+        p = Path(custom_path)
+        full = p if p.is_absolute() else HERE / custom_path
         if full.exists():
             return str(full)
 

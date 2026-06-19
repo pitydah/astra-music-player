@@ -56,7 +56,7 @@ QTreeWidget::item:hover:!selected {
 QTreeWidget::branch { background: transparent; }
 
 QTableView {
-    background: rgba(40, 40, 48, 200); border: none; outline: none;
+    background: rgba(50, 50, 56, 200); border: none; outline: none;
     border-radius: 12px; gridline-color: transparent;
 }
 QTableView::item { padding: 6px 12px; border-bottom: none; color: rgba(255,255,255,0.85); }

@@ -163,15 +163,8 @@ class MainWindow(QMainWindow):
     def _setup_ui(self):
         # ── Sidebar ──
         self._sidebar = SidebarWidget()
-        self._sidebar.setMaximumWidth(288)
-        self._sidebar.setMinimumWidth(242)
-        self._sidebar.setStyleSheet("""
-            QWidget#sidebarGlass {
-                background: rgba(28, 28, 35, 0.88);
-                border-radius: 12px;
-                border: 1px solid rgba(255,255,255,0.04);
-            }
-        """)
+        self._sidebar.setMinimumWidth(240)
+        self._sidebar.setMaximumWidth(270)
         self._sidebar.item_clicked.connect(self._on_sidebar_click)
         self._sidebar.setContextMenuPolicy(Qt.CustomContextMenu)
         self._sidebar.customContextMenuRequested.connect(self._on_sidebar_menu)
@@ -250,8 +243,18 @@ class MainWindow(QMainWindow):
         cl.addWidget(header); cl.addWidget(self._content)
 
         # ── Splitter ──
-        sp = QSplitter(Qt.Horizontal); sp.addWidget(self._sidebar); sp.addWidget(cw)
-        sp.setStretchFactor(0, 1); sp.setStretchFactor(1, 3); sp.setSizes([220, 880])
+        sidebar_shell = QWidget()
+        sidebar_shell.setObjectName("sidebarShell")
+        sidebar_shell.setStyleSheet("background: transparent;")
+        ss_layout = QVBoxLayout(sidebar_shell)
+        ss_layout.setContentsMargins(10, 10, 6, 10)
+        ss_layout.setSpacing(0)
+        ss_layout.addWidget(self._sidebar)
+
+        sp = QSplitter(Qt.Horizontal)
+        sp.addWidget(sidebar_shell)
+        sp.addWidget(cw)
+        sp.setStretchFactor(0, 1); sp.setStretchFactor(1, 3); sp.setSizes([280, 820])
         sp.setStyleSheet("QSplitter::handle { background: rgba(0,0,0,0.06); width: 1px; }")
 
         # ── NowPlaying bar ──
@@ -992,9 +995,9 @@ class MainWindow(QMainWindow):
         painter.setRenderHint(QPainter.Antialiasing)
         rect = self.rect()
         grad = QLinearGradient(0, 0, rect.width(), rect.height())
-        grad.setColorAt(0, QColor(25, 25, 30))
-        grad.setColorAt(0.5, QColor(18, 18, 22))
-        grad.setColorAt(1, QColor(12, 12, 16))
+        grad.setColorAt(0, QColor(18, 18, 21))
+        grad.setColorAt(0.5, QColor(15, 15, 18))
+        grad.setColorAt(1, QColor(12, 12, 14))
         painter.fillRect(rect, grad)
         # subtle noise texture
         noise = QImage(rect.width() // 2, rect.height() // 2, QImage.Format_Grayscale8)
