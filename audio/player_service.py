@@ -98,7 +98,16 @@ class PlayerService(QObject):
 
     def enqueue(self, paths: list, play_now: bool = True):
         self._retry_url = None
-        self._engine.enqueue(paths, play_now)
+        clean: list[str] = []
+        for p in paths:
+            if not p:
+                continue
+            if isinstance(p, str):
+                clean.append(p)
+        if not clean:
+            self.error_occurred.emit("No hay archivos válidos para reproducir")
+            return
+        self._engine.enqueue(clean, play_now)
 
     def clear_queue(self):
         self._engine.clear_queue()

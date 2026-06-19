@@ -129,34 +129,71 @@ class GStreamerEngine(QObject):
     def state(self) -> PlaybackState:
         return self._state
 
+    def _to_uri(self, filepath_or_url: str) -> str:
+        if filepath_or_url.startswith(("http://", "https://", "icy://")):
+            return filepath_or_url
+        if filepath_or_url.startswith("file://"):
+            return filepath_or_url
+        return GLib.filename_to_uri(os.path.abspath(filepath_or_url), None)
+
     # ── Playback ──
 
     def play(self, filepath_or_url: str):
         self.stop()
 
-        if filepath_or_url.startswith("http"):
-            self._play_uri(filepath_or_url)
-        elif filepath_or_url.lower().endswith(".dff"):
-            self._play_dff(filepath_or_url)
-        elif filepath_or_url.lower().endswith(".dsf"):
-            self._play_uri(f"file://{os.path.abspath(filepath_or_url)}", is_dsd=True)
-        else:
-            uri = "file://" + os.path.abspath(filepath_or_url)
-            self._play_uri(uri)
+        try:
+            if filepath_or_url.startswith(("http://", "https://", "icy://")):
+                self._play_uri(filepath_or_url)
+            elif filepath_or_url.lower().endswith(".dff"):
+                self._play_dff(filepath_or_url)
+            elif filepath_or_url.lower().endswith(".dsf"):
+                self._play_uri(self._to_uri(filepath_or_url), is_dsd=True)
+            else:
+                self._play_uri(self._to_uri(filepath_or_url))
 
-        self._current = filepath_or_url
-        if self._db and not filepath_or_url.startswith("http"):
-            from sync.sync_protocol import make_track_id
-            self._db.update_play_history(make_track_id(filepath_or_url))
+            self._current = filepath_or_url
+            if self._db and not filepath_or_url.startswith(("http://", "https://", "icy://")):
+                from sync.sync_protocol import make_track_id
+                self._db.update_play_history(make_track_id(filepath_or_url))
+
+        except Exception as e:
+            logging.getLogger("astra.player").exception("Playback failed: %s", filepath_or_url)
+            self.error_occurred.emit(f"No se pudo reproducir: {e}")
+            self._state = PlaybackState.STOPPED
+            self.state_changed.emit(self._state)
 
     def _play_uri(self, uri: str, is_dsd: bool = False):
         self._is_dsd = is_dsd
         sink = self._build_sink()
 
-        pipeline_str = f"playbin uri={uri} audio-sink=\"{sink}\""
-        self._pipeline = Gst.parse_launch(pipeline_str)
-        if not self._pipeline:
-            self.error_occurred.emit("Failed to create pipeline")
+        try:
+            self._pipeline = Gst.ElementFactory.make("playbin", "player")
+            if not self._pipeline:
+                self.error_occurred.emit("Failed to create playbin")
+                return
+
+            self._pipeline.set_property("uri", uri)
+
+            audio_sink = Gst.parse_bin_from_description(sink, True)
+            if not audio_sink:
+                self.error_occurred.emit("Failed to create audio sink")
+                return
+
+            self._pipeline.set_property("audio-sink", audio_sink)
+
+        except GLib.Error as e:
+            logging.getLogger("astra.player").exception("GStreamer pipeline creation failed")
+            self.error_occurred.emit(f"GStreamer: {e.message}")
+            self._pipeline = None
+            self._state = PlaybackState.STOPPED
+            self.state_changed.emit(self._state)
+            return
+        except Exception as e:
+            logging.getLogger("astra.player").exception("Pipeline creation failed")
+            self.error_occurred.emit(f"No se pudo crear el pipeline: {e}")
+            self._pipeline = None
+            self._state = PlaybackState.STOPPED
+            self.state_changed.emit(self._state)
             return
 
         self._setup_bus()
@@ -194,7 +231,12 @@ class GStreamerEngine(QObject):
             f"! audioconvert "
             f"! {sink}"
         )
-        self._pipeline = Gst.parse_launch(pipeline_str)
+        try:
+            self._pipeline = Gst.parse_launch(pipeline_str)
+        except GLib.Error as e:
+            logging.getLogger("astra.player").exception("DFF pipeline failed")
+            self.error_occurred.emit(f"DFF: {e.message}")
+            return
         if not self._pipeline:
             self.error_occurred.emit("Failed to create DFF pipeline")
             return

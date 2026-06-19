@@ -606,9 +606,15 @@ class MainWindow(QMainWindow):
             fn = mixes.get(key)
             if fn:
                 files = fn()
+                files = [f for f in files
+                         if isinstance(f, str) and (f.startswith("http") or os.path.isfile(f))]
                 if files:
                     self._playback.enqueue(files, play_now=True)
                     self._show_expanded()
+                else:
+                    from ui.toast_notification import ToastNotification
+                    ToastNotification.warning(
+                        "El mix no contiene archivos disponibles", self)
 
         elif key == "identifier":
             self._section_title.setText("Identificador")
