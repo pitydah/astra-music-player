@@ -45,7 +45,7 @@ class ExpandedNowPlaying(QWidget):
         self._back_btn = QPushButton("← Volver")
         self._back_btn.setFlat(True)
         self._back_btn.setStyleSheet(
-            "QPushButton { color: #8e8e93; font-size: 13px; }"
+            "QPushButton { color: rgba(245,245,247,0.7); font-size: 13px; }"
             "QPushButton:hover { color: #FF7A00; }")
         self._back_btn.clicked.connect(self.go_back.emit)
         self._menu_btn = _make_btn("menu", 18)
@@ -58,7 +58,7 @@ class ExpandedNowPlaying(QWidget):
         # ── Separator ──
         sep = QFrame()
         sep.setFixedHeight(1)
-        sep.setStyleSheet("background: rgba(0,0,0,0.06);")
+        sep.setStyleSheet("background: rgba(255,255,255,0.07);")
         main.addWidget(sep)
 
         # ── Scrollable body ──
@@ -80,14 +80,14 @@ class ExpandedNowPlaying(QWidget):
         # Title
         self._title = QLabel("")
         self._title.setAlignment(Qt.AlignCenter)
-        self._title.setStyleSheet("font-size: 22px; font-weight: bold; color: #1c1c1e;")
+        self._title.setStyleSheet("font-size: 22px; font-weight: bold; color: rgba(245,245,247,0.95);")
         self._title.setWordWrap(True)
         body.addWidget(self._title)
 
         # Artist / Album
         self._subtitle = QLabel("")
         self._subtitle.setAlignment(Qt.AlignCenter)
-        self._subtitle.setStyleSheet("font-size: 14px; color: #8e8e93;")
+        self._subtitle.setStyleSheet("font-size: 14px; color: rgba(245,245,247,0.56);")
         body.addWidget(self._subtitle)
 
         # Quality badge
@@ -102,14 +102,14 @@ class ExpandedNowPlaying(QWidget):
         seek_row = QHBoxLayout()
         seek_row.setSpacing(8)
         self._time_lbl = QLabel("0:00")
-        self._time_lbl.setStyleSheet("font-size: 10px; color: #8e8e93;")
+        self._time_lbl.setStyleSheet("font-size: 10px; color: rgba(245,245,247,0.56);")
         self._seek = QSlider(Qt.Horizontal)
         self._seek.setRange(0, 1000)
         self._seek.sliderPressed.connect(lambda: setattr(self, '_seeking', True))
         self._seek.sliderReleased.connect(self._on_seek_end)
         self._seek.sliderMoved.connect(self._on_seek_drag)
         self._dur_lbl = QLabel("0:00")
-        self._dur_lbl.setStyleSheet("font-size: 10px; color: #8e8e93;")
+        self._dur_lbl.setStyleSheet("font-size: 10px; color: rgba(245,245,247,0.56);")
         seek_row.addWidget(self._time_lbl)
         seek_row.addWidget(self._seek)
         seek_row.addWidget(self._dur_lbl)
@@ -165,10 +165,10 @@ class ExpandedNowPlaying(QWidget):
         act_row.setSpacing(24)
         fav_btn = QPushButton("♡ Favorito")
         fav_btn.setFlat(True)
-        fav_btn.setStyleSheet("QPushButton { color: #8e8e93; } QPushButton:hover { color: #FF3C48; }")
+        fav_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); } QPushButton:hover { color: #FF3C48; }")
         dl_btn = QPushButton("⤓ Descargar")
         dl_btn.setFlat(True)
-        dl_btn.setStyleSheet("QPushButton { color: #8e8e93; } QPushButton:hover { color: #FF7A00; }")
+        dl_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); } QPushButton:hover { color: #FF7A00; }")
         act_row.addWidget(fav_btn)
         act_row.addWidget(dl_btn)
         body.addLayout(act_row)
@@ -178,17 +178,17 @@ class ExpandedNowPlaying(QWidget):
         # ── Separator ──
         sep2 = QFrame()
         sep2.setFixedHeight(1)
-        sep2.setStyleSheet("background: rgba(0,0,0,0.06);")
+        sep2.setStyleSheet("background: rgba(255,255,255,0.07);")
         main.addWidget(sep2)
 
         # ── Queue ──
         qh = QHBoxLayout()
         qh.setContentsMargins(16, 8, 16, 4)
         self._queue_label = QLabel("Cola (0 canciones)")
-        self._queue_label.setStyleSheet("font-size: 12px; color: #8e8e93; font-weight: 600;")
+        self._queue_label.setStyleSheet("font-size: 12px; color: rgba(245,245,247,0.56); font-weight: 600;")
         clear_btn = QPushButton("Limpiar")
         clear_btn.setFlat(True)
-        clear_btn.setStyleSheet("QPushButton { color: #8e8e93; font-size: 11px; }")
+        clear_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); font-size: 11px; }")
         qh.addWidget(self._queue_label)
         qh.addStretch()
         qh.addWidget(clear_btn)
@@ -199,7 +199,7 @@ class ExpandedNowPlaying(QWidget):
         self._queue_list.setStyleSheet("""
             QListWidget { background: transparent; border: none; }
             QListWidget::item { padding: 8px 16px; border-bottom: 1px solid rgba(0,0,0,0.04); }
-            QListWidget::item:hover { background: rgba(61,174,233,0.06); }
+            QListWidget::item:hover { background: rgba(255,122,0,0.06); }
         """)
         self._queue_list.doubleClicked.connect(self._on_queue_dbl)
         main.addWidget(self._queue_list, 1)

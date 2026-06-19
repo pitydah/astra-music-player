@@ -331,19 +331,27 @@ class CoverFlowWidget(QWidget):
         painter.drawText(QRectF(box_x + 10, y_base + 28, box_w - 20, 24),
                         Qt.AlignHCenter, item.subtitle[:70])
 
-        # Page dots
+        # Page indicator
         total = len(self._items)
         if total > 1:
             dot_y = y_base + 58
-            dot_start = w / 2 - total * 8
-            for i in range(total):
-                if i == idx:
-                    painter.setBrush(QColor("#FF7A00"))
-                    r = 4
-                else:
-                    painter.setBrush(QColor("#3a3a4e"))
-                    r = 3
-                painter.drawEllipse(QPointF(dot_start + i * 16, dot_y), r, r)
+            if total <= 9:
+                dot_start = w / 2 - total * 8
+                for i in range(total):
+                    if i == idx:
+                        painter.setBrush(QColor("#FF7A00"))
+                        r = 4
+                    else:
+                        painter.setBrush(QColor("#3a3a4e"))
+                        r = 3
+                    painter.drawEllipse(QPointF(dot_start + i * 16, dot_y), r, r)
+            else:
+                painter.setPen(QColor("#8e8e93"))
+                painter.setFont(QFont("sans-serif", 11))
+                painter.drawText(
+                    QRectF(0, dot_y - 10, w, 20),
+                    Qt.AlignCenter,
+                    f"{idx + 1} / {total}")
 
         painter.restore()
 

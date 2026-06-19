@@ -2,7 +2,7 @@
 
 import os
 import random
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QIcon, QStandardItemModel, QStandardItem, QBrush, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel,
@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QStackedWidget, QTableView, QHeaderView,
     QAbstractItemView, QFileDialog, QProgressDialog,
     QInputDialog, QMessageBox, QMenu, QDialog, QFormLayout,
-    QDialogButtonBox,
+    QDialogButtonBox, QGraphicsOpacityEffect,
 )
 
 from ui.sidebar_widget import SidebarWidget
@@ -172,7 +172,7 @@ class MainWindow(QMainWindow):
         # ── Header ──
         header = QFrame()
         header.setStyleSheet("""
-            QFrame { background: rgba(20,20,25,200); padding: 8px 14px;
+            QFrame { background: rgba(20,20,25,200); padding: 8px 16px;
                      border-bottom: 1px solid rgba(255,255,255,0.04); }
         """)
         hl = QHBoxLayout(header); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(10)
@@ -191,7 +191,8 @@ class MainWindow(QMainWindow):
 
         self._settings_btn = QPushButton(QIcon(get_icon("warm_settings")), "")
         self._settings_btn.setFlat(True)
-        self._settings_btn.setFixedSize(46, 46)
+        self._settings_btn.setFixedSize(34, 34)
+        self._settings_btn.setIconSize(QSize(20, 20))
         self._settings_btn.setToolTip("Preferencias")
         self._settings_btn.clicked.connect(self._show_preferences)
 
@@ -543,12 +544,30 @@ class MainWindow(QMainWindow):
         if mode == "list":
             self._apply_filters()
             self._section_title.setText("Biblioteca")
+            self._fade_content(1)
         elif mode == "grid":
             self._show_coverflow()
             self._section_title.setText("Carátulas")
+            self._fade_content(3)
         elif mode == "coverflow":
             self._show_coverflow()
             self._section_title.setText("Coverflow")
+            self._fade_content(3)
+
+    def _fade_content(self, target_idx: int):
+        current_idx = self._content.currentIndex()
+        if current_idx == target_idx:
+            return
+        self._content.setCurrentIndex(target_idx)
+        effect = QGraphicsOpacityEffect(self._content)
+        self._content.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity")
+        anim.setDuration(200)
+        anim.setStartValue(0.3)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+        anim.finished.connect(lambda: self._content.setGraphicsEffect(None))
+        anim.start()
 
     def _show_list_view(self):
         self._view_switcher.set_view("list", emit=False)

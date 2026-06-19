@@ -119,13 +119,22 @@ class NowPlayingBar(QWidget):
 
         self.setAutoFillBackground(True)
 
-        self._dark_mode = True  # force dark for glassmorphism
-        self._bg_rgba = "rgba(42, 42, 48, 220)"
-        self._text_color = "#ffffff"
-        self._text_sec = "rgba(255,255,255,0.6)"
-        self._accent = "#ffffff"
-        self._border = "rgba(255,255,255,0.06)"
-        self._shadow_alpha = 80
+        from ui.theme import is_dark_mode
+        self._dark_mode = is_dark_mode()
+        if self._dark_mode:
+            self._bg_rgba = "rgba(42, 42, 48, 220)"
+            self._text_color = "#ffffff"
+            self._text_sec = "rgba(255,255,255,0.6)"
+            self._accent = "#ffffff"
+            self._border = "rgba(255,255,255,0.06)"
+            self._shadow_alpha = 80
+        else:
+            self._bg_rgba = "rgba(245, 245, 247, 220)"
+            self._text_color = "#1c1c1e"
+            self._text_sec = "rgba(28,28,30,0.6)"
+            self._accent = "#FF7A00"
+            self._border = "rgba(0,0,0,0.06)"
+            self._shadow_alpha = 30
 
         # ─── 3-COLUMN LAYOUT: left(0) | center(1) | right(0) ───
         layout = QHBoxLayout(self)
@@ -216,12 +225,15 @@ class NowPlayingBar(QWidget):
         ctrl_row.setSpacing(14)
         ctrl_row.setAlignment(Qt.AlignCenter)
 
-        self._shuffle_btn = _make_btn("warm_shuffle", 22)
+        self._shuffle_btn = _make_btn("warm_shuffle", 16)
         self._shuffle_btn.setFixedSize(32, 32)
-        self._prev_btn = _make_btn("warm_prev", 36)
-        self._play_btn = _make_btn("warm_play", 36)
-        self._next_btn = _make_btn("warm_next", 36)
-        self._repeat_btn = _make_btn("warm_repeat", 22)
+        self._prev_btn = _make_btn("warm_prev", 22)
+        self._prev_btn.setFixedSize(38, 38)
+        self._play_btn = _make_btn("warm_play", 28)
+        self._play_btn.setFixedSize(48, 48)
+        self._next_btn = _make_btn("warm_next", 22)
+        self._next_btn.setFixedSize(38, 38)
+        self._repeat_btn = _make_btn("warm_repeat", 16)
         self._repeat_btn.setFixedSize(32, 32)
 
         self._shuffle_btn.clicked.connect(self._on_shuffle)
@@ -260,11 +272,12 @@ class NowPlayingBar(QWidget):
         self._vol.setStyleSheet(VOLUME_STYLESHEET)
         self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
 
-        self._eq_btn = _make_btn("warm_eq", 30)
-        self._eq_btn.setFixedSize(40, 40)
+        self._eq_btn = _make_btn("warm_eq", 20)
+        self._eq_btn.setFixedSize(36, 36)
         self._eq_btn.clicked.connect(self.eq_clicked.emit)
 
-        self._transmit_btn = _make_btn("warm_transmit", 36)
+        self._transmit_btn = _make_btn("warm_transmit", 18)
+        self._transmit_btn.setFixedSize(32, 32)
         self._transmit_btn.setFixedSize(46, 46)
         self._transmit_btn.setToolTip("Transmitir a dispositivo")
         self._transmit_btn.clicked.connect(lambda: self.transmit_clicked.emit())

@@ -1,5 +1,7 @@
 """Sidebar Widget — scrollable sections with collapsible headers."""
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
@@ -8,6 +10,8 @@ from PySide6.QtWidgets import (
 )
 
 from ui.icons import get_icon
+from ui.design_tokens import (COLOR_ACCENT_ORANGE, COLOR_ACCENT_PINK,
+    ACCENT_GRADIENT, SIDEBAR_ITEM_H, SIDEBAR_ICON)
 
 
 def _qicon(name: str) -> QIcon:
@@ -61,13 +65,13 @@ class _Item(QFrame):
         self._dark = dark
         self._active = False
         self.setCursor(Qt.PointingHandCursor)
-        self.setMinimumHeight(38)
+        self.setMinimumHeight(SIDEBAR_ITEM_H)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 7, 10, 7)
+        layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(0)
 
-        label_text = f"{text}  ·  {badge}" if badge else text
+        label_text = text
         self._label = QLabel(label_text)
         self._label.setStyleSheet(
             "font-size:13px; color:rgba(255,255,255,0.6);"
@@ -76,14 +80,25 @@ class _Item(QFrame):
         layout.addWidget(self._label)
         layout.addStretch()
 
+        self._badge_label: QLabel | None = None
+        if badge:
+            self._badge_label = QLabel(badge)
+            self._badge_label.setStyleSheet(
+                "font-size:11px; color:rgba(255,255,255,0.4);"
+                "background: rgba(255,255,255,0.06);"
+                "border-radius: 4px; padding: 1px 6px;"
+                "border: none;")
+            layout.addWidget(self._badge_label)
+            layout.addSpacing(8)
+
         self._icon_label: QLabel | None = None
         self._icon_effect: QGraphicsOpacityEffect | None = None
         if icon:
             qicon = QIcon(get_icon(icon)) if get_icon(icon) else QIcon()
             if not qicon.isNull():
-                pix = qicon.pixmap(QSize(22, 22))
+                pix = qicon.pixmap(QSize(SIDEBAR_ICON, SIDEBAR_ICON))
                 self._icon_label = QLabel()
-                self._icon_label.setFixedSize(22, 22)
+                self._icon_label.setFixedSize(SIDEBAR_ICON, SIDEBAR_ICON)
                 self._icon_label.setStyleSheet("background:transparent; border:none;")
                 self._icon_label.setPixmap(pix)
                 self._icon_effect = QGraphicsOpacityEffect()
@@ -95,16 +110,16 @@ class _Item(QFrame):
 
     def _refresh_styles(self):
         if self._active:
-            self.setStyleSheet("""
-                QFrame {
+            self.setStyleSheet(f"""
+                QFrame {{
                     background: qlineargradient(
                         x1:0, y1:0, x2:1, y2:0,
                         stop:0 rgba(255,122,0,0.18), stop:1 rgba(221,0,122,0.08)
                     );
-                    border-left: 3px solid #FF8A00;
+                    border-left: 3px solid {COLOR_ACCENT_ORANGE};
                     border-radius: 10px;
                     margin: 1px 6px;
-                }
+                }}
             """)
             self._label.setStyleSheet(
                 "font-size:13px; color:#ffffff; font-weight:600;"
@@ -196,7 +211,8 @@ class SidebarWidget(QWidget):
         self._sections: dict[str, _Section] = {}
         self._items: dict[str, _Item] = {}
         self._current_key = "library"
-        self._dark = True  # force dark for glassmorphism
+        from ui.theme import is_dark_mode
+        self._dark = is_dark_mode()
 
         self.setObjectName("sidebarGlass")
         self.setAutoFillBackground(True)
@@ -213,22 +229,47 @@ class SidebarWidget(QWidget):
             }
         """)
 
+        HERE = Path(__file__).parent
         txt = "#f5f5f7" if self._dark else "#1c1c1e"
         sep_c = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.06)"
         sbg = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.04)"
         sbd = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.08)"
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(12, 12, 10, 12)
-        outer.setSpacing(6)
+        outer.setContentsMargins(12, 12, 8, 12)
+        outer.setSpacing(8)
 
-        h = QLabel("✦ ASTRA")
-        h.setStyleSheet(f"font-size:15px;font-weight:700;color:{txt};padding:4px 10px 0px 10px;")
-        outer.addWidget(h)
+        # ── Branding: icon + ASTRA / Music Player ──
+        brand_row = QHBoxLayout()
+        brand_row.setContentsMargins(4, 4, 4, 4)
+        brand_row.setSpacing(10)
 
-        sub = QLabel("Music Player")
-        sub.setStyleSheet(f"font-size:10px;color:rgba(255,255,255,0.4);padding:0px 10px 4px 10px;")
-        outer.addWidget(sub)
+        app_icon_label = QLabel()
+        app_icon_path = str(HERE.parent / "icons" / "app_icon.png")
+        app_pix = QPixmap(app_icon_path)
+        if not app_pix.isNull():
+            app_icon_label.setPixmap(
+                app_pix.scaled(28, 28, Qt.KeepAspectRatio,
+                              Qt.SmoothTransformation))
+            app_icon_label.setFixedSize(28, 28)
+        app_icon_label.setStyleSheet("background:transparent; border:none;")
+        brand_row.addWidget(app_icon_label)
+
+        brand_text = QVBoxLayout()
+        brand_text.setSpacing(0)
+        title_lbl = QLabel("ASTRA")
+        title_lbl.setStyleSheet(
+            f"font-size:17px; font-weight:750; color:{txt};"
+            "background:transparent; border:none;")
+        sub_lbl = QLabel("Music Player")
+        sub_lbl.setStyleSheet(
+            f"font-size:10px; color:rgba(255,255,255,0.4);"
+            "background:transparent; border:none;")
+        brand_text.addWidget(title_lbl)
+        brand_text.addWidget(sub_lbl)
+        brand_row.addLayout(brand_text)
+        brand_row.addStretch()
+        outer.addLayout(brand_row)
 
         self._search = QLineEdit()
         self._search.setPlaceholderText("Filtrar menú...")

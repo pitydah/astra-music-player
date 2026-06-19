@@ -61,7 +61,7 @@ QTableView {
 }
 QTableView::item { padding: 6px 12px; border-bottom: none; color: rgba(255,255,255,0.85); }
 QTableView::item:hover { background: rgba(255,122,0,0.06); }
-QTableView::item:selected { background: rgba(255,122,0,0.25); color: #fff; }
+QTableView::item:selected { background: rgba(255,122,0,0.12); color: #fff; }
 QHeaderView::section {
     background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4); padding: 8px 12px;
     border: none; border-bottom: 1px solid rgba(255,255,255,0.06);

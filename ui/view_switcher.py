@@ -4,6 +4,9 @@ from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QButtonGroup
 
+from ui.design_tokens import (VIEW_BUTTON_W, VIEW_BUTTON_H,
+    VIEW_ICON_W, VIEW_ICON_H, RADIUS_MD, ACCENT_GRADIENT)
+
 
 class SegmentedViewSwitcher(QWidget):
     view_changed = Signal(str)
@@ -32,10 +35,10 @@ class SegmentedViewSwitcher(QWidget):
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFocusPolicy(Qt.NoFocus)
             btn.setFlat(True)
-            btn.setFixedSize(42, 34)
-            btn.setMinimumSize(42, 34)
-            btn.setMaximumSize(42, 34)
-            btn.setIconSize(QSize(32, 23))
+            btn.setFixedSize(VIEW_BUTTON_W, VIEW_BUTTON_H)
+            btn.setMinimumSize(VIEW_BUTTON_W, VIEW_BUTTON_H)
+            btn.setMaximumSize(VIEW_BUTTON_W, VIEW_BUTTON_H)
+            btn.setIconSize(QSize(VIEW_ICON_W, VIEW_ICON_H))
             self._group.addButton(btn)
             layout.addWidget(btn)
 
@@ -62,11 +65,7 @@ class SegmentedViewSwitcher(QWidget):
                 background: rgba(255,255,255,0.08);
             }
             QWidget#segmentedViewSwitcher QPushButton:checked {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #FF7A00,
-                    stop:1 #DD007A
-                );
+                background: {ACCENT_GRADIENT};
                 border: none;
                 margin: 0;
                 padding: 0;
