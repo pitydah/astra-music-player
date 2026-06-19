@@ -513,8 +513,6 @@ class CoverFlowWidget(QGraphicsView):
             angle_delta = event.angleDelta().y() / 120.0
             self._current -= angle_delta * 0.5
 
-        max_i = max(0, len(self._items) - 1)
-        self._current = max(0.0, min(float(max_i), self._current))
         self._update_layout()
 
         # Reset physics and restart snap timer
