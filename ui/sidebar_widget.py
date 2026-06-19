@@ -9,8 +9,7 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QGraphicsOpacityEffect, QSizePolicy,
 )
 
-from ui.icons import get_icon
-from ui.icon_renderer import render_svg_icon
+from ui.sidebar_icon_factory import sidebar_pixmap
 from ui.design_tokens import (
     SIDEBAR_ITEM_H, SIDEBAR_ICON,
     SIDEBAR_ACTIVE_GRADIENT,
@@ -110,7 +109,7 @@ class _Item(QFrame):
         self._icon_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._icon_label.setStyleSheet("background:transparent;border:none;")
         self._icon_effect = QGraphicsOpacityEffect()
-        self._icon_effect.setOpacity(1.0)
+        self._icon_effect.setOpacity(0.92)
         self._icon_label.setGraphicsEffect(self._icon_effect)
 
         self._load_icon(icon)
@@ -139,8 +138,7 @@ class _Item(QFrame):
         self._refresh_styles()
 
     def _load_icon(self, name: str):
-        path = get_icon(name) if name else ""
-        pix = render_svg_icon(path, SIDEBAR_ICON) if path else QPixmap()
+        pix = sidebar_pixmap(name, SIDEBAR_ICON, "#FFFFFF")
         self._icon_label.setPixmap(pix)
 
     def _refresh_styles(self):
@@ -157,7 +155,7 @@ class _Item(QFrame):
                 "font-size:13px;font-weight:650;color:#ffffff;"
                 "background:transparent;border:none;")
             if self._icon_effect:
-                self._icon_effect.setOpacity(0.90)
+                self._icon_effect.setOpacity(1.0)
         else:
             self.setStyleSheet("""
                 QFrame {
@@ -171,7 +169,7 @@ class _Item(QFrame):
                 "font-size:13px;font-weight:520;color:rgba(255,255,255,0.92);"
                 "background:transparent;border:none;")
             if self._icon_effect:
-                self._icon_effect.setOpacity(1.0)
+                self._icon_effect.setOpacity(0.92)
 
     def enterEvent(self, event):
         if not self._active:
