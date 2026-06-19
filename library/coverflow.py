@@ -177,7 +177,8 @@ class CoverFlowWidget(QGraphicsView):
     selection_changed = Signal(int)
     double_clicked = Signal(int)
     clicked = Signal(int)
-    cover_snapped = Signal(int)  # emitted when snapping to a cover
+    cover_snapped = Signal(int)    # emitted when snapping to a cover
+    request_cover = Signal(int, object)  # index, CoverFlowItem — async loading
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -209,6 +210,23 @@ class CoverFlowWidget(QGraphicsView):
         self._artist_text.setFont(QFont("sans-serif", 12))
         self._artist_text.setZValue(2000)
         self._scene.addItem(self._artist_text)
+
+        # Empty state message
+        self._empty_msg = QGraphicsTextItem()
+        self._empty_msg.setHtml(
+            '<div style="text-align:center">'
+            '<p style="font-size:16pt;color:rgba(245,245,247,140)">'
+            '📂 No hay álbumes en tu biblioteca</p>'
+            '<p style="font-size:12pt;color:rgba(245,245,247,80)">'
+            'Ctrl+D para añadir música</p>'
+            '</div>')
+        self._empty_msg.setZValue(3000)
+        self._scene.addItem(self._empty_msg)
+
+        # Async album art loading
+        from library.album_art_worker import AlbumArtManager
+        self._art_mgr = AlbumArtManager(self)
+        self._art_mgr._worker.art_ready.connect(self._on_cover_loaded)
 
         self._items: list[CoverFlowItem] = []
         self._cover_items: list[CoverItem] = []
@@ -265,6 +283,11 @@ class CoverFlowWidget(QGraphicsView):
 
         self._update_layout()
 
+    def _on_cover_loaded(self, idx: int, pixmap: QPixmap):
+        """Async callback — apply loaded cover with fade-in."""
+        if 0 <= idx < len(self._cover_items) and not pixmap.isNull():
+            self._cover_items[idx].set_real_cover(pixmap)
+
     def scroll_to(self, index: int, animated: bool = True):
         if not self._items:
             return
@@ -279,12 +302,20 @@ class CoverFlowWidget(QGraphicsView):
 
     def _update_layout(self):
         if not self._cover_items:
+            vw = self.viewport().width()
+            vh = self.viewport().height()
+            br = self._empty_msg.boundingRect()
+            self._empty_msg.setPos(vw / 2 - br.width() / 2, vh / 2 - 60)
+            self._empty_msg.setVisible(True)
+            self._title_text.setPlainText("")
+            self._artist_text.setPlainText("")
             return
 
         vw = self.viewport().width()
         vh = self.viewport().height()
+        self._empty_msg.setVisible(False)
 
-        # 1. Sliding window (virtualization) — only render ±12 from center
+        # Sliding window (virtualization) — only render ±12 from center
         for ci in self._cover_items:
             dist = ci._index - self._current
             if abs(dist) > 12:
@@ -293,6 +324,11 @@ class CoverFlowWidget(QGraphicsView):
 
             ci.setVisible(True)
             ci.update_transform(self._current, vw, vh)
+
+            # Async loading: request cover if still placeholder
+            if not hasattr(ci, '_real_cover') and not ci._placeholder.isNull():
+                item = self._items[ci._index]
+                self.request_cover.emit(ci._index, item)
 
         idx = max(0, min(len(self._items) - 1, int(round(self._current))))
 

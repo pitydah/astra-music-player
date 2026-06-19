@@ -706,7 +706,7 @@ class MainWindow(QMainWindow):
         items = self._all_items
         if self._kind_filter:
             items = [i for i in items if i.kind == self._kind_filter]
-        covers = load_covers_for_albums(items, 260)
+        covers = load_covers_for_albums(items, 260, lazy=True)
 
         if not covers:
             self._content.setCurrentIndex(0)

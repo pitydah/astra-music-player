@@ -133,14 +133,15 @@ def group_by_album(items: list[MediaItem]) -> list[tuple[str, str, list[MediaIte
 
 
 def load_covers_for_albums(items: list[MediaItem],
-                            size: int = 260) -> list[CoverFlowItem]:
+                            size: int = 260,
+                            lazy: bool = False) -> list[CoverFlowItem]:
     """Create CoverFlowItems grouped by album with cover art."""
     groups = group_by_album(items)
     covers = []
 
     for album, artist, tracks in groups:
         first = tracks[0]
-        pix = load_cover_pixmap(first.filepath, size)
+        pix = None if lazy else load_cover_pixmap(first.filepath, size)
 
         subtitle_parts = [artist]
         year = first.year
