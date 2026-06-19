@@ -405,9 +405,22 @@ class CoverFlowWidget(QGraphicsView):
             self.double_clicked.emit(idx)
 
     def wheelEvent(self, event):
-        delta = event.angleDelta().y() / 120.0
-        self._current -= delta * 0.5
+        # High-resolution pixel delta (trackpad gestures on Wayland)
+        pixel_delta = event.pixelDelta().x() or event.pixelDelta().y()
+
+        if pixel_delta != 0:
+            self._current -= pixel_delta * 0.015
+        else:
+            # Fallback for traditional mouse wheel (click-based)
+            angle_delta = event.angleDelta().y() / 120.0
+            self._current -= angle_delta * 0.5
+
         max_i = max(0, len(self._items) - 1)
         self._current = max(0.0, min(float(max_i), self._current))
         self._update_layout()
+
+        # Reset physics and restart snap timer
+        self._dragging = False
+        self._velocity = 0.0
+        self._phys_timer.start(16)
         self._trigger_snap()
