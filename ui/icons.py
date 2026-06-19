@@ -34,6 +34,7 @@ CUSTOM_ICONS = {
     "warm_vol_high":      "icons/warm_vol_high.svg",
     "warm_transmit":      "icons/warm_transmit.svg",
     "warm_settings":      "icons/warm_settings.svg",
+    "tray_icon":          "icons/tray_icon.svg",
     "warm_view_grid":     "/home/cristian/Descargas/iloveimg-resized(2)/view-cover.svg",
     "warm_view_list":     "/home/cristian/Descargas/iloveimg-resized(2)/view-list.svg",
     "warm_view_coverflow": "/home/cristian/Descargas/iloveimg-resized(2)/view-coverflow.svg",

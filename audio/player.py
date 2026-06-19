@@ -494,6 +494,21 @@ class GStreamerEngine(QObject):
             })
         return items
 
+    def reorder_queue(self, filepaths: list[str]):
+        """Reorder the queue preserving the current track."""
+        current_fp = self._queue[self._queue_index] if self._queue_index >= 0 else None
+        self._queue = filepaths
+        if current_fp:
+            try:
+                self._queue_index = self._queue.index(current_fp)
+            except ValueError:
+                self._queue_index = 0
+        else:
+            self._queue_index = -1
+        self.queue_changed.emit(self._queue)
+        if self._db:
+            self._db.save_queue(self._queue, self._queue_index)
+
     def play_url(self, url: str, title: str = "", artist: str = ""):
         self.stop()
         self.play(url)

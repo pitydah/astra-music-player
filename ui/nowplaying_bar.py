@@ -278,7 +278,6 @@ class NowPlayingBar(QWidget):
 
         self._transmit_btn = _make_btn("warm_transmit", 18)
         self._transmit_btn.setFixedSize(32, 32)
-        self._transmit_btn.setFixedSize(46, 46)
         self._transmit_btn.setToolTip("Transmitir a dispositivo")
         self._transmit_btn.clicked.connect(lambda: self.transmit_clicked.emit())
 

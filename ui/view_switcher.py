@@ -44,13 +44,13 @@ class SegmentedViewSwitcher(QWidget):
 
         self.set_view("list", emit=False)
 
-        self.setStyleSheet("""
-            QWidget#segmentedViewSwitcher {
+        self.setStyleSheet(f"""
+            QWidget#segmentedViewSwitcher {{
                 background: rgba(255,255,255,0.065);
                 border: 1px solid rgba(255,255,255,0.09);
                 border-radius: 12px;
-            }
-            QWidget#segmentedViewSwitcher QPushButton {
+            }}
+            QWidget#segmentedViewSwitcher QPushButton {{
                 background: transparent;
                 border: none;
                 margin: 0;
@@ -60,16 +60,16 @@ class SegmentedViewSwitcher(QWidget):
                 min-height: 34px;
                 max-height: 34px;
                 border-radius: 10px;
-            }
-            QWidget#segmentedViewSwitcher QPushButton:hover {
+            }}
+            QWidget#segmentedViewSwitcher QPushButton:hover {{
                 background: rgba(255,255,255,0.08);
-            }
-            QWidget#segmentedViewSwitcher QPushButton:checked {
+            }}
+            QWidget#segmentedViewSwitcher QPushButton:checked {{
                 background: {ACCENT_GRADIENT};
                 border: none;
                 margin: 0;
                 padding: 0;
-            }
+            }}
         """)
 
         for mode, btn in self._buttons.items():

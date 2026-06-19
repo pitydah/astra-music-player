@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 
 from ui.icons import get_icon
 from ui.design_tokens import (COLOR_ACCENT_ORANGE, COLOR_ACCENT_PINK,
-    ACCENT_GRADIENT, SIDEBAR_ITEM_H, SIDEBAR_ICON)
+    ACCENT_GRADIENT, SIDEBAR_ITEM_H, SIDEBAR_ICON, SIDEBAR_ACCENT_W)
 
 
 def _qicon(name: str) -> QIcon:
@@ -71,6 +71,15 @@ class _Item(QFrame):
         layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(0)
 
+        # Accent bar (fixed width, color changes on active)
+        self._accent_bar = QFrame()
+        self._accent_bar.setFixedWidth(SIDEBAR_ACCENT_W)
+        self._accent_bar.setStyleSheet(
+            "background: transparent; border: none;"
+            "border-radius: 2px;")
+        layout.addWidget(self._accent_bar)
+        layout.addSpacing(8)
+
         label_text = text
         self._label = QLabel(label_text)
         self._label.setStyleSheet(
@@ -116,11 +125,15 @@ class _Item(QFrame):
                         x1:0, y1:0, x2:1, y2:0,
                         stop:0 rgba(255,122,0,0.18), stop:1 rgba(221,0,122,0.08)
                     );
-                    border-left: 3px solid {COLOR_ACCENT_ORANGE};
+                    border-left: none;
                     border-radius: 10px;
                     margin: 1px 6px;
                 }}
             """)
+            self._accent_bar.setStyleSheet(
+                f"background: qlineargradient(y1:0,y2:1,"
+                f"stop:0 {COLOR_ACCENT_ORANGE},stop:1 {COLOR_ACCENT_PINK});"
+                "border: none; border-radius: 2px;")
             self._label.setStyleSheet(
                 "font-size:13px; color:#ffffff; font-weight:600;"
                 "background:transparent; border:none;")
@@ -128,11 +141,13 @@ class _Item(QFrame):
             self.setStyleSheet("""
                 QFrame {
                     background: transparent;
-                    border-left: 3px solid transparent;
+                    border-left: none;
                     border-radius: 10px;
                     margin: 1px 6px;
                 }
             """)
+            self._accent_bar.setStyleSheet(
+                "background: transparent; border: none; border-radius: 2px;")
             self._label.setStyleSheet(
                 "font-size:13px; color:rgba(255,255,255,0.6);"
                 "background:transparent; border:none;")
@@ -144,7 +159,7 @@ class _Item(QFrame):
             self.setStyleSheet("""
                 QFrame {
                     background: rgba(255,255,255,0.06);
-                    border-left: 3px solid transparent;
+                    border-left: none;
                     border-radius: 10px;
                     margin: 1px 6px;
                 }

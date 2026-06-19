@@ -178,7 +178,7 @@ class MainWindow(QMainWindow):
         # ── Header ──
         header = QFrame()
         header.setStyleSheet("""
-            QFrame { background: rgba(20,20,25,200); padding: 8px 16px;
+            QFrame { background: rgba(255,255,255,0.03); padding: 8px 16px;
                      border-bottom: 1px solid rgba(255,255,255,0.04); }
         """)
         hl = QHBoxLayout(header); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(10)
@@ -221,6 +221,8 @@ class MainWindow(QMainWindow):
         self._table.verticalHeader().setVisible(False)
         self._table.setColumnHidden(6, True)
         self._table.doubleClicked.connect(self._on_table_dbl)
+        self._table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._table.customContextMenuRequested.connect(self._on_table_menu)
 
         placeholder = QLabel("Añade una carpeta o abre un archivo")
         placeholder.setAlignment(Qt.AlignCenter)
@@ -302,7 +304,7 @@ class MainWindow(QMainWindow):
         pb.cover_loaded.connect(self._apply_adaptive_background)
 
     def _setup_tray(self):
-        self._tray = QSystemTrayIcon(QIcon(app_icon()), self)
+        self._tray = QSystemTrayIcon(QIcon(get_icon("tray_icon")), self)
         self._tray.setToolTip("Astra Music Player")
         tray_menu = QMenu()
         tray_menu.addAction("Mostrar", self.show)
@@ -426,6 +428,12 @@ class MainWindow(QMainWindow):
                                    "sidebar_playlist_item")
         self._sidebar.add_item("pl", "new_playlist", "+ Nueva playlist", "add")
 
+        # Smart Mixes
+        self._sidebar.add_section("mix", "Descubrir", "sidebar_playlists")
+        self._sidebar.add_item("mix", "mix_daily", "Mix diario", "add")
+        self._sidebar.add_item("mix", "mix_unplayed", "No escuchadas", "add")
+        self._sidebar.add_item("mix", "mix_popular", "Más escuchadas", "add")
+
         # Radio
         self._sidebar.add_section("rad", "Radio", "sidebar_radio")
         self._sidebar.add_item("rad", "radio", "Emisoras", "sidebar_radio")
@@ -511,6 +519,22 @@ class MainWindow(QMainWindow):
             self._content.setCurrentIndex(1); self._table.setModel(self._model)
             self._section_title.setText(os.path.basename(mount))
             self._search.show()
+
+        elif key and key.startswith("mix_"):
+            from library.smart_mixes import (get_daily_mix, get_unplayed,
+                                            get_popular)
+            self._section_title.setText({
+                "mix_daily": "Mix diario", "mix_unplayed": "No escuchadas",
+                "mix_popular": "Más escuchadas",
+            }.get(key, "Mix"))
+            mixes = {"mix_daily": get_daily_mix, "mix_unplayed": get_unplayed,
+                    "mix_popular": get_popular}
+            fn = mixes.get(key)
+            if fn:
+                files = fn()
+                if files:
+                    self._player.enqueue(files, play_now=True)
+                    self._show_expanded()
 
     def _on_sidebar_menu(self, pos):
         widget = self._sidebar.childAt(pos)
@@ -711,6 +735,7 @@ class MainWindow(QMainWindow):
             self._expanded.seek_requested.connect(self._player.seek)
             self._expanded.volume_changed.connect(self._player.set_volume)
             self._expanded.track_from_queue.connect(self._on_queue_track)
+            self._expanded.queue_reordered.connect(self._player.reorder_queue)
 
             # Sync position/duration
             self._player.position_changed.connect(self._expanded.set_position)
@@ -808,6 +833,28 @@ class MainWindow(QMainWindow):
         self._load_library()
 
     # ── Playback ──
+
+    def _on_table_menu(self, pos):
+        idx = self._table.indexAt(pos)
+        if not idx.isValid():
+            return
+        fp = self._model.index(idx.row(), MediaTableModel.COL_FILEPATH)
+        fp = self._model.data(fp, Qt.DisplayRole)
+        if not fp:
+            return
+        menu = QMenu(self)
+        menu.addAction("Reproducir", lambda: self._play_file(fp))
+        menu.addAction("Añadir a cola", lambda: self._player.enqueue([fp], play_now=False))
+        menu.addSeparator()
+        menu.addAction("Editar metadatos...", lambda: self._edit_tags(fp))
+        menu.exec(self._table.viewport().mapToGlobal(pos))
+
+    def _edit_tags(self, filepath: str):
+        from library.tag_editor import TagEditorDialog
+        dlg = TagEditorDialog(filepath, self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._db.add_file(filepath)
+            self._load_library()
 
     def _on_table_dbl(self, idx):
         fp = self._model.index(idx.row(), MediaTableModel.COL_FILEPATH)

@@ -5,7 +5,7 @@ from PySide6.QtGui import QIcon, QPixmap, QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QSlider, QListWidget, QListWidgetItem, QFrame, QSizePolicy,
-    QMenu,
+    QMenu, QAbstractItemView,
 )
 
 from ui.icons import get_icon
@@ -28,6 +28,7 @@ class ExpandedNowPlaying(QWidget):
     volume_changed = Signal(int)
     track_from_queue = Signal(str)  # filepath
     add_to_playlist = Signal(str)
+    queue_reordered = Signal(list)   # list of filepaths
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -196,9 +197,12 @@ class ExpandedNowPlaying(QWidget):
 
         self._queue_list = QListWidget()
         self._queue_list.setFrameShape(QFrame.NoFrame)
+        self._queue_list.setDragDropMode(QAbstractItemView.InternalMove)
+        self._queue_list.setDefaultDropAction(Qt.MoveAction)
+        self._queue_list.model().rowsMoved.connect(self._on_queue_reorder)
         self._queue_list.setStyleSheet("""
             QListWidget { background: transparent; border: none; }
-            QListWidget::item { padding: 8px 16px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+            QListWidget::item { padding: 8px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
             QListWidget::item:hover { background: rgba(255,122,0,0.06); }
         """)
         self._queue_list.doubleClicked.connect(self._on_queue_dbl)
@@ -220,6 +224,17 @@ class ExpandedNowPlaying(QWidget):
         fp = item.data(Qt.UserRole)
         if fp:
             self.track_from_queue.emit(fp)
+
+    def _on_queue_reorder(self):
+        """Emit new filepath order after drag & drop."""
+        filepaths = []
+        for i in range(self._queue_list.count()):
+            item = self._queue_list.item(i)
+            fp = item.data(Qt.UserRole)
+            if fp:
+                filepaths.append(fp)
+        if filepaths:
+            self.queue_reordered.emit(filepaths)
 
     def _show_menu(self):
         menu = QMenu(self)
