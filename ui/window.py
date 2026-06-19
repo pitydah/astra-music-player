@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QVariant
 from PySide6.QtGui import QIcon, QPixmap, QBrush, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel,
-    QFrame, QHBoxLayout, QLineEdit, QPushButton, QListWidget, QComboBox,
+    QFrame, QHBoxLayout, QLineEdit, QPushButton, QToolButton, QListWidget, QComboBox,
     QListWidgetItem, QStackedWidget, QTableView, QHeaderView,
     QAbstractItemView, QFileDialog, QProgressDialog,
     QInputDialog, QMessageBox, QMenu, QDialog, QFormLayout,
@@ -87,7 +87,7 @@ class MainWindow(QMainWindow):
         self._detection = DetectionService(self._db, NullRecognizer(), self)
         self._identifier_view = MusicIdentifierView()
 
-        self._setup_menu()
+        self._setup_actions()
         self._setup_ui()
         self._connect_signals()
         self._setup_shortcuts()
@@ -115,31 +115,59 @@ class MainWindow(QMainWindow):
         self._transmit_mgr.device_changed.connect(self._on_transmit_devices_changed)
         self._transmit_mgr.active_changed.connect(self._on_transmit_active_changed)
 
-    def _setup_menu(self):
-        mb = self.menuBar()
-        fm = mb.addMenu("&Archivo")
-        fm.addAction("Abrir archivo...", self._open_file, "Ctrl+O")
-        fm.addAction("Añadir carpeta...", self._add_folder, "Ctrl+D")
-        fm.addSeparator()
-        fm.addAction("Importar playlist...", self._import_playlist)
-        fm.addAction("Exportar playlist...", self._export_playlist)
-        fm.addSeparator()
-        self._sync_action = fm.addAction("Activar sincronización Android")
+    def _setup_actions(self):
+        from PySide6.QtGui import QAction
+
+        self._open_file_action = QAction("Abrir archivo...", self)
+        self._open_file_action.setShortcut("Ctrl+O")
+        self._open_file_action.triggered.connect(self._open_file)
+        self.addAction(self._open_file_action)
+
+        self._add_folder_action = QAction("Añadir carpeta...", self)
+        self._add_folder_action.setShortcut("Ctrl+D")
+        self._add_folder_action.triggered.connect(self._add_folder)
+        self.addAction(self._add_folder_action)
+
+        self._import_playlist_action = QAction("Importar playlist...", self)
+        self._import_playlist_action.triggered.connect(self._import_playlist)
+        self.addAction(self._import_playlist_action)
+
+        self._export_playlist_action = QAction("Exportar playlist...", self)
+        self._export_playlist_action.triggered.connect(self._export_playlist)
+        self.addAction(self._export_playlist_action)
+
+        self._sync_action = QAction("Activar sincronización Android", self)
         self._sync_action.setCheckable(True)
         self._sync_action.triggered.connect(self._toggle_sync)
-        fm.addSeparator()
-        fm.addAction("Salir", self.close, "Ctrl+Q")
+        self.addAction(self._sync_action)
 
-        em = mb.addMenu("&Editar")
-        em.addAction("Preferencias...", self._show_preferences, "Ctrl+P")
+        self._preferences_action = QAction("Preferencias...", self)
+        self._preferences_action.setShortcut("Ctrl+P")
+        self._preferences_action.triggered.connect(self._show_preferences)
+        self.addAction(self._preferences_action)
 
-        tm = mb.addMenu("&Transmitir")
-        tm.addAction("Añadir dispositivo...", self._add_transmit_device)
-        tm.addAction("Administrar dispositivos...", self._manage_transmit_devices)
+        self._add_transmit_device_action = QAction("Añadir dispositivo...", self)
+        self._add_transmit_device_action.triggered.connect(self._add_transmit_device)
+        self.addAction(self._add_transmit_device_action)
 
-        hm = mb.addMenu("A&yuda")
-        hm.addAction("Atajos de teclado", self._show_shortcuts)
-        hm.addAction("Acerca de", self._show_about)
+        self._manage_transmit_devices_action = QAction("Administrar dispositivos...", self)
+        self._manage_transmit_devices_action.triggered.connect(self._manage_transmit_devices)
+        self.addAction(self._manage_transmit_devices_action)
+
+        self._shortcuts_action = QAction("Atajos de teclado", self)
+        self._shortcuts_action.triggered.connect(self._show_shortcuts)
+        self.addAction(self._shortcuts_action)
+
+        self._about_action = QAction("Acerca de", self)
+        self._about_action.triggered.connect(self._show_about)
+        self.addAction(self._about_action)
+
+        self._quit_action = QAction("Salir", self)
+        self._quit_action.setShortcut("Ctrl+Q")
+        self._quit_action.triggered.connect(self.close)
+        self.addAction(self._quit_action)
+
+        self.menuBar().hide()
 
     def _toggle_sync(self):
         if not hasattr(self, '_sync_mgr'):
@@ -232,12 +260,50 @@ class MainWindow(QMainWindow):
         self._view_switcher.view_changed.connect(self._on_view_mode_changed)
         self._view_mode = "list"
 
-        self._settings_btn = QPushButton(QIcon(get_icon("warm_settings")), "")
-        self._settings_btn.setFlat(True)
-        self._settings_btn.setFixedSize(34, 34)
-        self._settings_btn.setIconSize(QSize(20, 20))
-        self._settings_btn.setToolTip("Preferencias")
-        self._settings_btn.clicked.connect(self._show_preferences)
+        self._settings_btn = QToolButton()
+        self._settings_btn.setIcon(QIcon(get_icon("warm_settings")))
+        self._settings_btn.setIconSize(QSize(26, 26))
+        self._settings_btn.setFixedSize(46, 46)
+        self._settings_btn.setToolTip("Configuración y acciones")
+        self._settings_btn.setPopupMode(QToolButton.InstantPopup)
+        self._settings_btn.setStyleSheet("""
+            QToolButton {
+                background: rgba(255,255,255,0.075);
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: 13px;
+            }
+            QToolButton:hover {
+                background: rgba(255,255,255,0.12);
+                border: 1px solid rgba(255,255,255,0.18);
+            }
+            QToolButton:pressed {
+                background: rgba(255,77,46,0.28);
+            }
+            QToolButton::menu-indicator {
+                image: none;
+                width: 0px;
+            }
+        """)
+
+        settings_menu = QMenu(self)
+        settings_menu.addAction(self._open_file_action)
+        settings_menu.addAction(self._add_folder_action)
+        settings_menu.addSeparator()
+        settings_menu.addAction(self._import_playlist_action)
+        settings_menu.addAction(self._export_playlist_action)
+        settings_menu.addSeparator()
+        transmit_sub = settings_menu.addMenu("Transmitir")
+        transmit_sub.addAction(self._add_transmit_device_action)
+        transmit_sub.addAction(self._manage_transmit_devices_action)
+        settings_menu.addSeparator()
+        settings_menu.addAction(self._sync_action)
+        settings_menu.addSeparator()
+        settings_menu.addAction(self._preferences_action)
+        settings_menu.addAction(self._shortcuts_action)
+        settings_menu.addAction(self._about_action)
+        settings_menu.addSeparator()
+        settings_menu.addAction(self._quit_action)
+        self._settings_btn.setMenu(settings_menu)
 
         hl.addWidget(self._section_title)
         hl.addSpacing(16)
@@ -338,26 +404,16 @@ class MainWindow(QMainWindow):
         cl.addWidget(header); cl.addWidget(self._content)
 
         # ── Splitter ──
-        sidebar_shell = QWidget()
-        sidebar_shell.setObjectName("sidebarShell")
-        sidebar_shell.setStyleSheet(
-            "QWidget#sidebarShell {"
-            "  background: #080A0F;"
-            "  border-right: 1px solid rgba(255,255,255,0.08);"
-            "}")
-        ss_layout = QVBoxLayout(sidebar_shell)
-        ss_layout.setContentsMargins(10, 10, 6, 10)
-        ss_layout.setSpacing(0)
-        ss_layout.addWidget(self._sidebar)
-
         sp = QSplitter(Qt.Horizontal)
-        sp.addWidget(sidebar_shell)
+        sp.addWidget(self._sidebar)
         sp.addWidget(cw)
         sp.setCollapsible(0, False)
         sp.setCollapsible(1, False)
-        sp.setStretchFactor(0, 1); sp.setStretchFactor(1, 3); sp.setSizes([300, 820])
+        sp.setStretchFactor(0, 0)
+        sp.setStretchFactor(1, 1)
+        sp.setSizes([320, 900])
         sp.setStyleSheet(
-            "QSplitter::handle { background: transparent; width: 1px; }")
+            "QSplitter::handle { background: rgba(255,255,255,0.08); width: 2px; }")
 
         # ── NowPlaying bar ──
         self._player_bar = NowPlayingBar()

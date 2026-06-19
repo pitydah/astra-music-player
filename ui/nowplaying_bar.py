@@ -86,11 +86,26 @@ QSlider::handle:horizontal {
 """
 
 
-def _make_btn(icon_name: str, size: int) -> QPushButton:
+def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None) -> QPushButton:
     btn = QPushButton(QIcon(get_icon(icon_name)), "")
     btn.setFlat(True)
-    btn.setIconSize(QSize(size, size))
-    btn.setFixedSize(size + 10, size + 10)
+    btn.setIconSize(QSize(icon_size, icon_size))
+    final_size = button_size or icon_size + 10
+    btn.setFixedSize(final_size, final_size)
+    btn.setCursor(Qt.PointingHandCursor)
+    btn.setStyleSheet("""
+        QPushButton {
+            background: transparent;
+            border: none;
+            border-radius: 10px;
+        }
+        QPushButton:hover {
+            background: rgba(255,255,255,0.08);
+        }
+        QPushButton:pressed {
+            background: rgba(255,77,46,0.22);
+        }
+    """)
     return btn
 
 
@@ -115,7 +130,7 @@ class NowPlayingBar(QWidget):
         self._shuffle = False
         self._repeat = "none"
         self.setObjectName("nowplayingBar")
-        self.setFixedHeight(94)
+        self.setFixedHeight(110)
 
         self.setAutoFillBackground(True)
 
@@ -222,19 +237,14 @@ class NowPlayingBar(QWidget):
 
         # Controls row
         ctrl_row = QHBoxLayout()
-        ctrl_row.setSpacing(14)
+        ctrl_row.setSpacing(16)
         ctrl_row.setAlignment(Qt.AlignCenter)
 
-        self._shuffle_btn = _make_btn("warm_shuffle", 16)
-        self._shuffle_btn.setFixedSize(32, 32)
-        self._prev_btn = _make_btn("warm_prev", 22)
-        self._prev_btn.setFixedSize(38, 38)
-        self._play_btn = _make_btn("warm_play", 28)
-        self._play_btn.setFixedSize(48, 48)
-        self._next_btn = _make_btn("warm_next", 22)
-        self._next_btn.setFixedSize(38, 38)
-        self._repeat_btn = _make_btn("warm_repeat", 16)
-        self._repeat_btn.setFixedSize(32, 32)
+        self._shuffle_btn = _make_btn("warm_shuffle", 20, 40)
+        self._prev_btn = _make_btn("warm_prev", 26, 46)
+        self._play_btn = _make_btn("warm_play", 34, 56)
+        self._next_btn = _make_btn("warm_next", 26, 46)
+        self._repeat_btn = _make_btn("warm_repeat", 20, 40)
 
         self._shuffle_btn.clicked.connect(self._on_shuffle)
         self._prev_btn.clicked.connect(self.prev_clicked.emit)
@@ -261,8 +271,7 @@ class NowPlayingBar(QWidget):
         grid.setVerticalSpacing(4)
 
         # Widgets
-        self._vol_btn = _make_btn("warm_vol_high", 22)
-        self._vol_btn.setFixedSize(32, 32)
+        self._vol_btn = _make_btn("warm_vol_high", 24, 38)
 
         self._vol = QSlider(Qt.Horizontal)
         self._vol.setRange(0, 100)
@@ -272,12 +281,10 @@ class NowPlayingBar(QWidget):
         self._vol.setStyleSheet(VOLUME_STYLESHEET)
         self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
 
-        self._eq_btn = _make_btn("warm_eq", 20)
-        self._eq_btn.setFixedSize(36, 36)
+        self._eq_btn = _make_btn("warm_eq", 24, 42)
         self._eq_btn.clicked.connect(self.eq_clicked.emit)
 
-        self._transmit_btn = _make_btn("warm_transmit", 18)
-        self._transmit_btn.setFixedSize(32, 32)
+        self._transmit_btn = _make_btn("warm_transmit", 24, 42)
         self._transmit_btn.setToolTip("Transmitir a dispositivo")
         self._transmit_btn.clicked.connect(lambda: self.transmit_clicked.emit())
 
