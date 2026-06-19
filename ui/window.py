@@ -185,8 +185,8 @@ class MainWindow(QMainWindow):
     def _setup_ui(self):
         # ── Sidebar ──
         self._sidebar = SidebarWidget()
-        self._sidebar.setMinimumWidth(240)
-        self._sidebar.setMaximumWidth(270)
+        self._sidebar.setMinimumWidth(270)
+        self._sidebar.setMaximumWidth(300)
         self._sidebar_controller = SidebarController(self._sidebar, self._db)
         self._sidebar_controller.navigation_requested.connect(
             self._on_sidebar_navigate)
@@ -300,7 +300,7 @@ class MainWindow(QMainWindow):
         sp = QSplitter(Qt.Horizontal)
         sp.addWidget(sidebar_shell)
         sp.addWidget(cw)
-        sp.setStretchFactor(0, 1); sp.setStretchFactor(1, 3); sp.setSizes([280, 820])
+        sp.setStretchFactor(0, 1); sp.setStretchFactor(1, 3); sp.setSizes([300, 820])
         sp.setStyleSheet("QSplitter::handle { background: rgba(0,0,0,0.06); width: 1px; }")
 
         # ── NowPlaying bar ──

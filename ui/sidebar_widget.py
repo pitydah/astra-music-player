@@ -1,59 +1,83 @@
-"""Sidebar Widget — scrollable sections with collapsible headers."""
+"""Sidebar Widget — premium scrollable sections with collapsible headers."""
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit,
     QFrame, QScrollArea, QGraphicsOpacityEffect,
 )
 
 from ui.icons import get_icon
-from ui.design_tokens import (COLOR_ACCENT_ORANGE, COLOR_ACCENT_PINK,
-    ACCENT_GRADIENT, SIDEBAR_ITEM_H, SIDEBAR_ICON, SIDEBAR_ACCENT_W)
+from ui.icon_renderer import render_svg_icon
+from ui.design_tokens import (
+    SIDEBAR_ITEM_H, SIDEBAR_ICON,
+    SIDEBAR_ACTIVE_GRADIENT,
+)
 
 
-def _qicon(name: str) -> QIcon:
-    path = get_icon(name)
-    return QIcon(path) if path else QIcon()
+# ── Section Header ──
 
+class _SectionHeader(QWidget):
+    clicked = Signal()
 
-class _SectionHeader(QPushButton):
     def __init__(self, text: str, dark: bool):
         super().__init__()
-        self.setFlat(True)
-        self.setCursor(Qt.PointingHandCursor)
         self._collapsed = False
         self._text = text
         self._dark = dark
-        self._refresh()
+        self.setCursor(Qt.PointingHandCursor)
 
-    def _refresh(self):
-        arrow = "▸" if self._collapsed else "▾"
-        sec = "#a0a0a8" if self._dark else "#8e8e93"
-        txt = "#f5f5f7" if self._dark else "#1c1c1e"
-        self.setStyleSheet(f"""
-            QPushButton {{
-                text-align: left;
-                padding: 14px 12px 4px 12px;
-                border: none; background: transparent;
-                font-size: 11px; font-weight: 700;
-                color: {sec}; letter-spacing: 0.5px;
-            }}
-            QPushButton:hover {{ color: {txt}; }}
-        """)
-        self.setText(f"{arrow}  {self._text}")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 18, 12, 6)
+        layout.setSpacing(0)
+
+        self._title = QLabel(text)
+        txt_c = "rgba(245,245,247,0.58)" if dark else "rgba(28,28,30,0.58)"
+        self._title.setStyleSheet(
+            f"font-size:12px;font-weight:650;color:{txt_c};"
+            "background:transparent;border:none;")
+        layout.addWidget(self._title)
+        layout.addStretch()
+
+        self._chevron = QLabel("˅")
+        chev_c = "rgba(245,245,247,0.50)" if dark else "rgba(28,28,30,0.50)"
+        self._chevron.setStyleSheet(
+            f"font-size:11px;color:{chev_c};background:transparent;border:none;")
+        self._chevron.setFixedWidth(16)
+        self._chevron.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self._chevron)
 
     def toggle(self) -> bool:
         self._collapsed = not self._collapsed
-        self._refresh()
+        self._chevron.setText("˄" if self._collapsed else "˅")
         return self._collapsed
 
     @property
     def collapsed(self) -> bool:
         return self._collapsed
 
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+        super().mousePressEvent(event)
+
+    def enterEvent(self, event):
+        c = "rgba(245,245,247,0.80)" if self._dark else "rgba(28,28,30,0.80)"
+        self._title.setStyleSheet(
+            f"font-size:12px;font-weight:650;color:{c};"
+            "background:transparent;border:none;")
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        c = "rgba(245,245,247,0.58)" if self._dark else "rgba(28,28,30,0.58)"
+        self._title.setStyleSheet(
+            f"font-size:12px;font-weight:650;color:{c};"
+            "background:transparent;border:none;")
+        super().leaveEvent(event)
+
+
+# ── Item ──
 
 class _Item(QFrame):
     clicked = Signal(str)
@@ -64,106 +88,95 @@ class _Item(QFrame):
         self._key = key
         self._dark = dark
         self._active = False
+        self._icon_name = icon
         self.setCursor(Qt.PointingHandCursor)
         self.setMinimumHeight(SIDEBAR_ITEM_H)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 8, 12, 8)
-        layout.setSpacing(0)
+        layout.setContentsMargins(12, 0, 12, 0)
+        layout.setSpacing(12)
 
-        # Accent bar (fixed width, color changes on active)
-        self._accent_bar = QFrame()
-        self._accent_bar.setFixedWidth(SIDEBAR_ACCENT_W)
-        self._accent_bar.setStyleSheet(
-            "background: transparent; border: none;"
-            "border-radius: 2px;")
-        layout.addWidget(self._accent_bar)
-        layout.addSpacing(8)
+        # Icon — left side, fixed size
+        self._icon_label = QLabel()
+        self._icon_label.setFixedSize(SIDEBAR_ICON, SIDEBAR_ICON)
+        self._icon_label.setStyleSheet("background:transparent;border:none;")
+        self._icon_effect = QGraphicsOpacityEffect()
+        self._icon_effect.setOpacity(0.72)
+        self._icon_label.setGraphicsEffect(self._icon_effect)
 
-        label_text = text
-        self._label = QLabel(label_text)
+        self._load_icon(icon)
+        layout.addWidget(self._icon_label)
+
+        # Text
+        self._label = QLabel(text)
         self._label.setStyleSheet(
-            "font-size:13px; color:rgba(255,255,255,0.6);"
-            "background:transparent; border:none;")
-
+            "font-size:13px;font-weight:500;color:rgba(245,245,247,0.76);"
+            "background:transparent;border:none;")
         layout.addWidget(self._label)
         layout.addStretch()
 
-        self._badge_label: QLabel | None = None
+        # Badge — right side
+        self._badge_label = None
         if badge:
             self._badge_label = QLabel(badge)
             self._badge_label.setStyleSheet(
-                "font-size:11px; color:rgba(255,255,255,0.4);"
-                "background: rgba(255,255,255,0.06);"
-                "border-radius: 4px; padding: 1px 6px;"
-                "border: none;")
+                "font-size:10px;color:rgba(245,245,247,0.4);"
+                "background:rgba(255,255,255,0.06);"
+                "border-radius:4px;padding:1px 6px;border:none;")
             layout.addWidget(self._badge_label)
-            layout.addSpacing(8)
-
-        self._icon_label: QLabel | None = None
-        self._icon_effect: QGraphicsOpacityEffect | None = None
-        if icon:
-            qicon = QIcon(get_icon(icon)) if get_icon(icon) else QIcon()
-            if not qicon.isNull():
-                pix = qicon.pixmap(QSize(SIDEBAR_ICON, SIDEBAR_ICON))
-                self._icon_label = QLabel()
-                self._icon_label.setFixedSize(SIDEBAR_ICON, SIDEBAR_ICON)
-                self._icon_label.setStyleSheet("background:transparent; border:none;")
-                self._icon_label.setPixmap(pix)
-                self._icon_effect = QGraphicsOpacityEffect()
-                self._icon_effect.setOpacity(0.55)
-                self._icon_label.setGraphicsEffect(self._icon_effect)
-                layout.addWidget(self._icon_label)
 
         self._refresh_styles()
+
+    def _load_icon(self, name: str):
+        path = get_icon(name) if name else ""
+        pix = render_svg_icon(path, SIDEBAR_ICON) if path else QPixmap()
+        self._icon_label.setPixmap(pix)
 
     def _refresh_styles(self):
         if self._active:
             self.setStyleSheet(f"""
                 QFrame {{
-                    background: qlineargradient(
-                        x1:0, y1:0, x2:1, y2:0,
-                        stop:0 rgba(255,122,0,0.18), stop:1 rgba(221,0,122,0.08)
-                    );
-                    border-left: none;
-                    border-radius: 10px;
-                    margin: 1px 6px;
+                    background: {SIDEBAR_ACTIVE_GRADIENT};
+                    border-radius: 11px;
+                    margin: 1px 8px;
                 }}
             """)
-            self._accent_bar.setStyleSheet(
-                f"background: qlineargradient(y1:0,y2:1,"
-                f"stop:0 {COLOR_ACCENT_ORANGE},stop:1 {COLOR_ACCENT_PINK});"
-                "border: none; border-radius: 2px;")
             self._label.setStyleSheet(
-                "font-size:13px; color:#ffffff; font-weight:600;"
-                "background:transparent; border:none;")
+                "font-size:13px;font-weight:650;color:#ffffff;"
+                "background:transparent;border:none;")
+            if self._icon_effect:
+                self._icon_effect.setOpacity(1.0)
         else:
             self.setStyleSheet("""
                 QFrame {
                     background: transparent;
-                    border-left: none;
+                    border: none;
                     border-radius: 10px;
-                    margin: 1px 6px;
+                    margin: 1px 8px;
                 }
             """)
-            self._accent_bar.setStyleSheet(
-                "background: transparent; border: none; border-radius: 2px;")
             self._label.setStyleSheet(
-                "font-size:13px; color:rgba(255,255,255,0.6);"
-                "background:transparent; border:none;")
-        if self._icon_label:
-            self._icon_effect.setOpacity(1.0 if self._active else 0.55)
+                "font-size:13px;font-weight:500;color:rgba(245,245,247,0.76);"
+                "background:transparent;border:none;")
+            if self._icon_effect:
+                self._icon_effect.setOpacity(0.72)
 
     def enterEvent(self, event):
         if not self._active:
             self.setStyleSheet("""
                 QFrame {
-                    background: rgba(255,255,255,0.06);
-                    border-left: none;
+                    background: rgba(255,255,255,0.07);
+                    border: none;
                     border-radius: 10px;
-                    margin: 1px 6px;
+                    margin: 1px 8px;
                 }
             """)
+            self._label.setStyleSheet(
+                "font-size:13px;font-weight:500;"
+                "color:rgba(245,245,247,0.92);"
+                "background:transparent;border:none;")
+            if self._icon_effect:
+                self._icon_effect.setOpacity(0.90)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
@@ -188,6 +201,8 @@ class _Item(QFrame):
         return self._label.text()
 
 
+# ── Section Container ──
+
 class _Section:
     def __init__(self, parent: QWidget, layout: QVBoxLayout,
                  key: str, title: str, dark: bool):
@@ -204,7 +219,8 @@ class _Section:
         layout.addWidget(self._container)
 
     def _on_header_click(self):
-        self._container.setVisible(not self.header.toggle())
+        self.header.toggle()
+        self._container.setVisible(not self.header.collapsed)
 
     def add_item(self, item: _Item):
         self._inner.addWidget(item)
@@ -217,6 +233,8 @@ class _Section:
         self._container.deleteLater()
         self._items.clear()
 
+
+# ── Sidebar Widget ──
 
 class SidebarWidget(QWidget):
     item_clicked = Signal(str)
@@ -244,57 +262,64 @@ class SidebarWidget(QWidget):
             }
         """)
 
-        HERE = Path(__file__).parent
         txt = "#f5f5f7" if self._dark else "#1c1c1e"
-        sep_c = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.06)"
-        sbg = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.04)"
-        sbd = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.08)"
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(12, 12, 8, 12)
+        outer.setContentsMargins(14, 14, 10, 12)
         outer.setSpacing(8)
 
-        # ── Branding: icon + ASTRA / Music Player ──
+        # ── Branding ──
         brand_row = QHBoxLayout()
         brand_row.setContentsMargins(4, 4, 4, 4)
         brand_row.setSpacing(10)
 
         app_icon_label = QLabel()
-        app_icon_path = str(HERE.parent / "icons" / "app_icon.png")
+        app_icon_path = str(Path(__file__).parent.parent / "icons" / "app_icon.png")
         app_pix = QPixmap(app_icon_path)
         if not app_pix.isNull():
             app_icon_label.setPixmap(
-                app_pix.scaled(28, 28, Qt.KeepAspectRatio,
-                              Qt.SmoothTransformation))
-            app_icon_label.setFixedSize(28, 28)
-        app_icon_label.setStyleSheet("background:transparent; border:none;")
+                app_pix.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            app_icon_label.setFixedSize(32, 32)
+        app_icon_label.setStyleSheet("background:transparent;border:none;")
         brand_row.addWidget(app_icon_label)
 
         brand_text = QVBoxLayout()
         brand_text.setSpacing(0)
         title_lbl = QLabel("ASTRA")
         title_lbl.setStyleSheet(
-            f"font-size:17px; font-weight:750; color:{txt};"
-            "background:transparent; border:none;")
+            f"font-size:16px;font-weight:750;color:rgba(245,245,247,0.90);"
+            "background:transparent;border:none;")
         sub_lbl = QLabel("Music Player")
         sub_lbl.setStyleSheet(
-            f"font-size:10px; color:rgba(255,255,255,0.4);"
-            "background:transparent; border:none;")
+            "font-size:11px;color:rgba(245,245,247,0.55);"
+            "background:transparent;border:none;")
         brand_text.addWidget(title_lbl)
         brand_text.addWidget(sub_lbl)
         brand_row.addLayout(brand_text)
         brand_row.addStretch()
         outer.addLayout(brand_row)
 
+        outer.addSpacing(4)
+
+        # ── Search ──
         self._search = QLineEdit()
-        self._search.setPlaceholderText("Filtrar menú...")
+        self._search.setObjectName("sidebarSearch")
+        self._search.setPlaceholderText("Buscar")
         self._search.setClearButtonEnabled(True)
-        self._search.setStyleSheet(f"""
-            QLineEdit {{
-                background:{sbg}; border:1px solid {sbd}; border-radius:6px;
-                padding:4px 10px; font-size:12px; color:{txt};
-            }}
-            QLineEdit:focus {{ border-color:rgba(255,122,0,0.4); }}
+        self._search.setStyleSheet("""
+            QLineEdit#sidebarSearch {
+                background: rgba(255,255,255,0.12);
+                border: 1px solid rgba(255,255,255,0.10);
+                border-radius: 15px;
+                padding: 7px 32px 7px 12px;
+                color: rgba(245,245,247,0.92);
+                font-size: 13px;
+                selection-background-color: rgba(221,0,122,0.45);
+            }
+            QLineEdit#sidebarSearch:focus {
+                background: rgba(255,255,255,0.16);
+                border: 1px solid rgba(255,255,255,0.16);
+            }
         """)
         self._search.setAttribute(Qt.WA_MacShowFocusRect, False)
         self._search.textChanged.connect(self._filter)
@@ -302,17 +327,21 @@ class SidebarWidget(QWidget):
 
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
+        sep_c = "rgba(255,255,255,0.06)" if self._dark else "rgba(0,0,0,0.06)"
         sep.setStyleSheet(f"background:{sep_c};")
         outer.addWidget(sep)
 
+        # ── Scroll area ──
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QScrollArea.NoFrame)
         self._scroll.setStyleSheet(
             "QScrollArea{background:transparent;border:none;}"
             "QScrollBar:vertical{width:4px;background:transparent;}"
-            "QScrollBar::handle:vertical{background:rgba(128,128,128,0.25);border-radius:2px;}"
-            "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}")
+            "QScrollBar::handle:vertical{"
+            "background:rgba(128,128,128,0.25);border-radius:2px;}"
+            "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical"
+            "{height:0;}")
 
         self._container = QWidget()
         self._container.setStyleSheet("background: transparent;")
@@ -331,7 +360,6 @@ class SidebarWidget(QWidget):
         self._items.clear()
 
     def add_section(self, key: str, title: str, icon: str = ""):
-        # Remove terminal stretch, add section, re-add stretch
         n = self._container_layout.count()
         if n > 0:
             stretch_item = self._container_layout.takeAt(n - 1)

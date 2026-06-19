@@ -23,20 +23,23 @@ class SidebarController(QObject):
         self._sidebar.add_item("lib", "library", "Todas las canciones",
                                "sidebar_library")
         self._sidebar.add_item("lib", "albums", "Álbumes", "sidebar_albums")
-        self._sidebar.add_item("lib", "folders", "Carpetas", "add")
+        self._sidebar.add_item("lib", "folders", "Carpetas", "sidebar_folders")
 
         # Playlists
         self._sidebar.add_section("pl", "Playlist", "sidebar_playlists")
         for p in self._db.get_playlists():
             self._sidebar.add_item("pl", f"pl:{p['id']}", p['name'],
                                    "sidebar_playlist_item")
-        self._sidebar.add_item("pl", "new_playlist", "+ Nueva playlist", "add")
+        self._sidebar.add_item("pl", "new_playlist", "+ Nueva playlist",
+                               "sidebar_add")
 
-        # Smart Mixes
-        self._sidebar.add_section("mix", "Descubrir", "sidebar_playlists")
-        self._sidebar.add_item("mix", "mix_daily", "Mix diario", "add")
-        self._sidebar.add_item("mix", "mix_unplayed", "No escuchadas", "add")
-        self._sidebar.add_item("mix", "mix_popular", "Más escuchadas", "add")
+        # Descubrir
+        self._sidebar.add_section("mix", "Descubrir", "sidebar_mix")
+        self._sidebar.add_item("mix", "mix_daily", "Mix diario", "sidebar_mix")
+        self._sidebar.add_item("mix", "mix_unplayed", "No escuchadas",
+                               "sidebar_unplayed")
+        self._sidebar.add_item("mix", "mix_popular", "Más escuchadas",
+                               "sidebar_popular")
 
         # Radio
         self._sidebar.add_section("rad", "Radio", "sidebar_radio")
@@ -47,7 +50,8 @@ class SidebarController(QObject):
         for srv in servers:
             ico = "sidebar_navidrome" if srv.stype == "navidrome" else "sidebar_jellyfin"
             self._sidebar.add_item("srv", f"srv:{srv.name}", srv.name, ico)
-        self._sidebar.add_item("srv", "add_server", "+ Añadir servidor", "add")
+        self._sidebar.add_item("srv", "add_server", "+ Añadir servidor",
+                               "sidebar_add")
 
         # Dispositivos
         self._sidebar.add_section("dev", "Dispositivos", "sidebar_devices")
