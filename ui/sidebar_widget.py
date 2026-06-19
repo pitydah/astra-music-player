@@ -108,8 +108,7 @@ class _Item(QFrame):
         self._icon_label.setScaledContents(False)
         self._icon_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._icon_label.setStyleSheet("background:transparent;border:none;")
-        self._icon_effect = QGraphicsOpacityEffect()
-        self._icon_effect.setOpacity(0.92)
+        self._icon_effect = None
         self._icon_label.setGraphicsEffect(self._icon_effect)
 
         self._load_icon(icon)
