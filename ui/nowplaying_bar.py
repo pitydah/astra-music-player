@@ -218,7 +218,7 @@ class NowPlayingBar(QWidget):
         self._shuffle = False
         self._repeat = "none"
         self.setObjectName("nowplayingBar")
-        self.setFixedHeight(120)
+        self.setFixedHeight(116)
 
         self.setAutoFillBackground(True)
 
@@ -386,11 +386,11 @@ class NowPlayingBar(QWidget):
         ctrl_row.setSpacing(12)
         ctrl_row.setAlignment(Qt.AlignCenter)
 
-        self._shuffle_btn = _make_btn("warm_shuffle", 32, 44)
-        self._prev_btn = _make_btn("warm_prev", 38, 50)
-        self._play_btn = _make_btn("warm_play", 48, 62)
-        self._next_btn = _make_btn("warm_next", 38, 50)
-        self._repeat_btn = _make_btn("warm_repeat", 32, 44)
+        self._shuffle_btn = _make_btn("warm_shuffle", 20, 40)
+        self._prev_btn = _make_btn("warm_prev", 26, 44)
+        self._play_btn = _make_btn("warm_play", 32, 54)
+        self._next_btn = _make_btn("warm_next", 26, 44)
+        self._repeat_btn = _make_btn("warm_repeat", 20, 40)
 
         self._shuffle_btn.clicked.connect(self._on_shuffle)
         self._prev_btn.clicked.connect(self.prev_clicked.emit)
@@ -417,7 +417,7 @@ class NowPlayingBar(QWidget):
         grid.setVerticalSpacing(4)
 
         # Widgets
-        self._vol_btn = _make_btn("warm_vol_high", 32, 42)
+        self._vol_btn = _make_btn("warm_vol_high", 22, 38)
 
         self._vol = QSlider(Qt.Horizontal)
         self._vol.setRange(0, 100)
@@ -427,10 +427,10 @@ class NowPlayingBar(QWidget):
         self._vol.setStyleSheet(VOLUME_STYLESHEET)
         self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
 
-        self._eq_btn = _make_btn("warm_eq", 38, 50)
+        self._eq_btn = _make_btn("warm_eq", 26, 44)
         self._eq_btn.clicked.connect(self.eq_clicked.emit)
 
-        self._transmit_btn = _make_btn("warm_transmit", 38, 50)
+        self._transmit_btn = _make_btn("warm_transmit", 26, 44)
         self._transmit_btn.setToolTip("Transmitir a dispositivo")
         self._transmit_btn.clicked.connect(lambda: self.transmit_clicked.emit())
 
@@ -515,7 +515,7 @@ class NowPlayingBar(QWidget):
         self._state = state
         name = "warm_pause" if state == "playing" else "warm_play"
         self._play_btn.setIcon(QIcon(get_icon(name)))
-        self._play_btn.setIconSize(QSize(48, 48))
+        self._play_btn.setIconSize(QSize(32, 32))
 
     def set_track(self, title: str, artist: str, cover_path: str = ""):
         self._raw_title = title or "Sin reproducción"
@@ -591,7 +591,7 @@ class NowPlayingBar(QWidget):
         else:
             name = "warm_vol_high"
         self._vol_btn.setIcon(QIcon(get_icon(name)))
-        self._vol_btn.setIconSize(QSize(32, 32))
+        self._vol_btn.setIconSize(QSize(22, 22))
 
     def set_quality(self, text: str):
         self._quality_badge.setText(f" {text} ") if text else self._quality_badge.clear()
