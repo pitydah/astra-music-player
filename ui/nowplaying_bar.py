@@ -122,12 +122,12 @@ class NowPlayingBar(QWidget):
         from ui.theme import is_dark_mode
         self._dark_mode = is_dark_mode()
         if self._dark_mode:
-            self._bg_rgba = "rgba(45, 48, 58, 238)"
-            self._text_color = "rgba(255,255,255,0.96)"
-            self._text_sec = "rgba(245,245,247,0.70)"
+            self._bg_rgba = "rgba(48, 52, 64, 242)"
+            self._text_color = "rgba(255,255,255,0.98)"
+            self._text_sec = "rgba(245,245,247,0.74)"
             self._accent = "#ffffff"
-            self._border = "rgba(255,255,255,0.12)"
-            self._shadow_alpha = 95
+            self._border = "rgba(255,255,255,0.14)"
+            self._shadow_alpha = 110
         else:
             self._bg_rgba = "rgba(245, 245, 247, 220)"
             self._text_color = "#1c1c1e"

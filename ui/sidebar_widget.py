@@ -33,7 +33,7 @@ class _SectionHeader(QWidget):
         layout.setContentsMargins(12, 18, 12, 6)
         layout.setSpacing(0)
 
-        txt_c = "rgba(245,245,247,0.72)" if dark else "rgba(28,28,30,0.72)"
+        txt_c = "rgba(245,245,247,0.82)" if dark else "rgba(28,28,30,0.82)"
         self._title = QLabel(text)
         self._title.setStyleSheet(
             f"font-size:12px;font-weight:680;color:{txt_c};"
@@ -41,7 +41,7 @@ class _SectionHeader(QWidget):
         layout.addWidget(self._title)
         layout.addStretch()
 
-        chev_c = "rgba(245,245,247,0.64)" if dark else "rgba(28,28,30,0.64)"
+        chev_c = "rgba(245,245,247,0.76)" if dark else "rgba(28,28,30,0.76)"
         self._chevron = QLabel("˅")
         self._chevron.setStyleSheet(
             f"font-size:11px;color:{chev_c};background:transparent;border:none;")
@@ -63,21 +63,21 @@ class _SectionHeader(QWidget):
         super().mousePressEvent(event)
 
     def enterEvent(self, event):
-        c = "rgba(255,255,255,0.90)" if self._dark else "rgba(28,28,30,0.90)"
+        c = "rgba(255,255,255,0.96)" if self._dark else "rgba(28,28,30,0.96)"
         self._title.setStyleSheet(
             f"font-size:12px;font-weight:680;color:{c};"
             "background:transparent;border:none;")
-        cc = "rgba(255,255,255,0.85)" if self._dark else "rgba(28,28,30,0.85)"
+        cc = "rgba(255,255,255,0.90)" if self._dark else "rgba(28,28,30,0.90)"
         self._chevron.setStyleSheet(
             f"font-size:11px;color:{cc};background:transparent;border:none;")
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        c = "rgba(245,245,247,0.72)" if self._dark else "rgba(28,28,30,0.72)"
+        c = "rgba(245,245,247,0.82)" if self._dark else "rgba(28,28,30,0.82)"
         self._title.setStyleSheet(
             f"font-size:12px;font-weight:680;color:{c};"
             "background:transparent;border:none;")
-        cc = "rgba(245,245,247,0.64)" if self._dark else "rgba(28,28,30,0.64)"
+        cc = "rgba(245,245,247,0.76)" if self._dark else "rgba(28,28,30,0.76)"
         self._chevron.setStyleSheet(
             f"font-size:11px;color:{cc};background:transparent;border:none;")
         super().leaveEvent(event)
@@ -121,7 +121,7 @@ class _Item(QFrame):
         self._label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self._label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self._label.setStyleSheet(
-            "font-size:13px;font-weight:520;color:rgba(245,245,247,0.86);"
+            "font-size:13px;font-weight:520;color:rgba(255,255,255,0.90);"
             "background:transparent;border:none;")
         layout.addWidget(self._label)
         layout.addStretch()
@@ -157,7 +157,7 @@ class _Item(QFrame):
                 "font-size:13px;font-weight:650;color:#ffffff;"
                 "background:transparent;border:none;")
             if self._icon_effect:
-                self._icon_effect.setOpacity(1.0)
+                self._icon_effect.setOpacity(0.90)
         else:
             self.setStyleSheet("""
                 QFrame {
@@ -168,10 +168,10 @@ class _Item(QFrame):
                 }
             """)
             self._label.setStyleSheet(
-                "font-size:13px;font-weight:520;color:rgba(245,245,247,0.86);"
+                "font-size:13px;font-weight:520;color:rgba(255,255,255,0.90);"
                 "background:transparent;border:none;")
             if self._icon_effect:
-                self._icon_effect.setOpacity(0.82)
+                self._icon_effect.setOpacity(0.90)
 
     def enterEvent(self, event):
         if not self._active:
@@ -185,10 +185,10 @@ class _Item(QFrame):
             """)
             self._label.setStyleSheet(
                 "font-size:13px;font-weight:520;"
-                "color:rgba(255,255,255,0.96);"
+                "color:rgba(255,255,255,0.98);"
                 "background:transparent;border:none;")
             if self._icon_effect:
-                self._icon_effect.setOpacity(0.96)
+                self._icon_effect.setOpacity(1.0)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
@@ -267,13 +267,13 @@ class SidebarWidget(QWidget):
             QWidget#sidebarGlass {
                 background: qlineargradient(
                     x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(52,55,64,0.96),
-                    stop:1 rgba(38,41,50,0.96)
+                    stop:0 rgba(68,72,84,0.98),
+                    stop:1 rgba(48,52,64,0.98)
                 );
-                border-top: 1px solid rgba(255,255,255,0.08);
-                border-left: 1px solid rgba(255,255,255,0.06);
-                border-right: 1px solid rgba(255,255,255,0.11);
-                border-bottom: 1px solid rgba(0,0,0,0.35);
+                border-top: 1px solid rgba(255,255,255,0.12);
+                border-left: 1px solid rgba(255,255,255,0.08);
+                border-right: 1px solid rgba(255,255,255,0.16);
+                border-bottom: 1px solid rgba(0,0,0,0.42);
                 border-radius: 16px;
             }
         """)

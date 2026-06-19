@@ -210,9 +210,13 @@ class MainWindow(QMainWindow):
 
         # ── Header ──
         header = QFrame()
+        header.setObjectName("headerBar")
         header.setStyleSheet("""
-            QFrame { background: rgba(255,255,255,0.03); padding: 8px 16px;
-                     border-bottom: 1px solid rgba(255,255,255,0.04); }
+            QFrame#headerBar {
+                background: rgba(20,22,30,0.82);
+                border-bottom: 1px solid rgba(255,255,255,0.075);
+                padding: 8px 16px;
+            }
         """)
         hl = QHBoxLayout(header); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(10)
         self._section_title = QLabel("Biblioteca")
@@ -301,6 +305,12 @@ class MainWindow(QMainWindow):
 
         # ── Content wrapper ──
         cw = QWidget()
+        cw.setObjectName("contentSurface")
+        cw.setStyleSheet(
+            "QWidget#contentSurface {"
+            "  background: rgba(10,12,18,0.96);"
+            "  border-left: 1px solid rgba(255,255,255,0.04);"
+            "}")
         cl = QVBoxLayout(cw); cl.setContentsMargins(0, 0, 0, 0); cl.setSpacing(0)
         cl.addWidget(header); cl.addWidget(self._content)
 
@@ -309,8 +319,8 @@ class MainWindow(QMainWindow):
         sidebar_shell.setObjectName("sidebarShell")
         sidebar_shell.setStyleSheet(
             "QWidget#sidebarShell {"
-            "  background: transparent;"
-            "  border-right: 1px solid rgba(255,255,255,0.075);"
+            "  background: rgba(8,10,15,0.95);"
+            "  border-right: 1px solid rgba(255,255,255,0.10);"
             "}")
         ss_layout = QVBoxLayout(sidebar_shell)
         ss_layout.setContentsMargins(10, 10, 6, 10)
@@ -334,15 +344,19 @@ class MainWindow(QMainWindow):
         bar_wrapper.setAttribute(Qt.WA_TranslucentBackground)
         bar_wrapper.setStyleSheet(
             "QWidget#bottomBarArea {"
-            "  background: transparent;"
-            "  border-top: 1px solid rgba(255,255,255,0.065);"
+            "  background: rgba(13,15,22,0.88);"
+            "  border-top: 1px solid rgba(255,255,255,0.085);"
             "}")
         wl = QHBoxLayout(bar_wrapper)
         wl.setContentsMargins(24, 10, 24, 12)
         wl.addWidget(self._player_bar)
 
         cent = QWidget()
-        cent.setStyleSheet("background: transparent;")
+        cent.setObjectName("mainRoot")
+        cent.setStyleSheet(
+            "QWidget#mainRoot {"
+            "  background: #090B11;"
+            "}")
         layout = QVBoxLayout(cent); layout.setContentsMargins(8, 8, 8, 8); layout.setSpacing(0)
         layout.addWidget(sp, stretch=1)
         layout.addWidget(bar_wrapper, stretch=0)
