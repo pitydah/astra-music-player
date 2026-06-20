@@ -523,9 +523,10 @@ class NowPlayingBar(QWidget):
         # Row 1 — badge under volume slider
         badge_row = QHBoxLayout()
         badge_row.setContentsMargins(0, 0, 0, 0)
+        badge_row.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         badge_row.addStretch()
         badge_row.addWidget(self._quality_badge)
-        badge_row.addSpacing(94)
+        badge_row.addSpacing(70)
         right_layout.addLayout(badge_row)
 
         layout.addWidget(right_widget, 0)
