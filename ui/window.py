@@ -180,6 +180,8 @@ class MainWindow(QMainWindow):
         self._album_ctrl = AlbumController(self, refresh_grid=self._show_album_grid)
         from ui.controllers.transmit_controller import TransmitController
         self._transmit_ctrl = TransmitController(self)
+        from ui.controllers.expanded_controller import ExpandedController
+        self._expanded_ctrl = ExpandedController(self)
         self._all_items: list[MediaItem] = []
         self._items_index: dict[str, MediaItem] = {}
         self._current_section_key: str = "library"
@@ -1960,90 +1962,22 @@ class MainWindow(QMainWindow):
         self._configure_header_for_section("metadata_editor")
         self._fade_content("metadata_editor")
 
-    # TODO(astra): extract to ui/expanded_controller.py — now playing expanded
+    # Extracted to ui/controllers/expanded_controller.py — now playing expanded
 
     def _show_expanded(self):
-        if not self._playback.current:
-            return
-
-        if self._expanded is None:
-            self._expanded = ExpandedNowPlaying()
-            self._expanded.go_back.connect(self._on_expanded_back)
-            self._expanded.play_clicked.connect(self._playback.toggle)
-            self._expanded.prev_clicked.connect(self._on_expanded_prev)
-            self._expanded.next_clicked.connect(self._on_expanded_next)
-            self._expanded.seek_requested.connect(self._playback.seek)
-            self._expanded.volume_changed.connect(self._playback.set_volume)
-            self._expanded.track_from_queue.connect(self._on_queue_track)
-            self._expanded.queue_reordered.connect(self._playback.reorder_queue)
-
-            # Sync position/duration
-            self._player.position_changed.connect(self._expanded.set_position)
-            self._player.duration_changed.connect(self._expanded.set_duration)
-            self._player.state_changed.connect(
-                lambda s: self._expanded.set_state(
-                    "playing" if s == PlaybackState.PLAYING else
-                    "paused" if s == PlaybackState.PAUSED else "stopped"))
-
-            self._views.replace("expanded", self._expanded)
-
-        # Update track info — prioritize _current_ref, fallback to _all_items
-        current = self._playback.current
-        name = os.path.basename(current) if current else ""
-        qual, _ = get_quality_label(current) if current else ("", "")
-        artist = ""
-        album = ""
-        dur = 0.0
-        cover_path = ""
-
-        if self._current_ref and self._current_ref.uri == current:
-            ref = self._current_ref
-            name = ref.title or name
-            artist = ref.artist
-            album = ref.album
-            dur = ref.duration
-            cover_path = ref.cover_path
-            title = ref.title or name
-        else:
-            title = name
-            item = self._items_index.get(current)
-            if item:
-                artist = item.artist
-                album = item.album
-                dur = item.duration
-                title = item.title or name
-
-        if not cover_path:
-            from library.album_art import find_cover_in_dir
-            cover = find_cover_in_dir(os.path.dirname(current))
-            if cover:
-                cover_path = cover
-
-        self._expanded.set_track(title, artist, album, qual, cover_path)
-        self._expanded.load_lyrics(title, artist, album, dur)
-
-        self._expanded.set_state(
-            "playing" if self._playback.state == PlaybackState.PLAYING else "paused")
-        self._expanded.set_queue(self._playback.get_queue())
-        self._section_title.setText("Reproduciendo")
-
-        self._views.show("expanded")
+        self._expanded_ctrl.show_expanded()
 
     def _on_expanded_back(self):
-        self._views.show("library")
-        self._section_title.setText("Biblioteca")
+        self._expanded_ctrl.back()
 
     def _on_expanded_prev(self):
-        self._playback.play_prev()
-        self._show_expanded()
+        self._expanded_ctrl.prev()
 
     def _on_expanded_next(self):
-        self._playback.play_next()
-        self._show_expanded()
+        self._expanded_ctrl.next()
 
     def _on_queue_track(self, filepath: str):
-        self._playback.play(filepath)
-        self._show_expanded()
+        self._expanded_ctrl.queue_track(filepath)
 
     # Extracted to core/file_actions.py — open/scan/drop logic
 
