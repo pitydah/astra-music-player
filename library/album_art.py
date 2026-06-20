@@ -151,10 +151,13 @@ def _get_album_tag(filepath: str) -> str:
         f = mutagen.File(filepath)
         if f is None:
             return ""
-        tags = getattr(f, 'tags', None) or {}
-        album = tags.get("album")
-        if album:
-            return str(album[0] if isinstance(album, list) else album)
+        tags = getattr(f, 'tags', None)
+        if tags is None:
+            return ""
+        for key in ("album", "TALB", "\xa9alb", "©alb", "ALBUM"):
+            val = tags.get(key)
+            if val:
+                return str(val[0] if isinstance(val, list) else val)
     except Exception:
         pass
     return ""
