@@ -60,6 +60,8 @@ SECTION_CONFIG = {
                 "views": ["list", "grid"], "search": True, "default": "list"},
     "albums":  {"title": "Álbumes", "subtitle": "Carátulas y navegación visual",
                 "views": ["list", "grid", "coverflow"], "search": True, "default": "grid"},
+    "artists": {"title": "Artistas", "subtitle": "Agrupados por artista",
+                "views": ["list", "grid"], "search": True, "default": "list"},
     "folders": {"title": "Carpetas", "subtitle": "Explorador musical local",
                 "views": ["tree"], "search": True, "default": "tree"},
     "radio":   {"title": "Emisoras", "subtitle": "Radios por URL y mosaicos",
@@ -804,6 +806,23 @@ class MainWindow(QMainWindow):
                 subtitle += f" · {dur_str} total"
             self._section_title.setText(f"Playlist · {name}")
             self._section_subtitle.setText(subtitle)
+            self._search.show()
+
+        elif key == "artists":
+            self._section_title.setText("Artistas")
+            self._section_subtitle.setText("Agrupados por artista")
+            items = self._db.get_all(group_by="artist")
+            refs = [TrackRef(uri=i.filepath, title=i.artist or "Desconocido",
+                             artist="", album=f"{i.album}" if i.album else "",
+                             duration=i.duration, year=i.year, genre=i.genre)
+                    for i in items]
+            self._model.populate(refs)
+            self._count.setText(f"{len(refs)} artistas")
+            self._views.show("library"); self._table.setModel(self._model)
+            self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 280)
+            self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
+            self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+            self._table.setColumnWidth(6, 75)
             self._search.show()
 
         elif key == "albums":
