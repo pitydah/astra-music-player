@@ -29,6 +29,8 @@ class SidebarController(QObject):
 
         # Playlists
         self._sidebar.add_section("pl", "Playlist", "sidebar_playlists")
+        self._sidebar.add_item("pl", "playlist_hub", "Inicio",
+                               "sidebar_playlists")
         for p in self._db.get_playlists():
             self._sidebar.add_item("pl", f"pl:{p['id']}", p['name'],
                                    "sidebar_playlist_item")

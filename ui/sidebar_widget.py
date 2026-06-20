@@ -141,10 +141,16 @@ class _Item(QFrame):
         path = get_icon(name) if name else ""
         if not path:
             pix = QPixmap(SIDEBAR_ICON, SIDEBAR_ICON)
+            pix.fill(Qt.transparent)
         elif path.lower().endswith(".png"):
-            pix = QPixmap(path).scaled(
-                SIDEBAR_ICON, SIDEBAR_ICON,
-                Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pix = QPixmap(path)
+            if pix.isNull():
+                pix = QPixmap(SIDEBAR_ICON, SIDEBAR_ICON)
+                pix.fill(Qt.transparent)
+            else:
+                pix = pix.scaled(
+                    SIDEBAR_ICON, SIDEBAR_ICON,
+                    Qt.KeepAspectRatio, Qt.SmoothTransformation)
         else:
             pix = render_svg_icon(path, SIDEBAR_ICON, 2)
         self._icon_label.setPixmap(pix)

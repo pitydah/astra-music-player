@@ -52,6 +52,7 @@ from streaming.radio_widget import RadioWidget
 from streaming.radio_manager import RadioManager
 from ui.music_identifier_view import MusicIdentifierView
 from ui.discover_dashboard import DiscoverDashboard
+from ui.playlist_hub import PlaylistHubWidget
 from recognition.detection_service import DetectionService
 from recognition.null_recognizer import NullRecognizer
 
@@ -105,6 +106,9 @@ SECTION_CONFIG = {
     "add_server": {"title": "Añadir servidor", "subtitle": "Conecta Navidrome o Jellyfin",
                    "icon": "sidebar_add", "views": [],
                    "search": False, "default": None},
+    "playlist_hub": {"title": "Playlist", "subtitle": "Organiza, mezcla e importa tus listas",
+                     "icon": "sidebar_playlists", "views": ["grid"],
+                     "search": False, "default": "grid"},
 }
 
 
@@ -683,6 +687,30 @@ class MainWindow(QMainWindow):
         self._discover.navigate_requested.connect(
             self._on_sidebar_navigate)
 
+        self._playlist_hub = PlaylistHubWidget()
+        self._playlist_hub.create_playlist_requested.connect(self._create_playlist)
+        self._playlist_hub.import_m3u_requested.connect(self._import_m3u)
+        self._playlist_hub.export_playlists_requested.connect(self._export_playlists)
+        self._playlist_hub.smart_playlist_requested.connect(self._open_smart_playlist)
+        self._playlist_hub.playlist_open_requested.connect(
+            lambda pid: self._on_sidebar_navigate(f"pl:{pid}"))
+        self._playlist_hub.playlist_play_requested.connect(
+            self._on_hub_playlist_play)
+        self._playlist_hub.playlist_queue_requested.connect(
+            self._on_hub_playlist_queue)
+        self._playlist_hub.create_from_folder_requested.connect(
+            self._on_hub_create_from_folder)
+        self._playlist_hub.create_from_queue_requested.connect(
+            self._on_hub_create_from_queue)
+        self._playlist_hub.create_from_album_requested.connect(
+            self._on_stub_action)
+        self._playlist_hub.create_from_artist_requested.connect(
+            self._on_stub_action)
+        self._playlist_hub.create_from_genre_requested.connect(
+            self._on_stub_action)
+        self._playlist_hub.create_from_search_requested.connect(
+            self._on_stub_action)
+
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
             lambda fps: self._playback.enqueue(fps, play_now=True))
@@ -705,6 +733,7 @@ class MainWindow(QMainWindow):
         self._views.register("album_grid", self._album_grid)
         self._views.register("song_grid", self._song_grid)
         self._views.register("discover", self._discover)
+        self._views.register("playlist_hub", self._playlist_hub)
         self._views.register("folders", self._folder_browser)
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
@@ -914,6 +943,11 @@ class MainWindow(QMainWindow):
             self._apply_filters()
             self._view_mode = "list"
             self._view_switcher.set_view("list", emit=False)
+
+        elif key == "playlist_hub":
+            pls = self._db.get_playlists()
+            self._playlist_hub.set_playlists(pls)
+            self._fade_content("playlist_hub")
 
         elif key and key.startswith("pl:"):
             pid = int(key.split(":", 1)[1])
@@ -1541,6 +1575,43 @@ class MainWindow(QMainWindow):
             f"Formato: {fmt_str}"
         )
         QMessageBox.information(self, "Detalles del álbum", msg)
+
+    # ── Playlist Hub actions ──
+
+    def _import_m3u(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Importar M3U", "", "Playlist M3U (*.m3u *.m3u8);;Todos (*.*)")
+        if path:
+            self._toast.show(f"Importador M3U pendiente de implementar: {os.path.basename(path)}", "info")
+
+    def _export_playlists(self):
+        self._toast.show("Exportador de playlists pendiente de implementar", "info")
+
+    def _open_smart_playlist(self, key: str):
+        self._on_sidebar_navigate(f"mix_{key}" if not key.startswith("mix_") else key)
+
+    def _on_hub_playlist_play(self, pid: int):
+        items = self._db.get_playlist_items(pid)
+        fps = [i.filepath for i in items]
+        self._playback.enqueue(fps, play_now=True)
+        self._toast.show(f"Reproduciendo playlist", "success")
+
+    def _on_hub_playlist_queue(self, pid: int):
+        items = self._db.get_playlist_items(pid)
+        fps = [i.filepath for i in items]
+        self._playback.enqueue(fps, play_now=False)
+        self._toast.show(f"Playlist añadida a la cola", "success")
+
+    def _on_hub_create_from_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta musical")
+        if folder:
+            self._toast.show(f"Crear playlist desde carpeta pendiente: {folder}", "info")
+
+    def _on_hub_create_from_queue(self):
+        self._toast.show("Crear playlist desde cola pendiente de implementar", "info")
+
+    def _on_stub_action(self):
+        self._toast.show("Acción pendiente de implementar", "info")
 
     # ── Expanded View ──
 
