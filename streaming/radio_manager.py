@@ -13,6 +13,7 @@ class RadioStation:
     name: str
     url: str
     id: int = 0
+    image_path: str = ""
 
 
 class RadioManager:
@@ -41,8 +42,9 @@ class RadioManager:
     def get_all(self) -> list[RadioStation]:
         return self._stations.copy()
 
-    def add(self, name: str, url: str) -> RadioStation:
-        station = RadioStation(name=name, url=url, id=self._next_id)
+    def add(self, name: str, url: str, image_path: str = "") -> RadioStation:
+        station = RadioStation(name=name, url=url, id=self._next_id,
+                              image_path=image_path)
         self._stations.append(station)
         self._next_id += 1
         self._save()
@@ -56,11 +58,12 @@ class RadioManager:
                 return True
         return False
 
-    def update(self, station_id: int, name: str, url: str) -> bool:
+    def update(self, station_id: int, name: str, url: str, image_path: str = "") -> bool:
         for s in self._stations:
             if s.id == station_id:
                 s.name = name
                 s.url = url
+                s.image_path = image_path
                 self._save()
                 return True
         return False

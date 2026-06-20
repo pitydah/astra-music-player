@@ -387,7 +387,7 @@ class NowPlayingBar(QWidget):
             "color: rgba(255,255,255,0.86); font-size: 10px; font-weight: 600;")
         self._time_lbl.setFixedWidth(32)
 
-        self._seek = QSlider(Qt.Horizontal)
+        self._seek = ClickableSlider(Qt.Horizontal)
         self._seek.setRange(0, 1000)
         self._seek.setMinimumWidth(150)
         self._seek.setFixedHeight(28)
@@ -396,6 +396,7 @@ class NowPlayingBar(QWidget):
         self._seek.sliderPressed.connect(lambda: setattr(self, '_seeking', True))
         self._seek.sliderReleased.connect(self._on_seek_end)
         self._seek.sliderMoved.connect(self._on_seek_drag)
+        self._seek.seek_clicked.connect(self._on_seek_click)
 
         self._dur_lbl = QLabel("0:00")
         self._dur_lbl.setStyleSheet(
@@ -569,6 +570,12 @@ class NowPlayingBar(QWidget):
         if self._duration > 0:
             self._time_lbl.setText(_fmt(v / 1000.0 * self._duration))
 
+    def _on_seek_click(self, value: int):
+        if self._duration > 0:
+            seconds = value / 1000.0 * self._duration
+            self._time_lbl.setText(_fmt(seconds))
+            self.seek_requested.emit(seconds)
+
     # ── Public API ──
 
     def set_state(self, state: str):
@@ -655,6 +662,22 @@ class NowPlayingBar(QWidget):
 
     def set_quality(self, text: str):
         self._quality_badge.setText(f" {text} " if text else " LOCAL ")
+
+class ClickableSlider(QSlider):
+    """Slider that jumps to clicked position instantly."""
+    seek_clicked = Signal(int)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and self.orientation() == Qt.Horizontal:
+            x = event.position().x() if hasattr(event, "position") else event.x()
+            ratio = max(0.0, min(1.0, x / max(1, self.width())))
+            value = self.minimum() + int(ratio * (self.maximum() - self.minimum()))
+            self.setValue(value)
+            self.seek_clicked.emit(value)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
 
 def _fmt(t: float) -> str:
     t = int(t)

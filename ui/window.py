@@ -45,6 +45,7 @@ from streaming.server_dialog import ServerDialog
 from streaming.remote_browser import RemoteBrowser
 from library.coverflow import CoverFlowWidget
 from library.album_grid import AlbumGridWidget
+from library.song_grid import SongGridWidget
 from library.album_art import load_covers_for_albums
 from ui.expanded_view import ExpandedNowPlaying
 from streaming.radio_widget import RadioWidget
@@ -449,6 +450,10 @@ class MainWindow(QMainWindow):
         self._album_grid.album_double_clicked.connect(
             lambda fps: self._playback.enqueue(fps, play_now=True))
 
+        self._song_grid = SongGridWidget()
+        self._song_grid.song_double_clicked.connect(
+            lambda fp: self._play_file(fp))
+
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
             lambda fps: self._playback.enqueue(fps, play_now=True))
@@ -464,6 +469,7 @@ class MainWindow(QMainWindow):
         self._views.register("expanded", placeholder_expanded)
         self._views.register("radio", self._radio_widget)
         self._views.register("album_grid", self._album_grid)
+        self._views.register("song_grid", self._song_grid)
         self._views.register("folders", self._folder_browser)
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
@@ -884,9 +890,9 @@ class MainWindow(QMainWindow):
             self._section_title.setText("Biblioteca")
             self._fade_content("library")
         elif mode == "grid":
-            self._show_album_grid()
+            self._show_song_grid()
             self._section_title.setText("Carátulas")
-            self._fade_content("album_grid")
+            self._fade_content("song_grid")
         elif mode == "coverflow":
             self._show_coverflow()
             self._section_title.setText("Coverflow")
@@ -917,6 +923,20 @@ class MainWindow(QMainWindow):
     def _show_album_grid(self):
         self._album_grid.set_items(self._all_items, 180)
         self._count.setText(f"{len(self._all_items)} temas")
+
+    def _show_song_grid(self):
+        items = self._all_items
+        if self._search_text:
+            q = self._search_text.lower()
+            items = [
+                i for i in items
+                if q in (i.title or "").lower()
+                or q in (i.artist or "").lower()
+                or q in (i.album or "").lower()
+                or q in (i.filepath or "").lower()
+            ]
+        self._song_grid.set_items(items, card_size=170)
+        self._count.setText(f"{len(items)} canciones")
 
     def _show_coverflow_view(self):
         self._view_switcher.set_view("coverflow", emit=False)
