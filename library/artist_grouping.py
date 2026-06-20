@@ -76,7 +76,6 @@ def build_artist_albums(items: list[MediaItem]) -> dict[str, tuple[list[ArtistAl
     Returns dict[artist_key -> (albums, loose_tracks)]."""
     by_artist: dict[str, list[MediaItem]] = defaultdict(list)
     unknown_artist: list[MediaItem] = []
-    unknown_loose: list[MediaItem] = []
 
     for item in items:
         akey = _artist_key(item)

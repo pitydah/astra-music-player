@@ -305,7 +305,6 @@ class MetadataEditorWidget(QWidget):
         self._table.setRowCount(0)
 
         filter_key = self._filter_key
-        diag = diagnose_items(self._tags)
 
         if not self._tags:
             self._show_empty_dashboard()

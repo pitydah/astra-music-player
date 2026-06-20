@@ -1479,7 +1479,6 @@ class MainWindow(QMainWindow):
         for album, artist, tracks in groups:
             dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
             exts = set((getattr(t, 'ext', '') or '').upper().lstrip(".") for t in tracks if getattr(t, 'ext', ''))
-            fmt_str = ", ".join(sorted(exts))
             year = tracks[0].year if tracks else ""
             refs.append(TrackRef(
                 uri=album, title=album,
@@ -2573,7 +2572,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(lst)
 
         btn_row = QHBoxLayout()
-        active = self._transmit_mgr.get_active()
 
         def _do_delete():
             sel = lst.currentItem()

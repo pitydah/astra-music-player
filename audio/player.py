@@ -215,7 +215,6 @@ class GStreamerEngine(QObject):
                         if band:
                             band.set_property("gain", float(db))
             except Exception:
-                import logging
                 logging.getLogger("astra").debug("EQ bands application failed")
 
         ret = self._pipeline.set_state(Gst.State.PLAYING)
@@ -287,7 +286,6 @@ class GStreamerEngine(QObject):
     def _dff_feed(self):
         h = self._dff_header
         fh = self._file_handle
-        appsrc = self._appsrc
         if not fh or not h:
             return
         fh.seek(h.data_offset)

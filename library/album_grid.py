@@ -398,7 +398,6 @@ class _AlbumCard(QFrame):
         layout.addWidget(title_lbl)
 
         # ── Subtitle (artist + year) ──
-        sub_text = cover_item.subtitle or ""
         # subtitle from load_covers_for_albums already contains "artist · year · N ♪"
         # let's parse it into a cleaner format
         artist, year_str = _parse_subtitle(cover_item)
@@ -445,9 +444,7 @@ class _AlbumCard(QFrame):
             if exts:
                 fmt_str = " · ".join(sorted(exts))[:22]
 
-        has_flac = any(
-            (getattr(t, 'ext', '') or '').lower().lstrip('.') == 'flac'
-            for t in tracks)
+        # Detect special states for badge coloring
         no_cover = cover_item.pixmap is None or cover_item.pixmap.isNull()
         incomplete = count < 2
 

@@ -228,7 +228,6 @@ class CoverItem(QGraphicsObject):
 
         # smooth factors
         center_t = 1.0 - _smoothstep(0.0, 1.0, ad)
-        side_t = _smoothstep(0.0, 2.6, ad)
         far_t = _smoothstep(1.8, 6.0, ad)
 
         # rotation
