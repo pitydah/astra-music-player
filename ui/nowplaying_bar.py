@@ -445,8 +445,8 @@ class NowPlayingBar(QWidget):
         utility_row.addWidget(self._mini_player_btn)
 
         center_layout.addLayout(seek_row)
-        center_layout.addLayout(utility_row)
         center_layout.addLayout(ctrl_row)
+        center_layout.addLayout(utility_row)
         layout.addWidget(center_widget, 1)
 
         # ═══ RIGHT: VOLUME + TOOLS + BADGE (stretch=0) ═══
