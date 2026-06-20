@@ -54,6 +54,7 @@ CUSTOM_ICONS = {
     "warm_view_grid":     "/home/cristian/Descargas/iloveimg-resized(2)/view-cover.svg",
     "warm_view_list":     "/home/cristian/Descargas/iloveimg-resized(2)/view-list.svg",
     "warm_view_coverflow": "/home/cristian/Descargas/iloveimg-resized(2)/view-coverflow.svg",
+    "metadata_editor":   "icons/sidebar/metadata.svg",
 }
 
 # ── Map: icon name → Breeze 24px SVG path ──

@@ -42,6 +42,8 @@ class SidebarController(QObject):
         self._sidebar.add_item("mix", "discover", "Panel Descubrir", "sidebar_mix")
         self._sidebar.add_item("mix", "identifier", "Identificador",
                                "sidebar_identifier")
+        self._sidebar.add_item("mix", "metadata_editor", "Editor de metadatos",
+                               "metadata_editor")
 
         # Radio
         self._sidebar.add_section("rad", "Radio", "sidebar_radio")

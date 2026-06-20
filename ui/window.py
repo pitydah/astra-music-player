@@ -53,6 +53,7 @@ from streaming.radio_manager import RadioManager
 from ui.music_identifier_view import MusicIdentifierView
 from ui.discover_dashboard import DiscoverDashboard
 from ui.playlist_hub import PlaylistHubWidget
+from ui.metadata_editor import MetadataEditorWidget
 from recognition.detection_service import DetectionService
 from recognition.null_recognizer import NullRecognizer
 
@@ -109,6 +110,10 @@ SECTION_CONFIG = {
     "playlist_hub": {"title": "Playlist", "subtitle": "Organiza, mezcla e importa tus listas",
                      "icon": "sidebar_playlists", "views": ["grid"],
                      "search": False, "default": "grid"},
+    "metadata_editor": {"title": "Editor de metadatos",
+                        "subtitle": "Limpia, completa y normaliza la información de tus archivos",
+                        "icon": "metadata_editor", "views": [],
+                        "search": False, "default": None},
 }
 
 
@@ -711,6 +716,10 @@ class MainWindow(QMainWindow):
         self._playlist_hub.create_from_search_requested.connect(
             self._on_stub_action)
 
+        self._metadata_editor = MetadataEditorWidget()
+        self._metadata_editor.files_saved.connect(self._on_metadata_saved)
+        self._metadata_editor.request_library_refresh.connect(self._refresh_library)
+
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
             lambda fps: self._playback.enqueue(fps, play_now=True))
@@ -734,6 +743,7 @@ class MainWindow(QMainWindow):
         self._views.register("song_grid", self._song_grid)
         self._views.register("discover", self._discover)
         self._views.register("playlist_hub", self._playlist_hub)
+        self._views.register("metadata_editor", self._metadata_editor)
         self._views.register("folders", self._folder_browser)
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
@@ -948,6 +958,9 @@ class MainWindow(QMainWindow):
             pls = self._db.get_playlists()
             self._playlist_hub.set_playlists(pls)
             self._fade_content("playlist_hub")
+
+        elif key == "metadata_editor":
+            self._fade_content("metadata_editor")
 
         elif key and key.startswith("pl:"):
             pid = int(key.split(":", 1)[1])
@@ -1612,6 +1625,12 @@ class MainWindow(QMainWindow):
 
     def _on_stub_action(self):
         self._toast.show("Acción pendiente de implementar", "info")
+
+    def _on_metadata_saved(self, filepaths: list):
+        self._toast.show(f"Metadatos guardados en {len(filepaths)} archivos", "success")
+
+    def _refresh_library(self):
+        self._load_library()
 
     # ── Expanded View ──
 
