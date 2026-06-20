@@ -280,20 +280,20 @@ class MusicIdentifierView(QWidget):
 
             w = QWidget()
             w.setStyleSheet("background:transparent;")
-            l = QVBoxLayout(w)
-            l.setContentsMargins(0, 0, 0, 0)
-            l.setSpacing(2)
+            layout = QVBoxLayout(w)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(2)
 
             l1 = QLabel(line1)
             l1.setStyleSheet(
                 "font-size:13px;font-weight:550;color:rgba(245,245,247,0.85);"
                 "background:transparent;border:none;")
-            l.addWidget(l1)
+            layout.addWidget(l1)
 
             l2 = QLabel(line2)
             l2.setStyleSheet(
                 "font-size:11px;color:rgba(245,245,247,0.45);"
                 "background:transparent;border:none;")
-            l.addWidget(l2)
+            layout.addWidget(l2)
 
             self._list.setItemWidget(item, w)

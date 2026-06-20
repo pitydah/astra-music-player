@@ -127,7 +127,7 @@ class LrcLibClient:
                 lines.append(LyricLine(timestamp=ts, text=text))
 
         # Sort by timestamp
-        lines.sort(key=lambda l: l.timestamp)
+        lines.sort(key=lambda line: line.timestamp)
         return lines
 
     def search(self, query: str) -> list[LyricsResult]:

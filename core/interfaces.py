@@ -102,4 +102,7 @@ class ILibraryController(ABC):
     """Future: decouple window.py from direct LibraryDB access.
 
     Not yet implemented — placeholder for Phase 3+."""
-    pass
+
+    @abstractmethod
+    def get_all_tracks(self) -> list:
+        ...

@@ -68,7 +68,7 @@ class AdvancedEqWidget(QWidget):
             ("Peak", 8000, 0.0, 1.0),
             ("HighShelf", 12000, 0.0, 0.7),
         ]
-        for i, (ft, f, g, q) in enumerate(defaults):
+        for _i, (ft, f, g, q) in enumerate(defaults):
             self._add_band(ft, f, g, q)
 
     def _add_band(self, f_type="Peak", freq=1000.0, gain=0.0, Q=1.41):
@@ -113,7 +113,7 @@ class AdvancedEqWidget(QWidget):
             ("Peak", 8000, 0.0, 1.0),
             ("HighShelf", 12000, 0.0, 0.7),
         ]
-        for i, (ft, f, g, q) in enumerate(defaults):
+        for _i, (ft, f, g, q) in enumerate(defaults):
             self._add_band(ft, f, g, q)
 
     def load_preset(self, bands: list[dict], preamp: float = 0.0):

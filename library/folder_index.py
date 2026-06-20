@@ -12,9 +12,8 @@ def list_audio_files(directory: str) -> list[str]:
         for f in sorted(os.listdir(directory)):
             if not f.startswith("."):
                 full = os.path.join(directory, f)
-                if os.path.isfile(full):
-                    if os.path.splitext(f)[1].lower() in exts:
-                        files.append(full)
+                if os.path.isfile(full) and os.path.splitext(f)[1].lower() in exts:
+                    files.append(full)
     except (PermissionError, FileNotFoundError):
         pass
     return files

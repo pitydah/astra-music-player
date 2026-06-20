@@ -90,4 +90,4 @@ def download_preset(model: str) -> list[dict]:
             })
         return bands
     except Exception as e:
-        raise RuntimeError(f"Download failed: {e}")
+        raise RuntimeError(f"Download failed: {e}") from e

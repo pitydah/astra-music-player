@@ -133,7 +133,7 @@ class SubsonicClient:
                 raise
             except urllib.error.HTTPError as e:
                 if e.code in (401, 403):
-                    raise AuthError(f"Authentication failed: {e}", recoverable=False)
+                    raise AuthError(f"Authentication failed: {e}", recoverable=False) from e
                 last_error = SubsonicError(
                     f"Server error ({e.code}): {e.reason}", recoverable=True)
             except urllib.error.URLError as e:

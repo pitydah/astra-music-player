@@ -102,7 +102,7 @@ def draw_player_icon(painter: QPainter, name: str, rect: QRectF, color: QColor):
 
     elif key in ("eq",):
         painter.setBrush(Qt.NoBrush)
-        for i, (h, x) in enumerate([(12, 5), (16, 10), (10, 15)]):
+        for _i, (h, x) in enumerate([(12, 5), (16, 10), (10, 15)]):
             painter.drawLine(QPointF(x, 20 - h), QPointF(x, 20))
             painter.setBrush(brush)
             painter.drawEllipse(QRectF(x - 1.8, 19 - h - 1.8, 3.6, 3.6))

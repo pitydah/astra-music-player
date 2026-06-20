@@ -244,7 +244,7 @@ class EqDialog(QDialog):
             "graphic": (self._graphic_btn, "basic"),
             "parametric": (self._param_btn, "advanced"),
         }
-        for m, (btn, view_mode) in btn_map.items():
+        for m, (btn, _view_mode) in btn_map.items():
             active = (m == mode)
             btn.setChecked(active)
             btn.setProperty("active", active)

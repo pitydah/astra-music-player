@@ -589,9 +589,8 @@ class MetadataEditorWidget(QWidget):
             return
         changed = False
         for idx in self._selected_indices:
-            if idx < len(self._tags):
-                if self._tags[idx].set_field(attr, value):
-                    changed = True
+            if idx < len(self._tags) and self._tags[idx].set_field(attr, value):
+                changed = True
         if changed:
             self._dirty_count = sum(1 for t in self._tags if t.dirty)
             self._rebuild_navigator()

@@ -164,7 +164,7 @@ def _rounded_cover_pixmap(src: QPixmap, size: int = 76, radius: int = 16) -> QPi
     return result
 
 
-from functools import lru_cache
+from functools import lru_cache  # noqa: E402
 
 
 @lru_cache(maxsize=4)

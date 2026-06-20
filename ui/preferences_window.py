@@ -136,7 +136,7 @@ class PreferencesWindow(QDialog):
         self._stack.setStyleSheet(f"QStackedWidget {{ background: {_BG}; }}")
 
         self._pages: list[tuple[str, QWidget]] = []
-        for name, page_class, icon_name in PAGE_DEFS:
+        for name, _page_class, icon_name in PAGE_DEFS:
             item = QListWidgetItem(name)
             icon_path = get_icon(icon_name)
             if icon_path:

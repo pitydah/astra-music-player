@@ -50,7 +50,7 @@ def main():
 
     sizes = [24, 32]
     y_offset = MARGIN + 24
-    for sz_idx, sz in enumerate(sizes):
+    for _sz_idx, sz in enumerate(sizes):
         sy = y_offset + 4
         painter.setPen(QColor(255, 255, 255, 100))
         font2 = QFont("sans-serif", 9)

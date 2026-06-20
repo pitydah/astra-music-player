@@ -2,12 +2,16 @@
 import os
 
 from metadata.tag_model import TrackTags
+import contextlib
 
 try:
-    import mutagen
-    from mutagen.flac import FLAC, Picture
-    from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB, TPE2, TRCK, TPOS, TDRC, TCON, TCOM, COMM, USLT, TBPM, TSRC, TXXX
-    from mutagen.mp4 import MP4, MP4Cover
+    import mutagen  # noqa: F401
+    import mutagen.flac  # noqa: F401 — registers FLAC handler
+    import mutagen.id3  # noqa: F401 — registers ID3 handler
+    import mutagen.mp4  # noqa: F401 — registers MP4 handler
+    from mutagen.flac import Picture
+    from mutagen.id3 import APIC, TIT2, TPE1, TALB, TPE2, TRCK, TPOS, TDRC, TCON, TCOM, COMM, USLT, TBPM, TSRC, TXXX
+    from mutagen.mp4 import MP4Cover
     _mutagen_available = True
 except ImportError:
     _mutagen_available = False
@@ -137,10 +141,8 @@ def _set_vorbis_field(f, attr: str, value: str):
     if value.strip():
         f.tags[attr] = value
     else:
-        try:
+        with contextlib.suppress(KeyError, Exception):
             del f.tags[attr]
-        except (KeyError, Exception):
-            pass
 
 
 # ── MP4 ──
@@ -160,10 +162,8 @@ def _set_mp4_field(f, attr: str, value: str):
         else:
             f.tags[mp4_key] = [value]
     else:
-        try:
+        with contextlib.suppress(KeyError, Exception):
             del f.tags[mp4_key]
-        except (KeyError, Exception):
-            pass
 
     # Handle tracktotal/disctotal via trkn/disk
     if attr == "tracknumber" and value.strip() and "/" not in value:
@@ -199,7 +199,5 @@ def _write_artwork(f, kind: str, tags: TrackTags):
             fmt = MP4Cover.FORMAT_JPEG if "jpeg" in (tags.artwork_mime or "jpeg") else MP4Cover.FORMAT_PNG
             f.tags["covr"] = [MP4Cover(tags.artwork_data, imageformat=fmt)]
         else:
-            try:
+            with contextlib.suppress(KeyError, Exception):
                 del f.tags["covr"]
-            except (KeyError, Exception):
-                pass

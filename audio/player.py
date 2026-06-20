@@ -19,12 +19,12 @@ from dataclasses import dataclass
 import gi
 gi.require_version("Gst", "1.0")
 gi.require_version("GstPbutils", "1.0")
-from gi.repository import Gst, GLib
+from gi.repository import Gst, GLib  # noqa: E402
 
-from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtCore import QObject, Signal, QTimer  # noqa: E402
 
-from audio.audio_chain import DacConfig, build_eq_graphic_chain, build_eq_parametric_chain
-from audio.dff_parser import parse_dff
+from audio.audio_chain import DacConfig, build_eq_graphic_chain, build_eq_parametric_chain  # noqa: E402
+from audio.dff_parser import parse_dff  # noqa: E402
 
 Gst.init(None)
 

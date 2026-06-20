@@ -7,7 +7,7 @@ from audio.eq_biquad import eval_response
 
 def graphic_to_parametric(graphic_bands: list[float]) -> tuple[list[dict], float]:
     """Convert 31-band graphic EQ values to a 10-band parametric preset.
-    
+
     Strategy: find peaks/valleys in the 31-band response and create
     Peak filters at those positions. Add shelf filters at extremes.
     """

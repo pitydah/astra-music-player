@@ -335,4 +335,4 @@ class RadioDialog(QDialog):
 
 
 # Import at bottom to avoid circular imports
-from streaming.radio_manager import RadioManager
+from streaming.radio_manager import RadioManager  # noqa: E402

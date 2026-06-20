@@ -15,16 +15,17 @@ import logging
 from dataclasses import dataclass
 
 logger = logging.getLogger("astra.library")
-from typing import Callable
+from typing import Callable  # noqa: E402
 
-import gi
+import gi  # noqa: E402
 gi.require_version("Gst", "1.0")
 gi.require_version("GstPbutils", "1.0")
-from gi.repository import Gst, GstPbutils
+from gi.repository import Gst, GstPbutils  # noqa: E402
 
-from PySide6.QtCore import (
+from PySide6.QtCore import (  # noqa: E402
     Signal, QObject,
 )
+import contextlib  # noqa: E402
 
 Gst.init(None)
 
@@ -163,35 +164,34 @@ def extract_metadata_full(filepath: str) -> dict:
         mf = MutagenFile(filepath)
         if mf is None:
             return info
-        if mf.tags:
-            if hasattr(mf.tags, 'get'):
-                def get_tag(tags, *names):
-                    for n in names:
-                        val = tags.get(n)
-                        if val:
-                            if isinstance(val, list):
-                                return str(val[0])
-                            return str(val)
-                    return ""
-                info["composer"] = get_tag(mf.tags, "composer", "TPE1", "©wrt", "TCOM")
-                genre_val = get_tag(mf.tags, "genre", "TCON", "©gen")
-                try:
-                    if genre_val and genre_val.startswith("(") and ")" in genre_val:
-                        genre_val = genre_val.split(")", 1)[-1].strip()
-                except Exception:
-                    import logging
-                    logging.getLogger("astra").debug("Genre parsing failed, using raw value")
-                info["genre"] = genre_val
-                year_val = get_tag(mf.tags, "date", "year", "TYER", "©day", "TDRC")
-                try:
-                    info["year"] = int(year_val[:4]) if year_val else 0
-                except Exception:
-                    info["year"] = 0
-                track_val = get_tag(mf.tags, "tracknumber", "TRCK", "track", "trkn")
-                try:
-                    info["track_number"] = int(track_val.split("/")[0]) if track_val else 0
-                except Exception:
-                    info["track_number"] = 0
+        if mf.tags and hasattr(mf.tags, 'get'):
+            def get_tag(tags, *names):
+                for n in names:
+                    val = tags.get(n)
+                    if val:
+                        if isinstance(val, list):
+                            return str(val[0])
+                        return str(val)
+                return ""
+            info["composer"] = get_tag(mf.tags, "composer", "TPE1", "©wrt", "TCOM")
+            genre_val = get_tag(mf.tags, "genre", "TCON", "©gen")
+            try:
+                if genre_val and genre_val.startswith("(") and ")" in genre_val:
+                    genre_val = genre_val.split(")", 1)[-1].strip()
+            except Exception:
+                import logging
+                logging.getLogger("astra").debug("Genre parsing failed, using raw value")
+            info["genre"] = genre_val
+            year_val = get_tag(mf.tags, "date", "year", "TYER", "©day", "TDRC")
+            try:
+                info["year"] = int(year_val[:4]) if year_val else 0
+            except Exception:
+                info["year"] = 0
+            track_val = get_tag(mf.tags, "tracknumber", "TRCK", "track", "trkn")
+            try:
+                info["track_number"] = int(track_val.split("/")[0]) if track_val else 0
+            except Exception:
+                info["track_number"] = 0
         for tag_type in mf or []:
             if tag_type and (b'APIC' in str(tag_type).encode() or 'APIC' in str(tag_type)):
                 try:
@@ -340,10 +340,8 @@ class LibraryDB:
                               ("last_played", "REAL"), ("bpm", "INTEGER"),
                               ("replaygain_track", "REAL"), ("replaygain_album", "REAL")]:
             if col not in existing:
-                try:
+                with contextlib.suppress(sqlite3.OperationalError):
                     self._conn.execute(f"ALTER TABLE media_items ADD COLUMN {col} {col_def}")
-                except sqlite3.OperationalError:
-                    pass
 
     def close(self):
         self._conn.close()
@@ -608,7 +606,7 @@ class LibraryDB:
             "ORDER BY detected_at DESC LIMIT ?", (limit,)).fetchall()
         cols = [d[1] for d in self._conn.execute(
             "PRAGMA table_info(detected_tracks)").fetchall()]
-        return [dict(zip(cols, r)) for r in rows]
+        return [dict(zip(cols, r, strict=False)) for r in rows]
 
     def clear_detected_tracks(self):
         self._conn.execute("DELETE FROM detected_tracks")
@@ -627,7 +625,7 @@ class LibraryDB:
         if row:
             cols = [d[1] for d in self._conn.execute(
                 "PRAGMA table_info(detected_tracks)").fetchall()]
-            return dict(zip(cols, row))
+            return dict(zip(cols, row, strict=False))
         return None
 
 

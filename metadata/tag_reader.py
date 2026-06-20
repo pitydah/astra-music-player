@@ -5,15 +5,16 @@ from metadata.tag_model import TrackTags
 
 _mutagen_available = False
 try:
-    import mutagen
-    from mutagen.flac import FLAC, Picture
-    from mutagen.id3 import ID3, APIC
-    from mutagen.oggopus import OggOpus
-    from mutagen.oggvorbis import OggVorbis
-    from mutagen.mp4 import MP4, MP4Cover
-    from mutagen.easyid3 import EasyID3
-    from mutagen.aiff import AIFF
-    from mutagen.wave import WAVE
+    import mutagen  # noqa: F401 — triggers module registration
+    import mutagen.flac  # noqa: F401 — registers FLAC handler
+    import mutagen.id3  # noqa: F401 — registers ID3 handler
+    import mutagen.oggopus  # noqa: F401 — registers Opus handler
+    import mutagen.oggvorbis  # noqa: F401 — registers Vorbis handler
+    import mutagen.mp4  # noqa: F401 — registers MP4 handler
+    import mutagen.easyid3  # noqa: F401 — registers EasyID3 handler
+    import mutagen.aiff  # noqa: F401 — registers AIFF handler
+    import mutagen.wave  # noqa: F401 — registers WAVE handler
+    from mutagen.mp4 import MP4Cover  # used directly for artwork
     _mutagen_available = True
 except ImportError:
     pass

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from library.folder_index import list_audio_files, list_subfolders
 from ui.icons import get_icon
+import contextlib
 
 COVER_NAMES = ("cover.jpg", "cover.png", "folder.jpg", "folder.png",
                "front.jpg", "front.png", "album.jpg", "album.png",
@@ -453,10 +454,8 @@ class FolderBrowserWidget(QWidget):
         total_size = 0
         for fp in files:
             exts.add(os.path.splitext(fp)[1].lower())
-            try:
+            with contextlib.suppress(OSError):
                 total_size += os.path.getsize(fp)
-            except OSError:
-                pass
 
         fmt_str = ", ".join(exts) if exts else "—"
         size_str = f"{total_size / (1024*1024):.1f} MB" if total_size > 0 else "—"
