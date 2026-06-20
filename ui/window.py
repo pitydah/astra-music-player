@@ -356,7 +356,9 @@ class MainWindow(QMainWindow):
                 border-radius: 18px;
             }
         """)
-        hl = QHBoxLayout(header); hl.setContentsMargins(14, 10, 14, 10); hl.setSpacing(12)
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(14, 10, 14, 10)
+        hl.setSpacing(12)
 
         # Section icon capsule
         self._section_icon_box = QFrame()
@@ -411,8 +413,10 @@ class MainWindow(QMainWindow):
         hl.addSpacing(16)
 
         self._search = QLineEdit()
-        self._search.setPlaceholderText("Buscar canciones..."); self._search.setClearButtonEnabled(True)
-        self._search.setFixedWidth(240); self._search.textChanged.connect(self._on_search)
+        self._search.setPlaceholderText("Buscar canciones...")
+        self._search.setClearButtonEnabled(True)
+        self._search.setFixedWidth(240)
+        self._search.textChanged.connect(self._on_search)
         self._search.setStyleSheet("""
             QLineEdit {
                 background: rgba(255,255,255,0.060);
@@ -851,8 +855,11 @@ class MainWindow(QMainWindow):
             "  background: #090B11;"
             "  border: none;"
             "}")
-        cl = QVBoxLayout(cw); cl.setContentsMargins(0, 0, 0, 0); cl.setSpacing(0)
-        cl.addWidget(header); cl.addWidget(self._content)
+        cl = QVBoxLayout(cw)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(0)
+        cl.addWidget(header)
+        cl.addWidget(self._content)
 
         # ── Splitter ──
         sp = QSplitter(Qt.Horizontal)
@@ -889,7 +896,9 @@ class MainWindow(QMainWindow):
             "QWidget#mainRoot {"
             "  background: #090B11;"
             "}")
-        layout = QVBoxLayout(cent); layout.setContentsMargins(8, 8, 8, 8); layout.setSpacing(0)
+        layout = QVBoxLayout(cent)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(0)
         layout.addWidget(sp, stretch=1)
         layout.addWidget(bar_wrapper, stretch=0)
         self.setCentralWidget(cent)
@@ -997,7 +1006,9 @@ class MainWindow(QMainWindow):
         # Sidebar shadow
         from PySide6.QtWidgets import QGraphicsDropShadowEffect
         shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(18); shadow.setXOffset(3); shadow.setYOffset(0)
+        shadow.setBlurRadius(18)
+        shadow.setXOffset(3)
+        shadow.setYOffset(0)
         shadow.setColor(QColor(0, 0, 0, 40))
         self._sidebar.setGraphicsEffect(shadow)
 
@@ -1051,10 +1062,15 @@ class MainWindow(QMainWindow):
                 count_text += f" ({missing} no encontrados)"
 
             self._count.setText(count_text)
-            self._views.show("library"); self._table.setModel(self._model)
-            self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260); self._table.setColumnWidth(3, 170)
-            self._table.setColumnWidth(3, 170); self._table.setColumnWidth(4, 55)
-            self._table.setColumnWidth(5, 110); self._table.setColumnWidth(6, 75)
+            self._views.show("library")
+            self._table.setModel(self._model)
+            self._table.setColumnWidth(0, 72)
+            self._table.setColumnWidth(1, 260)
+            self._table.setColumnWidth(3, 170)
+            self._table.setColumnWidth(3, 170)
+            self._table.setColumnWidth(4, 55)
+            self._table.setColumnWidth(5, 110)
+            self._table.setColumnWidth(6, 75)
             name = next((p["name"] for p in self._db.get_playlists() if p["id"] == pid), "")
             total_dur = int(sum(r.duration for r in refs))
             h = total_dur // 3600
@@ -1095,10 +1111,14 @@ class MainWindow(QMainWindow):
             self._model.populate(refs)
             self._count.setText(f"{len(refs)} géneros")
             if refs:
-                self._views.show("library"); self._table.setModel(self._model)
-                self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 240)
-                self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
-                self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+                self._views.show("library")
+                self._table.setModel(self._model)
+                self._table.setColumnWidth(0, 72)
+                self._table.setColumnWidth(1, 240)
+                self._table.setColumnWidth(2, 170)
+                self._table.setColumnWidth(3, 170)
+                self._table.setColumnWidth(4, 55)
+                self._table.setColumnWidth(5, 110)
                 self._table.setColumnWidth(6, 75)
             else:
                 self._views.show("empty")
@@ -1151,7 +1171,8 @@ class MainWindow(QMainWindow):
                 self._section_title.setText(device_name)
                 self._section_subtitle.setText(f"{len(files)} canciones")
             self._count.setText(f"{len(files)} archivos")
-            self._views.show("library"); self._table.setModel(self._model)
+            self._views.show("library")
+            self._table.setModel(self._model)
             self._search.show()
 
         elif key == "discover":
@@ -1184,10 +1205,14 @@ class MainWindow(QMainWindow):
                     self._count.setText(f"{len(refs)} canciones")
                     self._playlist_refs = refs
                     if refs:
-                        self._views.show("library"); self._table.setModel(self._model)
-                        self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260)
-                        self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
-                        self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+                        self._views.show("library")
+                        self._table.setModel(self._model)
+                        self._table.setColumnWidth(0, 72)
+                        self._table.setColumnWidth(1, 260)
+                        self._table.setColumnWidth(2, 170)
+                        self._table.setColumnWidth(3, 170)
+                        self._table.setColumnWidth(4, 55)
+                        self._table.setColumnWidth(5, 110)
                         self._table.setColumnWidth(6, 75)
                     else:
                         self._views.show("empty")
@@ -1214,10 +1239,14 @@ class MainWindow(QMainWindow):
             self._current_refs = refs
             self._count.setText(f"{len(refs)} canciones")
             if refs:
-                self._views.show("library"); self._table.setModel(self._model)
-                self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260)
-                self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
-                self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+                self._views.show("library")
+                self._table.setModel(self._model)
+                self._table.setColumnWidth(0, 72)
+                self._table.setColumnWidth(1, 260)
+                self._table.setColumnWidth(2, 170)
+                self._table.setColumnWidth(3, 170)
+                self._table.setColumnWidth(4, 55)
+                self._table.setColumnWidth(5, 110)
                 self._table.setColumnWidth(6, 75)
             else:
                 self._views.show("empty")
@@ -1239,16 +1268,22 @@ class MainWindow(QMainWindow):
             self._current_refs = refs
             self._count.setText(f"{len(refs)} canciones")
             if refs:
-                self._views.show("library"); self._table.setModel(self._model)
-                self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260)
-                self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
-                self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+                self._views.show("library")
+                self._table.setModel(self._model)
+                self._table.setColumnWidth(0, 72)
+                self._table.setColumnWidth(1, 260)
+                self._table.setColumnWidth(2, 170)
+                self._table.setColumnWidth(3, 170)
+                self._table.setColumnWidth(4, 55)
+                self._table.setColumnWidth(5, 110)
                 self._table.setColumnWidth(6, 75)
             else:
                 self._views.show("empty")
             self._search.show()
-            self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
-            self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+            self._table.setColumnWidth(2, 170)
+            self._table.setColumnWidth(3, 170)
+            self._table.setColumnWidth(4, 55)
+            self._table.setColumnWidth(5, 110)
             self._table.setColumnWidth(6, 75)
             self._search.show()
 
@@ -1291,7 +1326,8 @@ class MainWindow(QMainWindow):
 
     def _delete_playlist(self, pid):
         self._db.delete_playlist(pid)
-        self._rebuild_sidebar(); self._load_library()
+        self._rebuild_sidebar()
+        self._load_library()
 
     # ── Navidrome / Jellyfin ──
 
@@ -1380,9 +1416,13 @@ class MainWindow(QMainWindow):
         if n:
             self._views.show("library")
             self._table.setModel(self._model)
-            self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260); self._table.setColumnWidth(3, 170)
-            self._table.setColumnWidth(3, 170); self._table.setColumnWidth(4, 55)
-            self._table.setColumnWidth(5, 110); self._table.setColumnWidth(6, 75)
+            self._table.setColumnWidth(0, 72)
+            self._table.setColumnWidth(1, 260)
+            self._table.setColumnWidth(3, 170)
+            self._table.setColumnWidth(3, 170)
+            self._table.setColumnWidth(4, 55)
+            self._table.setColumnWidth(5, 110)
+            self._table.setColumnWidth(6, 75)
         else:
             self._views.show("empty")
 
@@ -1480,9 +1520,13 @@ class MainWindow(QMainWindow):
             ))
         self._model.populate(refs)
         self._table.setModel(self._model)
-        self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 240)
-        self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
-        self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110); self._table.setColumnWidth(6, 75)
+        self._table.setColumnWidth(0, 72)
+        self._table.setColumnWidth(1, 240)
+        self._table.setColumnWidth(2, 170)
+        self._table.setColumnWidth(3, 170)
+        self._table.setColumnWidth(4, 55)
+        self._table.setColumnWidth(5, 110)
+        self._table.setColumnWidth(6, 75)
         self._count.setText(f"{len(groups)} álbumes")
 
     def _configure_header_for_section(self, section_key: str):
