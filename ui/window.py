@@ -172,6 +172,9 @@ class MainWindow(QMainWindow):
         self._search_ctrl.results_ready.connect(self._on_search_results)
         from core.app_context import AppContext
         self._ctx = AppContext(self)
+        from core.toast_service import ToastService
+        self._toast_svc = ToastService(self)
+        self._player_bar_ctrl = None  # initialized after _setup_ui creates _player_bar
         from ui.controllers.playlist_controller import PlaylistController
         self._playlist_ctrl = PlaylistController(self)
         from core.file_actions import FileActions
@@ -192,7 +195,6 @@ class MainWindow(QMainWindow):
         self._current_refs: list = []
         self._album_sort_key = "title"
         self._album_filter_mode = "all"
-        self._fade_anim = None
         self._artist_groups: list[ArtistGroup] = []
         self._current_artist_key: str | None = None
         self._coverflow_cache_key: tuple | None = None
@@ -827,6 +829,15 @@ class MainWindow(QMainWindow):
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
 
+        from ui.controllers.view_navigator import ViewNavigator
+        self._nav = ViewNavigator(self._content, self._views, self._views)
+        self._nav._widgets = [
+            self._content, self._album_grid, self._song_grid,
+            self._folder_browser, self._radio_widget,
+            self._playlist_hub, self._metadata_editor,
+            self._discover, self._identifier_view,
+        ]
+
         # ── Content wrapper ──
         cw = QWidget()
         cw.setObjectName("contentSurface")
@@ -857,6 +868,8 @@ class MainWindow(QMainWindow):
 
         # ── NowPlaying bar ──
         self._player_bar = NowPlayingBar()
+        from ui.controllers.player_bar_controller import PlayerBarController
+        self._player_bar_ctrl = PlayerBarController(self._player_bar)
 
         bar_wrapper = QWidget()
         bar_wrapper.setObjectName("bottomBarArea")
@@ -934,7 +947,7 @@ class MainWindow(QMainWindow):
         self._load_library()
         if added:
             self._playback.enqueue(files[:added], play_now=False)
-            self._player_bar.set_track(
+        self._player_bar_ctrl.set_track(
                 f"Importados {added} temas", "Playlist")
 
         summary = f"<p><b>{added}</b> archivos añadidos a la biblioteca.</p>"
@@ -1178,13 +1191,13 @@ class MainWindow(QMainWindow):
                         self._table.setColumnWidth(6, 75)
                     else:
                         self._views.show("empty")
+
                 elif files:
                     self._playback.enqueue(files, play_now=True)
                     self._show_expanded()
                 else:
-                    from ui.toast_notification import ToastNotification
-                    ToastNotification.warning(
-                        "El mix no contiene archivos disponibles", self)
+                    self._toast_svc.warning(
+                        "El mix no contiene archivos disponibles")
 
         elif key == "favs":
             self._configure_header_for_section(key)
@@ -1600,104 +1613,10 @@ class MainWindow(QMainWindow):
             self._show_album_grid()
 
     def _fade_content(self, target: str):
-        if self._views.current() == target:
-            return
-
-        # Stop any running animation
-        if self._fade_anim is not None:
-            self._fade_anim.stop()
-            self._fade_anim = None
-
-        # Always restore full opacity before changing view
-        self._restore_central_opacity()
-
-        self._views.show(target)
-
-        # Subtle fade-in: 0.88 → 1.0, 100ms (barely visible, won't look broken if skipped)
-        effect = QGraphicsOpacityEffect(self._content)
-        effect.setOpacity(0.88)
-        self._content.setGraphicsEffect(effect)
-
-        anim = QPropertyAnimation(effect, b"opacity")
-        anim.setDuration(100)
-        anim.setStartValue(0.88)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.OutCubic)
-        self._fade_anim = anim
-
-        def _finish():
-            effect.setOpacity(1.0)
-            self._content.setGraphicsEffect(None)
-            self._fade_anim = None
-
-        anim.finished.connect(_finish)
-        anim.start()
+        self._nav.show(target)
 
     def _restore_central_opacity(self):
-        """Force full opacity on the central content stack and all child views."""
-        # Stop any running fade
-        if self._fade_anim is not None:
-            self._fade_anim.stop()
-            self._fade_anim = None
-
-        # Restore content stack
-        for w in [self._content, self._album_grid, self._song_grid,
-                  self._folder_browser, self._radio_widget,
-                  self._playlist_hub, self._metadata_editor,
-                  self._discover, self._identifier_view]:
-            if w is None:
-                continue
-            try:
-                eff = w.graphicsEffect()
-                if isinstance(eff, QGraphicsOpacityEffect):
-                    eff.setOpacity(1.0)
-                    w.setGraphicsEffect(None)
-                w.setEnabled(True)
-            except Exception:
-                import logging
-                logging.getLogger("astra").debug("Opacity restore failed on a child widget")
-
-        # Also check the QStackedWidget itself
-        try:
-            cw = self._content.parentWidget()
-            if cw:
-                eff = cw.graphicsEffect()
-                if isinstance(eff, QGraphicsOpacityEffect):
-                    eff.setOpacity(1.0)
-                    cw.setGraphicsEffect(None)
-                cw.setEnabled(True)
-        except Exception:
-            import logging
-            logging.getLogger("astra").debug("Central opacity restore failed")
-
-        # Debug if ASTRA_UI_DEBUG=1
-        if os.getenv("ASTRA_UI_DEBUG") == "1":
-            self._debug_central_visual_state()
-
-    def _debug_central_visual_state(self):
-        widgets = [
-            ("content_stack", self._content),
-            ("album_grid", self._album_grid),
-            ("song_grid", self._song_grid),
-            ("folder_browser", self._folder_browser),
-            ("radio_widget", getattr(self, '_radio_widget', None)),
-            ("playlist_hub", getattr(self, '_playlist_hub', None)),
-            ("metadata_editor", getattr(self, '_metadata_editor', None)),
-            ("discover", getattr(self, '_discover', None)),
-        ]
-        for name, w in widgets:
-            if w is None:
-                continue
-            eff = w.graphicsEffect()
-            from PySide6.QtWidgets import QGraphicsOpacityEffect
-            opacity = eff.opacity() if isinstance(eff, QGraphicsOpacityEffect) else None
-            print(
-                f"[ASTRA UI DEBUG] {name}: "
-                f"enabled={w.isEnabled()} "
-                f"visible={w.isVisible()} "
-                f"effect={type(eff).__name__ if eff else 'None'} "
-                f"opacity={opacity}"
-            )
+        self._nav.restore_opacity()
 
     def _show_list_view(self):
         self._view_switcher.set_view("list", emit=False)
@@ -1818,7 +1737,7 @@ class MainWindow(QMainWindow):
             if os.path.isfile(t.filepath):
                 self._db.add_to_playlist(pid, t.filepath)
         self._rebuild_sidebar()
-        self._toast.show(f"Playlist creada: {album_name}", "success")
+        self._toast_svc.show(f"Playlist creada: {album_name}", "success")
 
     def _on_coverflow_metadata_album(self, idx: int):
         tracks = self._coverflow_album_tracks(idx)
@@ -1844,7 +1763,7 @@ class MainWindow(QMainWindow):
         tracks = self._coverflow_album_tracks(idx)
         if tracks:
             d = os.path.dirname(tracks[0].filepath) if tracks else ""
-            self._toast.show(f"Buscar carátula en: {d}", "info")
+            self._toast_svc.show(f"Buscar carátula en: {d}", "info")
 
     def _on_coverflow_open_folder(self, idx: int):
         tracks = self._coverflow_album_tracks(idx)
@@ -1950,7 +1869,7 @@ class MainWindow(QMainWindow):
         for fp in [t.filepath for t in group.all_tracks if os.path.isfile(t.filepath)]:
             self._db.add_to_playlist(pid, fp)
         self._rebuild_sidebar()
-        self._toast.show(f"Playlist creada: {group.display_name}", "success")
+        self._toast_svc.show(f"Playlist creada: {group.display_name}", "success")
 
     def _edit_artist_metadata(self, artist_key: str):
         fps = self._artist_filepaths(artist_key)
@@ -2081,8 +2000,8 @@ class MainWindow(QMainWindow):
             qual, _ = get_quality_label(track.uri)
             quality_str = qual
 
-        self._player_bar.set_track(name, artist)
-        self._player_bar.set_quality(quality_str)
+        self._player_bar_ctrl.set_track(name, artist)
+        self._player_bar_ctrl.set_quality(quality_str)
 
         # Cover art
         if track.uri.startswith("http") and track.cover_path:
@@ -2125,15 +2044,13 @@ class MainWindow(QMainWindow):
     def _on_state(self, state: PlaybackState):
         s = "playing" if state == PlaybackState.PLAYING else \
             "paused" if state == PlaybackState.PAUSED else "stopped"
-        self._player_bar.set_state(s)
+        self._player_bar_ctrl.set_state(s)
         if state == PlaybackState.STOPPED:
-            self._player_bar.set_position(0)
+            self._player_bar_ctrl.set_position(0)
 
     def _on_stop(self):
         self._playback.stop()
-        self._player_bar.set_state("stopped"); self._player_bar.set_position(0)
-        self._player_bar.set_duration(0)
-        self._player_bar.set_track("Sin reproducción", "Añade música a la biblioteca")
+        self._player_bar_ctrl.reset()
         self._reset_background()
         self.setWindowTitle("Astra Music Player")
 

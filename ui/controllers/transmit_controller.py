@@ -44,7 +44,7 @@ class TransmitController:
         menu.addSeparator()
         menu.addAction("Añadir dispositivo...", self.add_transmit_device)
 
-        btn = self._win._player_bar._transmit_btn
+        btn = self._win._player_bar_ctrl.transmit_button()
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
 
     def activate_transmit_device(self, device):
