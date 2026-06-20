@@ -166,6 +166,8 @@ class MainWindow(QMainWindow):
         self._search_text = ""
         self._current_playlist: int | None = None
         self._playlist_refs: list = []
+        self._album_sort_key = "title"
+        self._album_filter_mode = "all"
 
         # ── Music Identifier (must exist before _setup_ui) ──
         self._detection = DetectionService(self._db, NullRecognizer(), self)
@@ -465,6 +467,53 @@ class MainWindow(QMainWindow):
         hl.addWidget(self._section_title)
         hl.addSpacing(16)
         hl.addWidget(self._view_switcher)
+
+        # Album sort/filter row (shown only for albums section)
+        self._album_sort_btn = QToolButton()
+        self._album_sort_btn.setText("Ordenar")
+        self._album_sort_btn.setToolTip("Ordenar álbumes")
+        self._album_sort_btn.setPopupMode(QToolButton.InstantPopup)
+        self._album_sort_btn.setFixedHeight(32)
+        self._album_sort_btn.setStyleSheet("""
+            QToolButton {
+                background: rgba(255,255,255,0.055);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 8px;
+                color: rgba(255,255,255,0.78); font-size: 11.5px;
+                padding: 0 11px;
+            }
+            QToolButton:hover {
+                background: rgba(255,255,255,0.085);
+                border: 1px solid rgba(255,255,255,0.14);
+            }
+        """)
+        self._setup_album_sort_menu()
+        self._album_sort_btn.hide()
+
+        self._album_filter_btn = QToolButton()
+        self._album_filter_btn.setText("Filtrar")
+        self._album_filter_btn.setToolTip("Filtrar álbumes")
+        self._album_filter_btn.setPopupMode(QToolButton.InstantPopup)
+        self._album_filter_btn.setFixedHeight(32)
+        self._album_filter_btn.setStyleSheet("""
+            QToolButton {
+                background: rgba(255,255,255,0.055);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 8px;
+                color: rgba(255,255,255,0.78); font-size: 11.5px;
+                padding: 0 11px;
+            }
+            QToolButton:hover {
+                background: rgba(255,255,255,0.085);
+                border: 1px solid rgba(255,255,255,0.14);
+            }
+        """)
+        self._setup_album_filter_menu()
+        self._album_filter_btn.hide()
+
+        hl.addSpacing(8)
+        hl.addWidget(self._album_sort_btn)
+        hl.addWidget(self._album_filter_btn)
         hl.addStretch()
         hl.addWidget(self._search)
         hl.addWidget(self._count)
@@ -615,6 +664,16 @@ class MainWindow(QMainWindow):
         self._album_grid = AlbumGridWidget()
         self._album_grid.album_double_clicked.connect(
             lambda fps: self._playback.enqueue(fps, play_now=True))
+        self._album_grid.queue_requested.connect(
+            lambda fps: self._playback.enqueue(fps, play_now=False))
+        self._album_grid.playlist_requested.connect(
+            self._on_album_create_playlist)
+        self._album_grid.cover_search_requested.connect(
+            self._on_album_search_cover)
+        self._album_grid.open_folder_requested.connect(
+            self._on_album_open_folder)
+        self._album_grid.details_requested.connect(
+            self._on_album_show_details)
 
         self._song_grid = SongGridWidget()
         self._song_grid.song_double_clicked.connect(
@@ -912,7 +971,9 @@ class MainWindow(QMainWindow):
 
         elif key == "albums":
             self._section_title.setText("Álbumes")
-            self._show_coverflow()
+            # Use default view from SECTION_CONFIG
+            self._configure_header_for_section(key)
+            self._show_album_grid()
             self._search.show()
 
         elif key == "genres":
@@ -1262,6 +1323,87 @@ class MainWindow(QMainWindow):
         if not search:
             self._search.hide()
 
+        # Show/hide album controls
+        show_album_ctrl = (section_key == "albums")
+        self._album_sort_btn.setVisible(show_album_ctrl)
+        self._album_filter_btn.setVisible(show_album_ctrl)
+
+    def _setup_album_sort_menu(self):
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background: rgba(22,24,31,0.97);
+                border: 1px solid rgba(255,255,255,0.10);
+                border-radius: 10px;
+                padding: 6px 4px;
+                color: rgba(255,255,255,0.88); font-size: 12.5px;
+            }
+            QMenu::item {
+                padding: 7px 32px 7px 16px;
+                border-radius: 6px;
+            }
+            QMenu::item:selected {
+                background: rgba(255,255,255,0.09);
+            }
+        """)
+
+        sort_opts = [
+            ("Título", "title"),
+            ("Artista", "artist"),
+            ("Año", "year"),
+            ("Duración", "duration"),
+            ("Canciones", "tracks"),
+        ]
+        for label, key in sort_opts:
+            action = menu.addAction(label)
+            action.setData(key)
+            action.triggered.connect(
+                lambda checked=False, k=key: self._on_album_sort(k))
+        self._album_sort_btn.setMenu(menu)
+
+    def _setup_album_filter_menu(self):
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background: rgba(22,24,31,0.97);
+                border: 1px solid rgba(255,255,255,0.10);
+                border-radius: 10px;
+                padding: 6px 4px;
+                color: rgba(255,255,255,0.88); font-size: 12.5px;
+            }
+            QMenu::item {
+                padding: 7px 32px 7px 16px;
+                border-radius: 6px;
+            }
+            QMenu::item:selected {
+                background: rgba(255,255,255,0.09);
+            }
+        """)
+
+        filter_opts = [
+            ("Todos", "all"),
+            ("Sin carátula", "no_cover"),
+            ("Incompletos", "incomplete"),
+            ("FLAC", "flac"),
+            ("MP3", "mp3"),
+        ]
+        for label, key in filter_opts:
+            action = menu.addAction(label)
+            action.setData(key)
+            action.triggered.connect(
+                lambda checked=False, k=key: self._on_album_filter(k))
+        self._album_filter_btn.setMenu(menu)
+
+    def _on_album_sort(self, key: str):
+        self._album_sort_key = key
+        if self._current_section_key == "albums" and self._view_mode == "grid":
+            self._show_album_grid()
+
+    def _on_album_filter(self, key: str):
+        self._album_filter_mode = key
+        if self._current_section_key == "albums" and self._view_mode == "grid":
+            self._show_album_grid()
+
     def _fade_content(self, target: str):
         if self._views.current() == target:
             return
@@ -1285,8 +1427,12 @@ class MainWindow(QMainWindow):
         self._on_view_mode_changed("grid")
 
     def _show_album_grid(self):
-        self._album_grid.set_items(self._all_items, 180)
-        self._count.setText(f"{len(self._all_items)} temas")
+        self._album_grid.set_items(self._all_items, 200,
+                                   sort_key=getattr(self, '_album_sort_key', 'title'),
+                                   filter_mode=getattr(self, '_album_filter_mode', 'all'))
+        from library.album_art import group_by_album
+        groups = group_by_album(self._all_items)
+        self._count.setText(f"{len(groups)} álbumes")
 
     def _show_song_grid(self):
         items = self._all_items
@@ -1345,6 +1491,56 @@ class MainWindow(QMainWindow):
         item = self._coverflow._items[index]
         if item and item.pixmap and not item.pixmap.isNull():
             self._apply_adaptive_background(item.pixmap)
+
+    # ── Album actions ──
+
+    def _on_album_create_playlist(self, fps: list):
+        tracks = self._playback.to_trackrefs(fps) or fps
+        self._playback.enqueue(tracks, play_now=False)
+        self._toast.show("Álbum añadido a la cola", "success")
+
+    def _on_album_search_cover(self, group):
+        tracks = group.data.get("tracks", []) if group.data else []
+        if tracks:
+            d = os.path.dirname(tracks[0].filepath)
+            from library.album_art import fetch_cover_online, cache_cover, find_cover_in_dir
+            try:
+                album_name = group.title
+                artist = getattr(tracks[0], 'artist', '') or ''
+                fetched = fetch_cover_online(album_name, artist)
+                if fetched:
+                    # Save to cover path
+                    cover_path = os.path.join(d, "cover.jpg")
+                    fetched.save(cover_path)
+                    cache_cover(cover_path, None, "large")
+                    self._toast.show("Carátula descargada", "success")
+                    self._show_album_grid()
+                else:
+                    self._toast.show("No se encontró carátula", "warning")
+            except Exception as e:
+                self._toast.show(f"Error al buscar carátula: {e}", "error")
+
+    def _on_album_open_folder(self, folder: str):
+        import subprocess
+        subprocess.Popen(["xdg-open", folder])
+
+    def _on_album_show_details(self, group):
+        tracks = group.data.get("tracks", []) if group.data else []
+        count = len(tracks)
+        dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
+        dur_str = f"{dur//60}:{int(dur%60):02d}" if dur > 0 else "—"
+        exts = set(
+            (getattr(t, 'ext', '') or '').upper().lstrip(".")
+            for t in tracks if getattr(t, 'ext', ''))
+        fmt_str = ", ".join(sorted(exts)) or "—"
+        msg = (
+            f"Álbum: {group.title}\n"
+            f"Artista: {group.subtitle or '—'}\n"
+            f"Canciones: {count}\n"
+            f"Duración: {dur_str}\n"
+            f"Formato: {fmt_str}"
+        )
+        QMessageBox.information(self, "Detalles del álbum", msg)
 
     # ── Expanded View ──
 
