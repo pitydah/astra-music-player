@@ -382,7 +382,7 @@ class NowPlayingBar(QWidget):
 
         self._time_lbl = QLabel("0:00")
         self._time_lbl.setStyleSheet(
-            f"color: {self._text_sec}; font-size: 10px; font-weight: 500;")
+            "color: rgba(255,255,255,0.86); font-size: 10px; font-weight: 600;")
         self._time_lbl.setFixedWidth(32)
 
         self._seek = QSlider(Qt.Horizontal)
@@ -397,7 +397,7 @@ class NowPlayingBar(QWidget):
 
         self._dur_lbl = QLabel("0:00")
         self._dur_lbl.setStyleSheet(
-            f"color: {self._text_sec}; font-size: 10px; font-weight: 500;")
+            "color: rgba(255,255,255,0.86); font-size: 10px; font-weight: 600;")
         self._dur_lbl.setFixedWidth(32)
 
         seek_row.addWidget(self._time_lbl)
@@ -460,17 +460,24 @@ class NowPlayingBar(QWidget):
         self._quality_badge = QLabel("")
         self._quality_badge.setAlignment(Qt.AlignCenter)
         self._quality_badge.setWordWrap(False)
-        self._quality_badge.setMinimumWidth(90)
+        self._quality_badge.setMinimumWidth(88)
+        self._quality_badge.setFixedHeight(22)
         self._quality_badge.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         self._quality_badge.setStyleSheet("""
             QLabel {
-                background: rgba(255,255,255,0.07);
-                color: #FF9A3D;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(255,255,255,0.085),
+                    stop:0.55 rgba(255,255,255,0.045),
+                    stop:1 rgba(255,122,0,0.075)
+                );
+                color: rgba(255,255,255,0.92);
                 border: 1px solid rgba(255,255,255,0.12);
-                border-radius: 8px;
-                padding: 2px 10px;
-                font-size: 11px;
-                font-weight: 550;
+                border-radius: 9px;
+                padding: 3px 10px;
+                font-size: 10.5px;
+                font-weight: 650;
+                letter-spacing: 0.2px;
             }
         """)
 
@@ -615,7 +622,7 @@ class NowPlayingBar(QWidget):
         self._vol_btn.setIconSize(QSize(22, 22))
 
     def set_quality(self, text: str):
-        self._quality_badge.setText(f" {text} ") if text else self._quality_badge.clear()
+        self._quality_badge.setText(f" {text} " if text else " LOCAL ")
 
 def _fmt(t: float) -> str:
     t = int(t)
