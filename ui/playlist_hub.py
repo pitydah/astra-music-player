@@ -116,10 +116,11 @@ class PlaylistHubWidget(QWidget):
     create_playlist_requested = Signal()
     import_m3u_requested = Signal()
     export_playlists_requested = Signal()
-    smart_playlist_requested = Signal(str)         # key e.g. "favorites"
-    playlist_open_requested = Signal(int)          # playlist id
+    smart_playlist_requested = Signal(str)
+    playlist_open_requested = Signal(int)
     playlist_play_requested = Signal(int)
     playlist_queue_requested = Signal(int)
+    playlist_edit_requested = Signal(int)  # new
     create_from_folder_requested = Signal()
     create_from_queue_requested = Signal()
     create_from_album_requested = Signal()
@@ -290,25 +291,26 @@ class PlaylistHubWidget(QWidget):
         v.setContentsMargins(12, 12, 12, 12)
         v.setSpacing(8)
 
-        # Cover mosaic (4 thumbnails placeholder)
+        # Cover — use PlaylistCoverService
         cover_area = QFrame()
         cover_area.setFixedSize(186, 186)
         cover_area.setStyleSheet(
             "QFrame { background: rgba(255,255,255,0.035); border-radius: 12px; }")
 
-        c_layout = QGridLayout(cover_area)
-        c_layout.setContentsMargins(4, 4, 4, 4)
-        c_layout.setSpacing(4)
-
-        # Show up to 4 cover thumbnails from playlist tracks
+        from ui.services.playlist_cover_service import get_playlist_cover
         tracks = pl.get("tracks", []) or []
-        for ti in range(min(4, len(tracks))):
-            thumb = self._load_track_thumb(tracks[ti], 84)
-            lbl = QLabel()
-            lbl.setPixmap(thumb)
-            lbl.setAlignment(Qt.AlignCenter)
-            lbl.setStyleSheet("background: transparent; border-radius: 6px;")
-            c_layout.addWidget(lbl, ti // 2, ti % 2, Qt.AlignCenter)
+        cover = get_playlist_cover(pl, tracks)
+        cover_lbl = QLabel()
+        if cover and not cover.isNull():
+            cover_lbl.setPixmap(cover.scaled(182, 182, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+        else:
+            cover_lbl.setStyleSheet("background: rgba(255,255,255,0.02); border-radius: 10px;")
+        cover_lbl.setAlignment(Qt.AlignCenter)
+        cover_lbl.setFixedSize(186, 186)
+
+        cv_layout = QVBoxLayout(cover_area)
+        cv_layout.setContentsMargins(0, 0, 0, 0)
+        cv_layout.addWidget(cover_lbl)
 
         v.addWidget(cover_area)
 
@@ -354,6 +356,13 @@ class PlaylistHubWidget(QWidget):
         queue_btn.setStyleSheet(_glass_btn_css("padding: 5px 8px; font-size: 10.5px;"))
         queue_btn.clicked.connect(lambda: self.playlist_queue_requested.emit(pl.get("id", 0)))
         btn_row.addWidget(queue_btn)
+
+        edit_btn = QPushButton("✎")
+        edit_btn.setCursor(Qt.PointingHandCursor)
+        edit_btn.setFixedSize(30, 28)
+        edit_btn.setStyleSheet(_glass_btn_css("padding: 2px; font-size: 12px;"))
+        edit_btn.clicked.connect(lambda: self.playlist_edit_requested.emit(pl.get("id", 0)))
+        btn_row.addWidget(edit_btn)
 
         v.addLayout(btn_row)
         v.addStretch()

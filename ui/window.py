@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel,
     QFrame, QHBoxLayout, QLineEdit, QToolButton, QStackedWidget, QTableView, QHeaderView,
     QAbstractItemView, QFileDialog, QInputDialog, QMessageBox, QMenu,
+    QDialog, QFormLayout, QPushButton, QDialogButtonBox,
 )
 
 from ui.sidebar_widget import SidebarWidget
@@ -46,6 +47,7 @@ from streaming.radio_manager import RadioManager
 from ui.music_identifier_view import MusicIdentifierView
 from ui.discover_dashboard import DiscoverDashboard
 from ui.playlist_hub import PlaylistHubWidget
+from ui.playlist_detail_view import PlaylistDetailView
 from ui.metadata_editor import MetadataEditorWidget
 from ui.artist_grid import ArtistGridWidget
 from ui.artist_detail_view import ArtistDetailView
@@ -776,6 +778,15 @@ class MainWindow(QMainWindow):
             self._on_hub_create_from_folder)
         self._playlist_hub.create_from_queue_requested.connect(
             self._on_hub_create_from_queue)
+
+        self._playlist_detail = PlaylistDetailView()
+        self._playlist_detail.play_requested.connect(self._on_hub_playlist_play)
+        self._playlist_detail.queue_requested.connect(self._on_hub_playlist_queue)
+        self._playlist_detail.edit_requested.connect(self._edit_playlist_dialog)
+        self._playlist_detail.track_double_clicked.connect(
+            lambda fp: self._playback.enqueue([fp], play_now=True))
+
+        self._playlist_hub.playlist_edit_requested.connect(self._edit_playlist_dialog)
         self._playlist_hub.create_from_album_requested.connect(
             self._on_stub_action)
         self._playlist_hub.create_from_artist_requested.connect(
@@ -830,6 +841,7 @@ class MainWindow(QMainWindow):
         self._views.register("song_grid", self._song_grid)
         self._views.register("discover", self._discover)
         self._views.register("playlist_hub", self._playlist_hub)
+        self._views.register("playlist_detail", self._playlist_detail)
         self._views.register("metadata_editor", self._metadata_editor)
         self._views.register("artist_grid", self._artist_grid)
         self._views.register("artist_detail", self._artist_detail)
@@ -1058,42 +1070,20 @@ class MainWindow(QMainWindow):
             pid = int(key.split(":", 1)[1])
             self._current_playlist = pid
             items = self._db.get_playlist_items(pid)
-            refs = [TrackRef(
-                uri=i.filepath, title=i.title, artist=i.artist,
-                album=i.album, duration=i.duration,
-                cover_path=i.filepath, track_number=i.track_number,
-                year=i.year, genre=i.genre,
-            ) for i in items]
-            self._model.populate(refs)
-            self._playlist_refs = refs
+            pl = next((p for p in self._db.get_playlists() if p["id"] == pid), {"name": "Playlist"})
+            self._playlist_detail.set_playlist(pl, items)
 
-            # Check for missing files
-            missing = sum(1 for r in refs if not os.path.exists(r.uri))
-            count_text = f"{len(items)} temas"
-            if missing:
-                count_text += f" ({missing} no encontrados)"
-
-            self._count.setText(count_text)
-            self._views.show("library")
-            self._table.setModel(self._model)
-            self._table.setColumnWidth(0, 72)
-            self._table.setColumnWidth(1, 260)
-            self._table.setColumnWidth(3, 170)
-            self._table.setColumnWidth(3, 170)
-            self._table.setColumnWidth(4, 55)
-            self._table.setColumnWidth(5, 110)
-            self._table.setColumnWidth(6, 75)
-            name = next((p["name"] for p in self._db.get_playlists() if p["id"] == pid), "")
-            total_dur = int(sum(r.duration for r in refs))
+            total_dur = int(sum(getattr(i, 'duration', 0) or 0 for i in items))
             h = total_dur // 3600
             m = (total_dur % 3600) // 60
             dur_str = f"{h} h {m} min" if h > 0 else f"{m} min" if m > 0 else ""
-            subtitle = f"{len(refs)} canciones"
+            subtitle = f"{len(items)} canciones"
             if dur_str:
                 subtitle += f" · {dur_str}"
-            self._section_title.setText(name)
+            self._section_title.setText(pl.get("name", "Playlist"))
             self._section_subtitle.setText(subtitle)
             self._search.show()
+            self._fade_content("playlist_detail")
 
         elif key == "artists":
             self._artist_repo.clear_current()
@@ -1340,6 +1330,59 @@ class MainWindow(QMainWindow):
         self._db.delete_playlist(pid)
         self._rebuild_sidebar()
         self._load_library()
+
+    def _edit_playlist_dialog(self, pid: int):
+        pl = next((p for p in self._db.get_playlists() if p["id"] == pid), None)
+        if not pl:
+            return
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Editar playlist — {pl['name']}")
+        dlg.setMinimumWidth(400)
+        layout = QFormLayout(dlg)
+
+        name_edit = QLineEdit(pl.get("name", ""))
+        layout.addRow("Nombre:", name_edit)
+
+        desc_edit = QLineEdit(pl.get("description", ""))
+        layout.addRow("Descripción:", desc_edit)
+
+        cover_btn = QPushButton("Cambiar portada")
+        cover_btn.clicked.connect(lambda: self._change_playlist_cover(pid))
+        layout.addRow("Portada:", cover_btn)
+
+        remove_btn = QPushButton("Quitar portada")
+        remove_btn.clicked.connect(lambda: self._remove_playlist_cover(pid))
+        layout.addRow("", remove_btn)
+
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(lambda: self._save_playlist_edit(pid, name_edit.text(), desc_edit.text(), dlg))
+        btns.rejected.connect(dlg.reject)
+        layout.addRow(btns)
+
+        dlg.exec()
+
+    def _change_playlist_cover(self, pid: int):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Seleccionar portada", "",
+            "Imágenes (*.jpg *.jpeg *.png);;Todos (*)")
+        if path:
+            from ui.services.playlist_cover_service import copy_custom_cover
+            cover_path = copy_custom_cover(pid, path)
+            self._db.update_playlist(pid, cover_path=cover_path, cover_type="custom")
+            self._toast_svc.show("Portada actualizada", "success")
+
+    def _remove_playlist_cover(self, pid: int):
+        from ui.services.playlist_cover_service import remove_custom_cover
+        remove_custom_cover(pid)
+        self._db.update_playlist(pid, cover_path="", cover_type="mosaic")
+        self._toast_svc.show("Portada eliminada — se usará mosaico automático", "info")
+
+    def _save_playlist_edit(self, pid: int, name: str, desc: str, dlg):
+        self._db.update_playlist(pid, name=name, description=desc)
+        self._rebuild_sidebar()
+        self._toast_svc.show("Playlist actualizada", "success")
+        dlg.accept()
 
     # ── Navidrome / Jellyfin ──
 

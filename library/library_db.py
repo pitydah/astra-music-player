@@ -63,6 +63,9 @@ class LibraryDB:
         self._conn.execute("""CREATE TABLE IF NOT EXISTS playlists (
             id   INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            cover_path TEXT DEFAULT '',
+            cover_type TEXT DEFAULT 'mosaic',
+            description TEXT DEFAULT '',
             created_at REAL DEFAULT (strftime('%s','now'))
         )""")
         self._conn.execute("""CREATE TABLE IF NOT EXISTS playlist_items (
@@ -133,6 +136,15 @@ class LibraryDB:
             if col not in existing:
                 with contextlib.suppress(sqlite3.OperationalError):
                     self._conn.execute(f"ALTER TABLE media_items ADD COLUMN {col} {col_def}")
+
+        # Playlist cover fields
+        playlist_existing = {r[0] for r in self._conn.execute("PRAGMA table_info(playlists)").fetchall()}
+        for col, col_def in [("cover_path", "TEXT DEFAULT ''"),
+                              ("cover_type", "TEXT DEFAULT 'mosaic'"),
+                              ("description", "TEXT DEFAULT ''")]:
+            if col not in playlist_existing:
+                with contextlib.suppress(sqlite3.OperationalError):
+                    self._conn.execute(f"ALTER TABLE playlists ADD COLUMN {col} {col_def}")
 
     def close(self):
         self._conn.close()
@@ -256,8 +268,34 @@ class LibraryDB:
 
     def get_playlists(self) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT id, name FROM playlists ORDER BY name").fetchall()
-        return [{"id": r[0], "name": r[1]} for r in rows]
+            "SELECT id, name, cover_path, cover_type, description, created_at "
+            "FROM playlists ORDER BY name").fetchall()
+        return [{"id": r[0], "name": r[1], "cover_path": r[2] or "",
+                 "cover_type": r[3] or "mosaic", "description": r[4] or "",
+                 "created_at": r[5] if len(r) > 5 else 0}
+                for r in rows]
+
+    def update_playlist(self, pid: int, name: str = "", description: str = "",
+                        cover_path: str = "", cover_type: str = ""):
+        updates = []
+        params = []
+        if name:
+            updates.append("name = ?")
+            params.append(name)
+        if description:
+            updates.append("description = ?")
+            params.append(description)
+        if cover_path:
+            updates.append("cover_path = ?")
+            params.append(cover_path)
+        if cover_type:
+            updates.append("cover_type = ?")
+            params.append(cover_type)
+        if updates:
+            params.append(pid)
+            self._conn.execute(
+                f"UPDATE playlists SET {', '.join(updates)} WHERE id = ?", params)
+            self._conn.commit()
 
     def add_to_playlist(self, pid: int, filepath: str):
         self._conn.execute(
