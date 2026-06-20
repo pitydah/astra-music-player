@@ -433,13 +433,7 @@ class NowPlayingBar(QWidget):
         center_layout.addLayout(ctrl_row)
         layout.addWidget(center_widget, 1)
 
-        # ═══ RIGHT: VOLUME + BADGE + EQ + TRANSMIT (stretch=0) ═══
-        right_widget = QWidget()
-        right_widget.setStyleSheet("background: transparent;")
-        grid = QGridLayout(right_widget)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(6)
-        grid.setVerticalSpacing(4)
+        # ═══ RIGHT: VOLUME + TOOLS + BADGE (stretch=0) ═══
 
         # Widgets
         self._vol_btn = _make_btn("warm_vol_high", 22, 38)
@@ -492,25 +486,37 @@ class NowPlayingBar(QWidget):
             }
         """)
 
-        # Row 0
-        grid.addWidget(self._vol_btn, 0, 1, Qt.AlignVCenter)
-        grid.addWidget(self._vol, 0, 2, Qt.AlignVCenter)
+        right_widget = QWidget()
+        right_widget.setStyleSheet("background: transparent;")
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(3)
 
-        tools = QHBoxLayout()
-        tools.setSpacing(6)
-        tools.setContentsMargins(0, 0, 0, 0)
-        tools.addWidget(self._audio_output_btn)
-        tools.addWidget(self._mini_player_btn)
-        tools.addWidget(self._eq_btn)
-        tools.addWidget(self._transmit_btn)
-        grid.addLayout(tools, 0, 3, Qt.AlignVCenter)
+        # Row 0 — controls row
+        right_controls = QHBoxLayout()
+        right_controls.setContentsMargins(0, 0, 0, 0)
+        right_controls.setSpacing(8)
+        right_controls.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-        # Row 1 — badge under slider
-        grid.addWidget(self._quality_badge, 1, 2, Qt.AlignHCenter | Qt.AlignVCenter)
+        right_controls.addStretch()
+        right_controls.addWidget(self._audio_output_btn)
+        right_controls.addWidget(self._mini_player_btn)
+        right_controls.addSpacing(14)
+        right_controls.addWidget(self._vol_btn)
+        right_controls.addWidget(self._vol)
+        right_controls.addSpacing(6)
+        right_controls.addWidget(self._eq_btn)
+        right_controls.addWidget(self._transmit_btn)
 
-        # Column stretches for centering
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(4, 1)
+        right_layout.addLayout(right_controls)
+
+        # Row 1 — badge under volume slider
+        badge_row = QHBoxLayout()
+        badge_row.setContentsMargins(0, 0, 0, 0)
+        badge_row.addStretch()
+        badge_row.addWidget(self._quality_badge)
+        badge_row.addSpacing(94)
+        right_layout.addLayout(badge_row)
 
         layout.addWidget(right_widget, 0)
 
