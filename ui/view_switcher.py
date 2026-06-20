@@ -108,13 +108,17 @@ class SegmentedViewSwitcher(QWidget):
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
 
+        from ui.icons import get_icon_qicon
+
         self._buttons: dict[str, QPushButton] = {}
         layout = QHBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(0)
 
         for mode, defs in VIEW_MODE_DEFS.items():
-            btn = QPushButton(QIcon(get_icon_func(defs["icon"])), "")
+            icon_path = get_icon_func(defs["icon"]) if get_icon_func else ""
+            icon = QIcon(icon_path) if icon_path else get_icon_qicon(defs["icon"])
+            btn = QPushButton(icon, "")
             btn.setCheckable(True)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFocusPolicy(Qt.NoFocus)
@@ -135,10 +139,11 @@ class SegmentedViewSwitcher(QWidget):
         self._active_anim = None
         self._active_effect_button = None
 
-        # Active pill overlay
+        # Active pill overlay — transparent for mouse events
         self._active_pill = QFrame(self)
         self._active_pill.setObjectName("activeViewPill")
         self._active_pill.setFixedSize(VIEW_BUTTON_W, VIEW_BUTTON_H)
+        self._active_pill.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self._active_pill.hide()
         self._pill_anim = QPropertyAnimation(self._active_pill, b"geometry")
         self._pill_anim.setDuration(140)
@@ -159,27 +164,35 @@ class SegmentedViewSwitcher(QWidget):
         if mode not in self._available_modes:
             return
         if self._current == mode:
+            self._sync_checked_state(animate=False)
             return
 
         self._current = mode
-
-        for m, btn in self._buttons.items():
-            btn.setChecked(m == mode)
-
-        self._position_pill()
-        self._update_tooltips()
+        self._sync_checked_state(animate=emit)
 
         if emit:
             self.view_changed.emit(mode)
             self._pulse_active_button(self._buttons[mode])
 
+    def _sync_checked_state(self, animate: bool = False):
+        """Sync button checked state and active pill without emitting signals."""
+        for m, btn in self._buttons.items():
+            btn.setChecked(m == self._current)
+        self._update_tooltips()
+        if self.isVisible():
+            self._position_pill(animate=animate)
+
     def _position_pill(self, animate: bool = True):
         btn = self._buttons.get(self._current)
-        if not btn or not btn.isVisible():
+        if not btn or not btn.isVisible() or not self.isVisible():
             self._active_pill.hide()
             return
 
         target = QRect(btn.geometry())
+        if target.width() <= 0 or target.height() <= 0:
+            self._active_pill.hide()
+            return
+
         if animate and self._active_pill.isVisible():
             self._pill_anim.stop()
             self._pill_anim.setStartValue(self._active_pill.geometry())
@@ -187,8 +200,11 @@ class SegmentedViewSwitcher(QWidget):
             self._pill_anim.start()
         else:
             self._active_pill.setGeometry(target)
+
         self._active_pill.show()
-        self._active_pill.lower()  # behind buttons
+        self._active_pill.lower()
+        for b in self._buttons.values():
+            b.raise_()
 
     def _clear_active_effect(self):
         if self._active_anim is not None:
@@ -200,6 +216,8 @@ class SegmentedViewSwitcher(QWidget):
 
     def _pulse_active_button(self, btn: QPushButton):
         self._clear_active_effect()
+        if not btn.isVisible():
+            return
         effect = QGraphicsOpacityEffect(btn)
         effect.setOpacity(0.72)
         btn.setGraphicsEffect(effect)
@@ -233,7 +251,7 @@ class SegmentedViewSwitcher(QWidget):
             if visible_count == 1:
                 only = next((m for m in modes if m in self._available_modes), None)
                 if only:
-                    self.set_view(only, emit=False)
+                    self._current = only
             self.setFixedWidth(0)
             self.hide()
             return
@@ -241,13 +259,14 @@ class SegmentedViewSwitcher(QWidget):
         self.show()
 
         if self._current not in self._available_modes:
-            target = default if default and default in self._available_modes else modes[0]
-            self.set_view(target, emit=False)
+            self._current = default if default and default in self._available_modes else modes[0]
 
-        self._update_tooltips()
         self._apply_display_mode()
+        self._sync_checked_state(animate=False)
 
     def update_for_width(self, window_width: int):
+        if not self.isVisible():
+            return
         if window_width < 930:
             self.set_display_mode("compact")
         elif window_width >= 1250:
@@ -262,11 +281,10 @@ class SegmentedViewSwitcher(QWidget):
             return
         self._display_mode = mode
         self._apply_display_mode()
+        self._sync_checked_state(animate=False)
 
     def _apply_display_mode(self):
         for mode_name, btn in self._buttons.items():
-            if not btn.isVisible():
-                continue
             defs = VIEW_MODE_DEFS.get(mode_name, {})
 
             if self._display_mode == "expanded":
@@ -274,16 +292,20 @@ class SegmentedViewSwitcher(QWidget):
                 widths = {"list": 86, "grid": 104, "coverflow": 124,
                           "tree": 88, "details": 108}
                 w = widths.get(mode_name, 96)
+                icon_sz = QSize(20, 20)
             elif self._display_mode == "normal":
                 btn.setText("")
                 w = VIEW_BUTTON_W
+                icon_sz = QSize(VIEW_ICON_W, VIEW_ICON_H)
             else:  # compact
                 btn.setText("")
                 w = 42
+                icon_sz = QSize(22, 22)
 
             btn.setFixedSize(w, VIEW_BUTTON_H)
             btn.setMinimumSize(w, VIEW_BUTTON_H)
             btn.setMaximumSize(w, VIEW_BUTTON_H)
+            btn.setIconSize(icon_sz)
 
         self._resize_to_content()
         self._position_pill(animate=False)

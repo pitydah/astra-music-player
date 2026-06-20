@@ -1564,7 +1564,8 @@ class MainWindow(QMainWindow):
         self._search.setPlaceholderText(searchers.get(section_key, "Buscar..."))
         self._search.setVisible(search)
 
-        self._view_switcher.set_available_modes(views, default)
+        self._view_switcher.set_available_modes(views, default, context=section_key)
+        self._view_switcher.update_for_width(self.width())
 
         if self._view_mode not in views and default:
             self._view_mode = default
