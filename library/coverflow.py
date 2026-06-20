@@ -58,7 +58,7 @@ class CoverItem(QGraphicsObject):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
 
         # Rounded corners (Sleeve Effect)
-        radius = 6.0
+        radius = 14.0
         path = QPainterPath()
         path.addRoundedRect(0, 0, self._w, self._h, radius, radius)
 
@@ -68,15 +68,15 @@ class CoverItem(QGraphicsObject):
         p.drawPixmap(0, 0, self._pixmap)
         p.restore()
 
-        # Subtle physical border
-        p.setPen(QPen(QColor(0, 0, 0, 80), 1.0))
+        # Subtle white border (premium)
+        p.setPen(QPen(QColor(255, 255, 255, 28), 1.0))
         p.drawPath(path)
 
-        # Reflection ("Wet Floor")
+        # Reflection ("Wet Floor") — softer
         p.save()
         p.translate(0, self._h * 2)
         p.scale(1, -1)
-        p.setOpacity(0.35)
+        p.setOpacity(0.22)
         p.setClipPath(path)
         p.drawPixmap(0, 0, self._pixmap)
         p.restore()
@@ -165,21 +165,21 @@ class CoverItem(QGraphicsObject):
                          view_height: float, velocity: float = 0.0):
         dist = self._index - current_offset
         transform = QTransform()
-        max_rot = 65.0
-        spacing_center = 170.0
-        spacing_side = 25.0
+        max_rot = 58.0
+        spacing_center = 185.0
+        spacing_side = 34.0
         zoom_out = min(0.15, abs(velocity) * 2.0)
 
         if abs(dist) < 0.1:
             self.setZValue(1000)
             cx = view_width / 2
-            cy = view_height / 2 - 20
+            cy = view_height / 2 - 24
             transform.translate(cx, cy)
             transform.scale(1.0 - zoom_out, 1.0 - zoom_out)
         else:
             is_left = dist < 0
             ad = abs(dist)
-            self._darken_alpha = min(150, int(ad * 40))
+            self._darken_alpha = min(115, int(ad * 32))
             self.setZValue(1000 - int(ad * 10))
             flip_factor = min(1.0, math.pow(ad, 0.35))
             rot = max_rot * flip_factor
@@ -191,7 +191,7 @@ class CoverItem(QGraphicsObject):
             transform.translate(-self._w / 2, -self._h / 2)
 
             cx = view_width / 2
-            cy = view_height / 2 - 20
+            cy = view_height / 2 - 24
             if is_left:
                 cx -= spacing_center * flip_factor + spacing_side * max(0, ad - 1)
             else:
@@ -219,7 +219,7 @@ class CoverFlowWidget(QGraphicsView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setRenderHint(QPainter.Antialiasing)
-        self.setBackgroundBrush(QColor(13, 13, 20))
+        self.setBackgroundBrush(QColor(9, 11, 17))
         self.setFrameShape(QGraphicsView.NoFrame)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -283,7 +283,7 @@ class CoverFlowWidget(QGraphicsView):
         """Re-create text items after scene.clear()."""
         self._title_text = QGraphicsTextItem()
         self._title_text.setDefaultTextColor(QColor("#ffffff"))
-        self._title_text.setFont(QFont("sans-serif", 14, QFont.Bold))
+        self._title_text.setFont(QFont("sans-serif", 16, 750))
         self._title_text.setZValue(2000)
         self._title_effect = QGraphicsOpacityEffect()
         self._title_effect.setOpacity(1.0)
@@ -291,21 +291,33 @@ class CoverFlowWidget(QGraphicsView):
         self._scene.addItem(self._title_text)
 
         self._artist_text = QGraphicsTextItem()
-        self._artist_text.setDefaultTextColor(QColor(245, 245, 247, 140))
-        self._artist_text.setFont(QFont("sans-serif", 12))
+        self._artist_text.setDefaultTextColor(QColor(255, 255, 255, 190))
+        self._artist_text.setFont(QFont("sans-serif", 12.5))
         self._artist_text.setZValue(2000)
         self._artist_effect = QGraphicsOpacityEffect()
         self._artist_effect.setOpacity(1.0)
         self._artist_text.setGraphicsEffect(self._artist_effect)
         self._scene.addItem(self._artist_text)
 
+        self._meta_text = QGraphicsTextItem()
+        self._meta_text.setDefaultTextColor(QColor(255, 255, 255, 120))
+        self._meta_text.setFont(QFont("sans-serif", 10))
+        self._meta_text.setZValue(2000)
+        self._scene.addItem(self._meta_text)
+
+        self._position_text = QGraphicsTextItem()
+        self._position_text.setDefaultTextColor(QColor(255, 255, 255, 100))
+        self._position_text.setFont(QFont("sans-serif", 10))
+        self._position_text.setZValue(2000)
+        self._scene.addItem(self._position_text)
+
         self._empty_msg = QGraphicsTextItem()
         self._empty_msg.setHtml(
             '<div style="text-align:center">'
-            '<p style="font-size:16pt;color:rgba(245,245,247,140)">'
-            '📂 No hay álbumes en tu biblioteca</p>'
-            '<p style="font-size:12pt;color:rgba(245,245,247,80)">'
-            'Ctrl+D para añadir música</p>'
+            '<p style="font-size:16pt;color:rgba(245,245,247,210)">'
+            'No hay álbumes en tu biblioteca</p>'
+            '<p style="font-size:12pt;color:rgba(245,245,247,148)">'
+            'Ctrl+D · Añadir carpeta musical</p>'
             '</div>')
         self._empty_msg.setZValue(3000)
         self._scene.addItem(self._empty_msg)
@@ -336,6 +348,8 @@ class CoverFlowWidget(QGraphicsView):
             self._empty_msg.setVisible(True)
             self._title_text.setPlainText("")
             self._artist_text.setPlainText("")
+            self._meta_text.setPlainText("")
+            self._position_text.setPlainText("")
             return
 
         vw = self.viewport().width()
@@ -365,6 +379,11 @@ class CoverFlowWidget(QGraphicsView):
             self.selection_changed.emit(idx)
             self._last_emitted_idx = idx
 
+        # Position indicator
+        self._position_text.setPlainText(f"{idx + 1} / {len(self._items)}")
+        pr = self._position_text.boundingRect()
+        self._position_text.setPos(vw - pr.width() - 24, vh - 28)
+
         # Update central text with crossfade
         if self._items and 0 <= idx < len(self._items):
             item = self._items[idx]
@@ -372,8 +391,24 @@ class CoverFlowWidget(QGraphicsView):
                 item.subtitle.split(" · ")[0]
                 if item.subtitle and " · " in item.subtitle
                 else item.subtitle or "Desconocido")
+            tracks = item.data.get("tracks", [])
+            count = len(tracks)
+            dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
+            dur_str = f"{int(dur // 60)}:{int(dur % 60):02d}" if dur > 0 else ""
+            meta_parts = []
+            if count:
+                meta_parts.append(f"{count} canciones")
+            if dur_str:
+                meta_parts.append(dur_str)
+            meta = " · ".join(meta_parts)
+
+            self._meta_text.setPlainText(meta)
+            mr = self._meta_text.boundingRect()
+            self._meta_text.setPos(vw / 2 - mr.width() / 2, vh - 50)
+
             self._animate_text_change(item.title, artist)
         else:
+            self._meta_text.setPlainText("")
             self._animate_text_change("", "")
 
     def _animate_text_change(self, new_title: str, new_artist: str):
@@ -391,8 +426,8 @@ class CoverFlowWidget(QGraphicsView):
             self._artist_text.setPlainText(new_artist)
             tr = self._title_text.boundingRect()
             ar = self._artist_text.boundingRect()
-            self._title_text.setPos(vw / 2 - tr.width() / 2, vh - 85)
-            self._artist_text.setPos(vw / 2 - ar.width() / 2, vh - 65)
+            self._title_text.setPos(vw / 2 - tr.width() / 2, vh - 92)
+            self._artist_text.setPos(vw / 2 - ar.width() / 2, vh - 70)
             self._title_effect.setOpacity(1.0)
             self._artist_effect.setOpacity(1.0)
 
@@ -436,9 +471,37 @@ class CoverFlowWidget(QGraphicsView):
         self._snap_anim.start()
         self.cover_snapped.emit(target)
 
+    def drawBackground(self, painter, rect):
+        painter.save()
+        grad = QRadialGradient(rect.center(), max(rect.width(), rect.height()) * 0.65)
+        grad.setColorAt(0.0, QColor(28, 31, 42, 230))
+        grad.setColorAt(0.55, QColor(12, 14, 21, 245))
+        grad.setColorAt(1.0, QColor(7, 9, 14, 255))
+        painter.fillRect(rect, grad)
+        painter.restore()
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self._update_cover_size()
         self._update_layout()
+
+    def _update_cover_size(self):
+        vw = self.viewport().width()
+        size = max(210, min(300, int(vw * 0.23)))
+        if size != self._cover_w:
+            self._cover_w = size
+            self._cover_h = size
+
+    def contextMenuEvent(self, event):
+        idx = int(round(self._current))
+        if not self._items or idx < 0 or idx >= len(self._items):
+            return
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.addAction("▶ Reproducir álbum", lambda: self.double_clicked.emit(idx))
+        if hasattr(self, 'queue_album_requested'):
+            menu.addAction("+ Añadir a cola", lambda: self.queue_album_requested.emit(idx))
+        menu.exec(event.globalPos())
 
     def keyPressEvent(self, event):
         if not self._items:
