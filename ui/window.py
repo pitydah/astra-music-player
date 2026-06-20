@@ -184,6 +184,7 @@ class MainWindow(QMainWindow):
         self._fade_anim = None
         self._artist_groups: list[ArtistGroup] = []
         self._current_artist_key: str | None = None
+        self._coverflow_cache_key: tuple | None = None
 
         # ── Music Identifier (must exist before _setup_ui) ──
         self._detection = DetectionService(self._db, NullRecognizer(), self)
@@ -1557,11 +1558,13 @@ class MainWindow(QMainWindow):
 
     def _on_album_sort(self, key: str):
         self._album_sort_key = key
+        self._coverflow_cache_key = None
         if self._current_section_key == "albums" and self._view_mode == "grid":
             self._show_album_grid()
 
     def _on_album_filter(self, key: str):
         self._album_filter_mode = key
+        self._coverflow_cache_key = None
         if self._current_section_key == "albums" and self._view_mode == "grid":
             self._show_album_grid()
 
@@ -1701,6 +1704,16 @@ class MainWindow(QMainWindow):
         items = self._all_items
         if self._kind_filter:
             items = [i for i in items if i.kind == self._kind_filter]
+
+        # Cache key — skip rebuild if nothing changed
+        cache_key = (len(items), self._album_sort_key, self._album_filter_mode, self._search_text)
+        if self._coverflow is not None and cache_key == self._coverflow_cache_key:
+            self._views.show("coverflow")
+            self._count.setText(f"{len(self._coverflow._items)} álbumes")
+            self._coverflow.setFocus()
+            return
+        self._coverflow_cache_key = cache_key
+
         covers = load_covers_for_albums(items, 260, lazy=True)
 
         if not covers:
@@ -1712,6 +1725,13 @@ class MainWindow(QMainWindow):
             self._coverflow = CoverFlowWidget()
             self._coverflow.double_clicked.connect(self._on_coverflow_dbl)
             self._coverflow.cover_snapped.connect(self._on_coverflow_snap)
+            self._coverflow.play_album_requested.connect(self._on_coverflow_play_album)
+            self._coverflow.queue_album_requested.connect(self._on_coverflow_queue_album)
+            self._coverflow.playlist_album_requested.connect(self._on_coverflow_playlist_album)
+            self._coverflow.metadata_album_requested.connect(self._on_coverflow_metadata_album)
+            self._coverflow.details_album_requested.connect(self._on_coverflow_details_album)
+            self._coverflow.cover_search_requested.connect(self._on_coverflow_search_cover)
+            self._coverflow.open_folder_requested.connect(self._on_coverflow_open_folder)
             self._views.replace("coverflow", self._coverflow)
 
         self._coverflow.set_items(covers)
@@ -1736,6 +1756,70 @@ class MainWindow(QMainWindow):
         item = self._coverflow._items[index]
         if item and item.pixmap and not item.pixmap.isNull():
             self._apply_adaptive_background(item.pixmap)
+
+    def _coverflow_album_tracks(self, idx: int) -> list:
+        item = self._coverflow.item_at(idx) if self._coverflow else None
+        if not item:
+            return []
+        return item.data.get("tracks", [])
+
+    def _on_coverflow_play_album(self, idx: int):
+        tracks = self._coverflow_album_tracks(idx)
+        fps = [t.filepath for t in tracks if os.path.isfile(t.filepath)]
+        if fps:
+            self._playback.enqueue(fps, play_now=True)
+
+    def _on_coverflow_queue_album(self, idx: int):
+        tracks = self._coverflow_album_tracks(idx)
+        fps = [t.filepath for t in tracks if os.path.isfile(t.filepath)]
+        if fps:
+            self._playback.enqueue(fps, play_now=False)
+
+    def _on_coverflow_playlist_album(self, idx: int):
+        tracks = self._coverflow_album_tracks(idx)
+        if not tracks:
+            return
+        album_name = tracks[0].album or "Álbum"
+        pid = self._db.create_playlist(album_name)
+        for t in tracks:
+            if os.path.isfile(t.filepath):
+                self._db.add_to_playlist(pid, t.filepath)
+        self._rebuild_sidebar()
+        self._toast.show(f"Playlist creada: {album_name}", "success")
+
+    def _on_coverflow_metadata_album(self, idx: int):
+        tracks = self._coverflow_album_tracks(idx)
+        fps = [t.filepath for t in tracks if os.path.isfile(t.filepath)]
+        if fps:
+            self._open_metadata_for_files(fps)
+
+    def _on_coverflow_details_album(self, idx: int):
+        item = self._coverflow.item_at(idx) if self._coverflow else None
+        if not item:
+            return
+        tracks = item.data.get("tracks", [])
+        count = len(tracks)
+        dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
+        dur_str = f"{int(dur // 60)}:{int(dur % 60):02d}" if dur > 0 else "—"
+        exts = set((getattr(t, 'ext', '') or '').upper().lstrip(".") for t in tracks if getattr(t, 'ext', ''))
+        fmt_str = ", ".join(sorted(exts)) or "—"
+        msg = (f"Álbum: {item.title}\nArtista: {item.subtitle or '—'}\n"
+               f"Canciones: {count}\nDuración: {dur_str}\nFormatos: {fmt_str}")
+        QMessageBox.information(self, "Detalles del álbum", msg)
+
+    def _on_coverflow_search_cover(self, idx: int):
+        tracks = self._coverflow_album_tracks(idx)
+        if tracks:
+            from library.album_art import find_cover_in_dir
+            d = os.path.dirname(tracks[0].filepath) if tracks else ""
+            self._toast.show(f"Buscar carátula en: {d}", "info")
+
+    def _on_coverflow_open_folder(self, idx: int):
+        tracks = self._coverflow_album_tracks(idx)
+        if tracks:
+            d = os.path.dirname(tracks[0].filepath)
+            import subprocess
+            subprocess.Popen(["xdg-open", d])
 
     # ── Album actions ──
 

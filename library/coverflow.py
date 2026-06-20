@@ -1,5 +1,4 @@
 """CoverFlow — QGraphicsView-based carousel with OpenGL, physics, reflections."""
-
 import math
 from PySide6.QtCore import (
     Qt, QTimer, QPropertyAnimation, QEasingCurve, QVariantAnimation,
@@ -23,9 +22,16 @@ except ImportError:
     HAVE_OPENGL = False
 
 
-class CoverItem(QGraphicsObject):
-    """Single album cover with reflection in the carousel."""
+def _format_dur(seconds: float) -> str:
+    if seconds <= 0:
+        return ""
+    s = int(seconds)
+    h = s // 3600
+    m = (s % 3600) // 60
+    return f"{h} h {m} min" if h > 0 else f"{m} min"
 
+
+class CoverItem(QGraphicsObject):
     def __init__(self, pixmap: QPixmap | None, index: int, width: int = 260,
                  height: int = 260):
         super().__init__()
@@ -33,18 +39,23 @@ class CoverItem(QGraphicsObject):
         self._w = width
         self._h = height
         self._fade_alpha = 1.0
+        self._darken_alpha = 0
+        self._is_center = False
+        self._cover_requested = False
+        self._cover_failed = False
 
-        # Placeholder for async loading
         if pixmap is None or pixmap.isNull():
             self._placeholder = QPixmap(width, height)
             self._placeholder.fill(QColor(40, 40, 45))
             self._pixmap = self._placeholder
+            self._cover_loaded = False
         else:
             self._placeholder = QPixmap()
             self._pixmap = pixmap.scaled(
-                 width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self._cover_loaded = True
 
-        self._cached = None  # lazy — generated on first paint
+        self._cached = None
 
     def _ensure_cached(self):
         if self._cached is None:
@@ -57,22 +68,18 @@ class CoverItem(QGraphicsObject):
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
 
-        # Rounded corners (Sleeve Effect)
         radius = 14.0
         path = QPainterPath()
         path.addRoundedRect(0, 0, self._w, self._h, radius, radius)
 
-        # Cover with clipping
         p.save()
         p.setClipPath(path)
         p.drawPixmap(0, 0, self._pixmap)
         p.restore()
 
-        # Subtle white border (premium)
         p.setPen(QPen(QColor(255, 255, 255, 28), 1.0))
         p.drawPath(path)
 
-        # Reflection ("Wet Floor") — softer
         p.save()
         p.translate(0, self._h * 2)
         p.scale(1, -1)
@@ -81,7 +88,6 @@ class CoverItem(QGraphicsObject):
         p.drawPixmap(0, 0, self._pixmap)
         p.restore()
 
-        # Non-linear fade gradient (background-matched)
         grad = QLinearGradient(0, self._h, 0, self._h * 2)
         grad.setColorAt(0.0, QColor(13, 13, 20, 100))
         grad.setColorAt(0.15, QColor(13, 13, 20, 180))
@@ -93,11 +99,12 @@ class CoverItem(QGraphicsObject):
         return cached
 
     def set_real_cover(self, pixmap: QPixmap):
-        """Animated fade from placeholder to real cover (anti-pop-in)."""
         if pixmap is None or pixmap.isNull():
             return
         self._real_cover = pixmap.scaled(
             self._w, self._h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self._cover_loaded = True
+        self._cover_requested = False
         self._fade_alpha = 0.0
         anim = QVariantAnimation()
         anim.setDuration(300)
@@ -106,7 +113,7 @@ class CoverItem(QGraphicsObject):
         anim.valueChanged.connect(self._on_fade_step)
         anim.finished.connect(self._on_fade_done)
         anim.start()
-        self._fade_anim = anim  # keep reference
+        self._fade_anim = anim
 
     def _on_fade_step(self, value: float):
         self._fade_alpha = value
@@ -119,6 +126,17 @@ class CoverItem(QGraphicsObject):
         self._cached = self._generate_reflection()
         self.update()
 
+    @property
+    def needs_cover(self) -> bool:
+        return not self._cover_loaded and not self._cover_requested and not self._cover_failed
+
+    def mark_cover_requested(self):
+        self._cover_requested = True
+
+    def mark_cover_failed(self):
+        self._cover_failed = True
+        self._cover_requested = False
+
     def boundingRect(self) -> QRectF:
         return QRectF(-self._w / 2, -self._h / 2, self._w, self._h * 2)
 
@@ -126,23 +144,29 @@ class CoverItem(QGraphicsObject):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
-        # Draw cached cover + reflection (rounded corners + border baked in)
         self._ensure_cached()
         painter.drawPixmap(0, 0, self._cached)
 
-        # Floor shadow for center item
-        if hasattr(self, '_is_center') and self._is_center:
+        # Center glow shadow
+        if self._is_center:
             painter.save()
             shadow = QRadialGradient(self._w / 2, self._h, self._w * 0.55)
             shadow.setColorAt(0.0, QColor(0, 0, 0, 50))
             shadow.setColorAt(1.0, QColor(0, 0, 0, 0))
             painter.setBrush(shadow)
             painter.setPen(Qt.NoPen)
-            painter.drawEllipse(QPointF(self._w / 2, self._h),
-                               self._w * 0.4, 10)
+            painter.drawEllipse(QPointF(self._w / 2, self._h), self._w * 0.4, 10)
             painter.restore()
 
-        # Fade-in overlay: if real_cover is loading, crossfade over cached
+            # Center highlight border
+            painter.save()
+            painter.setPen(QPen(QColor(255, 255, 255, 55), 1.4))
+            path = QPainterPath()
+            path.addRoundedRect(0.7, 0.7, self._w - 1.4, self._h - 1.4, 14, 14)
+            painter.drawPath(path)
+            painter.restore()
+
+        # Fade-in overlay
         if hasattr(self, '_real_cover') and self._fade_alpha < 1.0:
             painter.save()
             painter.setOpacity(self._fade_alpha)
@@ -154,11 +178,11 @@ class CoverItem(QGraphicsObject):
             painter.restore()
 
         # Depth shading for side covers
-        if hasattr(self, '_darken_alpha') and self._darken_alpha > 0:
+        if self._darken_alpha > 0:
             painter.save()
             painter.setCompositionMode(QPainter.CompositionMode_SourceAtop)
             painter.fillRect(0, 0, int(self._w), int(self._h * 2),
-                            QColor(0, 0, 0, self._darken_alpha))
+                             QColor(0, 0, 0, self._darken_alpha))
             painter.restore()
 
     def update_transform(self, current_offset: float, view_width: float,
@@ -169,9 +193,11 @@ class CoverItem(QGraphicsObject):
         spacing_center = 185.0
         spacing_side = 34.0
         zoom_out = min(0.15, abs(velocity) * 2.0)
+        self._is_center = abs(dist) < 0.5
 
         if abs(dist) < 0.1:
             self.setZValue(1000)
+            self._darken_alpha = 0
             cx = view_width / 2
             cy = view_height / 2 - 24
             transform.translate(cx, cy)
@@ -207,8 +233,17 @@ class CoverFlowWidget(QGraphicsView):
     selection_changed = Signal(int)
     double_clicked = Signal(int)
     clicked = Signal(int)
-    cover_snapped = Signal(int)    # emitted when snapping to a cover
-    request_cover = Signal(int, object)  # index, CoverFlowItem — async loading
+    cover_snapped = Signal(int)
+    request_cover = Signal(int, object)
+
+    # New premium signals
+    play_album_requested = Signal(int)
+    queue_album_requested = Signal(int)
+    playlist_album_requested = Signal(int)
+    metadata_album_requested = Signal(int)
+    details_album_requested = Signal(int)
+    cover_search_requested = Signal(int)
+    open_folder_requested = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -230,7 +265,6 @@ class CoverFlowWidget(QGraphicsView):
 
         self._create_overlay_items()
 
-        # Async album art loading
         from library.album_art_worker import AlbumArtManager
         self._art_mgr = AlbumArtManager(self)
         self._art_mgr._worker.art_ready.connect(self._on_cover_loaded)
@@ -243,6 +277,8 @@ class CoverFlowWidget(QGraphicsView):
         self._last_x = 0.0
         self._cover_w = 260
         self._cover_h = 260
+        self._last_text_idx = -1
+        self._last_emitted_idx = -1
 
         self._phys_timer = QTimer(self)
         self._phys_timer.timeout.connect(self._update_physics)
@@ -251,6 +287,9 @@ class CoverFlowWidget(QGraphicsView):
         self._snap_anim = QPropertyAnimation(self, b"current_pos")
         self._snap_anim.setEasingCurve(QEasingCurve.OutCubic)
         self._snap_anim.setDuration(350)
+        self._snap_anim.finished.connect(self._on_snap_finished)
+
+    # ── Current position property ──
 
     def get_current(self) -> float:
         return self._current
@@ -261,7 +300,7 @@ class CoverFlowWidget(QGraphicsView):
 
     current_pos = Property(float, get_current, set_current)
 
-    # ── Public API (backward compatible) ──
+    # ── Public API ──
 
     def set_items(self, items: list[CoverFlowItem]):
         self._items = items
@@ -269,6 +308,8 @@ class CoverFlowWidget(QGraphicsView):
         self._cover_items.clear()
         self._current = 0.0
         self._velocity = 0.0
+        self._last_text_idx = -1
+        self._last_emitted_idx = -1
 
         self._create_overlay_items()
 
@@ -279,8 +320,31 @@ class CoverFlowWidget(QGraphicsView):
 
         self._update_layout()
 
+    def item_at(self, idx: int) -> CoverFlowItem | None:
+        if 0 <= idx < len(self._items):
+            return self._items[idx]
+        return None
+
+    def current_item(self) -> CoverFlowItem | None:
+        idx = int(round(self._current))
+        return self.item_at(idx)
+
+    def scroll_to(self, index: int, animated: bool = True):
+        if not self._items:
+            return
+        index = max(0, min(index, len(self._items) - 1))
+        if animated:
+            self._snap_anim.stop()
+            self._snap_anim.setStartValue(self._current)
+            self._snap_anim.setEndValue(float(index))
+            self._snap_anim.start()
+        else:
+            self._current = float(index)
+            self._update_layout()
+
+    # ── Overlay items ──
+
     def _create_overlay_items(self):
-        """Re-create text items after scene.clear()."""
         self._title_text = QGraphicsTextItem()
         self._title_text.setDefaultTextColor(QColor("#ffffff"))
         self._title_text.setFont(QFont("sans-serif", 16, 750))
@@ -317,27 +381,18 @@ class CoverFlowWidget(QGraphicsView):
             '<p style="font-size:16pt;color:rgba(245,245,247,210)">'
             'No hay álbumes en tu biblioteca</p>'
             '<p style="font-size:12pt;color:rgba(245,245,247,148)">'
-            'Ctrl+D · Añadir carpeta musical</p>'
+            'Añade una carpeta musical para activar CoverFlow</p>'
             '</div>')
         self._empty_msg.setZValue(3000)
         self._scene.addItem(self._empty_msg)
 
+    # ── Cover loading ──
+
     def _on_cover_loaded(self, idx: int, pixmap: QPixmap):
-        """Async callback — apply loaded cover with fade-in."""
         if 0 <= idx < len(self._cover_items) and not pixmap.isNull():
             self._cover_items[idx].set_real_cover(pixmap)
 
-    def scroll_to(self, index: int, animated: bool = True):
-        if not self._items:
-            return
-        index = max(0, min(index, len(self._items) - 1))
-        if animated:
-            self._snap_anim.setStartValue(self._current)
-            self._snap_anim.setEndValue(float(index))
-            self._snap_anim.start()
-        else:
-            self._current = float(index)
-            self._update_layout()
+    # ── Layout ──
 
     def _update_layout(self):
         if not self._cover_items:
@@ -356,7 +411,6 @@ class CoverFlowWidget(QGraphicsView):
         vh = self.viewport().height()
         self._empty_msg.setVisible(False)
 
-        # Sliding window (virtualization) — only render ±12 from center
         for ci in self._cover_items:
             dist = ci._index - self._current
             if abs(dist) > 12:
@@ -365,54 +419,56 @@ class CoverFlowWidget(QGraphicsView):
 
             ci.setVisible(True)
             ci.update_transform(self._current, vw, vh, self._velocity)
-            ci._is_center = abs(dist) < 0.5
 
-            # Async loading: request cover if still placeholder
-            if not hasattr(ci, '_real_cover') and not ci._placeholder.isNull():
+            # Async cover request (deduplicated)
+            if ci.needs_cover:
+                ci.mark_cover_requested()
                 item = self._items[ci._index]
                 self.request_cover.emit(ci._index, item)
 
         idx = max(0, min(len(self._items) - 1, int(round(self._current))))
 
-        # Signal throttling — only emit if index changed
-        if getattr(self, '_last_emitted_idx', -1) != idx:
+        if self._last_emitted_idx != idx:
             self.selection_changed.emit(idx)
             self._last_emitted_idx = idx
 
-        # Position indicator
+        # Position
         self._position_text.setPlainText(f"{idx + 1} / {len(self._items)}")
         pr = self._position_text.boundingRect()
         self._position_text.setPos(vw - pr.width() - 24, vh - 28)
 
-        # Update central text with crossfade
-        if self._items and 0 <= idx < len(self._items):
-            item = self._items[idx]
-            artist = (
-                item.subtitle.split(" · ")[0]
-                if item.subtitle and " · " in item.subtitle
-                else item.subtitle or "Desconocido")
-            tracks = item.data.get("tracks", [])
-            count = len(tracks)
-            dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
-            dur_str = f"{int(dur // 60)}:{int(dur % 60):02d}" if dur > 0 else ""
-            meta_parts = []
-            if count:
-                meta_parts.append(f"{count} canciones")
-            if dur_str:
-                meta_parts.append(dur_str)
-            meta = " · ".join(meta_parts)
+        # Center text — update only if index changed
+        if idx != self._last_text_idx:
+            self._last_text_idx = idx
+            self._update_center_text(idx)
 
-            self._meta_text.setPlainText(meta)
-            mr = self._meta_text.boundingRect()
-            self._meta_text.setPos(vw / 2 - mr.width() / 2, vh - 50)
+    def _update_center_text(self, idx: int):
+        if not self._items or idx < 0 or idx >= len(self._items):
+            return
 
-            self._animate_text_change(item.title, artist)
-        else:
-            self._meta_text.setPlainText("")
-            self._animate_text_change("", "")
+        item = self._items[idx]
+        artist = (
+            item.subtitle.split(" · ")[0]
+            if item.subtitle and " · " in item.subtitle
+            else item.subtitle or "Desconocido")
+        tracks = item.data.get("tracks", [])
+        count = len(tracks)
+        dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
+        dur_str = _format_dur(dur)
+        meta_parts = []
+        if count:
+            meta_parts.append(f"{count} canciones")
+        if dur_str:
+            meta_parts.append(dur_str)
+        meta = " · ".join(meta_parts)
+
+        self._meta_text.setPlainText(meta)
+        mr = self._meta_text.boundingRect()
+        self._meta_text.setPos(self.viewport().width() / 2 - mr.width() / 2, self.viewport().height() - 50)
+
+        self._animate_text_change(item.title, artist)
 
     def _animate_text_change(self, new_title: str, new_artist: str):
-        """Fade out → change text → fade in."""
         vw = self.viewport().width()
         vh = self.viewport().height()
 
@@ -450,26 +506,50 @@ class CoverFlowWidget(QGraphicsView):
             return
         self._velocity *= 0.92
         self._current += self._velocity
-
-        # Elastic overscroll: spring back toward valid range
-        max_i = max(0.0, float(len(self._items) - 1))
-        if self._current < 0:
-            self._velocity += -self._current * 0.05
-        if self._current > max_i:
-            self._velocity += (max_i - self._current) * 0.05
-
+        self._clamp_current_soft()
         self._update_layout()
         if abs(self._velocity) < 0.003:
             self._trigger_snap()
             self._phys_timer.stop()
 
+    def _clamp_current_soft(self):
+        if not self._items:
+            self._current = 0.0
+            return
+        max_i = max(0.0, float(len(self._items) - 1))
+        overscroll = 0.8
+        if self._current < -overscroll:
+            self._current = -overscroll
+            self._velocity *= 0.3
+        elif self._current > max_i + overscroll:
+            self._current = max_i + overscroll
+            self._velocity *= 0.3
+        # Elastic spring
+        if self._current < 0:
+            self._velocity += -self._current * 0.05
+        if self._current > max_i:
+            self._velocity += (max_i - self._current) * 0.05
+        # Hard clamp velocity
+        self._velocity = max(-0.35, min(0.35, self._velocity))
+
     def _trigger_snap(self):
+        if not self._items:
+            return
         target = max(0, min(len(self._items) - 1, int(round(self._current))))
         self._snap_anim.stop()
         self._snap_anim.setStartValue(self._current)
         self._snap_anim.setEndValue(float(target))
         self._snap_anim.start()
+
+    def _on_snap_finished(self):
+        if not self._items:
+            return
+        target = max(0, min(len(self._items) - 1, int(round(self._current))))
+        self._current = float(target)
+        self._update_layout()
         self.cover_snapped.emit(target)
+
+    # ── Background ──
 
     def drawBackground(self, painter, rect):
         painter.save()
@@ -480,6 +560,8 @@ class CoverFlowWidget(QGraphicsView):
         painter.fillRect(rect, grad)
         painter.restore()
 
+    # ── Resize ──
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._update_cover_size()
@@ -488,9 +570,26 @@ class CoverFlowWidget(QGraphicsView):
     def _update_cover_size(self):
         vw = self.viewport().width()
         size = max(210, min(300, int(vw * 0.23)))
-        if size != self._cover_w:
+        if abs(size - self._cover_w) >= 12:
             self._cover_w = size
             self._cover_h = size
+            self._rebuild_items()
+
+    def _rebuild_items(self):
+        if not self._items:
+            return
+        saved_current = self._current
+        self._scene.clear()
+        self._cover_items.clear()
+        self._create_overlay_items()
+        for i, item in enumerate(self._items):
+            ci = CoverItem(item.pixmap, i, self._cover_w, self._cover_h)
+            self._scene.addItem(ci)
+            self._cover_items.append(ci)
+        self._current = max(0, min(len(self._items) - 1, saved_current))
+        self._update_layout()
+
+    # ── Context menu ──
 
     def contextMenuEvent(self, event):
         idx = int(round(self._current))
@@ -498,41 +597,61 @@ class CoverFlowWidget(QGraphicsView):
             return
         from PySide6.QtWidgets import QMenu
         menu = QMenu(self)
-        menu.addAction("▶ Reproducir álbum", lambda: self.double_clicked.emit(idx))
-        if hasattr(self, 'queue_album_requested'):
-            menu.addAction("+ Añadir a cola", lambda: self.queue_album_requested.emit(idx))
+        menu.setStyleSheet("""
+            QMenu { background: rgba(22,24,31,0.97); border: 1px solid rgba(255,255,255,0.10);
+              border-radius: 10px; padding: 6px 4px; color: rgba(255,255,255,0.88); font-size: 12.5px; }
+            QMenu::item { padding: 7px 32px 7px 16px; border-radius: 6px; }
+            QMenu::item:selected { background: rgba(255,255,255,0.09); }
+            QMenu::separator { height: 1px; background: rgba(255,255,255,0.08); margin: 4px 8px; }
+        """)
+        menu.addAction("Reproducir álbum", lambda: self.play_album_requested.emit(idx))
+        menu.addAction("Añadir álbum a cola", lambda: self.queue_album_requested.emit(idx))
+        menu.addSeparator()
+        menu.addAction("Crear playlist desde álbum", lambda: self.playlist_album_requested.emit(idx))
+        menu.addAction("Editar metadatos", lambda: self.metadata_album_requested.emit(idx))
+        menu.addAction("Buscar carátula", lambda: self.cover_search_requested.emit(idx))
+        menu.addAction("Abrir carpeta", lambda: self.open_folder_requested.emit(idx))
+        menu.addSeparator()
+        menu.addAction("Ver detalles", lambda: self.details_album_requested.emit(idx))
         menu.exec(event.globalPos())
+
+    # ── Keyboard ──
 
     def keyPressEvent(self, event):
         if not self._items:
             return super().keyPressEvent(event)
-        current_idx = int(round(self._current))
+        idx = int(round(self._current))
 
-        if event.key() == Qt.Key_Left:
-            self.scroll_to(current_idx - 1)
-            event.accept()
-        elif event.key() == Qt.Key_Right:
-            self.scroll_to(current_idx + 1)
-            event.accept()
-        elif event.key() == Qt.Key_PageUp:
-            self.scroll_to(current_idx - 5)
-            event.accept()
-        elif event.key() == Qt.Key_PageDown:
-            self.scroll_to(current_idx + 5)
-            event.accept()
-        elif event.key() == Qt.Key_Home:
+        k = event.key()
+        if k == Qt.Key_Left:
+            self.scroll_to(idx - 1)
+        elif k == Qt.Key_Right:
+            self.scroll_to(idx + 1)
+        elif k == Qt.Key_PageUp:
+            self.scroll_to(idx - 5)
+        elif k == Qt.Key_PageDown:
+            self.scroll_to(idx + 5)
+        elif k == Qt.Key_Home:
             self.scroll_to(0)
-            event.accept()
-        elif event.key() == Qt.Key_End:
+        elif k == Qt.Key_End:
             self.scroll_to(len(self._items) - 1)
-            event.accept()
-        elif event.key() in (Qt.Key_Enter, Qt.Key_Return):
-            self.double_clicked.emit(current_idx)
-            event.accept()
+        elif k in (Qt.Key_Enter, Qt.Key_Return):
+            self.play_album_requested.emit(idx)
+        elif k == Qt.Key_Space:
+            self.play_album_requested.emit(idx)
+        elif k == Qt.Key_A:
+            self.queue_album_requested.emit(idx)
+        elif k == Qt.Key_I:
+            self.details_album_requested.emit(idx)
+        elif k == Qt.Key_M:
+            self.metadata_album_requested.emit(idx)
+        elif k == Qt.Key_F:
+            self.cover_search_requested.emit(idx)
         else:
-            super().keyPressEvent(event)
+            return super().keyPressEvent(event)
+        event.accept()
 
-    # ── Mouse events ──
+    # ── Mouse ──
 
     def mousePressEvent(self, event):
         self._dragging = True
@@ -549,34 +668,34 @@ class CoverFlowWidget(QGraphicsView):
         self._current -= dx * sensitivity
         self._velocity = -dx * sensitivity * 0.5
         self._last_x = event.position().x()
+        self._clamp_current_soft()
         self._update_layout()
 
     def mouseReleaseEvent(self, event):
         self._dragging = False
         self.setCursor(Qt.OpenHandCursor)
-        if abs(self._velocity) < 0.01:
+        self._velocity = max(-0.35, min(0.35, self._velocity))
+        if abs(self._velocity) >= 0.01:
+            self._phys_timer.start(16)
+        else:
             self._trigger_snap()
 
     def mouseDoubleClickEvent(self, event):
         idx = int(round(self._current))
         if 0 <= idx < len(self._items):
+            self.play_album_requested.emit(idx)
             self.double_clicked.emit(idx)
 
     def wheelEvent(self, event):
-        # High-resolution pixel delta (trackpad gestures on Wayland)
         pixel_delta = event.pixelDelta().x() or event.pixelDelta().y()
-
         if pixel_delta != 0:
-            self._current -= pixel_delta * 0.015
+            self._current -= pixel_delta * 0.010
         else:
-            # Fallback for traditional mouse wheel (click-based)
             angle_delta = event.angleDelta().y() / 120.0
             self._current -= angle_delta * 0.5
 
+        self._clamp_current_soft()
         self._update_layout()
-
-        # Reset physics and restart snap timer with debounce
         self._dragging = False
         self._velocity = 0.0
-        self._phys_timer.start(16)
         QTimer.singleShot(150, self._trigger_snap)
