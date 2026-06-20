@@ -33,7 +33,7 @@ class SpectrumWidget(QWidget):
         self._peak_decay = 0.95
         self._mode = "bars"  # bars | line | both
         self.setMinimumHeight(120)
-        self.setStyleSheet("background: #1a1a2e; border-radius: 6px;")
+        self.setStyleSheet("background: #090B11; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;")
 
     def set_mode(self, mode: str):
         self._mode = mode
@@ -73,17 +73,17 @@ class SpectrumWidget(QWidget):
         bar_w = (w - margin * 2) / SPEC_BANDS
 
         # ── Background ──
-        p.fillRect(self.rect(), QColor("#1a1a2e"))
+        p.fillRect(self.rect(), QColor("#090B11"))
 
         # ── Grid lines ──
-        p.setPen(QPen(QColor("#2a2a3e"), 1))
+        p.setPen(QPen(QColor(255, 255, 255, 15), 1))
         for frac in [0.25, 0.5, 0.75]:
             y = int(h * frac)
             p.drawLine(margin, y, w - margin, y)
 
         # ── Frequency labels ──
         p.setFont(QFont("sans-serif", 8))
-        p.setPen(QColor("#4a4a5e"))
+        p.setPen(QColor(255, 255, 255, 45))
         for f_hz in [30, 60, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]:
             idx = int(np.searchsorted(SPEC_FREQS, f_hz))
             x = margin + idx * bar_w

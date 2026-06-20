@@ -97,7 +97,7 @@ class _SongCard(QFrame):
 
     def __init__(self, item, size: int):
         super().__init__()
-        self._fp = getattr(item, 'filepath', '')
+        self._fp = getattr(item, 'filepath', None) or getattr(item, 'uri', '')
         self.setFixedSize(size, size + 70)
         self.setCursor(Qt.PointingHandCursor)
         self.setStyleSheet("""

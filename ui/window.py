@@ -108,6 +108,7 @@ class MainWindow(QMainWindow):
         self._kind_filter: str | None = None
         self._search_text = ""
         self._current_playlist: int | None = None
+        self._playlist_refs: list = []
 
         # ── Music Identifier (must exist before _setup_ui) ──
         self._detection = DetectionService(self._db, NullRecognizer(), self)
@@ -788,6 +789,7 @@ class MainWindow(QMainWindow):
                 year=i.year, genre=i.genre,
             ) for i in items]
             self._model.populate(refs)
+            self._playlist_refs = refs
 
             # Check for missing files
             missing = sum(1 for r in refs if not os.path.exists(r.uri))
@@ -905,7 +907,25 @@ class MainWindow(QMainWindow):
                 files = fn()
                 files = [f for f in files
                          if isinstance(f, str) and (f.startswith("http") or os.path.isfile(f))]
-                if files:
+                if key == "mix_unplayed":
+                    # Show table view instead of auto-play
+                    items = [self._items_index.get(f) for f in files]
+                    items = [i for i in items if i]
+                    refs = [TrackRef(uri=i.filepath, title=i.title or os.path.basename(i.filepath),
+                                     artist=i.artist, album=i.album, duration=i.duration,
+                                     year=i.year, genre=i.genre) for i in items]
+                    self._model.populate(refs)
+                    self._count.setText(f"{len(refs)} canciones")
+                    self._playlist_refs = refs
+                    if refs:
+                        self._views.show("library"); self._table.setModel(self._model)
+                        self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260)
+                        self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
+                        self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+                        self._table.setColumnWidth(6, 75)
+                    else:
+                        self._views.show("empty")
+                elif files:
                     self._playback.enqueue(files, play_now=True)
                     self._show_expanded()
                 else:
@@ -1097,7 +1117,11 @@ class MainWindow(QMainWindow):
             self._apply_filters()
             self._fade_content("library")
         elif mode == "grid":
-            if self._current_section_key == "albums":
+            if self._current_playlist and self._playlist_refs:
+                # Show playlist tracks as grid
+                self._song_grid.set_items(self._playlist_refs, card_size=170)
+                self._fade_content("song_grid")
+            elif self._current_section_key == "albums":
                 self._show_album_grid()
                 self._fade_content("album_grid")
             else:
@@ -1646,6 +1670,7 @@ class MainWindow(QMainWindow):
             self._mini_player.play_clicked.connect(self._playback.toggle)
             self._mini_player.prev_clicked.connect(self._playback.play_prev)
             self._mini_player.next_clicked.connect(self._playback.play_next)
+            self._mini_player.seek_requested.connect(self._playback.seek)
             # Sync from engine
             self._player.position_changed.connect(
                 lambda s: self._mini_player.set_position(

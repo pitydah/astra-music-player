@@ -12,6 +12,7 @@ class MiniPlayer(QWidget):
     play_clicked = Signal()
     prev_clicked = Signal()
     next_clicked = Signal()
+    seek_requested = Signal(float)  # seconds
 
     def __init__(self, playback, parent=None):
         super().__init__(parent)
@@ -87,6 +88,8 @@ class MiniPlayer(QWidget):
         self._seek = QSlider(Qt.Horizontal)
         self._seek.setRange(0, 1000)
         self._seek.setFixedHeight(20)
+        self._seek.sliderPressed.connect(lambda: setattr(self, '_tracking', True))
+        self._seek.sliderReleased.connect(self._on_seek_release)
         self._seek.setStyleSheet("""
             QSlider::groove:horizontal {
                 height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px;
@@ -132,6 +135,13 @@ class MiniPlayer(QWidget):
 
         # Position tracking
         self._tracking = False
+        self._duration = 0.0
+
+    def _on_seek_release(self):
+        self._tracking = False
+        if self._duration > 0:
+            seconds = self._seek.value() / 1000.0 * self._duration
+            self.seek_requested.emit(seconds)
 
     def set_track(self, title: str, artist: str = "", cover_path: str = ""):
         self._title_lbl.setText(title or "Sin reproducción")
@@ -149,6 +159,7 @@ class MiniPlayer(QWidget):
         self._play_btn.setIcon(QIcon(get_icon(name)))
 
     def set_position(self, seconds: float, duration: float):
+        self._duration = duration
         if not self._tracking and duration > 0:
             self._seek.setValue(int(seconds / duration * 1000))
 
