@@ -475,9 +475,19 @@ class CoverFlowWidget(QGraphicsView):
 
     # ── Public API ──
 
+    def _clear_scene_preserve_slider(self):
+        for ci in list(self._cover_items):
+            self._scene.removeItem(ci)
+        self._cover_items.clear()
+        for attr in ('_title_text', '_artist_text', '_meta_text',
+                     '_position_text', '_empty_msg'):
+            item = getattr(self, attr, None)
+            if item and item.scene() is self._scene:
+                self._scene.removeItem(item)
+
     def set_items(self, items: list[CoverFlowItem]):
         self._items = items
-        self._scene.clear()
+        self._clear_scene_preserve_slider()
         self._cover_items.clear()
         self._current = 0.0
         self._velocity = 0.0
@@ -764,8 +774,7 @@ class CoverFlowWidget(QGraphicsView):
         if not self._items:
             return
         saved = self._current
-        self._scene.clear()
-        self._cover_items.clear()
+        self._clear_scene_preserve_slider()
         self._create_overlay_items()
         for i, item in enumerate(self._items):
             ci = CoverItem(item.pixmap, i, self._cover_w, self._cover_h)
