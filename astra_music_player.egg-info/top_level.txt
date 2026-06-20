@@ -1,0 +1,12 @@
+adapters
+audio
+core
+library
+lyrics
+main
+metadata
+recognition
+sources
+streaming
+sync
+ui

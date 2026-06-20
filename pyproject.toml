@@ -51,8 +51,11 @@ Issues = "https://github.com/pitydah/astra-music-player/issues"
 astra-music-player = "main:main"
 
 [tool.setuptools]
-packages = ["adapters", "audio", "core", "library", "sources", "lyrics", "streaming", "sync", "ui", "metadata"]
 py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests*", "tools*", "data*", "docs*", "icons*", "__pycache__*"]
 
 [tool.ruff]
 line-length = 100
