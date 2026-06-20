@@ -423,13 +423,29 @@ class NowPlayingBar(QWidget):
         self._next_btn.clicked.connect(self.next_clicked.emit)
         self._repeat_btn.clicked.connect(self._on_repeat)
 
+        self._audio_output_btn = _make_btn("warm_audio_source", 24, 40)
+        self._audio_output_btn.setToolTip("Seleccionar salida de audio")
+        self._audio_output_btn.clicked.connect(self.audio_output_clicked.emit)
+
+        self._mini_player_btn = _make_btn("warm_mini_player", 24, 40)
+        self._mini_player_btn.setToolTip("Abrir mini reproductor")
+        self._mini_player_btn.clicked.connect(self.mini_player_clicked.emit)
+
         ctrl_row.addWidget(self._shuffle_btn)
         ctrl_row.addWidget(self._prev_btn)
         ctrl_row.addWidget(self._play_btn)
         ctrl_row.addWidget(self._next_btn)
         ctrl_row.addWidget(self._repeat_btn)
 
+        # ── Utility row: audio source + mini player under slider ──
+        utility_row = QHBoxLayout()
+        utility_row.setContentsMargins(0, 0, 0, 0)
+        utility_row.addStretch()
+        utility_row.addWidget(self._audio_output_btn)
+        utility_row.addWidget(self._mini_player_btn)
+
         center_layout.addLayout(seek_row)
+        center_layout.addLayout(utility_row)
         center_layout.addLayout(ctrl_row)
         layout.addWidget(center_widget, 1)
 
@@ -453,14 +469,6 @@ class NowPlayingBar(QWidget):
         self._transmit_btn = _make_btn("warm_transmit", 28, 44)
         self._transmit_btn.setToolTip("Transmitir a dispositivo")
         self._transmit_btn.clicked.connect(lambda: self.transmit_clicked.emit())
-
-        self._audio_output_btn = _make_btn("warm_audio_source", 24, 40)
-        self._audio_output_btn.setToolTip("Seleccionar salida de audio")
-        self._audio_output_btn.clicked.connect(self.audio_output_clicked.emit)
-
-        self._mini_player_btn = _make_btn("warm_mini_player", 24, 40)
-        self._mini_player_btn.setToolTip("Abrir mini reproductor")
-        self._mini_player_btn.clicked.connect(self.mini_player_clicked.emit)
 
         self._quality_badge = QLabel("")
         self._quality_badge.setAlignment(Qt.AlignCenter)
@@ -499,9 +507,6 @@ class NowPlayingBar(QWidget):
         right_controls.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         right_controls.addStretch()
-        right_controls.addWidget(self._audio_output_btn)
-        right_controls.addWidget(self._mini_player_btn)
-        right_controls.addSpacing(14)
         right_controls.addWidget(self._vol_btn)
         right_controls.addWidget(self._vol)
         right_controls.addSpacing(6)
