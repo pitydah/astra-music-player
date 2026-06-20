@@ -1,7 +1,7 @@
 """Segmented view switcher — premium capsule control with QButtonGroup."""
-from PySide6.QtCore import Signal, Qt, QSize
+from PySide6.QtCore import Signal, Qt, QSize, QPropertyAnimation
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QButtonGroup
+from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QButtonGroup, QGraphicsOpacityEffect
 
 from ui.design_tokens import VIEW_BUTTON_W, VIEW_BUTTON_H, VIEW_ICON_W, VIEW_ICON_H
 
@@ -15,33 +15,33 @@ VIEW_MODE_DEFS = {
 
 _QSS = """
     QWidget#segmentedViewSwitcher {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.075);
-        border-radius: 14px;
+        background: rgba(255,255,255,0.045);
+        border: 1px solid rgba(255,255,255,0.085);
+        border-radius: 15px;
     }
     QWidget#segmentedViewSwitcher QPushButton {
         background: transparent;
-        color: rgba(255,255,255,0.72);
+        color: rgba(255,255,255,0.66);
         border: 1px solid transparent;
-        border-radius: 11px;
+        border-radius: 12px;
         margin: 2px;
         padding: 0px;
-        min-width: 42px; max-width: 42px;
-        min-height: 34px; max-height: 34px;
+        min-width: 44px; max-width: 44px;
+        min-height: 36px; max-height: 36px;
     }
     QWidget#segmentedViewSwitcher QPushButton:hover {
-        background: rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.082);
         color: #FFFFFF;
-        border: 1px solid rgba(255,255,255,0.10);
+        border: 1px solid rgba(255,255,255,0.105);
     }
     QWidget#segmentedViewSwitcher QPushButton:checked {
-        background: rgba(255,255,255,0.135);
+        background: rgba(255,255,255,0.142);
         color: #FFFFFF;
-        border: 1px solid rgba(255,255,255,0.16);
+        border: 1px solid rgba(255,255,255,0.175);
     }
     QWidget#segmentedViewSwitcher QPushButton:disabled {
         background: transparent;
-        color: rgba(255,255,255,0.28);
+        color: rgba(255,255,255,0.25);
         border: 1px solid transparent;
     }
 """
@@ -53,7 +53,7 @@ class SegmentedViewSwitcher(QWidget):
     def __init__(self, get_icon_func, parent=None):
         super().__init__(parent)
         self.setObjectName("segmentedViewSwitcher")
-        self.setFixedHeight(38)
+        self.setFixedHeight(40)
         self._available_modes: set[str] = set()
 
         self._group = QButtonGroup(self)
@@ -82,7 +82,9 @@ class SegmentedViewSwitcher(QWidget):
             layout.addWidget(btn)
 
         self._current = "list"
+        self._active_anim = None
         self.setStyleSheet(_QSS)
+        self.setFixedWidth(0)
         self.hide()
 
     def set_view(self, mode: str, emit: bool = True):
@@ -96,6 +98,22 @@ class SegmentedViewSwitcher(QWidget):
         self._buttons[mode].setChecked(True)
         if emit:
             self.view_changed.emit(mode)
+            self._pulse_active_button(self._buttons[mode])
+
+    def _pulse_active_button(self, btn: QPushButton):
+        """Subtle opacity pulse on the active button."""
+        if self._active_anim is not None:
+            self._active_anim.stop()
+        effect = QGraphicsOpacityEffect(btn)
+        effect.setOpacity(0.72)
+        btn.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", self)
+        anim.setDuration(120)
+        anim.setStartValue(0.72)
+        anim.setEndValue(1.0)
+        anim.finished.connect(lambda: btn.setGraphicsEffect(None))
+        self._active_anim = anim
+        anim.start()
 
     @property
     def current_view(self) -> str:
@@ -111,9 +129,12 @@ class SegmentedViewSwitcher(QWidget):
             if vis:
                 visible_count += 1
 
-        if visible_count == 0:
+        # Hide if 0 or 1 mode (no point in a switcher with one option)
+        if visible_count <= 1:
             self.setFixedWidth(0)
             self.hide()
+            if visible_count == 1:
+                self.set_view(modes[0], emit=False)
             return
 
         self.show()
