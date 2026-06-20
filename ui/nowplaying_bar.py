@@ -675,6 +675,18 @@ class NowPlayingBar(QWidget):
             self._transmit_btn.setStyleSheet("")
             self._transmit_btn.setToolTip("Transmitir a dispositivo")
 
+    def transmit_button_position(self):
+        """Returns global position under the transmit button for menu placement."""
+        if hasattr(self, '_transmit_btn'):
+            return self._transmit_btn.mapToGlobal(
+                self._transmit_btn.rect().bottomLeft())
+        from PySide6.QtCore import QPoint
+        return QPoint(0, 0)
+
+    def get_volume(self) -> int:
+        """Returns current volume level (0-100)."""
+        return self._vol.value()
+
 
 class ClickableSlider(QSlider):
     """Slider that jumps to clicked position instantly."""

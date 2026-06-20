@@ -11,6 +11,40 @@ class TestAppContext:
         w._playback = "mock_playback"
         w._model = "mock_model"
         w._search_ctrl = "mock_search"
+        w._toast_svc = MagicMock()
+        w._player_bar_ctrl = MagicMock()
+        w._bg_theme = MagicMock()
+        w._mpris_ctrl = MagicMock()
+        w._nav = MagicMock()
+        w._tray_ctrl = MagicMock()
+        w._views = MagicMock()
+        w._section_title = MagicMock()
+        w._section_subtitle = MagicMock()
+        w._view_switcher = MagicMock()
+        w._artist_grid = MagicMock()
+        w._artist_detail = MagicMock()
+        w._metadata_editor = MagicMock()
+        w._artist_repo = MagicMock()
+        w._items_index = {}
+        w._current_ref = None
+        w._current_section_key = "library"
+        w._view_mode = "grid"
+        w._expanded = None
+        w._table = MagicMock()
+        w._count = MagicMock()
+        w._content = MagicMock()
+        w._transmit_mgr = MagicMock()
+        w._eq_dlg = None
+        w._fade_content = MagicMock()
+        w._restore_central_opacity = MagicMock()
+        w._configure_header_for_section = MagicMock()
+        w._on_sidebar_navigate = MagicMock()
+        w._rebuild_sidebar = MagicMock()
+        w._load_library = MagicMock()
+        w._notify_track = MagicMock()
+        w.setWindowTitle = MagicMock()
+        w._play_file = MagicMock()
+        w._show_album_grid = MagicMock()
 
         ctx = AppContext(w)
 
@@ -19,9 +53,50 @@ class TestAppContext:
         assert ctx.playback == "mock_playback"
         assert ctx.model == "mock_model"
         assert ctx.search == "mock_search"
+        assert ctx.search_ctrl == "mock_search"
         assert ctx.window is w
 
     def test_window_reference(self):
         w = MagicMock()
+        w._db = MagicMock()
+        w._player = MagicMock()
+        w._playback = MagicMock()
+        w._model = MagicMock()
+        w._search_ctrl = MagicMock()
+        w._toast_svc = MagicMock()
+        w._player_bar_ctrl = MagicMock()
+        w._bg_theme = MagicMock()
+        w._mpris_ctrl = MagicMock()
+        w._nav = MagicMock()
+        w._tray_ctrl = MagicMock()
+        w._views = MagicMock()
+        w._section_title = MagicMock()
+        w._section_subtitle = MagicMock()
+        w._view_switcher = MagicMock()
+        w._artist_grid = MagicMock()
+        w._artist_detail = MagicMock()
+        w._metadata_editor = MagicMock()
+        w._artist_repo = MagicMock()
+        w._items_index = {}
+        w._current_ref = None
+        w._current_section_key = "library"
+        w._view_mode = "grid"
+        w._expanded = None
+        w._table = MagicMock()
+        w._count = MagicMock()
+        w._content = MagicMock()
+        w._transmit_mgr = MagicMock()
+        w._eq_dlg = None
+        w._fade_content = MagicMock()
+        w._restore_central_opacity = MagicMock()
+        w._configure_header_for_section = MagicMock()
+        w._on_sidebar_navigate = MagicMock()
+        w._rebuild_sidebar = MagicMock()
+        w._load_library = MagicMock()
+        w._notify_track = MagicMock()
+        w.setWindowTitle = MagicMock()
+        w._play_file = MagicMock()
+        w._show_album_grid = MagicMock()
+
         ctx = AppContext(w)
         assert ctx.window is w

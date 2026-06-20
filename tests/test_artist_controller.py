@@ -7,7 +7,7 @@ class TestArtistController:
         ctrl = ArtistController(mock_window)
         ctrl.show_artists_view("grid")
         mock_window._artist_grid.set_view_mode.assert_called_with("grid")
-        mock_window._fade_content.assert_called_with("artist_grid")
+        mock_window._ctx.fade_to.assert_called_with("artist_grid")
 
     def test_open_artist_detail_not_found(self, mock_window):
         ctrl = ArtistController(mock_window)
@@ -48,7 +48,7 @@ class TestArtistController:
     def test_show_artists_overview(self, mock_window):
         ctrl = ArtistController(mock_window)
         ctrl.show_artists_overview()
-        mock_window._configure_header_for_section.assert_called_with("artists")
+        mock_window._ctx.configure_header.assert_called_with("artists")
 
     def test_play_artist(self, mock_window):
         ctrl = ArtistController(mock_window)
@@ -59,4 +59,4 @@ class TestArtistController:
         ctrl = ArtistController(mock_window)
         ctrl.open_metadata_for_files(["/tmp/a.flac"])
         mock_window._metadata_editor.load_files.assert_called_with(["/tmp/a.flac"])
-        mock_window._fade_content.assert_called_with("metadata_editor")
+        mock_window._ctx.fade_to.assert_called_with("metadata_editor")

@@ -9,7 +9,7 @@ class PlaylistController:
         self._win = window
 
     def _toast(self, text: str, level: str = "info"):
-        self._win._toast_svc.show(text, level)
+        self._win._ctx.toast.show(text, level)
 
     def import_m3u(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -21,19 +21,19 @@ class PlaylistController:
         self._toast("Exportador de playlists pendiente de implementar", "info")
 
     def open_smart_playlist(self, key: str):
-        self._win._on_sidebar_navigate(
+        self._win._ctx.navigate_sidebar(
             f"mix_{key}" if not key.startswith("mix_") else key)
 
     def hub_playlist_play(self, pid: int):
-        items = self._win._db.get_playlist_items(pid)
+        items = self._win._ctx.db.get_playlist_items(pid)
         fps = [i.filepath for i in items]
-        self._win._playback.enqueue(fps, play_now=True)
+        self._win._ctx.playback.enqueue(fps, play_now=True)
         self._toast("Reproduciendo playlist", "success")
 
     def hub_playlist_queue(self, pid: int):
-        items = self._win._db.get_playlist_items(pid)
+        items = self._win._ctx.db.get_playlist_items(pid)
         fps = [i.filepath for i in items]
-        self._win._playback.enqueue(fps, play_now=False)
+        self._win._ctx.playback.enqueue(fps, play_now=False)
         self._toast("Playlist añadida a la cola", "success")
 
     def hub_create_from_folder(self):
@@ -52,4 +52,4 @@ class PlaylistController:
         self._toast(f"Metadatos guardados en {len(filepaths)} archivos", "success")
 
     def refresh_library(self):
-        self._win._load_library()
+        self._win._ctx.load_library()

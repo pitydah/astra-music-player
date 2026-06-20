@@ -1,4 +1,4 @@
-"""AppContext — dependency container for Astra Music Player controllers."""
+"""AppContext — dependency injection container for Astra Music Player controllers."""
 from __future__ import annotations
 
 
@@ -7,9 +7,171 @@ class AppContext:
     Passed to controllers so they don't need direct MainWindow references."""
 
     def __init__(self, window):
-        self.window = window
+        self._win = window
+
+        # ── Core services ──
         self.db = window._db
         self.player = window._player
         self.playback = window._playback
         self.model = window._model
-        self.search = window._search_ctrl
+        self.search_ctrl = window._search_ctrl
+        self.search = window._search_ctrl  # backward compat alias
+        self.window = window  # backward compat alias
+
+        # ── Extracted services ──
+        self.toast = window._toast_svc
+        self.player_bar = window._player_bar_ctrl
+        self.bg_theme = window._bg_theme
+        self.mpris = window._mpris_ctrl
+        self.navigator = window._nav
+        self.tray = window._tray_ctrl
+
+    # ── Facade properties — stable public API for controllers ──
+
+    @property
+    def playback(self):
+        return self._win._playback
+
+    @playback.setter
+    def playback(self, value):
+        pass  # set via __init__, immutable after
+
+    @property
+    def db(self):
+        return self._win._db
+
+    @db.setter
+    def db(self, value):
+        pass
+
+    @property
+    def model(self):
+        return self._win._model
+
+    @model.setter
+    def model(self, value):
+        pass
+
+    @property
+    def player(self):
+        return self._win._player
+
+    @player.setter
+    def player(self, value):
+        pass
+
+    @property
+    def views(self):
+        return self._win._views
+
+    @property
+    def section_title(self):
+        return self._win._section_title
+
+    @property
+    def section_subtitle(self):
+        return self._win._section_subtitle
+
+    @property
+    def view_switcher(self):
+        return self._win._view_switcher
+
+    @property
+    def artist_grid(self):
+        return self._win._artist_grid
+
+    @property
+    def artist_detail(self):
+        return self._win._artist_detail
+
+    @property
+    def metadata_editor(self):
+        return self._win._metadata_editor
+
+    @property
+    def artist_repo(self):
+        return self._win._artist_repo
+
+    @property
+    def items_index(self):
+        return self._win._items_index
+
+    @property
+    def current_ref(self):
+        return self._win._current_ref
+
+    @current_ref.setter
+    def current_ref(self, value):
+        self._win._current_ref = value
+
+    @property
+    def current_section_key(self):
+        return self._win._current_section_key
+
+    @property
+    def view_mode(self):
+        return self._win._view_mode
+
+    @property
+    def expanded(self):
+        return self._win._expanded
+
+    @expanded.setter
+    def expanded(self, value):
+        self._win._expanded = value
+
+    @property
+    def table(self):
+        return self._win._table
+
+    @property
+    def count(self):
+        return self._win._count
+
+    @property
+    def content(self):
+        return self._win._content
+
+    @property
+    def transmit_mgr(self):
+        return self._win._transmit_mgr
+
+    @property
+    def eq_dlg(self):
+        return self._win._eq_dlg
+
+    @eq_dlg.setter
+    def eq_dlg(self, value):
+        self._win._eq_dlg = value
+
+    # ── Delegation methods (stable, non-widget-access) ──
+
+    def fade_to(self, view_name: str):
+        self._win._fade_content(view_name)
+
+    def restore_opacity(self):
+        self._win._restore_central_opacity()
+
+    def configure_header(self, section_key: str):
+        self._win._configure_header_for_section(section_key)
+
+    def navigate_sidebar(self, key: str):
+        self._win._on_sidebar_navigate(key)
+
+    def rebuild_sidebar(self):
+        self._win._rebuild_sidebar()
+
+    def load_library(self):
+        self._win._load_library()
+
+    def notify_track(self, title: str, artist: str):
+        self._win._notify_track(title, artist)
+
+    def set_window_title(self, title: str):
+        self._win.setWindowTitle(title)
+
+    def play_file(self, fp: str):
+        self._win._play_file(fp)
+
+    def show_album_grid(self):
+        self._win._show_album_grid()

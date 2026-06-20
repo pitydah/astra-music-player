@@ -30,12 +30,17 @@ class PlayerBarController:
     def set_transmit_active(self, active: bool, device_name: str = ""):
         self._bar.set_transmit_active(active, device_name)
 
+    def transmit_button_position(self):
+        """Returns global position under the transmit button for menu placement."""
+        return self._bar.transmit_button_position()
+
     def transmit_button(self):
-        """Returns the transmit QPushButton for menu positioning."""
+        """DEPRECATED: use transmit_button_position() instead.
+        Returns the transmit QPushButton for menu positioning."""
         return self._bar._transmit_btn
 
     def volume_value(self) -> int:
-        return self._bar._vol.value()
+        return self._bar.get_volume()
 
     def change_volume(self, delta: int):
         v = min(100, max(0, self.volume_value() + delta))

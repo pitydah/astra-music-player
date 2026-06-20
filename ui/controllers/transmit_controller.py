@@ -26,11 +26,11 @@ class TransmitController:
 
         local = menu.addAction("Local (sin transmitir)")
         local.setCheckable(True)
-        active = self._win._transmit_mgr.get_active()
+        active = self._win._ctx.transmit_mgr.get_active()
         local.setChecked(active is None)
         local.triggered.connect(lambda: self.activate_transmit_device(None))
 
-        devices = self._win._transmit_mgr.get_devices()
+        devices = self._win._ctx.transmit_mgr.get_devices()
         if devices:
             menu.addSeparator()
             for dev in devices:
@@ -43,28 +43,28 @@ class TransmitController:
         menu.addSeparator()
         menu.addAction("Añadir dispositivo...", self.add_transmit_device)
 
-        btn = self._win._player_bar_ctrl.transmit_button()
+        btn = self._win._ctx.player_bar.transmit_button()
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
 
     def activate_transmit_device(self, device):
         if device is None:
-            self._win._transmit_mgr.set_active(None)
-            self._win._playback.set_output_device(None)
-            self._win._player_bar_ctrl.set_transmit_active(False)
+            self._win._ctx.transmit_mgr.set_active(None)
+            self._win._ctx.playback.set_output_device(None)
+            self._win._ctx.player_bar.set_transmit_active(False)
         else:
-            self._win._transmit_mgr.set_active(device)
-            self._win._playback.set_output_device(device)
-            self._win._player_bar_ctrl.set_transmit_active(True, device.name)
+            self._win._ctx.transmit_mgr.set_active(device)
+            self._win._ctx.playback.set_output_device(device)
+            self._win._ctx.player_bar.set_transmit_active(True, device.name)
 
     def on_transmit_devices_changed(self):
         pass
 
     def on_transmit_active_changed(self):
-        device = self._win._transmit_mgr.get_active()
+        device = self._win._ctx.transmit_mgr.get_active()
         if device:
-            self._win._player_bar_ctrl.set_transmit_active(True, device.name)
+            self._win._ctx.player_bar.set_transmit_active(True, device.name)
         else:
-            self._win._player_bar_ctrl.set_transmit_active(False)
+            self._win._ctx.player_bar.set_transmit_active(False)
 
     def show_audio_output_menu(self):
         menu = QMenu(self._win)
@@ -80,7 +80,7 @@ class TransmitController:
 
         action_system = menu.addAction("Salida predeterminada del sistema")
         action_system.triggered.connect(
-            lambda: self._win._playback.set_output_device(None))
+            lambda: self._win._ctx.playback.set_output_device(None))
 
         menu.addSeparator()
 
@@ -98,7 +98,7 @@ class TransmitController:
                     name = dev.get_display_name() or dev.get_device_class() or "Audio device"
                     action = menu.addAction(name)
                     action.triggered.connect(
-                        lambda checked=False, d=dev: self._win._playback.set_output_device(d))
+                        lambda checked=False, d=dev: self._win._ctx.playback.set_output_device(d))
             else:
                 pass
         except Exception:
@@ -108,7 +108,7 @@ class TransmitController:
         menu.addSeparator()
         action_pipewire = menu.addAction("PipeWire (sistema)")
         action_pipewire.triggered.connect(
-            lambda: self._win._playback.set_output_device(None))
+            lambda: self._win._ctx.playback.set_output_device(None))
         action_pipewire.setEnabled(True)
 
         from PySide6.QtGui import QCursor
@@ -120,25 +120,25 @@ class TransmitController:
         from library.cover_art_service import CoverArtService
 
         if not hasattr(self._win, '_mini_player'):
-            self._win._mini_player = MiniPlayer(self._win._playback, self._win)
-            self._win._mini_player.play_clicked.connect(self._win._playback.toggle)
-            self._win._mini_player.prev_clicked.connect(self._win._playback.play_prev)
-            self._win._mini_player.next_clicked.connect(self._win._playback.play_next)
-            self._win._mini_player.seek_requested.connect(self._win._playback.seek)
-            self._win._player.position_changed.connect(
-                lambda s: self._win._mini_player.set_position(
-                    s, getattr(self._win._player, '_duration', 0)))
-            self._win._player.state_changed.connect(
-                lambda s: self._win._mini_player.set_state(
+            self._win._ctx.mini_player = MiniPlayer(self._win._ctx.playback, self._win)
+            self._win._ctx.mini_player.play_clicked.connect(self._win._ctx.playback.toggle)
+            self._win._ctx.mini_player.prev_clicked.connect(self._win._ctx.playback.play_prev)
+            self._win._ctx.mini_player.next_clicked.connect(self._win._ctx.playback.play_next)
+            self._win._ctx.mini_player.seek_requested.connect(self._win._ctx.playback.seek)
+            self._win._ctx.player.position_changed.connect(
+                lambda s: self._win._ctx.mini_player.set_position(
+                    s, getattr(self._win._ctx.player, '_duration', 0)))
+            self._win._ctx.player.state_changed.connect(
+                lambda s: self._win._ctx.mini_player.set_state(
                     "playing" if s == PlaybackState.PLAYING else
                     "paused" if s == PlaybackState.PAUSED else "stopped"))
 
-        current = self._win._playback.current
+        current = self._win._ctx.playback.current
         name = os.path.basename(current) if current else ""
         artist = ""
         if current:
             qual, _ = CoverArtService.quality_label(current)
-            item = self._win._items_index.get(current)
+            item = self._win._ctx.items_index.get(current)
             if item:
                 artist = item.artist or qual or ""
                 title = item.title or name
@@ -146,10 +146,10 @@ class TransmitController:
                 title = name
         else:
             title = "Sin reproducción"
-        self._win._mini_player.set_track(title, artist)
-        self._win._mini_player.show()
-        self._win._mini_player.raise_()
-        self._win._mini_player.activateWindow()
+        self._win._ctx.mini_player.set_track(title, artist)
+        self._win._ctx.mini_player.show()
+        self._win._ctx.mini_player.raise_()
+        self._win._ctx.mini_player.activateWindow()
 
     def add_transmit_device(self):
         from ui.theme import apply_dialog_shadow
@@ -185,14 +185,14 @@ class TransmitController:
                 port_val = int(port.text()) if port.text().strip() else 0
             except ValueError:
                 port_val = 0
-            self._win._transmit_mgr.add_device(
+            self._win._ctx.transmit_mgr.add_device(
                 name.text().strip(), stype.currentData(),
                 addr.text().strip(), port_val)
 
     def manage_transmit_devices(self):
         from ui.theme import apply_dialog_shadow
 
-        devices = self._win._transmit_mgr.get_devices()
+        devices = self._win._ctx.transmit_mgr.get_devices()
         if not devices:
             QMessageBox.information(self._win, "Dispositivos",
                                     "No hay dispositivos configurados.")
@@ -218,7 +218,7 @@ class TransmitController:
             sel = lst.currentItem()
             if sel:
                 dname = sel.text().split("  ·  ")[0]
-                self._win._transmit_mgr.remove_device(dname)
+                self._win._ctx.transmit_mgr.remove_device(dname)
                 dlg.accept()
                 self.manage_transmit_devices()
 
@@ -226,7 +226,7 @@ class TransmitController:
             sel = lst.currentItem()
             if sel:
                 dname = sel.text().split("  ·  ")[0]
-                dev = next((d for d in self._win._transmit_mgr.get_devices()
+                dev = next((d for d in self._win._ctx.transmit_mgr.get_devices()
                            if d.name == dname), None)
                 if dev:
                     self.activate_transmit_device(dev)

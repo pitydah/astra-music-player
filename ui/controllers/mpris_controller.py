@@ -1,6 +1,5 @@
 """MPRIS controller — manages D-Bus MPRIS integration with graceful fallback."""
 import logging
-import contextlib
 
 
 class MPRISController:
@@ -13,7 +12,7 @@ class MPRISController:
         try:
             from adapters.mpris import MPRISAdapter
             self._adapter = MPRISAdapter(self._win)
-            self._adapter.player.set_engine(self._win._player)
+            self._adapter.player.set_engine(self._win._ctx.player)
         except Exception:
             logging.getLogger("astra").debug("MPRIS integration not available (no dbus)")
 
@@ -29,7 +28,9 @@ class MPRISController:
                         album: str = "", duration: int = 0):
         """Update MPRIS metadata if the adapter is active."""
         if self._adapter:
-            with contextlib.suppress(Exception):
+            try:
                 self._adapter.player.set_metadata(
                     title=title, artist=artist,
                     album=album, duration=duration)
+            except Exception:
+                pass

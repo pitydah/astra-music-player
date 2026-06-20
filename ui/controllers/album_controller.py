@@ -11,11 +11,11 @@ class AlbumController:
         self._refresh_grid = refresh_grid or (lambda: None)
 
     def _toast(self, text: str, level: str = "info"):
-        self._win._toast_svc.show(text, level)
+        self._win._ctx.toast.show(text, level)
 
     def create_playlist(self, fps: list):
-        tracks = self._win._playback.to_trackrefs(fps) or fps
-        self._win._playback.enqueue(tracks, play_now=False)
+        tracks = self._win._ctx.playback.to_trackrefs(fps) or fps
+        self._win._ctx.playback.enqueue(tracks, play_now=False)
         self._toast("Álbum añadido a la cola", "success")
 
     def search_cover(self, group):

@@ -16,9 +16,9 @@ class TestPlaylistController:
     def test_open_smart_playlist(self, mock_window):
         ctrl = PlaylistController(mock_window)
         ctrl.open_smart_playlist("favorites")
-        mock_window._on_sidebar_navigate.assert_called_with("mix_favorites")
+        mock_window._ctx.navigate_sidebar.assert_called_with("mix_favorites")
 
     def test_refresh_library(self, mock_window):
         ctrl = PlaylistController(mock_window)
         ctrl.refresh_library()
-        mock_window._load_library.assert_called()
+        mock_window._ctx.load_library.assert_called()
