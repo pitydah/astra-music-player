@@ -86,8 +86,7 @@ QSlider::handle:horizontal {
 """
 
 
-def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None,
-              primary: bool = False) -> QPushButton:
+def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None) -> QPushButton:
     btn = QPushButton("")
     btn.setFlat(True)
 
@@ -104,64 +103,41 @@ def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None,
 
     btn.setCursor(Qt.PointingHandCursor)
     btn.setFocusPolicy(Qt.NoFocus)
+    btn.setAutoDefault(False)
+    btn.setDefault(False)
 
-    if primary:
-        btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(255,122,0,0.82),
-                    stop:0.55 rgba(255,77,46,0.78),
-                    stop:1 rgba(232,0,109,0.78)
-                );
-                border: none;
-                outline: none;
-                padding: 0px;
-                margin: 0px;
-                border-radius: 14px;
-            }
-            QPushButton:focus {
-                outline: none;
-            }
-            QPushButton:hover {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(255,140,20,0.88),
-                    stop:0.55 rgba(255,100,70,0.85),
-                    stop:1 rgba(240,30,130,0.85)
-                );
-            }
-            QPushButton:pressed {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(200,90,0,0.82),
-                    stop:0.55 rgba(200,50,20,0.78),
-                    stop:1 rgba(180,0,80,0.78)
-                );
-            }
-        """)
-    else:
-        btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-                outline: none;
-                padding: 0px;
-                margin: 0px;
-                border-radius: 11px;
-            }
-            QPushButton:focus {
-                outline: none;
-            }
-            QPushButton:hover {
-                background: rgba(255,255,255,0.06);
-            }
-            QPushButton:pressed {
-                background: rgba(255,255,255,0.10);
-            }
-        """)
-
+    btn.setStyleSheet("""
+        QPushButton {
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0px;
+            margin: 0px;
+            border-radius: 11px;
+        }
+        QPushButton:focus {
+            outline: none;
+            border: none;
+        }
+        QPushButton:hover {
+            background: rgba(255,255,255,0.055);
+        }
+        QPushButton:pressed {
+            background: rgba(255,255,255,0.095);
+        }
+        QPushButton[active="true"] {
+            background: rgba(255,255,255,0.11);
+            border: none;
+        }
+    """)
     return btn
+
+
+def _set_button_active(btn: QPushButton, active: bool):
+    btn.setProperty("active", active)
+    btn.style().unpolish(btn)
+    btn.style().polish(btn)
+    btn.update()
 
 
 def _rounded_cover_pixmap(src: QPixmap, size: int = 76, radius: int = 16) -> QPixmap:
@@ -435,7 +411,7 @@ class NowPlayingBar(QWidget):
 
         self._shuffle_btn = _make_btn("warm_shuffle", 20, 40)
         self._prev_btn = _make_btn("warm_prev", 26, 44)
-        self._play_btn = _make_btn("warm_play", 32, 54, primary=True)
+        self._play_btn = _make_btn("warm_play", 32, 54)
         self._next_btn = _make_btn("warm_next", 26, 44)
         self._repeat_btn = _make_btn("warm_repeat", 20, 40)
 
@@ -535,23 +511,13 @@ class NowPlayingBar(QWidget):
 
     def _on_shuffle(self):
         self._shuffle = not self._shuffle
-        if self._shuffle:
-            self._shuffle_btn.setStyleSheet(
-                "QPushButton { background: rgba(255,255,255,0.12); border: none; "
-                "padding: 0px; margin: 0px; border-radius: 11px; }")
-        else:
-            self._shuffle_btn.setStyleSheet("")
+        _set_button_active(self._shuffle_btn, self._shuffle)
         self.shuffle_clicked.emit()
 
     def _on_repeat(self):
         modes = {"none": "all", "all": "one", "one": "none"}
         self._repeat = modes.get(self._repeat, "none")
-        if self._repeat != "none":
-            self._repeat_btn.setStyleSheet(
-                "QPushButton { background: rgba(255,255,255,0.12); border: none; "
-                "padding: 0px; margin: 0px; border-radius: 11px; }")
-        else:
-            self._repeat_btn.setStyleSheet("")
+        _set_button_active(self._repeat_btn, self._repeat != "none")
         self.repeat_clicked.emit()
 
     def _on_seek_end(self):
