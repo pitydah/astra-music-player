@@ -163,8 +163,6 @@ class MainWindow(QMainWindow):
         self._search_ctrl.register("local", LocalSource(self._db))
         self._search_ctrl.register("radio", RadioSource(RadioManager()))
         self._search_ctrl.results_ready.connect(self._on_search_results)
-        from core.app_context import AppContext
-        self._ctx = AppContext(self)
         from core.toast_service import ToastService
         self._toast_svc = ToastService(self)
         self._player_bar_ctrl = None  # initialized after _setup_ui creates _player_bar
@@ -198,6 +196,11 @@ class MainWindow(QMainWindow):
         self._setup_actions()
         self._setup_ui()
         self._connect_signals()
+
+        # AppContext — created after _setup_ui but before shortcuts/controllers use it
+        from core.app_context import AppContext
+        self._ctx = AppContext(self)
+
         self._setup_shortcuts()
         self._load_library()
 

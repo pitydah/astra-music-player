@@ -9,7 +9,7 @@ class AppContext:
     def __init__(self, window):
         self._win = window
 
-        # ── Core services ──
+        # ── Core services (initialized in __init__ before AppContext) ──
         self.db = window._db
         self.player = window._player
         self.playback = window._playback
@@ -18,13 +18,13 @@ class AppContext:
         self.search = window._search_ctrl  # backward compat alias
         self.window = window  # backward compat alias
 
-        # ── Extracted services ──
-        self.toast = window._toast_svc
-        self.player_bar = window._player_bar_ctrl
-        self.bg_theme = window._bg_theme
-        self.mpris = window._mpris_ctrl
-        self.navigator = window._nav
-        self.tray = window._tray_ctrl
+        # ── Extracted services (may not be initialized yet — use getattr) ──
+        self.toast = getattr(window, '_toast_svc', None)
+        self.player_bar = getattr(window, '_player_bar_ctrl', None)
+        self.bg_theme = getattr(window, '_bg_theme', None)
+        self.mpris = getattr(window, '_mpris_ctrl', None)
+        self.navigator = getattr(window, '_nav', None)
+        self.tray = getattr(window, '_tray_ctrl', None)
 
     # ── Facade properties — stable public API for controllers ──
 
