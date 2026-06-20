@@ -38,15 +38,8 @@ class SidebarController(QObject):
         # Descubrir
         self._sidebar.add_section("mix", "Descubrir", "sidebar_mix")
         self._sidebar.add_item("mix", "discover", "Panel Descubrir", "sidebar_mix")
-        self._sidebar.add_item("mix", "mix_daily", "Mix diario", "sidebar_mix")
-        self._sidebar.add_item("mix", "mix_unplayed", "No escuchadas",
-                               "sidebar_unplayed")
-        self._sidebar.add_item("mix", "mix_popular", "Más escuchadas",
-                               "sidebar_popular")
         self._sidebar.add_item("mix", "identifier", "Identificador",
                                "sidebar_identifier")
-        self._sidebar.add_item("mix", "favs", "Favoritos", "sidebar_popular")
-        self._sidebar.add_item("mix", "recent", "Recientes", "sidebar_mix")
 
         # Radio
         self._sidebar.add_section("rad", "Radio", "sidebar_radio")

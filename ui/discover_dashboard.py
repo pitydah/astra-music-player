@@ -56,6 +56,10 @@ class DiscoverDashboard(QWidget):
              f"qlineargradient(x1:0, y1:0, x2:1, y2:1, "
              "stop:0 rgba(255,255,255,0.08), stop:1 rgba(255,255,255,0.04))",
              "sidebar_unplayed"),
+            ("mix_popular", "Más escuchadas", "Tus canciones con más reproducciones",
+             f"qlineargradient(x1:0, y1:0, x2:1, y2:1, "
+             "stop:0 rgba(255,122,0,0.10), stop:1 rgba(232,0,109,0.08))",
+             "sidebar_popular"),
             ("favs", "Favoritos", "Canciones que has marcado como favoritas",
              f"qlineargradient(x1:0, y1:0, x2:1, y2:1, "
              "stop:0 rgba(232,0,109,0.12), stop:1 rgba(255,122,0,0.06))",
