@@ -66,6 +66,8 @@ SECTION_CONFIG = {
                 "views": ["grid", "list"], "search": True, "default": "grid"},
     "identifier": {"title": "Identificador", "subtitle": "Detección musical",
                    "views": [], "search": False, "default": None},
+    "playlists": {"title": "Playlist", "subtitle": "Colecciones personalizadas",
+                  "views": ["list", "grid"], "search": True, "default": "list"},
 }
 
 
@@ -791,7 +793,13 @@ class MainWindow(QMainWindow):
             self._table.setColumnWidth(3, 170); self._table.setColumnWidth(4, 55)
             self._table.setColumnWidth(5, 110); self._table.setColumnWidth(6, 75)
             name = next((p["name"] for p in self._db.get_playlists() if p["id"] == pid), "")
+            total_dur = int(sum(r.duration for r in refs))
+            dur_str = f"{total_dur//60}:{total_dur%60:02d}" if total_dur > 0 else ""
+            subtitle = f"{len(refs)} canciones"
+            if dur_str:
+                subtitle += f" · {dur_str} total"
             self._section_title.setText(f"Playlist · {name}")
+            self._section_subtitle.setText(subtitle)
             self._search.show()
 
         elif key == "albums":
