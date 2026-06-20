@@ -77,8 +77,18 @@ class SongGridWidget(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if self._items:
-            self.set_items(self._items, self._card_size)
+        # Only relayout, don't rebuild cards
+        if self._items and self._scroll.viewport().width() > 40:
+            cols = max(1, (self._scroll.viewport().width() - 40) // (self._card_size + 14))
+            for i in range(self._grid.count()):
+                item = self._grid.itemAt(i)
+                if item and item.widget():
+                    old_col = i % max(1, self._grid.columnCount() or 1)
+                    new_col = i % cols
+                    if old_col != new_col:
+                        row = i // cols
+                        col = i % cols
+                        self._grid.addWidget(item.widget(), row, col, Qt.AlignTop)
 
 
 class _SongCard(QFrame):

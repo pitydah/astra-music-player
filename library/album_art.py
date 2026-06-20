@@ -3,12 +3,19 @@
 import os
 import hashlib
 import sqlite3
+from functools import lru_cache
 from dataclasses import dataclass
 from PySide6.QtGui import QPixmap, QColor, QPainter, QFont, QPen, QPainterPath
 from PySide6.QtCore import Qt, QRectF, QPointF
 
 from library.library_db import MediaItem, DB_PATH
 from library.artwork_cache import get_cached, cache_cover
+
+
+@lru_cache(maxsize=512)
+def _find_cover_cached(directory: str) -> str:
+    """Cached wrapper for find_cover_in_dir."""
+    return find_cover_in_dir(directory)
 
 COVER_FILENAMES = ["cover.jpg", "cover.png", "folder.jpg", "folder.png",
                    "front.jpg", "front.png", "albumart.jpg", "albumart.png",
@@ -81,6 +88,7 @@ def _get_embedded_cover(album_name: str, artist: str = "") -> QPixmap | None:
         return None
     album_hash = hashlib.md5(album_name.encode()).hexdigest()
     try:
+        from library.library_db import DB_PATH
         conn = sqlite3.connect(DB_PATH)
         row = conn.execute(
             "SELECT mime, data FROM album_art_cache WHERE album_hash=?",
@@ -114,7 +122,7 @@ def load_cover_pixmap(filepath: str, size: int = 280) -> QPixmap:
         return embedded.scaled(size, size, Qt.KeepAspectRatio,
                               Qt.SmoothTransformation)
 
-    cover_path = find_cover_in_dir(directory)
+    cover_path = _find_cover_cached(directory)
     if cover_path:
         # Check disk cache first
         cached = get_cached(cover_path, size_name)

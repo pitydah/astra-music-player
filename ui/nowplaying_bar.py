@@ -165,8 +165,11 @@ def _rounded_cover_pixmap(src: QPixmap, size: int = 76, radius: int = 16) -> QPi
     return result
 
 
+from functools import lru_cache
+
+
+@lru_cache(maxsize=4)
 def _placeholder_cover_pixmap(size: int = 76, radius: int = 16) -> QPixmap:
-    """Premium placeholder cover art."""
     pix = QPixmap(size, size)
     pix.fill(Qt.transparent)
 

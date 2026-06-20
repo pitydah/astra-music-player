@@ -79,6 +79,7 @@ class MainWindow(QMainWindow):
         self._search_ctrl.register("radio", RadioSource(RadioManager()))
         self._search_ctrl.results_ready.connect(self._on_search_results)
         self._all_items: list[MediaItem] = []
+        self._items_index: dict[str, MediaItem] = {}
         self._current_ref: TrackRef | None = None
         self._kind_filter: str | None = None
         self._search_text = ""
@@ -639,6 +640,7 @@ class MainWindow(QMainWindow):
 
     def _load_library(self):
         self._all_items = self._db.get_all()
+        self._items_index = {i.filepath: i for i in self._all_items}
         self._search_ctrl.set_active("local")
         self._apply_filters()
         self._rebuild_sidebar()
@@ -1028,13 +1030,12 @@ class MainWindow(QMainWindow):
             title = ref.title or name
         else:
             title = name
-            for i in self._all_items:
-                if i.filepath == current:
-                    artist = i.artist
-                    album = i.album
-                    dur = i.duration
-                    title = i.title or name
-                    break
+            item = self._items_index.get(current)
+            if item:
+                artist = item.artist
+                album = item.album
+                dur = item.duration
+                title = item.title or name
 
         if not cover_path:
             from library.album_art import find_cover_in_dir
@@ -1167,21 +1168,20 @@ class MainWindow(QMainWindow):
         album = track.album or ""
 
         # Fallback: enrich with MediaItem for local files
-        for item in self._all_items:
-            if item.filepath == track.uri:
-                artist = item.artist or artist
-                album = item.album or album
-                ext = item.ext.upper().lstrip(".")
-                if item.sample_rate:
-                    quality_str = (
-                        f"{ext} · {item.sample_rate/1000:.1f}kHz"
-                        if item.sample_rate >= 1000
-                        else f"{ext} · {item.sample_rate}Hz")
-                elif item.bitrate and item.bitrate >= 1000:
-                    quality_str = f"{ext} · {item.bitrate//1000}kbps"
-                elif item.ext:
-                    quality_str = ext
-                break
+        item = self._items_index.get(track.uri)
+        if item:
+            artist = item.artist or artist
+            album = item.album or album
+            ext = item.ext.upper().lstrip(".")
+            if item.sample_rate:
+                quality_str = (
+                    f"{ext} · {item.sample_rate/1000:.1f}kHz"
+                    if item.sample_rate >= 1000
+                    else f"{ext} · {item.sample_rate}Hz")
+            elif item.bitrate and item.bitrate >= 1000:
+                quality_str = f"{ext} · {item.bitrate//1000}kbps"
+            elif item.ext:
+                quality_str = ext
 
         if not quality_str:
             qual, _ = get_quality_label(track.uri)
@@ -1211,10 +1211,9 @@ class MainWindow(QMainWindow):
         if self._mpris:
             dur = int(track.duration)
             if dur <= 0:
-                for item in self._all_items:
-                    if item.filepath == track.uri:
-                        dur = int(item.duration)
-                        break
+                idx_item = self._items_index.get(track.uri)
+                if idx_item:
+                    dur = int(idx_item.duration)
             self._mpris.player.set_metadata(
                 title=name, artist=artist or "",
                 album=album, duration=dur)
@@ -1529,13 +1528,15 @@ class MainWindow(QMainWindow):
         grad.setColorAt(0.5, QColor(15, 15, 18))
         grad.setColorAt(1, QColor(12, 12, 14))
         painter.fillRect(rect, grad)
-        # subtle noise texture
-        noise = QImage(rect.width() // 2, rect.height() // 2, QImage.Format_Grayscale8)
-        for y in range(noise.height()):
-            for x in range(noise.width()):
-                noise.setPixel(x, y, random.randint(0, 5))
+        # subtle noise texture — pre-rendered 4x4 tile
+        if not hasattr(MainWindow, '_noise_tile'):
+            noise = QImage(4, 4, QImage.Format_Grayscale8)
+            for y in range(4):
+                for x in range(4):
+                    noise.setPixel(x, y, random.randint(0, 5))
+            MainWindow._noise_tile = noise
         painter.setOpacity(0.03)
-        painter.drawImage(rect, noise.scaled(rect.size()))
+        painter.drawImage(rect, MainWindow._noise_tile.scaled(rect.size()))
 
     def closeEvent(self, event):
         try:

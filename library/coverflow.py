@@ -42,9 +42,13 @@ class CoverItem(QGraphicsObject):
         else:
             self._placeholder = QPixmap()
             self._pixmap = pixmap.scaled(
-                width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                 width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-        self._cached = self._generate_reflection()
+        self._cached = None  # lazy — generated on first paint
+
+    def _ensure_cached(self):
+        if self._cached is None:
+            self._cached = self._generate_reflection()
 
     def _generate_reflection(self) -> QPixmap:
         cached = QPixmap(self._w, self._h * 2)
@@ -123,6 +127,7 @@ class CoverItem(QGraphicsObject):
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
         # Draw cached cover + reflection (rounded corners + border baked in)
+        self._ensure_cached()
         painter.drawPixmap(0, 0, self._cached)
 
         # Floor shadow for center item
@@ -406,6 +411,7 @@ class CoverFlowWidget(QGraphicsView):
         if abs(self._velocity) < 0.003:
             if abs(self._current - round(self._current)) > 0.01:
                 self._trigger_snap()
+            self._phys_timer.stop()
             return
         self._velocity *= 0.92
         self._current += self._velocity
@@ -420,6 +426,7 @@ class CoverFlowWidget(QGraphicsView):
         self._update_layout()
         if abs(self._velocity) < 0.003:
             self._trigger_snap()
+            self._phys_timer.stop()
 
     def _trigger_snap(self):
         target = max(0, min(len(self._items) - 1, int(round(self._current))))
