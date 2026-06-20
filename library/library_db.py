@@ -8,8 +8,8 @@ Features:
 """
 import os
 import sqlite3
-import hashlib
 import logging
+import contextlib
 from typing import Callable
 
 logger = logging.getLogger("astra.library")
@@ -131,10 +131,8 @@ class LibraryDB:
                               ("last_played", "REAL"), ("bpm", "INTEGER"),
                               ("replaygain_track", "REAL"), ("replaygain_album", "REAL")]:
             if col not in existing:
-                try:
+                with contextlib.suppress(sqlite3.OperationalError):
                     self._conn.execute(f"ALTER TABLE media_items ADD COLUMN {col} {col_def}")
-                except sqlite3.OperationalError:
-                    pass
 
     def close(self):
         self._conn.close()
@@ -345,7 +343,7 @@ class LibraryDB:
             (limit,)).fetchall()
         cols = [desc[0] for desc in self._conn.execute(
             "PRAGMA table_info(detected_tracks)").fetchall()]
-        return [dict(zip(cols, r)) for r in rows]
+        return [dict(zip(cols, r, strict=False)) for r in rows]
 
     def clear_detected_tracks(self):
         self._conn.execute("DELETE FROM detected_tracks")
@@ -362,7 +360,7 @@ class LibraryDB:
             return None
         cols = [desc[0] for desc in self._conn.execute(
             "PRAGMA table_info(detected_tracks)").fetchall()]
-        return dict(zip(cols, rows[0]))
+        return dict(zip(cols, rows[0], strict=False))
 
 
 # ── Scanner Worker (QThread-safe) ──

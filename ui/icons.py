@@ -51,9 +51,11 @@ CUSTOM_ICONS = {
     "sidebar_recent":     "icons/sidebar_recent.svg",
     "warm_settings":      "icons/warm_settings.svg",
     "tray_icon":          "icons/tray_icon.svg",
-    "warm_view_grid":     "/home/cristian/Descargas/iloveimg-resized(2)/view-cover.svg",
-    "warm_view_list":     "/home/cristian/Descargas/iloveimg-resized(2)/view-list.svg",
-    "warm_view_coverflow": "/home/cristian/Descargas/iloveimg-resized(2)/view-coverflow.svg",
+    "warm_view_grid":     "icons/view/view-grid.svg",
+    "warm_view_list":     "icons/view/view-list.svg",
+    "warm_view_coverflow": "icons/view/view-coverflow.svg",
+    "warm_view_tree":     "icons/view/view-tree.svg",
+    "warm_view_details":  "icons/view/view-details.svg",
     "metadata_editor":   "icons/sidebar/metadata.svg",
 }
 

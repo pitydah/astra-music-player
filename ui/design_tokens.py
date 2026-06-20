@@ -139,10 +139,10 @@ ICON_LG = 24
 
 # ── View switcher ──
 
-VIEW_BUTTON_W = 44
+VIEW_BUTTON_W = 46
 VIEW_BUTTON_H = 36
-VIEW_ICON_W = 22
-VIEW_ICON_H = 22
+VIEW_ICON_W = 23
+VIEW_ICON_H = 23
 
 # ── Sidebar ──
 

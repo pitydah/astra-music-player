@@ -1119,10 +1119,9 @@ class MainWindow(QMainWindow):
             self._create_playlist()
 
         elif key == "radio":
-            self._section_title.setText("Radio")
+            self._configure_header_for_section(key)
             self._search_ctrl.set_active("radio")
             self._apply_filters()
-            self._search.show()
 
         elif key == "add_server":
             self._add_server()
@@ -1159,10 +1158,8 @@ class MainWindow(QMainWindow):
             self._search.show()
 
         elif key == "discover":
-            self._section_title.setText("Descubrir")
-            self._section_subtitle.setText("Explora y redescubre tu música")
+            self._configure_header_for_section(key)
             self._views.show("discover")
-            self._search.hide()
 
         elif key and key.startswith("mix_"):
             from library.smart_mixes import (get_daily_mix, get_unplayed,
@@ -1206,8 +1203,7 @@ class MainWindow(QMainWindow):
                         "El mix no contiene archivos disponibles", self)
 
         elif key == "favs":
-            self._section_title.setText("Favoritos")
-            self._section_subtitle.setText("Canciones marcadas como favoritas")
+            self._configure_header_for_section(key)
             favs = self._db.get_favorites()
             items = []
             for fp in favs:
@@ -1231,8 +1227,7 @@ class MainWindow(QMainWindow):
             self._search.show()
 
         elif key == "recent":
-            self._section_title.setText("Recientes")
-            self._section_subtitle.setText("Reproducidas recientemente")
+            self._configure_header_for_section(key)
             history = self._db.get_play_history()
             items = []
             for h in history[:50]:
@@ -1261,11 +1256,10 @@ class MainWindow(QMainWindow):
             self._search.show()
 
         elif key == "identifier":
-            self._section_title.setText("Identificador")
+            self._configure_header_for_section(key)
             self._identifier_view.set_detected_tracks(
                 self._db.get_detected_tracks(100))
             self._views.show("identifier")
-            self._search.hide()
 
     def _on_sidebar_menu(self, pos):
         widget = self._sidebar.childAt(pos)
@@ -1522,7 +1516,9 @@ class MainWindow(QMainWindow):
             "library": "Buscar canciones...", "albums": "Buscar álbumes...",
             "artists": "Buscar artistas...", "playlists": "Buscar en playlist...",
             "folders": "Buscar carpeta...", "radio": "Buscar emisoras...",
-            "playlist_hub": "Buscar playlist...",
+            "playlist_hub": "Buscar playlists...", "favs": "Buscar favoritos...",
+            "recent": "Buscar recientes...", "mix_unplayed": "Buscar canciones...",
+            "discover": "", "identifier": "", "metadata_editor": "",
         }
         self._search.setPlaceholderText(searchers.get(section_key, "Buscar..."))
         self._search.setVisible(search)
@@ -2660,6 +2656,11 @@ class MainWindow(QMainWindow):
             MainWindow._noise_tile = noise
         painter.setOpacity(0.03)
         painter.drawImage(rect, MainWindow._noise_tile.scaled(rect.size()))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, '_view_switcher'):
+            self._view_switcher.update_for_width(self.width())
 
     def closeEvent(self, event):
         try:
