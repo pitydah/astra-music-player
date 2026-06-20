@@ -413,7 +413,7 @@ class NowPlayingBar(QWidget):
 
         self._shuffle_btn = _make_btn("warm_shuffle", 20, 40)
         self._prev_btn = _make_btn("warm_prev", 26, 44)
-        self._play_btn = _make_btn("warm_play", 32, 54)
+        self._play_btn = _make_btn("warm_play", 28, 44)
         self._next_btn = _make_btn("warm_next", 26, 44)
         self._repeat_btn = _make_btn("warm_repeat", 20, 40)
 
@@ -567,7 +567,7 @@ class NowPlayingBar(QWidget):
         self._state = state
         name = "warm_pause" if state == "playing" else "warm_play"
         self._play_btn.setIcon(QIcon(get_icon(name)))
-        self._play_btn.setIconSize(QSize(32, 32))
+        self._play_btn.setIconSize(QSize(28, 28))
 
     def set_track(self, title: str, artist: str, cover_path: str = ""):
         self._raw_title = title or "Sin reproducción"
