@@ -47,6 +47,7 @@ from library.coverflow import CoverFlowWidget
 from library.album_grid import AlbumGridWidget
 from library.song_grid import SongGridWidget
 from library.album_art import load_covers_for_albums
+from library.artist_grouping import build_artist_groups, ArtistGroup
 from ui.expanded_view import ExpandedNowPlaying
 from streaming.radio_widget import RadioWidget
 from streaming.radio_manager import RadioManager
@@ -54,6 +55,8 @@ from ui.music_identifier_view import MusicIdentifierView
 from ui.discover_dashboard import DiscoverDashboard
 from ui.playlist_hub import PlaylistHubWidget
 from ui.metadata_editor import MetadataEditorWidget
+from ui.artist_grid import ArtistGridWidget
+from ui.artist_detail_view import ArtistDetailView
 from recognition.detection_service import DetectionService
 from recognition.null_recognizer import NullRecognizer
 
@@ -65,9 +68,9 @@ SECTION_CONFIG = {
     "albums":     {"title": "Álbumes", "subtitle": "Carátulas y navegación visual",
                    "icon": "sidebar_albums", "views": ["list", "grid", "coverflow"],
                    "search": True, "default": "grid"},
-    "artists":    {"title": "Artistas", "subtitle": "Agrupados por artista · Doble click para canciones",
-                   "icon": "sidebar_artist", "views": ["list", "grid"],
-                   "search": True, "default": "list"},
+    "artists":    {"title": "Artistas", "subtitle": "Explora tu biblioteca por artista y álbumes",
+                   "icon": "sidebar_artist", "views": ["grid", "list"],
+                   "search": True, "default": "grid"},
     "genres":     {"title": "Géneros", "subtitle": "Explora por estilo musical",
                    "icon": "sidebar_popular", "views": ["list", "grid"],
                    "search": True, "default": "list"},
@@ -179,6 +182,8 @@ class MainWindow(QMainWindow):
         self._album_sort_key = "title"
         self._album_filter_mode = "all"
         self._fade_anim = None
+        self._artist_groups: list[ArtistGroup] = []
+        self._current_artist_key: str | None = None
 
         # ── Music Identifier (must exist before _setup_ui) ──
         self._detection = DetectionService(self._db, NullRecognizer(), self)
@@ -721,6 +726,24 @@ class MainWindow(QMainWindow):
         self._metadata_editor.files_saved.connect(self._on_metadata_saved)
         self._metadata_editor.request_library_refresh.connect(self._refresh_library)
 
+        self._artist_grid = ArtistGridWidget()
+        self._artist_detail = ArtistDetailView()
+        self._artist_grid.artist_selected.connect(self._open_artist_detail)
+        self._artist_grid.artist_play_requested.connect(self._play_artist)
+        self._artist_grid.artist_queue_requested.connect(self._queue_artist)
+        self._artist_grid.artist_playlist_requested.connect(self._create_playlist_from_artist)
+        self._artist_grid.artist_metadata_requested.connect(self._edit_artist_metadata)
+        self._artist_detail.back_requested.connect(self._show_artists_overview)
+        self._artist_detail.play_all_requested.connect(self._play_artist)
+        self._artist_detail.queue_all_requested.connect(self._queue_artist)
+        self._artist_detail.play_album_requested.connect(
+            lambda fps: self._playback.enqueue(fps, play_now=True))
+        self._artist_detail.queue_album_requested.connect(
+            lambda fps: self._playback.enqueue(fps, play_now=False))
+        self._artist_detail.playlist_artist_requested.connect(self._create_playlist_from_artist)
+        self._artist_detail.metadata_artist_requested.connect(self._edit_artist_metadata)
+        self._artist_detail.metadata_files_requested.connect(self._open_metadata_for_files)
+
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
             lambda fps: self._playback.enqueue(fps, play_now=True))
@@ -745,6 +768,8 @@ class MainWindow(QMainWindow):
         self._views.register("discover", self._discover)
         self._views.register("playlist_hub", self._playlist_hub)
         self._views.register("metadata_editor", self._metadata_editor)
+        self._views.register("artist_grid", self._artist_grid)
+        self._views.register("artist_detail", self._artist_detail)
         self._views.register("folders", self._folder_browser)
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
@@ -1001,23 +1026,14 @@ class MainWindow(QMainWindow):
             self._search.show()
 
         elif key == "artists":
-            self._section_title.setText("Artistas")
-            self._section_subtitle.setText("Agrupados por artista · Doble click para ver canciones")
-            items = self._db.get_all(group_by="artist")
-            refs = [TrackRef(uri=i.filepath, title=i.artist or "Desconocido",
-                             artist="", album=f"{i.album}" if i.album else "",
-                             duration=i.duration, year=i.year, genre=i.genre)
-                    for i in items]
-            self._model.populate(refs)
-            self._count.setText(f"{len(refs)} artistas")
-            if refs:
-                self._views.show("library"); self._table.setModel(self._model)
-                self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 280)
-                self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
-                self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
-                self._table.setColumnWidth(6, 75)
-            else:
-                self._views.show("empty")
+            self._current_artist_key = None
+            self._artist_groups = build_artist_groups(self._all_items)
+            self._artist_grid.set_artists(self._artist_groups)
+            if self._view_mode not in ("grid", "list"):
+                self._view_mode = "grid"
+                self._view_switcher.set_view("grid", emit=False)
+            self._show_artists_view(self._view_mode)
+            self._count.setText(f"{len(self._artist_groups)} artistas")
             self._search.show()
 
         elif key == "albums":
@@ -1304,6 +1320,21 @@ class MainWindow(QMainWindow):
 
     def _on_search(self, text: str):
         self._search_text = text.strip()
+        if self._current_section_key == "artists" and not self._current_artist_key:
+            query = self._search_text.lower()
+            if not query:
+                filtered = self._artist_groups
+            else:
+                filtered = [
+                    g for g in self._artist_groups
+                    if query in g.display_name.lower()
+                    or any(query in a.title.lower() for a in g.albums)
+                    or any(query in (t.title or "").lower() for t in g.all_tracks)
+                    or any(query in g.lower() for g in g.genres)
+                ]
+            self._artist_grid.set_artists(filtered)
+            self._count.setText(f"{len(filtered)} artistas")
+            return
         self._apply_filters()
 
     def _on_search_results(self, results: list):
@@ -1357,6 +1388,9 @@ class MainWindow(QMainWindow):
             elif mode == "coverflow":
                 self._show_coverflow()
                 self._fade_content("coverflow")
+
+        elif section == "artists":
+            self._show_artists_view(mode)
 
         elif section == "playlists":
             if not self._playlist_refs:
@@ -1795,6 +1829,69 @@ class MainWindow(QMainWindow):
 
     def _refresh_library(self):
         self._load_library()
+
+    # ── Artist views ──
+
+    def _show_artists_view(self, mode: str):
+        self._artist_grid.set_view_mode(mode)
+        self._fade_content("artist_grid")
+
+    def _open_artist_detail(self, artist_key: str):
+        group = next((g for g in self._artist_groups if g.key == artist_key), None)
+        if not group:
+            return
+        self._current_artist_key = artist_key
+        self._artist_detail.set_artist(group)
+
+        self._section_title.setText(group.display_name)
+        parts = [f"{group.album_count} álbumes", f"{group.track_count} canciones"]
+        if group.total_duration:
+            s = int(group.total_duration)
+            parts.append(f"{s // 3600} h {(s % 3600) // 60} min" if s >= 3600 else f"{s // 60} min")
+        self._section_subtitle.setText(" · ".join(parts))
+        self._view_switcher.set_available_modes([])
+        self._fade_content("artist_detail")
+
+    def _show_artists_overview(self):
+        self._current_artist_key = None
+        self._configure_header_for_section("artists")
+        self._show_artists_view(self._view_mode)
+
+    def _artist_filepaths(self, artist_key: str) -> list[str]:
+        group = next((g for g in self._artist_groups if g.key == artist_key), None)
+        if not group:
+            return []
+        return [t.filepath for t in group.all_tracks if os.path.isfile(t.filepath)]
+
+    def _play_artist(self, artist_key: str):
+        fps = self._artist_filepaths(artist_key)
+        if fps:
+            self._playback.enqueue(fps, play_now=True)
+
+    def _queue_artist(self, artist_key: str):
+        fps = self._artist_filepaths(artist_key)
+        if fps:
+            self._playback.enqueue(fps, play_now=False)
+
+    def _create_playlist_from_artist(self, artist_key: str):
+        group = next((g for g in self._artist_groups if g.key == artist_key), None)
+        if not group:
+            return
+        pid = self._db.create_playlist(group.display_name)
+        for fp in [t.filepath for t in group.all_tracks if os.path.isfile(t.filepath)]:
+            self._db.add_to_playlist(pid, fp)
+        self._rebuild_sidebar()
+        self._toast.show(f"Playlist creada: {group.display_name}", "success")
+
+    def _edit_artist_metadata(self, artist_key: str):
+        fps = self._artist_filepaths(artist_key)
+        if fps:
+            self._open_metadata_for_files(fps)
+
+    def _open_metadata_for_files(self, filepaths: list[str]):
+        self._metadata_editor.load_files(filepaths)
+        self._configure_header_for_section("metadata_editor")
+        self._fade_content("metadata_editor")
 
     # ── Expanded View ──
 

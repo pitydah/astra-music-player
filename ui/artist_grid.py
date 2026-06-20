@@ -1,0 +1,350 @@
+"""Artist Grid — premium mosaic/list of artists with cards and context menu."""
+from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtGui import QPixmap, QColor, QIcon
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QScrollArea, QGridLayout,
+    QPushButton, QLabel, QFrame, QListWidget, QListWidgetItem,
+    QMenu, QSizePolicy,
+)
+
+from library.artist_grouping import ArtistGroup
+from library.album_art import load_cover_pixmap
+
+_BG = "#090B11"
+_PANEL = "rgba(255,255,255,0.035)"
+_HOVER = "rgba(255,255,255,0.075)"
+_SELECTED = "rgba(255,255,255,0.115)"
+_BORDER = "rgba(255,255,255,0.075)"
+_TEXT = "#FFFFFF"
+_TEXT2 = "rgba(255,255,255,0.78)"
+_TEXT3 = "rgba(255,255,255,0.62)"
+
+
+def _format_dur(secs: float) -> str:
+    if secs <= 0:
+        return ""
+    s = int(secs)
+    h = s // 3600
+    m = (s % 3600) // 60
+    return f"{h} h {m} min" if h > 0 else f"{m} min"
+
+
+class ArtistGridWidget(QWidget):
+    artist_selected = Signal(str)           # artist key
+    artist_play_requested = Signal(str)
+    artist_queue_requested = Signal(str)
+    artist_playlist_requested = Signal(str)
+    artist_metadata_requested = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet(f"background: {_BG};")
+        self._artists: list[ArtistGroup] = []
+        self._view_mode = "grid"
+        self._cover_size = 180
+        self._selected_key = ""
+        self._last_cols = -1
+
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QScrollArea.NoFrame)
+        self._scroll.setStyleSheet(f"""
+            QScrollArea {{ background: {_BG}; border: none; }}
+            QScrollBar:vertical {{
+                background: rgba(255,255,255,0.025); width: 10px;
+                margin: 4px; border-radius: 5px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: rgba(255,255,255,0.18); min-height: 44px; border-radius: 5px;
+            }}
+            QScrollBar::handle:vertical:hover {{ background: rgba(255,255,255,0.30); }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+        """)
+
+        self._container = QWidget()
+        self._container.setStyleSheet("background: transparent;")
+        self._grid = QGridLayout(self._container)
+        self._grid.setSpacing(18)
+        self._grid.setContentsMargins(24, 20, 24, 24)
+        self._grid.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+
+        self._scroll.setWidget(self._container)
+
+        self._list = QListWidget()
+        self._list.setStyleSheet(f"""
+            QListWidget {{
+                background: transparent; border: none; color: {_TEXT2}; font-size: 13px;
+            }}
+            QListWidget::item {{ padding: 10px 14px; border-radius: 10px; margin: 2px 8px; }}
+            QListWidget::item:hover {{ background: {_HOVER}; color: {_TEXT}; }}
+            QListWidget::item:selected {{ background: {_SELECTED}; color: {_TEXT}; }}
+        """)
+        self._list.itemClicked.connect(self._on_list_item_clicked)
+        self._list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._list.customContextMenuRequested.connect(self._on_list_context)
+        self._list.hide()
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(self._scroll)
+        outer.addWidget(self._list)
+
+    def set_artists(self, artists: list[ArtistGroup]):
+        self._artists = artists
+        self._refresh()
+
+    def set_view_mode(self, mode: str):
+        self._view_mode = mode
+        self._refresh()
+
+    def _refresh(self):
+        if self._view_mode == "grid":
+            self._list.hide()
+            self._scroll.show()
+            self._rebuild_grid()
+        else:
+            self._scroll.hide()
+            self._list.show()
+            self._rebuild_list()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._view_mode == "grid":
+            self._rebuild_grid()
+
+    def _rebuild_grid(self):
+        while self._grid.count():
+            w = self._grid.takeAt(0).widget()
+            if w:
+                w.deleteLater()
+
+        if not self._artists:
+            return
+
+        cols = max(1, (self._scroll.viewport().width() - 48) // (self._cover_size + 40))
+        if cols == self._last_cols:
+            return
+        self._last_cols = cols
+
+        for i, artist in enumerate(self._artists):
+            card = _ArtistCard(artist, self._cover_size, i)
+            card.clicked.connect(lambda k=artist.key: self.artist_selected.emit(k))
+            card.context_action.connect(lambda act, k=artist.key: self._handle_context(act, k))
+            if artist.key == self._selected_key:
+                card.set_active(True)
+            row = i // cols
+            col = i % cols
+            self._grid.addWidget(card, row, col, Qt.AlignTop)
+
+    def _rebuild_list(self):
+        self._list.clear()
+        for artist in self._artists:
+            dur = _format_dur(artist.total_duration)
+            meta = f"{artist.album_count} álbumes · {artist.track_count} canciones"
+            if dur:
+                meta += f" · {dur}"
+            if artist.genres:
+                meta += f" · {', '.join(artist.genres[:3])}"
+
+            it = QListWidgetItem(f"{artist.display_name}\n{meta}")
+            it.setData(Qt.UserRole, artist.key)
+            if artist.cover_paths:
+                cover = load_cover_pixmap(artist.cover_paths[0], 48)
+                if cover and not cover.isNull():
+                    it.setIcon(QIcon(cover))
+            self._list.addItem(it)
+
+    def _on_list_item_clicked(self, item):
+        key = item.data(Qt.UserRole)
+        if key:
+            self.artist_selected.emit(key)
+
+    def _on_list_context(self, pos):
+        item = self._list.itemAt(pos)
+        if not item:
+            return
+        key = item.data(Qt.UserRole)
+        if key:
+            self._show_context_menu(self._list.viewport().mapToGlobal(pos), key)
+
+    def _handle_context(self, action: str, artist_key: str):
+        if action == "open":
+            self.artist_selected.emit(artist_key)
+        elif action == "play":
+            self.artist_play_requested.emit(artist_key)
+        elif action == "queue":
+            self.artist_queue_requested.emit(artist_key)
+        elif action == "playlist":
+            self.artist_playlist_requested.emit(artist_key)
+        elif action == "metadata":
+            self.artist_metadata_requested.emit(artist_key)
+
+    def _show_context_menu(self, pos, artist_key: str):
+        menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{ background: rgba(22,24,31,0.97); border: 1px solid rgba(255,255,255,0.10);
+              border-radius: 10px; padding: 6px 4px; color: {_TEXT2}; font-size: 12.5px; }}
+            QMenu::item {{ padding: 7px 32px 7px 16px; border-radius: 6px; }}
+            QMenu::item:selected {{ background: rgba(255,255,255,0.09); }}
+            QMenu::separator {{ height: 1px; background: rgba(255,255,255,0.08); margin: 4px 8px; }}
+        """)
+
+        acts = {
+            "Abrir artista": "open",
+            "Reproducir todo": "play",
+            "Añadir a la cola": "queue",
+            "Crear playlist": "playlist",
+            "Editar metadatos": "metadata",
+        }
+        for label, action in acts.items():
+            menu.addAction(label, lambda checked=False, a=action, k=artist_key: self._handle_context(a, k))
+
+        menu.exec(pos)
+
+
+class _ArtistCard(QFrame):
+    clicked = Signal(str)
+    context_action = Signal(str)
+
+    def __init__(self, artist: ArtistGroup, size: int, index: int):
+        super().__init__()
+        self._artist = artist
+        self._active = False
+        card_w = size + 24
+        card_h = size + 140
+        self.setFixedSize(card_w, card_h)
+        self.setCursor(Qt.PointingHandCursor)
+        self._apply_qss()
+
+        v = QVBoxLayout(self)
+        v.setContentsMargins(10, 10, 10, 10)
+        v.setSpacing(8)
+
+        # Cover mosaic
+        cover_area = QFrame()
+        cover_area.setFixedSize(size, size)
+        cover_area.setStyleSheet(
+            f"QFrame {{ background: rgba(255,255,255,0.035); border-radius: 24px; }}")
+        c_layout = QGridLayout(cover_area)
+        c_layout.setContentsMargins(4, 4, 4, 4)
+        c_layout.setSpacing(4)
+
+        # Show up to 4 covers as mosaic
+        for ci in range(min(4, len(artist.cover_paths))):
+            pix = load_cover_pixmap(artist.cover_paths[ci], size // 2 - 4)
+            lbl = QLabel()
+            if pix and not pix.isNull():
+                lbl.setPixmap(pix.scaled(size // 2 - 8, size // 2 - 8, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            else:
+                lbl.setText("")
+                lbl.setStyleSheet("background: rgba(255,255,255,0.04); border-radius: 8px;")
+            lbl.setAlignment(Qt.AlignCenter)
+            c_layout.addWidget(lbl, ci // 2, ci % 2, Qt.AlignCenter)
+
+        # If no covers, show a placeholder
+        if not artist.cover_paths:
+            place = QLabel()
+            place.setPixmap(_artist_placeholder(size))
+            place.setAlignment(Qt.AlignCenter)
+            c_layout.addWidget(place, 0, 0, 2, 2, Qt.AlignCenter)
+
+        v.addWidget(cover_area)
+
+        # Name
+        name = artist.display_name
+        if len(name) > 24:
+            name = name[:23] + "…"
+        name_lbl = QLabel(name)
+        name_lbl.setAlignment(Qt.AlignCenter)
+        name_lbl.setWordWrap(False)
+        name_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 13px; font-weight: 700; background: transparent;")
+        v.addWidget(name_lbl)
+
+        # Meta
+        meta = f"{artist.album_count} álbumes · {artist.track_count} canciones"
+        if len(meta) > 30:
+            meta = meta[:29] + "…"
+        meta_lbl = QLabel(meta)
+        meta_lbl.setAlignment(Qt.AlignCenter)
+        meta_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 10.5px; background: transparent;")
+        v.addWidget(meta_lbl)
+
+        # Genres / years
+        extra = ""
+        if artist.genres:
+            extra = ", ".join(artist.genres[:2])
+        if artist.years:
+            y_str = f"{artist.years[0]}–{artist.years[-1]}" if len(artist.years) > 1 else str(artist.years[0])
+            extra = f"{extra} · {y_str}" if extra else y_str
+        if extra:
+            extra_lbl = QLabel(extra[:28])
+            extra_lbl.setAlignment(Qt.AlignCenter)
+            extra_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 10px; background: transparent;")
+            v.addWidget(extra_lbl)
+
+        v.addStretch()
+
+    def _apply_qss(self):
+        self.setStyleSheet(f"""
+            QFrame {{
+                background: rgba(255,255,255,0.035);
+                border: 1px solid rgba(255,255,255,0.065);
+                border-radius: 18px;
+            }}
+            QFrame:hover {{
+                background: rgba(255,255,255,0.065);
+                border: 1px solid rgba(255,255,255,0.12);
+            }}
+            QFrame[active="true"] {{
+                background: rgba(255,255,255,0.105);
+                border: 1px solid rgba(255,255,255,0.16);
+            }}
+        """)
+
+    def set_active(self, active: bool):
+        if self._active == active:
+            return
+        self._active = active
+        self.setProperty("active", str(active).lower())
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self._artist.key)
+        super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self._artist.key)
+        super().mouseDoubleClickEvent(event)
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{ background: rgba(22,24,31,0.97); border: 1px solid rgba(255,255,255,0.10);
+              border-radius: 10px; padding: 6px 4px; color: {_TEXT2}; font-size: 12.5px; }}
+            QMenu::item {{ padding: 7px 32px 7px 16px; border-radius: 6px; }}
+            QMenu::item:selected {{ background: rgba(255,255,255,0.09); }}
+        """)
+
+        menu.addAction("Abrir artista", lambda: self.context_action.emit("open"))
+        menu.addSeparator()
+        menu.addAction("Reproducir todo", lambda: self.context_action.emit("play"))
+        menu.addAction("Añadir a la cola", lambda: self.context_action.emit("queue"))
+        menu.addAction("Crear playlist", lambda: self.context_action.emit("playlist"))
+        menu.addAction("Editar metadatos", lambda: self.context_action.emit("metadata"))
+        menu.exec(event.globalPos())
+
+
+def _artist_placeholder(size: int) -> QPixmap:
+    from PySide6.QtGui import QPainter, QPainterPath, QPen, QColor
+    pix = QPixmap(size, size)
+    pix.fill(Qt.transparent)
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(QPen(QColor(255, 255, 255, 20), 2))
+    p.setBrush(QColor(255, 255, 255, 8))
+    p.drawRoundedRect(8, 8, size - 16, size - 16, 20, 20)
+    p.end()
+    return pix

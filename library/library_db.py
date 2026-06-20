@@ -72,6 +72,10 @@ class MediaItem:
     genre: str = ""
     track_number: int = 0
     composer: str = ""
+    albumartist: str = ""
+    disc_number: int = 0
+    disc_total: int = 0
+    track_total: int = 0
 
     @property
     def display_title(self) -> str:
@@ -104,6 +108,10 @@ class MediaItem:
             genre=row[16] if len(row) > 16 and row[16] else "",
             track_number=row[17] if len(row) > 17 and row[17] else 0,
             composer=row[18] if len(row) > 18 and row[18] else "",
+            albumartist=row[19] if len(row) > 19 and row[19] else "",
+            disc_number=row[20] if len(row) > 20 and row[20] else 0,
+            disc_total=row[21] if len(row) > 21 and row[21] else 0,
+            track_total=row[22] if len(row) > 22 and row[22] else 0,
         )
 
 
