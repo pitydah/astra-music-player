@@ -172,6 +172,21 @@ class LibraryDB:
         track_number = meta_full.get("track_number", 0)
         composer = meta_full.get("composer", "")
 
+        # Store embedded cover art in album_art_cache
+        cover_data = meta_full.get("cover_data", b"")
+        if cover_data and album:
+            import hashlib
+            album_hash = hashlib.md5(album.encode()).hexdigest()
+            cover_mime = meta_full.get("cover_mime", "image/jpeg")
+            try:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO album_art_cache (album_hash, mime, data) VALUES (?,?,?)",
+                    (album_hash, cover_mime, cover_data))
+                self._conn.commit()
+            except Exception:
+                import logging
+                logging.getLogger("astra").debug("Failed to cache embedded cover for %s", album)
+
         try:
             cur = self._conn.execute(
                 "INSERT OR REPLACE INTO media_items "

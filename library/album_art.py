@@ -109,7 +109,6 @@ def load_cover_pixmap(filepath: str, size: int = 280) -> QPixmap:
     """Try to find and load cover art for a media file. Returns QPixmap."""
     directory = os.path.dirname(filepath)
 
-    # Determine cache size name
     if size <= 96:
         size_name = "thumb"
     elif size <= 260:
@@ -117,27 +116,86 @@ def load_cover_pixmap(filepath: str, size: int = 280) -> QPixmap:
     else:
         size_name = "large"
 
-    dir_name = os.path.basename(directory)
-    embedded = _get_embedded_cover(dir_name)
-    if embedded:
-        return embedded.scaled(size, size, Qt.KeepAspectRatio,
-                              Qt.SmoothTransformation)
+    # 1. Try embedded cover from DB cache (keyed by album tag)
+    album_name = _get_album_tag(filepath)
+    if album_name:
+        embedded = _get_embedded_cover(album_name)
+        if embedded:
+            return embedded.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
+    # 2. Try external cover files
     cover_path = _find_cover_cached(directory)
     if cover_path:
-        # Check disk cache first
         cached = get_cached(cover_path, size_name)
         if cached:
             return cached
         pix = QPixmap(cover_path)
         if not pix.isNull():
-            scaled = pix.scaled(size, size, Qt.KeepAspectRatio,
-                                Qt.SmoothTransformation)
+            scaled = pix.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             cache_cover(cover_path, pix, size_name)
             return scaled
 
+    # 3. Fallback: extract embedded cover directly from the audio file via mutagen
+    embedded_pix = _extract_embedded_cover_from_file(filepath, size)
+    if embedded_pix:
+        return embedded_pix
+
     title = os.path.basename(directory)
     return make_default_cover(title, size)
+
+
+def _get_album_tag(filepath: str) -> str:
+    """Read the album tag from an audio file quickly."""
+    try:
+        import mutagen
+        f = mutagen.File(filepath)
+        if f is None:
+            return ""
+        tags = getattr(f, 'tags', None) or {}
+        album = tags.get("album")
+        if album:
+            return str(album[0] if isinstance(album, list) else album)
+    except Exception:
+        pass
+    return ""
+
+
+def _extract_embedded_cover_from_file(filepath: str, size: int = 280) -> QPixmap | None:
+    """Try to read embedded cover art directly from the audio file using mutagen."""
+    try:
+        import mutagen
+
+        f = mutagen.File(filepath)
+        if f is None:
+            return None
+
+        ext = os.path.splitext(filepath)[1].lower()
+        data = None
+
+        # MP3 — ID3 APIC
+        if ext == ".mp3" and hasattr(f, 'tags') and f.tags:
+            for k in f.tags:
+                if k.startswith("APIC:"):
+                    data = f.tags[k].data
+                    break
+
+        # FLAC — pictures
+        if not data and hasattr(f, 'pictures') and f.pictures:
+            data = f.pictures[0].data
+
+        # MP4/M4A — covr
+        if not data and hasattr(f, 'tags') and f.tags:
+            covr = f.tags.get("covr")
+            if covr:
+                data = bytes(covr[0])
+
+        if data:
+            pix = QPixmap()
+            if pix.loadFromData(data):
+                return pix.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    except Exception:
+        pass
+    return None
 
 
 def group_by_album(items: list[MediaItem]) -> list[tuple[str, str, list[MediaItem]]]:
