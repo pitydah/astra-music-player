@@ -458,6 +458,9 @@ class MainWindow(QMainWindow):
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
             lambda fps: self._playback.enqueue(fps, play_now=True))
+        self._folder_browser.queue_requested.connect(
+            lambda fps: self._playback.enqueue(fps, play_now=False))
+        self._folder_browser.scan_requested.connect(self._scan_path)
 
         self._content = QStackedWidget()
         self._content.setMinimumHeight(200)

@@ -46,6 +46,7 @@ CUSTOM_ICONS = {
     "warm_mute":          "icons/nowplaying_clean/warm_mute_128.png",
     "warm_audio_source":  "icons/warm_audio_source.svg",
     "warm_mini_player":   "icons/warm_mini_player.svg",
+    "folder":             "icons/folder.svg",
     "warm_settings":      "icons/warm_settings.svg",
     "tray_icon":          "icons/tray_icon.svg",
     "warm_view_grid":     "/home/cristian/Descargas/iloveimg-resized(2)/view-cover.svg",
