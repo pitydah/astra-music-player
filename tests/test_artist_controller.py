@@ -1,0 +1,63 @@
+"""Tests for ArtistController."""
+from ui.controllers.artist_controller import ArtistController
+from ui.controllers.artist_repository import ArtistRepository
+
+
+class TestArtistController:
+    def test_show_artists_view(self, mock_window):
+        ctrl = ArtistController(mock_window)
+        ctrl.show_artists_view("grid")
+        mock_window._artist_grid.set_view_mode.assert_called_with("grid")
+        mock_window._fade_content.assert_called_with("artist_grid")
+
+    def test_open_artist_detail_not_found(self, mock_window):
+        ctrl = ArtistController(mock_window)
+        ctrl.open_artist_detail("noexiste")
+        # Should not crash — artist not in repo
+
+    def test_open_artist_detail_found(self, mock_window):
+        repo = mock_window._artist_repo
+        repo.build([type("obj", (object,), {
+            "filepath": "/tmp/a.flac",
+            "title": "Song",
+            "artist": "Test Artist",
+            "album": "Test Album",
+            "duration": 180.0,
+            "year": 2020,
+            "genre": "Rock",
+            "track_number": 1,
+            "disc_number": 0,
+            "disc_total": 0,
+            "track_total": 0,
+            "ext": ".flac",
+            "albumartist": "",
+            "filename": "a.flac",
+            "directory": "/tmp",
+            "kind": "audio",
+            "bitrate": 0,
+            "sample_rate": 0,
+            "channels": 0,
+            "size": 0,
+            "mtime": 0.0,
+            "composer": "",
+        })()])
+        ctrl = ArtistController(mock_window)
+        key = repo.groups[0].key
+        ctrl.open_artist_detail(key)
+        mock_window._section_title.setText.assert_called_once()
+
+    def test_show_artists_overview(self, mock_window):
+        ctrl = ArtistController(mock_window)
+        ctrl.show_artists_overview()
+        mock_window._configure_header_for_section.assert_called_with("artists")
+
+    def test_play_artist(self, mock_window):
+        ctrl = ArtistController(mock_window)
+        ctrl.play_artist("noexiste")
+        # No files, playback should not be called
+
+    def test_open_metadata_for_files(self, mock_window):
+        ctrl = ArtistController(mock_window)
+        ctrl.open_metadata_for_files(["/tmp/a.flac"])
+        mock_window._metadata_editor.load_files.assert_called_with(["/tmp/a.flac"])
+        mock_window._fade_content.assert_called_with("metadata_editor")

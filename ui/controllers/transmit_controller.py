@@ -51,11 +51,11 @@ class TransmitController:
         if device is None:
             self._win._transmit_mgr.set_active(None)
             self._win._playback.set_output_device(None)
-            self._win._player_bar.set_transmit_active(False)
+            self._win._player_bar_ctrl.set_transmit_active(False)
         else:
             self._win._transmit_mgr.set_active(device)
             self._win._playback.set_output_device(device)
-            self._win._player_bar.set_transmit_active(True, device.name)
+            self._win._player_bar_ctrl.set_transmit_active(True, device.name)
 
     def on_transmit_devices_changed(self):
         pass
@@ -63,9 +63,9 @@ class TransmitController:
     def on_transmit_active_changed(self):
         device = self._win._transmit_mgr.get_active()
         if device:
-            self._win._player_bar.set_transmit_active(True, device.name)
+            self._win._player_bar_ctrl.set_transmit_active(True, device.name)
         else:
-            self._win._player_bar.set_transmit_active(False)
+            self._win._player_bar_ctrl.set_transmit_active(False)
 
     def show_audio_output_menu(self):
         menu = QMenu(self._win)
