@@ -1,7 +1,7 @@
 """Theme Manager — detect, switch, and apply system theme.
 
 Detects KDE Plasma color scheme via QPalette lightness.
-Falls back to polling QPalette every 5s (no DBus dependency).
+Tries DBus signal for instant notifications, falls back to polling.
 """
 
 import logging
@@ -9,6 +9,7 @@ import logging
 from PySide6.QtCore import QTimer, QObject, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QApplication
+from PySide6.QtDBus import QDBusConnection, QDBusMessage
 
 from ui.design_tokens import get_tokens, set_theme, current_theme
 
@@ -24,6 +25,7 @@ class ThemeManager(QObject):
         self._poll_timer = QTimer(self)
         self._poll_timer.timeout.connect(self._poll)
         self._poll_timer.setInterval(5000)
+        self._dbus_connected = False
 
     def detect(self) -> str:
         """Detect system theme from QPalette window color."""
@@ -59,6 +61,29 @@ class ThemeManager(QObject):
     def _poll(self):
         self.apply()
 
+    def connect_dbus(self):
+        """Try connecting to KDE theme change signal via DBus."""
+        try:
+            bus = QDBusConnection.sessionBus()
+            bus.connect(
+                "org.kde.KGlobalSettings",
+                "/KGlobalSettings",
+                "org.kde.KGlobalSettings",
+                "notifyChange",
+                self._on_dbus_notify,
+            )
+            self._dbus_connected = True
+            logger.debug("DBus theme listener connected")
+            self.stop_polling()
+        except Exception as e:
+            logger.debug("DBus theme listener unavailable, using polling: %s", e)
+            self._dbus_connected = False
+
+    def _on_dbus_notify(self, change_type: int, arg: int):
+        # change_type 0 = palette changed
+        if change_type == 0:
+            self.apply()
+
     @property
     def theme(self) -> str:
         return self._current
@@ -67,5 +92,7 @@ class ThemeManager(QObject):
 def create_theme_manager(parent=None) -> ThemeManager:
     mgr = ThemeManager(parent)
     mgr.apply()
-    mgr.start_polling()
+    mgr.connect_dbus()
+    if not mgr._dbus_connected:
+        mgr.start_polling()
     return mgr
