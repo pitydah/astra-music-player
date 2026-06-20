@@ -657,6 +657,10 @@ class NowPlayingBar(QWidget):
         self._vol_btn.setIconSize(QSize(22, 22))
     def set_quality(self, text: str):
         self._source_quality = text
+        if text:
+            self._quality_badge.setText(f" {text} ")
+        else:
+            self._quality_badge.setText(" LOCAL ")
         self._refresh_source_badge()
 
     def set_source_status(self, source_type: str = "local_file", quality: str = "",

@@ -1,6 +1,6 @@
 """Source status badge — rotating dynamic badge under the volume slider."""
-from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve
-from PySide6.QtWidgets import QPushButton, QGraphicsOpacityEffect
+from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtWidgets import QPushButton
 
 
 class SourceStatusBadge(QPushButton):
@@ -53,11 +53,6 @@ class SourceStatusBadge(QPushButton):
         self._timer.setInterval(5000)
         self._timer.timeout.connect(self._show_next_page)
         self._hovering = False
-
-        self._effect = QGraphicsOpacityEffect(self)
-        self._effect.setOpacity(1.0)
-        self.setGraphicsEffect(self._effect)
-        self._fade_anim: QPropertyAnimation | None = None
 
     def set_context(self, **kwargs):
         """Set all context at once."""
@@ -174,20 +169,7 @@ class SourceStatusBadge(QPushButton):
         self._set_text(self._pages[self._page_index])
 
     def _set_text(self, text: str):
-        if self._fade_anim is not None:
-            self._fade_anim.stop()
-
-        self._effect.setOpacity(0.0)
         self.setText(text)
-
-        anim = QPropertyAnimation(self._effect, b"opacity", self)
-        anim.setDuration(160)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.OutCubic)
-        self._fade_anim = anim
-        anim.finished.connect(lambda: setattr(self._effect, 'opacity', 1.0))
-        anim.start()
 
     def enterEvent(self, event):
         self._hovering = True
