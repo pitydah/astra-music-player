@@ -13,18 +13,11 @@ class TransmitController:
         self._win = window
 
     def show_transmit_menu(self):
+        from ui.premium_menus import premium_menu_qss
         menu = QMenu(self._win)
-        menu.setStyleSheet("""
-            QMenu { background: rgba(28,28,30,230); border: 1px solid rgba(255,255,255,0.06);
-              border-radius: 8px; padding: 4px; }
-            QMenu::item { padding: 6px 32px 6px 12px; border-radius: 6px;
-              color: rgba(255,255,255,0.8); }
-            QMenu::item:selected { background: rgba(255,122,0,0.20); }
-            QMenu::separator { height: 1px; background: rgba(255,255,255,0.06);
-              margin: 3px 8px; }
-        """)
+        menu.setStyleSheet(premium_menu_qss())
 
-        local = menu.addAction("Local (sin transmitir)")
+        local = menu.addAction("Salida local")
         local.setCheckable(True)
         active = self._win._ctx.transmit_mgr.get_active()
         local.setChecked(active is None)
@@ -34,14 +27,20 @@ class TransmitController:
         if devices:
             menu.addSeparator()
             for dev in devices:
-                action = menu.addAction(dev.name)
+                label = f"{dev.name} · {dev.stype.upper()}"
+                action = menu.addAction(label)
                 action.setCheckable(True)
                 action.setChecked(active is not None and active.name == dev.name)
                 action.triggered.connect(
-                    lambda checked, d=dev: self.activate_transmit_device(d))
+                    lambda checked=False, d=dev: self.activate_transmit_device(d))
+        else:
+            menu.addSeparator()
+            empty = menu.addAction("No hay dispositivos configurados")
+            empty.setEnabled(False)
 
         menu.addSeparator()
-        menu.addAction("Añadir dispositivo...", self.add_transmit_device)
+        menu.addAction("Añadir dispositivo…", self.add_transmit_device)
+        menu.addAction("Administrar dispositivos…", self.manage_transmit_devices)
 
         btn = self._win._ctx.player_bar.transmit_button()
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
@@ -67,18 +66,13 @@ class TransmitController:
             self._win._ctx.player_bar.set_transmit_active(False)
 
     def show_audio_output_menu(self):
+        from ui.premium_menus import premium_menu_qss
         menu = QMenu(self._win)
-        menu.setStyleSheet("""
-            QMenu { background: rgba(28,28,30,230); border: 1px solid rgba(255,255,255,0.06);
-              border-radius: 8px; padding: 4px; }
-            QMenu::item { padding: 6px 32px 6px 12px; border-radius: 6px;
-              color: rgba(255,255,255,0.8); }
-            QMenu::item:selected { background: rgba(255,122,0,0.20); }
-            QMenu::separator { height: 1px; background: rgba(255,255,255,0.06);
-              margin: 3px 8px; }
-        """)
+        menu.setStyleSheet(premium_menu_qss())
 
-        action_system = menu.addAction("Salida predeterminada del sistema")
+        action_system = menu.addAction("Predeterminada del sistema")
+        action_system.setCheckable(True)
+        action_system.setChecked(True)
         action_system.triggered.connect(
             lambda: self._win._ctx.playback.set_output_device(None))
 
@@ -97,22 +91,20 @@ class TransmitController:
                 for dev in devices:
                     name = dev.get_display_name() or dev.get_device_class() or "Audio device"
                     action = menu.addAction(name)
+                    action.setCheckable(True)
                     action.triggered.connect(
                         lambda checked=False, d=dev: self._win._ctx.playback.set_output_device(d))
-            else:
-                pass
         except Exception:
             import logging
             logging.getLogger("astra").debug("Audio device detection failed")
 
         menu.addSeparator()
-        action_pipewire = menu.addAction("PipeWire (sistema)")
-        action_pipewire.triggered.connect(
-            lambda: self._win._ctx.playback.set_output_device(None))
-        action_pipewire.setEnabled(True)
+        menu.addAction("PipeWire (sistema)", lambda: self._win._ctx.playback.set_output_device(None))
+        menu.addAction("Actualizar dispositivos", self.show_audio_output_menu)
+        menu.addAction("Preferencias de audio…", self._win._show_preferences)
 
-        from PySide6.QtGui import QCursor
-        menu.exec(QCursor.pos())
+        btn = self._win._ctx.player_bar.audio_output_button()
+        menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
 
     def open_mini_player(self):
         from ui.mini_player import MiniPlayer

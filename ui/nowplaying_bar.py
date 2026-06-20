@@ -240,6 +240,19 @@ class NowPlayingBar(QWidget):
         self._duration = 0.0
         self._shuffle = False
         self._repeat = "none"
+        self._source_type = "local_file"
+        self._source_label = ""
+        self._source_quality = ""
+        self._codec = ""
+        self._bitrate = ""
+        self._sample_rate = ""
+        self._bit_depth = ""
+        self._filepath = ""
+        self._audio_output_label = ""
+        self._identifier_state = ""
+        self._transmitting = False
+        self._transmit_device_name = ""
+        self._replaygain = ""
         self.setObjectName("nowplayingBar")
         self.setFixedHeight(116)
 
@@ -481,29 +494,10 @@ class NowPlayingBar(QWidget):
         self._transmit_btn.setToolTip("Transmitir a dispositivo")
         self._transmit_btn.clicked.connect(lambda: self.transmit_clicked.emit())
 
-        self._quality_badge = QLabel("")
-        self._quality_badge.setAlignment(Qt.AlignCenter)
-        self._quality_badge.setWordWrap(False)
+        from ui.source_status_badge import SourceStatusBadge
+        self._quality_badge = SourceStatusBadge()
         self._quality_badge.setMinimumWidth(88)
-        self._quality_badge.setFixedHeight(22)
-        self._quality_badge.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        self._quality_badge.setStyleSheet("""
-            QLabel {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(255,255,255,0.085),
-                    stop:0.55 rgba(255,255,255,0.045),
-                    stop:1 rgba(255,122,0,0.075)
-                );
-                color: rgba(255,255,255,0.92);
-                border: 1px solid rgba(255,255,255,0.12);
-                border-radius: 9px;
-                padding: 3px 10px;
-                font-size: 10.5px;
-                font-weight: 650;
-                letter-spacing: 0.2px;
-            }
-        """)
+        self._quality_badge.setMaximumWidth(176)
 
         right_widget = QWidget()
         right_widget.setStyleSheet("background: transparent;")
@@ -662,21 +656,74 @@ class NowPlayingBar(QWidget):
         self._vol_btn.setIcon(QIcon(get_icon(name)))
         self._vol_btn.setIconSize(QSize(22, 22))
     def set_quality(self, text: str):
-        self._quality_badge.setText(f" {text} " if text else " LOCAL ")
+        self._source_quality = text
+        self._refresh_source_badge()
+
+    def set_source_status(self, source_type: str = "local_file", quality: str = "",
+                          service: str = "", codec: str = "", bitrate: str = "",
+                          sample_rate: str = "", bit_depth: str = "", filepath: str = "",
+                          audio_output: str = "", identifier_state: str = "",
+                          replaygain: str = "", transmitting: bool = False,
+                          transmit_device: str = ""):
+        self._source_type = source_type
+        self._source_label = service
+        self._source_quality = quality
+        self._codec = codec
+        self._bitrate = bitrate
+        self._sample_rate = sample_rate
+        self._bit_depth = bit_depth
+        self._filepath = filepath
+        self._audio_output_label = audio_output
+        self._identifier_state = identifier_state
+        self._replaygain = replaygain
+        self._transmitting = transmitting
+        self._transmit_device_name = transmit_device
+        self._refresh_source_badge()
+
+    def _refresh_source_badge(self):
+        self._quality_badge.set_context(
+            source_type=self._source_type,
+            quality=self._source_quality,
+            service=self._source_label,
+            codec=self._codec,
+            bitrate=self._bitrate,
+            sample_rate=self._sample_rate,
+            bit_depth=self._bit_depth,
+            filepath=self._filepath,
+            audio_output=self._audio_output_label,
+            transmitting=self._transmitting,
+            transmit_device=self._transmit_device_name,
+            identifier_state=self._identifier_state,
+            replaygain=self._replaygain,
+        )
 
     def set_transmit_active(self, active: bool, device_name: str = ""):
         """Update transmit button style and tooltip from external controllers."""
         if not hasattr(self, '_transmit_btn'):
             return
+        self._transmitting = active
+        self._transmit_device_name = device_name or ""
+        self._set_button_active(self._transmit_btn, active)
         if active:
-            self._transmit_btn.setStyleSheet("QPushButton { color: #FF7A00; }")
             self._transmit_btn.setToolTip(f"Transmitiendo a: {device_name}")
         else:
-            self._transmit_btn.setStyleSheet("")
             self._transmit_btn.setToolTip("Transmitir a dispositivo")
 
+    def _set_button_active(self, btn, active: bool):
+        """Toggle active visual state on a button via property."""
+        btn.setProperty("active", str(active).lower())
+        btn.style().unpolish(btn)
+        btn.style().polish(btn)
+
+    def transmit_button(self):
+        """Returns the transmit QPushButton for menu positioning."""
+        return self._transmit_btn
+
+    def audio_output_button(self):
+        """Returns the audio output QPushButton for menu positioning."""
+        return self._audio_output_btn
+
     def transmit_button_position(self):
-        """Returns global position under the transmit button for menu placement."""
         if hasattr(self, '_transmit_btn'):
             return self._transmit_btn.mapToGlobal(
                 self._transmit_btn.rect().bottomLeft())
