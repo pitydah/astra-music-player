@@ -458,7 +458,7 @@ class NowPlayingBar(QWidget):
         self._vol.setRange(0, 100)
         self._vol.setValue(70)
         self._vol.setFixedWidth(80)
-        self._vol.setFixedHeight(26)
+        self._vol.setFixedHeight(28)
         self._vol.setStyleSheet(VOLUME_STYLESHEET)
         self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
 
