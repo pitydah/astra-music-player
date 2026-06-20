@@ -448,7 +448,7 @@ class NowPlayingBar(QWidget):
         playback_row.setSpacing(0)
         playback_row.addStretch(1)
         playback_row.addLayout(ctrl_row)
-        playback_row.addSpacing(220)
+        playback_row.addSpacing(260)
         playback_row.addLayout(utility_controls)
         playback_row.addStretch(1)
 
