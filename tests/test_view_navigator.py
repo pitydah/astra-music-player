@@ -1,7 +1,7 @@
 """Tests for ViewNavigator — requires QStackedWidget + ViewController via pytest-qt."""
 from PySide6.QtWidgets import QStackedWidget
 from ui.view_controller import ViewController
-from ui.controllers.view_navigator import ViewNavigator
+from ui.view_navigator import ViewNavigator
 
 
 def test_init(qtbot):

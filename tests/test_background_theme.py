@@ -1,6 +1,6 @@
 """Tests for BackgroundThemeService — requires QStackedWidget via pytest-qt."""
 from PySide6.QtWidgets import QStackedWidget
-from ui.controllers.background_theme_service import BackgroundThemeService
+from core.background_theme_service import BackgroundThemeService
 
 
 def test_init(qtbot):

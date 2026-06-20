@@ -121,8 +121,20 @@ astra-music-player/
 
 ## Estado de funcionalidades
 
-> **Versión actual: alpha funcional** — la aplicación arranca, reproduce y navega correctamente. Aún no ha sido validada en múltiples distribuciones Linux. Usar bajo propia responsabilidad.
+> **Versión actual: v0.1.0-alpha** — 85 tests automatizados, 18 controladores/servicios modulares, Flatpak packaging listo. Última verificación: 2026-06-20.
 
+### Arquitectura
+| Métrica | Valor |
+|---------|-------|
+| `window.py` líneas | 2040 (era 2713, -25%) |
+| Controladores/servicios | 18 extraídos |
+| DI via AppContext | 168→1 accesos directos |
+| Tests | 85 en 22 archivos |
+| Ruff | 7 (sugerencias SIM) |
+| Bugs (F-class) | 0 |
+| excepciones silenciadas | 0 |
+
+### Funcionalidades
 | Funcionalidad | Estado |
 |--------------|--------|
 | Reproducción local (MP3, FLAC, OGG, WAV) | ✅ Alpha |
@@ -134,16 +146,32 @@ astra-music-player/
 | Glassmorphism oscuro | ✅ Alpha |
 | Preferencias (16 categorías) | ✅ Alpha |
 | Atajos de teclado | ✅ Alpha |
-| MPRIS (integración KDE Plasma) | ⚠️ Experimental |
 | Artistas (grid + ficha detalle) | ✅ Alpha |
 | Playlist Hub | ✅ Alpha |
 | Editor de metadatos (Mutagen) | ✅ Alpha |
+| Flatpak packaging | ✅ Alpha |
+| AppContext DI | ✅ Alpha |
+| MPRIS (integración KDE Plasma) | ⚠️ Experimental |
 | Subsonic / Navidrome / Jellyfin | ⚠️ Experimental |
 | Radio por Internet | ⚠️ Experimental |
 | Transmisión HTTP / Snapcast | ⚠️ Experimental |
 | Sincronización Android (API REST) | ⚠️ Experimental |
 | DSD/DFF nativo | ⚠️ Experimental |
 | AutoEQ | ⚠️ Experimental |
+
+### Instalación
+```bash
+git clone https://github.com/pitydah/astra-music-player
+cd astra-music-player
+pip install .
+astra-music-player
+```
+
+### Flatpak
+```bash
+flatpak-builder --user --install build-dir data/com.astra.MusicPlayer.yml
+flatpak run com.astra.MusicPlayer
+```
 
 ## Licencia
 

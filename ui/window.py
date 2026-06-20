@@ -825,7 +825,7 @@ class MainWindow(QMainWindow):
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
 
-        from ui.controllers.view_navigator import ViewNavigator
+        from ui.view_navigator import ViewNavigator
         self._nav = ViewNavigator(self._content, self._views, self._views)
         self._nav._widgets = [
             self._content, self._album_grid, self._song_grid,
@@ -833,7 +833,7 @@ class MainWindow(QMainWindow):
             self._playlist_hub, self._metadata_editor,
             self._discover, self._identifier_view,
         ]
-        from ui.controllers.background_theme_service import BackgroundThemeService
+        from core.background_theme_service import BackgroundThemeService
         self._bg_theme = BackgroundThemeService(self._content)
         from ui.controllers.artist_repository import ArtistRepository
         self._artist_repo = ArtistRepository()
