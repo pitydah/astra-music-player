@@ -316,7 +316,14 @@ class LibraryDB:
     def _run_migrations(self):
         existing = {r[0] for r in self._conn.execute("PRAGMA table_info(media_items)").fetchall()}
         for col, col_def in [("year", "INTEGER"), ("genre", "TEXT"),
-                              ("track_number", "INTEGER"), ("composer", "TEXT")]:
+                              ("track_number", "INTEGER"), ("composer", "TEXT"),
+                              ("albumartist", "TEXT"), ("disc_number", "INTEGER"),
+                              ("disc_total", "INTEGER"), ("track_total", "INTEGER"),
+                              ("mb_track_id", "TEXT"), ("mb_album_id", "TEXT"),
+                              ("cover_hash", "TEXT"), ("rating", "INTEGER DEFAULT 0"),
+                              ("play_count", "INTEGER DEFAULT 0"), ("skip_count", "INTEGER DEFAULT 0"),
+                              ("last_played", "REAL"), ("bpm", "INTEGER"),
+                              ("replaygain_track", "REAL"), ("replaygain_album", "REAL")]:
             if col not in existing:
                 try:
                     self._conn.execute(f"ALTER TABLE media_items ADD COLUMN {col} {col_def}")

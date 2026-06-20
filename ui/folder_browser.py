@@ -101,7 +101,7 @@ class FolderBrowserWidget(QWidget):
 
         # Favorites dropdown
         self._favs_menu = QMenu("Favoritos")
-        self._favs_btn = QPushButton("★ Favoritos ▼")
+        self._favs_btn = QPushButton("Favoritos ▼")
         self._favs_btn.setStyleSheet(btn_qss.replace("#fff", "#FF9A3D"))
         self._favs_btn.clicked.connect(lambda: self._favs_menu.exec(
             self._favs_btn.mapToGlobal(self._favs_btn.rect().bottomLeft())))
@@ -285,7 +285,7 @@ class FolderBrowserWidget(QWidget):
         details_layout.addSpacing(4)
 
         # Favorite toggle
-        self._fav_toggle = QPushButton("★ Favorita")
+        self._fav_toggle = QPushButton("Favorita")
         self._fav_toggle.setCheckable(True)
         self._fav_toggle.setStyleSheet("""
             QPushButton { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.72);
@@ -558,7 +558,7 @@ class FolderBrowserWidget(QWidget):
                           lambda: self._shuffle_path_folder(path))
             menu.addAction("+ Añadir a cola", lambda: self._queue_path_folder(path))
             menu.addSeparator()
-            menu.addAction("🎵 Crear playlist", lambda: self._create_playlist(path))
+            menu.addAction("Crear playlist", lambda: self._create_playlist(path))
             menu.addAction("📂 Escanear carpeta", lambda: self.scan_requested.emit(path))
             menu.addSeparator()
             menu.addAction("★ Marcar favorita", lambda: self._fav_folder(path))

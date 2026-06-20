@@ -199,13 +199,13 @@ class _StationCard(QFrame):
                                  Qt.SmoothTransformation)
                 img_label.setPixmap(pix)
             else:
-                img_label.setText("📻")
+                img_label.setText("RADIO")
                 img_label.setStyleSheet(
                     "QLabel { background: rgba(255,255,255,0.035);"
-                    "  color: rgba(255,255,255,0.15); font-size: 36px;"
+                    "  color: rgba(255,255,255,0.15); font-size: 24px;"
                     "  border-radius: 8px; }")
         else:
-            img_label.setText("📻")
+            img_label.setText("RADIO")
             img_label.setStyleSheet(
                 "QLabel { background: rgba(255,255,255,0.035);"
                 "  color: rgba(255,255,255,0.15); font-size: 36px;"

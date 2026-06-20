@@ -175,6 +175,7 @@ class MainWindow(QMainWindow):
         self._search_text = ""
         self._current_playlist: int | None = None
         self._playlist_refs: list = []
+        self._current_refs: list = []
         self._album_sort_key = "title"
         self._album_filter_mode = "all"
         self._fade_anim = None
@@ -474,7 +475,6 @@ class MainWindow(QMainWindow):
         settings_menu.addAction(self._quit_action)
         self._settings_btn.setMenu(settings_menu)
 
-        hl.addWidget(self._section_title)
         hl.addSpacing(16)
         hl.addWidget(self._view_switcher)
 
@@ -648,8 +648,8 @@ class MainWindow(QMainWindow):
             "QLabel { color: rgba(255,255,255,0.68); font-size: 16px;"
             "  background: transparent; border: none; padding: 48px; }")
         placeholder.setText(
-            "🎵\n\nAñade una carpeta o abre un archivo\n"
-            "para comenzar tu biblioteca musical")
+            "Añade música a tu biblioteca\n"
+            "Abre una carpeta o arrastra archivos para comenzar")
 
         placeholder_albums = QLabel()
         placeholder_albums.setAlignment(Qt.AlignCenter)
@@ -657,7 +657,7 @@ class MainWindow(QMainWindow):
             "QLabel { color: rgba(255,255,255,0.62); font-size: 15px;"
             "  background: transparent; border: none; padding: 48px; }")
         placeholder_albums.setText(
-            "📀\n\nSin álbumes en la biblioteca\n"
+            "Sin álbumes en la biblioteca\n"
             "Añade carpetas de música para ver carátulas aquí")
 
         placeholder_expanded = QLabel("")
@@ -1058,7 +1058,7 @@ class MainWindow(QMainWindow):
             self._create_playlist()
 
         elif key == "radio":
-            self._section_title.setText("📻 Radio")
+            self._section_title.setText("Radio")
             self._search_ctrl.set_active("radio")
             self._apply_filters()
             self._search.show()
@@ -1125,6 +1125,7 @@ class MainWindow(QMainWindow):
                                      artist=i.artist, album=i.album, duration=i.duration,
                                      year=i.year, genre=i.genre) for i in items]
                     self._model.populate(refs)
+                    self._current_refs = refs
                     self._count.setText(f"{len(refs)} canciones")
                     self._playlist_refs = refs
                     if refs:
@@ -1156,6 +1157,7 @@ class MainWindow(QMainWindow):
                              artist=i.artist, album=i.album, duration=i.duration,
                              year=i.year, genre=i.genre) for i in items]
             self._model.populate(refs)
+            self._current_refs = refs
             self._count.setText(f"{len(refs)} canciones")
             if refs:
                 self._views.show("library"); self._table.setModel(self._model)
@@ -1181,6 +1183,7 @@ class MainWindow(QMainWindow):
                              artist=i.artist, album=i.album, duration=i.duration,
                              year=i.year, genre=i.genre) for i in items]
             self._model.populate(refs)
+            self._current_refs = refs
             self._count.setText(f"{len(refs)} canciones")
             if refs:
                 self._views.show("library"); self._table.setModel(self._model)
@@ -1263,7 +1266,7 @@ class MainWindow(QMainWindow):
             self._views.show("remote")
 
             self._remote_browser.load_artists()
-            self._section_title.setText(f"🌐 {name}")
+            self._section_title.setText(name)
             from sources.subsonic_source import SubsonicSource
             srv_key = f"srv:{name}"
             self._search_ctrl.register(srv_key, SubsonicSource(client))
@@ -1316,31 +1319,103 @@ class MainWindow(QMainWindow):
         else:
             self._views.show("empty")
 
-    # ── CoverFlow ──
+    # ── View Mode Router ──
 
     def _on_view_mode_changed(self, mode: str):
         self._restore_central_opacity()
-        # Protect CoverFlow — only available in albums section
+        available = self._current_available_views()
+        if mode not in available:
+            return
         if mode == "coverflow" and self._current_section_key != "albums":
             return
         self._view_mode = mode
-        if mode == "list":
-            self._apply_filters()
-            self._fade_content("library")
-        elif mode == "grid":
-            if self._current_playlist and self._playlist_refs:
-                # Show playlist tracks as grid
-                self._song_grid.set_items(self._playlist_refs, card_size=170)
-                self._fade_content("song_grid")
-            elif self._current_section_key == "albums":
-                self._show_album_grid()
-                self._fade_content("album_grid")
-            else:
+        self._show_current_section_view(mode)
+        self._restore_central_opacity()
+
+    def _current_available_views(self) -> list[str]:
+        config = _resolve_section_config(self._current_section_key, {})
+        return config.get("views", [])
+
+    def _show_current_section_view(self, mode: str):
+        section = self._current_section_key
+
+        if section == "library":
+            if mode == "list":
+                self._apply_filters()
+                self._fade_content("library")
+            elif mode == "grid":
                 self._show_song_grid()
                 self._fade_content("song_grid")
-        elif mode == "coverflow":
-            self._show_coverflow()
-            self._fade_content("coverflow")
+
+        elif section == "albums":
+            if mode == "list":
+                self._show_album_list()
+                self._fade_content("library")
+            elif mode == "grid":
+                self._show_album_grid()
+                self._fade_content("album_grid")
+            elif mode == "coverflow":
+                self._show_coverflow()
+                self._fade_content("coverflow")
+
+        elif section == "playlists":
+            if not self._playlist_refs:
+                self._views.show("empty")
+                return
+            if mode == "list":
+                self._model.populate(self._playlist_refs)
+                self._table.setModel(self._model)
+                self._fade_content("library")
+            elif mode == "grid":
+                self._song_grid.set_items(self._playlist_refs, card_size=170)
+                self._fade_content("song_grid")
+
+        elif section == "folders":
+            self._fade_content("folders")
+
+        elif section == "radio":
+            self._fade_content("radio")
+
+        elif section == "playlist_hub":
+            self._playlist_hub.set_playlists(self._db.get_playlists())
+            self._fade_content("playlist_hub")
+
+        elif section in ("favs", "recent", "mix_unplayed"):
+            refs = getattr(self, "_current_refs", [])
+            if not refs:
+                self._views.show("empty")
+                return
+            if mode == "list":
+                self._model.populate(refs)
+                self._table.setModel(self._model)
+                self._fade_content("library")
+            elif mode == "grid":
+                self._song_grid.set_items(refs, card_size=170)
+                self._fade_content("song_grid")
+
+    def _show_album_list(self):
+        from library.album_art import group_by_album
+        groups = group_by_album(self._all_items)
+        refs = []
+        for album, artist, tracks in groups:
+            dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
+            exts = set((getattr(t, 'ext', '') or '').upper().lstrip(".") for t in tracks if getattr(t, 'ext', ''))
+            fmt_str = ", ".join(sorted(exts))
+            year = tracks[0].year if tracks else ""
+            refs.append(TrackRef(
+                uri=album, title=album,
+                artist=artist, album=album,
+                duration=float(dur),
+                genre=f"{len(tracks)} canciones",
+                year=year,
+                cover_path=tracks[0].filepath if tracks else "",
+            ))
+        self._model.populate(refs)
+        self._table.setModel(self._model)
+        self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 240)
+        self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
+        self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110); self._table.setColumnWidth(6, 75)
+        self._count.setText(f"{len(groups)} álbumes")
 
     def _configure_header_for_section(self, section_key: str):
         self._current_section_key = section_key
