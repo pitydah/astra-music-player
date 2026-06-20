@@ -1524,6 +1524,33 @@ class MainWindow(QMainWindow):
         from ui.mini_player import MiniPlayer
         if not hasattr(self, '_mini_player'):
             self._mini_player = MiniPlayer(self._playback, self)
+            self._mini_player.play_clicked.connect(self._playback.toggle)
+            self._mini_player.prev_clicked.connect(self._playback.play_prev)
+            self._mini_player.next_clicked.connect(self._playback.play_next)
+            # Sync from engine
+            self._player.position_changed.connect(
+                lambda s: self._mini_player.set_position(
+                    s, getattr(self._player, '_duration', 0)))
+            self._player.state_changed.connect(
+                lambda s: self._mini_player.set_state(
+                    "playing" if s == PlaybackState.PLAYING else
+                    "paused" if s == PlaybackState.PAUSED else "stopped"))
+        # Update track info
+        from audio.audio_chain import get_quality_label
+        current = self._playback.current
+        name = os.path.basename(current) if current else ""
+        artist = ""
+        if current:
+            qual, _ = get_quality_label(current)
+            item = self._items_index.get(current)
+            if item:
+                artist = item.artist or qual or ""
+                title = item.title or name
+            else:
+                title = name
+        else:
+            title = "Sin reproducción"
+        self._mini_player.set_track(title, artist)
         self._mini_player.show()
         self._mini_player.raise_()
         self._mini_player.activateWindow()
