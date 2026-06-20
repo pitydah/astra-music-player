@@ -499,13 +499,23 @@ class MainWindow(QMainWindow):
         self._table.setContextMenuPolicy(Qt.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self._on_table_menu)
 
-        placeholder = QLabel("Añade una carpeta o abre un archivo")
+        placeholder = QLabel()
         placeholder.setAlignment(Qt.AlignCenter)
-        placeholder.setStyleSheet("color: rgba(255,255,255,0.3); font-size: 16px;")
+        placeholder.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.35); font-size: 16px;"
+            "  background: transparent; border: none; padding: 48px; }")
+        placeholder.setText(
+            "🎵\n\nAñade una carpeta o abre un archivo\n"
+            "para comenzar tu biblioteca musical")
 
-        placeholder_albums = QLabel("Sin álbumes en la biblioteca")
+        placeholder_albums = QLabel()
         placeholder_albums.setAlignment(Qt.AlignCenter)
-        placeholder_albums.setStyleSheet("color: rgba(255,255,255,0.3); font-size: 16px;")
+        placeholder_albums.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.28); font-size: 15px;"
+            "  background: transparent; border: none; padding: 48px; }")
+        placeholder_albums.setText(
+            "📀\n\nSin álbumes en la biblioteca\n"
+            "Añade carpetas de música para ver carátulas aquí")
 
         placeholder_expanded = QLabel("")
         placeholder_expanded.setAlignment(Qt.AlignCenter)
