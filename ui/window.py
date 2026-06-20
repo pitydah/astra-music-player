@@ -461,6 +461,8 @@ class MainWindow(QMainWindow):
         self._folder_browser.queue_requested.connect(
             lambda fps: self._playback.enqueue(fps, play_now=False))
         self._folder_browser.scan_requested.connect(self._scan_path)
+        self._folder_browser.create_playlist_requested.connect(
+            self._on_folder_create_playlist)
 
         self._content = QStackedWidget()
         self._content.setMinimumHeight(200)
@@ -1090,6 +1092,16 @@ class MainWindow(QMainWindow):
         if not path:
             return
         self._scan_path(path)
+
+    def _on_folder_create_playlist(self, name: str, filepaths: list):
+        pid = self._db.create_playlist(name)
+        if pid:
+            for fp in filepaths:
+                self._db.add_playlist_item(pid, fp)
+            self._rebuild_sidebar()
+            from ui.toast_notification import ToastNotification
+            ToastNotification.success(
+                f"Playlist \"{name}\" creada con {len(filepaths)} canciones", self)
 
     def _scan_path(self, path: str):
         from PySide6.QtCore import QThread
