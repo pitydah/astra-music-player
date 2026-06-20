@@ -269,8 +269,10 @@ class ExpandedNowPlaying(QWidget):
                   quality: str = "", cover_path: str = ""):
         self._title.setText(title or "Sin reproducción")
         parts = []
-        if artist: parts.append(artist)
-        if album: parts.append(album)
+        if artist:
+            parts.append(artist)
+        if album:
+            parts.append(album)
         self._subtitle.setText(" · ".join(parts))
         if quality:
             self._quality.setText(f" {quality} ")
@@ -299,7 +301,8 @@ class ExpandedNowPlaying(QWidget):
             "pause" if state == "playing" else "play")))
 
     def set_position(self, seconds: float):
-        if self._seeking: return
+        if self._seeking:
+            return
         self._time_lbl.setText(_fmt(seconds))
         if self._duration > 0:
             self._seek.setValue(int(seconds / self._duration * 1000))

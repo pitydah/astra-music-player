@@ -130,4 +130,6 @@ class BandRow(QWidget):
         self._freq.setValue(int(freq))
         self._gain.setValue(int(gain * 10))
         self._q.setValue(int(Q * 10))
-        self._on_freq(); self._on_gain(); self._on_q()
+        self._on_freq()
+        self._on_gain()
+        self._on_q()

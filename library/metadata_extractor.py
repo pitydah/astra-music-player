@@ -35,11 +35,14 @@ def extract_metadata(filepath: str) -> dict:
         tags = disc.get_tags()
         if tags:
             ok, v = tags.get_string(Gst.TAG_TITLE)
-            if ok: info["title"] = v
+            if ok:
+                info["title"] = v
             ok, v = tags.get_string(Gst.TAG_ARTIST)
-            if ok: info["artist"] = v
+            if ok:
+                info["artist"] = v
             ok, v = tags.get_string(Gst.TAG_ALBUM)
-            if ok: info["album"] = v
+            if ok:
+                info["album"] = v
 
         streams = disc.get_audio_streams()
         if streams:

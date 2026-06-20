@@ -15,10 +15,13 @@ def get_mounted_devices() -> list[dict]:
                           capture_output=True, text=True, timeout=5)
         for line in r.stdout.splitlines():
             parts = line.split(None, 3)
-            if len(parts) < 2 or not parts[1].startswith("/"): continue
+            if len(parts) < 2 or not parts[1].startswith("/"):
+                continue
             mount = parts[1]
-            if mount in ("/", "/boot", "/home", "/etc", "/var", "/usr", "/opt"): continue
-            if any(mount.startswith(x) for x in ("/sys", "/proc", "/dev", "/run/")): continue
+            if mount in ("/", "/boot", "/home", "/etc", "/var", "/usr", "/opt"):
+                continue
+            if any(mount.startswith(x) for x in ("/sys", "/proc", "/dev", "/run/")):
+                continue
             label = parts[3] if len(parts) > 3 else os.path.basename(mount)
             devices.append({"name": label, "mount": mount})
     except Exception as e:
@@ -41,7 +44,8 @@ def scan_device_music(mount: str) -> list[str]:
             for fn in fnames:
                 if os.path.splitext(fn)[1].lower() in ALL_EXTS:
                     files.append(os.path.join(root, fn))
-            if len(files) > 500: break
+            if len(files) > 500:
+                break
     except PermissionError:
         pass
     return files

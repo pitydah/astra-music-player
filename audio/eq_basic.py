@@ -50,7 +50,8 @@ class BandSlider(QWidget):
         db_h = 14
 
         # ── Groove ──
-        groove_x = 5; groove_w = 12
+        groove_x = 5
+        groove_w = 12
         groove_rect = QRectF(groove_x, 2, groove_w, h - label_h - db_h - 6)
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(255, 255, 255, 18))
@@ -117,10 +118,12 @@ class BandSlider(QWidget):
         self.value_changed.emit(0.0)
 
     def enterEvent(self, event):
-        self._hover = True; self.update()
+        self._hover = True
+        self.update()
 
     def leaveEvent(self, event):
-        self._hover = False; self.update()
+        self._hover = False
+        self.update()
 
     def _update_from_pos(self, y: float):
         h = self.height() - 16 - 8

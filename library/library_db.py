@@ -382,7 +382,8 @@ class ScannerWorker(QObject):
         added = 0
         files = list(self._walk_files())
         for i, fp in enumerate(files):
-            if self._cancelled: break
+            if self._cancelled:
+                break
             if self._db.add_file(fp) is not None:
                 added += 1
             self.progress.emit(i + 1, total, fp)

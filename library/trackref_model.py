@@ -7,8 +7,14 @@ from sources.base_source import TrackRef
 
 
 class TrackRefTableModel(QStandardItemModel):
-    COL_TRACK = 0; COL_TITLE = 1; COL_ARTIST = 2; COL_ALBUM = 3
-    COL_YEAR = 4; COL_GENRE = 5; COL_DURATION = 6; COL_URI = 7
+    COL_TRACK = 0
+    COL_TITLE = 1
+    COL_ARTIST = 2
+    COL_ALBUM = 3
+    COL_YEAR = 4
+    COL_GENRE = 5
+    COL_DURATION = 6
+    COL_URI = 7
 
     def __init__(self, parent=None):
         super().__init__(0, 8, parent)
@@ -33,11 +39,14 @@ class TrackRefTableModel(QStandardItemModel):
 
             # Title
             t = QStandardItem(item.title or "Sin título")
-            t.setEditable(False); t.setToolTip(item.uri)
+            t.setEditable(False)
+            t.setToolTip(item.uri)
             t.setData(item, Qt.UserRole)
 
-            a = QStandardItem(item.artist); a.setEditable(False)
-            al = QStandardItem(item.album); al.setEditable(False)
+            a = QStandardItem(item.artist)
+            a.setEditable(False)
+            al = QStandardItem(item.album)
+            al.setEditable(False)
 
             # Year: store as int for numeric sorting
             y = QStandardItem()
@@ -50,7 +59,8 @@ class TrackRefTableModel(QStandardItemModel):
             else:
                 y.setText("—")
 
-            g = QStandardItem(item.genre or "—"); g.setEditable(False)
+            g = QStandardItem(item.genre or "—")
+            g.setEditable(False)
 
             # Duration: store formatted text but sort by raw seconds
             d = QStandardItem()
@@ -63,7 +73,8 @@ class TrackRefTableModel(QStandardItemModel):
             else:
                 d.setText("—")
 
-            uri = QStandardItem(item.uri); uri.setEditable(False)
+            uri = QStandardItem(item.uri)
+            uri.setEditable(False)
             self.appendRow([tr, t, a, al, y, g, d, uri])
 
     def get_trackref(self, row: int) -> TrackRef | None:
