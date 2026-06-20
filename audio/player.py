@@ -23,7 +23,7 @@ from gi.repository import Gst, GLib
 
 from PySide6.QtCore import QObject, Signal, QTimer
 
-from audio.audio_chain import DacConfig, build_eq_graphic_sink, build_eq_parametric_sink
+from audio.audio_chain import DacConfig, build_eq_graphic_chain, build_eq_parametric_chain
 from audio.dff_parser import parse_dff
 from audio.eq_biquad import compute_biquad
 
@@ -99,6 +99,7 @@ class GStreamerEngine(QObject):
         self._transmit_device = None
 
         # Crossfade / ReplayGain
+        self._volume = 0.70
         self._crossfade = 0       # seconds
         self._replaygain = False
 
@@ -200,7 +201,17 @@ class GStreamerEngine(QObject):
         self._setup_timer()
         self._setup_spectrum()
 
-        self._pipeline.set_state(Gst.State.PLAYING)
+        ret = self._pipeline.set_state(Gst.State.PLAYING)
+        if ret == Gst.StateChangeReturn.FAILURE:
+            logging.getLogger("astra.player").error(
+                "set_state PLAYING failed for URI: %s, sink: %s", uri, sink)
+            self.error_occurred.emit("No se pudo iniciar reproducción")
+            self._state = PlaybackState.STOPPED
+            self.state_changed.emit(self._state)
+            return
+
+        logging.getLogger("astra.player").info(
+            "Playing URI: %s, sink chain: %s", uri[:100], sink[:100])
         self._state = PlaybackState.PLAYING
         self.state_changed.emit(self._state)
 
@@ -336,9 +347,6 @@ class GStreamerEngine(QObject):
             self._pipeline.seek_simple(
                 Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, ns)
 
-    def set_volume(self, vol: int):
-        pass  # Volume is now managed via GStreamer pipeline element
-
     # ── EQ Control ──
 
     def set_eq_graphic(self, bands: list[float]):
@@ -385,25 +393,59 @@ class GStreamerEngine(QObject):
 
     # ── Pipeline Building ──
 
+    @staticmethod
+    def _gst_element_exists(name: str) -> bool:
+        return Gst.ElementFactory.find(name) is not None
+
+    def _output_sink_str(self) -> str:
+        """Return the best available output sink string."""
+        if self._dac.mode in ("bitperfect", "dop"):
+            return f"alsasink device={self._dac.alsa_device_str}"
+
+        # Standard mode: prefer PipeWire > PulseAudio > Auto > ALSA
+        if self._gst_element_exists("pipewiresink"):
+            logging.getLogger("astra.player").debug("Using pipewiresink")
+            return "pipewiresink"
+        if self._gst_element_exists("pulsesink"):
+            logging.getLogger("astra.player").debug("Using pulsesink")
+            return "pulsesink"
+        if self._gst_element_exists("autoaudiosink"):
+            logging.getLogger("astra.player").debug("Using autoaudiosink")
+            return "autoaudiosink"
+        logging.getLogger("astra.player").debug("Falling back to alsasink")
+        return f"alsasink device={self._dac.alsa_device_str}"
+
     def _build_sink(self) -> str:
-        if self._eq.mode == "bypass" or self._is_dsd:
-            base = (f"audioconvert ! audioresample ! "
-                    f"alsasink device={self._dac.alsa_device_str}")
-        elif self._eq.mode == "graphic":
-            base = build_eq_graphic_sink(self._eq.bands_31, self._dac)
-        elif self._eq.mode == "parametric":
-            base = build_eq_parametric_sink(
-                self._eq.bands_parametric, self._eq.preamp_db, self._dac)
-        else:
-            base = (f"audioconvert ! audioresample ! "
-                    f"alsasink device={self._dac.alsa_device_str}")
+        parts = []
+
+        # Volume control (always first)
+        parts.append(f"volume name=astra_volume volume={self._volume:.4f}")
+
+        # EQ chain (before audioconvert)
+        if not self._is_dsd:
+            if self._eq.mode == "graphic":
+                parts.append(build_eq_graphic_chain(self._eq.bands_31))
+            elif self._eq.mode == "parametric":
+                eq_part = build_eq_parametric_chain(
+                    self._eq.bands_parametric, self._eq.preamp_db)
+                if eq_part:
+                    parts.append(eq_part)
 
         # ReplayGain
         if self._replaygain and not self._is_dsd:
-            # Insert rganalysis+rgvolume before the sink
-            base = (f"rganalysis ! rgvolume album-mode=0 "
-                    f"fallback-gain=0 preamp-headroom=0 ! {base}")
+            parts.append("rganalysis ! rgvolume album-mode=0 fallback-gain=0 preamp-headroom=0")
 
+        # Converter + resampler
+        parts.append("audioconvert")
+        parts.append("audioresample")
+
+        # Output sink
+        sink = self._output_sink_str()
+        parts.append(sink)
+
+        base = " ! ".join(p for p in parts if p)
+
+        # Transmit
         if self._transmit_device and not self._is_dsd:
             dev = self._transmit_device
             if dev.stype == "snapcast":
@@ -420,10 +462,12 @@ class GStreamerEngine(QObject):
                         f"audio/x-raw,rate=44100,channels=2 ! "
                         f"tcpserversink host=0.0.0.0 port={port}")
 
+        # Spectrum
         if self._spectrum_enabled and not self._is_dsd:
             base += (" ! tee name=spectrum_tee "
                      "spectrum_tee. ! queue ! appsink name=spectrum_sink "
                      "emit-signals=true max-buffers=10 drop=true sync=false")
+
         return base
 
     def _setup_spectrum(self):
@@ -559,10 +603,11 @@ class GStreamerEngine(QObject):
         self.play(url)
 
     def set_volume(self, vol: int):
+        self._volume = max(0.0, min(1.0, vol / 100.0))
         if self._pipeline:
-            vol_elem = self._pipeline.get_by_name("volume")
+            vol_elem = self._pipeline.get_by_name("astra_volume")
             if vol_elem:
-                vol_elem.set_property("volume", max(0, min(100, vol)) / 100.0)
+                vol_elem.set_property("volume", self._volume)
 
     def _on_media_finished(self):
         if not self.play_next():

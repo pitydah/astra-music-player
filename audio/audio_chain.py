@@ -124,27 +124,20 @@ def get_quality_label(filepath: str) -> tuple[str, str]:
 #  EQ Pipeline Builders
 # ═══════════════════════════════════════════════
 
-def build_eq_graphic_sink(bands_db: list[float], dac: DacConfig) -> str:
-    """Build audio-sink with 31-band graphic equalizer."""
+def build_eq_graphic_chain(bands_db: list[float]) -> str:
+    """Build 31-band graphic equalizer chain (sink not included)."""
     parts = []
     parts.append("equalizer-nbands")
     for i, db in enumerate(bands_db[:31]):
         parts.append(f"band{i}={db:.1f}")
-    parts.append("audioconvert")
-    parts.append("audioresample")
-    parts.append(f"alsasink device={dac.alsa_device_str}")
     return " ! ".join(parts)
 
 
-def build_eq_parametric_sink(bands: list[dict], preamp_db: float,
-                              dac: DacConfig) -> str:
-    """Build audio-sink with parametric EQ (biquads via audioiirfilter)."""
+def build_eq_parametric_chain(bands: list[dict], preamp_db: float) -> str:
+    """Build parametric EQ chain with biquads (sink not included)."""
     parts = []
-    # Preamp: adjust volume upstream
     if abs(preamp_db) > 0.01:
         parts.append(f"volume volume={10.0 ** (preamp_db / 20.0):.6f}")
-
-    # Biquad filters in series
     for i, band in enumerate(bands):
         coefs = compute_biquad(
             band.get("type", "Peak"), band.get("freq", 1000.0),
@@ -155,19 +148,7 @@ def build_eq_parametric_sink(bands: list[dict], preamp_db: float,
             f"b0={b0:.10f} b1={b1:.10f} b2={b2:.10f} "
             f"a0={a0:.10f} a1={a1:.10f} a2={a2:.10f}"
         )
-
-    parts.append("audioconvert")
-    parts.append("audioresample")
-    parts.append(f"alsasink device={dac.alsa_device_str}")
-    return " ! ".join(parts) if parts else f"alsasink device={dac.alsa_device_str}"
-
-
-def build_eq_sink(bands: list[float] | list[dict], dac: DacConfig,
-                  is_parametric: bool = False, preamp_db: float = 0.0) -> str:
-    """Unified EQ sink builder. Returns GStreamer pipeline suffix."""
-    if is_parametric:
-        return build_eq_parametric_sink(bands, preamp_db, dac)
-    return build_eq_graphic_sink(bands, dac)
+    return " ! ".join(parts) if parts else ""
 
 
 def build_spectrum_branch() -> str:

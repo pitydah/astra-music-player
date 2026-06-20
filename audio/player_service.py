@@ -30,8 +30,6 @@ class PlayerService(QObject):
         self._engine.duration_changed.connect(
             lambda s: self.duration_changed.emit(s))
         self._engine.state_changed.connect(self._on_state)
-        self._engine.error_occurred.connect(
-            lambda m: self.error_occurred.emit(m))
         self._engine.queue_changed.connect(
             lambda q: self.queue_changed.emit(q))
         self._engine.finished.connect(
