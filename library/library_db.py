@@ -147,8 +147,9 @@ def extract_metadata(filepath: str) -> dict:
             info["sample_rate"] = s.get_sample_rate() or 0
             info["channels"] = s.get_channels() or 0
             info["bitrate"] = s.get_bitrate() or 0
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger("astra").debug(f"Metadata extraction failed for {filepath}: {e}")
     return info
 
 
@@ -218,8 +219,9 @@ def extract_metadata_full(filepath: str) -> dict:
                     info["cover_data"] = getattr(p, 'data', b'')
                 except Exception:
                     pass
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger("astra").debug(f"Full metadata extraction failed for {filepath}: {e}")
     return info
 
 

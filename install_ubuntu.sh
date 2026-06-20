@@ -18,8 +18,8 @@ sudo apt install -y \
   python3-numpy \
   python3-dbus
 
-echo "→ Installing Python dependencies..."
-pip install --user -r requirements.txt
+echo "→ Installing Astra Music Player..."
+pip install --user .
 
 echo "→ Installing .desktop file..."
 mkdir -p ~/.local/share/applications
@@ -30,5 +30,5 @@ mkdir -p ~/.local/share/icons/hicolor/256x256/apps
 cp icons/app_icon.png ~/.local/share/icons/hicolor/256x256/apps/astra-music-player.png
 
 echo "✅ Astra Music Player installed!"
-echo "   Run: python3 main.py"
+echo "   Run: astra-music-player"
 echo "   Or find 'Astra Music Player' in your app menu."

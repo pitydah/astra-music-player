@@ -121,20 +121,23 @@ astra-music-player/
 
 ## Estado de funcionalidades
 
+> **Versión actual: alpha funcional** — la aplicación arranca, reproduce y navega correctamente. Aún no ha sido validada en múltiples distribuciones Linux. Usar bajo propia responsabilidad.
+
 | Funcionalidad | Estado |
 |--------------|--------|
-| Reproducción local (MP3, FLAC, OGG, WAV, DSD) | ✅ Estable |
-| Biblioteca SQLite + metadatos + carátulas | ✅ Estable |
-| Ecualizador gráfico 31-bandas + paramétrico | ✅ Estable |
-| Playlists (crear, editar, eliminar) | ✅ Estable |
-| CoverFlow 3D | ✅ Estable |
-| Persistencia de cola entre sesiones | ✅ Estable |
-| Fondo adaptativo (colores de carátula) | ✅ Estable |
-| Glassmorphism oscuro con textura interna | ✅ Estable |
-| Preferencias (14 categorías) | ✅ Estable |
-| Atajos de teclado | ✅ Estable |
-| MPRIS (integración KDE Plasma) | ✅ Estable |
-| Sidebar con secciones colapsables | ✅ Estable |
+| Reproducción local (MP3, FLAC, OGG, WAV) | ✅ Alpha |
+| Biblioteca SQLite + metadatos + carátulas | ✅ Alpha |
+| Ecualizador gráfico + paramétrico | ✅ Alpha |
+| Playlists (crear, editar, eliminar) | ✅ Alpha |
+| CoverFlow 3D | ✅ Alpha |
+| Persistencia de cola entre sesiones | ✅ Alpha |
+| Glassmorphism oscuro | ✅ Alpha |
+| Preferencias (16 categorías) | ✅ Alpha |
+| Atajos de teclado | ✅ Alpha |
+| MPRIS (integración KDE Plasma) | ⚠️ Experimental |
+| Artistas (grid + ficha detalle) | ✅ Alpha |
+| Playlist Hub | ✅ Alpha |
+| Editor de metadatos (Mutagen) | ✅ Alpha |
 | Subsonic / Navidrome / Jellyfin | ⚠️ Experimental |
 | Radio por Internet | ⚠️ Experimental |
 | Transmisión HTTP / Snapcast | ⚠️ Experimental |
@@ -145,3 +148,5 @@ astra-music-player/
 ## Licencia
 
 GPL-3.0-or-later
+
+> **Nota sobre la licencia**: Este proyecto se deriva de Miro Player. Si el código original estaba bajo GPL-2.0-only, la relicencia a GPL-3.0-or-later requiere verificación adicional. Ver el archivo NOTICE para más detalles.

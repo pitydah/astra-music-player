@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Astra Music Player
 Comment=Modern music player for Linux/KDE
-Exec=python3 /opt/astra-music-player/main.py
+Exec=astra-music-player
 Icon=astra-music-player
 Terminal=false
 Type=Application

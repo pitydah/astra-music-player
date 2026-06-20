@@ -212,7 +212,8 @@ class MainWindow(QMainWindow):
             self._mpris = MPRISAdapter(self)
             self._mpris.player.set_engine(self._player)
         except Exception:
-            pass
+            import logging
+            logging.getLogger("astra").debug("MPRIS integration not available (no dbus)")
 
         self._transmit_mgr = TransmitManager(self)
         self._transmit_mgr.device_changed.connect(self._on_transmit_devices_changed)
@@ -2671,7 +2672,8 @@ class MainWindow(QMainWindow):
             if engine._queue and self._db:
                 self._db.save_queue(engine._queue, engine._queue_index)
         except Exception:
-            pass
+            import logging
+            logging.getLogger("astra").debug("Error saving queue on shutdown")
         self._playback.stop()
         self._db.close()
         event.accept()
