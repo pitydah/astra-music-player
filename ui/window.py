@@ -85,7 +85,7 @@ SECTION_CONFIG = {
                    "icon": "sidebar_popular", "views": ["list", "grid"],
                    "search": True, "default": "list"},
     "recent":     {"title": "Recientes", "subtitle": "Reproducidas recientemente",
-                   "icon": "sidebar_mix", "views": ["list", "grid"],
+                   "icon": "sidebar_recent", "views": ["list", "grid"],
                    "search": True, "default": "list"},
     "discover":   {"title": "Descubrir", "subtitle": "Explora y redescubre tu música",
                    "icon": "sidebar_mix", "views": [],

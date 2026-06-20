@@ -48,6 +48,7 @@ CUSTOM_ICONS = {
     "warm_mini_player":   "icons/warm_mini_player.svg",
     "folder":             "icons/folder.svg",
     "sidebar_artist":     "icons/sidebar_artist.svg",
+    "sidebar_recent":     "icons/sidebar_recent.svg",
     "warm_settings":      "icons/warm_settings.svg",
     "tray_icon":          "icons/tray_icon.svg",
     "warm_view_grid":     "/home/cristian/Descargas/iloveimg-resized(2)/view-cover.svg",

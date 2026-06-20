@@ -67,7 +67,7 @@ class DiscoverDashboard(QWidget):
             ("recent", "Recientes", "Reproducidas recientemente",
              f"qlineargradient(x1:0, y1:0, x2:1, y2:1, "
              "stop:0 rgba(255,255,255,0.06), stop:1 rgba(255,255,255,0.03))",
-             "sidebar_mix"),
+             "sidebar_recent"),
         ]
 
         for i, (key, name, desc, bg, icon_name) in enumerate(cards):
