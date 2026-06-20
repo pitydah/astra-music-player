@@ -661,9 +661,20 @@ class NowPlayingBar(QWidget):
             name = "warm_vol_high"
         self._vol_btn.setIcon(QIcon(get_icon(name)))
         self._vol_btn.setIconSize(QSize(22, 22))
-
     def set_quality(self, text: str):
         self._quality_badge.setText(f" {text} " if text else " LOCAL ")
+
+    def set_transmit_active(self, active: bool, device_name: str = ""):
+        """Update transmit button style and tooltip from external controllers."""
+        if not hasattr(self, '_transmit_btn'):
+            return
+        if active:
+            self._transmit_btn.setStyleSheet("QPushButton { color: #FF7A00; }")
+            self._transmit_btn.setToolTip(f"Transmitiendo a: {device_name}")
+        else:
+            self._transmit_btn.setStyleSheet("")
+            self._transmit_btn.setToolTip("Transmitir a dispositivo")
+
 
 class ClickableSlider(QSlider):
     """Slider that jumps to clicked position instantly."""

@@ -178,6 +178,8 @@ class MainWindow(QMainWindow):
         self._file_actions = FileActions(self)
         from ui.controllers.album_controller import AlbumController
         self._album_ctrl = AlbumController(self, refresh_grid=self._show_album_grid)
+        from ui.controllers.transmit_controller import TransmitController
+        self._transmit_ctrl = TransmitController(self)
         self._all_items: list[MediaItem] = []
         self._items_index: dict[str, MediaItem] = {}
         self._current_section_key: str = "library"
@@ -2256,237 +2258,31 @@ class MainWindow(QMainWindow):
         dlg.activateWindow()
         self._eq_dlg = dlg  # keep reference to prevent GC
 
-    # TODO(astra): extract to ui/transmit_controller.py — streaming + snapcast
+    # Extracted to ui/controllers/transmit_controller.py — streaming + snapcast
 
     def _show_transmit_menu(self):
-        menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background: rgba(28,28,30,230); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 4px; }
-            QMenu::item { padding: 6px 32px 6px 12px; border-radius: 6px; color: rgba(255,255,255,0.8); }
-            QMenu::item:selected { background: rgba(255,122,0,0.20); }
-            QMenu::separator { height: 1px; background: rgba(255,255,255,0.06); margin: 3px 8px; }
-        """)
-
-        local = menu.addAction("🔊 Local (sin transmitir)")
-        local.setCheckable(True)
-        active = self._transmit_mgr.get_active()
-        local.setChecked(active is None)
-        local.triggered.connect(lambda: self._activate_transmit_device(None))
-
-        devices = self._transmit_mgr.get_devices()
-        if devices:
-            menu.addSeparator()
-            for dev in devices:
-                action = menu.addAction(f"📡 {dev.name}")
-                action.setCheckable(True)
-                action.setChecked(active is not None and active.name == dev.name)
-                action.triggered.connect(
-                    lambda checked, d=dev: self._activate_transmit_device(d))
-
-        menu.addSeparator()
-        menu.addAction("Añadir dispositivo...", self._add_transmit_device)
-        menu.exec(self._player_bar._transmit_btn.mapToGlobal(
-            self._player_bar._transmit_btn.rect().bottomLeft()))
+        self._transmit_ctrl.show_transmit_menu()
 
     def _activate_transmit_device(self, device):
-        if device is None:
-            self._transmit_mgr.set_active(None)
-            self._playback.set_output_device(None)
-            self._player_bar._transmit_btn.setStyleSheet("")
-        else:
-            self._transmit_mgr.set_active(device)
-            self._playback.set_output_device(device)
-            self._player_bar._transmit_btn.setStyleSheet(
-                "QPushButton { color: #FF7A00; }")
+        self._transmit_ctrl.activate_transmit_device(device)
 
     def _on_transmit_devices_changed(self):
-        pass
+        self._transmit_ctrl.on_transmit_devices_changed()
 
     def _on_transmit_active_changed(self):
-        device = self._transmit_mgr.get_active()
-        if device:
-            self._player_bar._transmit_btn.setStyleSheet(
-                "QPushButton { color: #FF7A00; }")
-            self._player_bar._transmit_btn.setToolTip(
-                f"Transmitiendo a: {device.name}")
-        else:
-            self._player_bar._transmit_btn.setStyleSheet("")
-            self._player_bar._transmit_btn.setToolTip("Transmitir a dispositivo")
+        self._transmit_ctrl.on_transmit_active_changed()
 
     def _show_audio_output_menu(self):
-        menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background: rgba(28,28,30,230); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 4px; }
-            QMenu::item { padding: 6px 32px 6px 12px; border-radius: 6px; color: rgba(255,255,255,0.8); }
-            QMenu::item:selected { background: rgba(255,122,0,0.20); }
-            QMenu::separator { height: 1px; background: rgba(255,255,255,0.06); margin: 3px 8px; }
-        """)
-
-        action_system = menu.addAction("Salida predeterminada del sistema")
-        action_system.triggered.connect(
-            lambda: self._playback.set_output_device(None))
-
-        menu.addSeparator()
-
-        # Detect real audio sinks via GStreamer
-        try:
-            import gi
-            gi.require_version("Gst", "1.0")
-            from gi.repository import Gst
-            monitor = Gst.DeviceMonitor()
-            monitor.add_filter("Audio/Sink", None)
-            monitor.start()
-            devices = monitor.get_devices()
-            monitor.stop()
-            if devices:
-                for dev in devices:
-                    name = dev.get_display_name() or dev.get_device_class() or "Audio device"
-                    action = menu.addAction(name)
-                    action.triggered.connect(
-                        lambda checked=False, d=dev: self._playback.set_output_device(d))
-            else:
-                # Fallback: check for pipewire/pulse directly
-                pass
-        except Exception:
-            import logging
-            logging.getLogger("astra").debug("Central opacity restore failed")
-
-        menu.addSeparator()
-        action_pipewire = menu.addAction("PipeWire (sistema)")
-        action_pipewire.triggered.connect(lambda: self._playback.set_output_device(None))
-        action_pipewire.setEnabled(True)
-
-        from PySide6.QtGui import QCursor
-        menu.exec(QCursor.pos())
+        self._transmit_ctrl.show_audio_output_menu()
 
     def _open_mini_player(self):
-        from ui.mini_player import MiniPlayer
-        if not hasattr(self, '_mini_player'):
-            self._mini_player = MiniPlayer(self._playback, self)
-            self._mini_player.play_clicked.connect(self._playback.toggle)
-            self._mini_player.prev_clicked.connect(self._playback.play_prev)
-            self._mini_player.next_clicked.connect(self._playback.play_next)
-            self._mini_player.seek_requested.connect(self._playback.seek)
-            # Sync from engine
-            self._player.position_changed.connect(
-                lambda s: self._mini_player.set_position(
-                    s, getattr(self._player, '_duration', 0)))
-            self._player.state_changed.connect(
-                lambda s: self._mini_player.set_state(
-                    "playing" if s == PlaybackState.PLAYING else
-                    "paused" if s == PlaybackState.PAUSED else "stopped"))
-        # Update track info
-        from audio.audio_chain import get_quality_label
-        current = self._playback.current
-        name = os.path.basename(current) if current else ""
-        artist = ""
-        if current:
-            qual, _ = get_quality_label(current)
-            item = self._items_index.get(current)
-            if item:
-                artist = item.artist or qual or ""
-                title = item.title or name
-            else:
-                title = name
-        else:
-            title = "Sin reproducción"
-        self._mini_player.set_track(title, artist)
-        self._mini_player.show()
-        self._mini_player.raise_()
-        self._mini_player.activateWindow()
+        self._transmit_ctrl.open_mini_player()
 
     def _add_transmit_device(self):
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Añadir dispositivo")
-        dlg.setMinimumWidth(380)
-        from ui.theme import apply_dialog_shadow
-        apply_dialog_shadow(dlg)
-
-        layout = QFormLayout(dlg)
-        name = QLineEdit()
-        name.setPlaceholderText("ej: Altavoz Salón")
-        stype = QComboBox()
-        stype.addItem("HTTP Stream (servidor TCP)", "http")
-        stype.addItem("Snapcast", "snapcast")
-        addr = QLineEdit()
-        addr.setPlaceholderText("192.168.1.10")
-        port = QLineEdit()
-        port.setPlaceholderText("8554")
-
-        layout.addRow("Nombre:", name)
-        layout.addRow("Tipo:", stype)
-        layout.addRow("IP / URL:", addr)
-        layout.addRow("Puerto:", port)
-
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btns.accepted.connect(dlg.accept)
-        btns.rejected.connect(dlg.reject)
-        layout.addRow(btns)
-
-        if dlg.exec() == QDialog.DialogCode.Accepted and name.text().strip():
-            try:
-                port_val = int(port.text()) if port.text().strip() else 0
-            except ValueError:
-                port_val = 0
-            self._transmit_mgr.add_device(
-                name.text().strip(), stype.currentData(),
-                addr.text().strip(), port_val)
+        self._transmit_ctrl.add_transmit_device()
 
     def _manage_transmit_devices(self):
-        devices = self._transmit_mgr.get_devices()
-        if not devices:
-            QMessageBox.information(self, "Dispositivos",
-                                    "No hay dispositivos configurados.")
-            return
-
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Administrar dispositivos")
-        dlg.setMinimumWidth(400)
-        from ui.theme import apply_dialog_shadow
-        apply_dialog_shadow(dlg)
-
-        layout = QVBoxLayout(dlg)
-        lst = QListWidget()
-        for dev in devices:
-            item = QListWidgetItem(
-                f"{dev.name}  ·  {dev.stype.upper()}  ·  "
-                f"{dev.address}:{dev.port or '-'}")
-            lst.addItem(item)
-        layout.addWidget(lst)
-
-        btn_row = QHBoxLayout()
-
-        def _do_delete():
-            sel = lst.currentItem()
-            if sel:
-                name = sel.text().split("  ·  ")[0]
-                self._transmit_mgr.remove_device(name)
-                dlg.accept()
-                self._manage_transmit_devices()
-
-        def _do_activate():
-            sel = lst.currentItem()
-            if sel:
-                name = sel.text().split("  ·  ")[0]
-                dev = next((d for d in self._transmit_mgr.get_devices()
-                           if d.name == name), None)
-                if dev:
-                    self._activate_transmit_device(dev)
-                    dlg.accept()
-
-        del_btn = QPushButton("Eliminar")
-        del_btn.clicked.connect(_do_delete)
-        act_btn = QPushButton("Activar")
-        act_btn.clicked.connect(_do_activate)
-        close_btn = QPushButton("Cerrar")
-        close_btn.clicked.connect(dlg.accept)
-
-        btn_row.addWidget(act_btn)
-        btn_row.addWidget(del_btn)
-        btn_row.addStretch()
-        btn_row.addWidget(close_btn)
-        layout.addLayout(btn_row)
-        dlg.exec()
+        self._transmit_ctrl.manage_transmit_devices()
 
     # ── Identifier ──
 
