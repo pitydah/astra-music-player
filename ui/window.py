@@ -51,6 +51,7 @@ from ui.expanded_view import ExpandedNowPlaying
 from streaming.radio_widget import RadioWidget
 from streaming.radio_manager import RadioManager
 from ui.music_identifier_view import MusicIdentifierView
+from ui.discover_dashboard import DiscoverDashboard
 from recognition.detection_service import DetectionService
 from recognition.null_recognizer import NullRecognizer
 
@@ -76,6 +77,8 @@ SECTION_CONFIG = {
                   "views": ["list", "grid"], "search": True, "default": "list"},
     "recent":    {"title": "Recientes", "subtitle": "Reproducidas recientemente",
                   "views": ["list", "grid"], "search": True, "default": "list"},
+    "discover":  {"title": "Descubrir", "subtitle": "Explora tu música",
+                  "views": [], "search": False, "default": None},
 }
 
 
@@ -547,6 +550,10 @@ class MainWindow(QMainWindow):
         self._song_grid.song_double_clicked.connect(
             lambda fp: self._play_file(fp))
 
+        self._discover = DiscoverDashboard()
+        self._discover.navigate_requested.connect(
+            self._on_sidebar_navigate)
+
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
             lambda fps: self._playback.enqueue(fps, play_now=True))
@@ -568,6 +575,7 @@ class MainWindow(QMainWindow):
         self._views.register("radio", self._radio_widget)
         self._views.register("album_grid", self._album_grid)
         self._views.register("song_grid", self._song_grid)
+        self._views.register("discover", self._discover)
         self._views.register("folders", self._folder_browser)
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
@@ -814,7 +822,7 @@ class MainWindow(QMainWindow):
 
         elif key == "artists":
             self._section_title.setText("Artistas")
-            self._section_subtitle.setText("Agrupados por artista")
+            self._section_subtitle.setText("Agrupados por artista · Doble click para ver canciones")
             items = self._db.get_all(group_by="artist")
             refs = [TrackRef(uri=i.filepath, title=i.artist or "Desconocido",
                              artist="", album=f"{i.album}" if i.album else "",
@@ -882,16 +890,36 @@ class MainWindow(QMainWindow):
 
         elif key and key.startswith("dev:"):
             mount = key.split(":", 1)[1]
+            import shutil
+            # Device info
+            usage = shutil.disk_usage(mount) if os.path.exists(mount) else None
             files = scan_device_music(mount)
             refs = [TrackRef(
                 uri=fp, title=os.path.basename(fp),
                 duration=0.0, cover_path=fp,
             ) for fp in files]
             self._model.populate(refs)
+            device_name = os.path.basename(mount)
+            if usage:
+                total_gb = usage.total / (1024**3)
+                free_gb = usage.free / (1024**3)
+                used_pct = (1 - usage.free / usage.total) * 100
+                self._section_title.setText(device_name)
+                self._section_subtitle.setText(
+                    f"{free_gb:.1f} GB libre de {total_gb:.1f} GB · "
+                    f"{used_pct:.0f}% usado · {len(files)} canciones")
+            else:
+                self._section_title.setText(device_name)
+                self._section_subtitle.setText(f"{len(files)} canciones")
             self._count.setText(f"{len(files)} archivos")
             self._views.show("library"); self._table.setModel(self._model)
-            self._section_title.setText(os.path.basename(mount))
             self._search.show()
+
+        elif key == "discover":
+            self._section_title.setText("Descubrir")
+            self._section_subtitle.setText("Explora y redescubre tu música")
+            self._views.show("discover")
+            self._search.hide()
 
         elif key and key.startswith("mix_"):
             from library.smart_mixes import (get_daily_mix, get_unplayed,
@@ -1412,6 +1440,28 @@ class MainWindow(QMainWindow):
             self._load_library()
 
     def _on_table_dbl(self, idx):
+        if self._current_section_key == "artists":
+            # Show all tracks by this artist
+            artist_name = self._model.data(
+                self._model.index(idx.row(), TrackRefTableModel.COL_TITLE),
+                Qt.DisplayRole)
+            if artist_name:
+                items = self._db.get_all(search=artist_name)
+                refs = [TrackRef(uri=i.filepath,
+                                 title=i.title or os.path.basename(i.filepath),
+                                 artist=i.artist, album=i.album,
+                                 duration=i.duration, year=i.year, genre=i.genre)
+                        for i in items]
+                self._model.populate(refs)
+                self._section_subtitle.setText(f"Todas las canciones de: {artist_name}")
+                self._count.setText(f"{len(refs)} canciones")
+                self._views.show("library"); self._table.setModel(self._model)
+                self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260)
+                self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
+                self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+                self._table.setColumnWidth(6, 75)
+            return
+
         track = self._model.get_trackref(idx.row())
         if track:
             self._play_trackref(track)

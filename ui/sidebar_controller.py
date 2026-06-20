@@ -37,6 +37,7 @@ class SidebarController(QObject):
 
         # Descubrir
         self._sidebar.add_section("mix", "Descubrir", "sidebar_mix")
+        self._sidebar.add_item("mix", "discover", "Panel Descubrir", "sidebar_mix")
         self._sidebar.add_item("mix", "mix_daily", "Mix diario", "sidebar_mix")
         self._sidebar.add_item("mix", "mix_unplayed", "No escuchadas",
                                "sidebar_unplayed")

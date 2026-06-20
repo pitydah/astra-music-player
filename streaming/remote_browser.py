@@ -45,36 +45,47 @@ class RemoteBrowser(QWidget):
         self._current_type = "artists"
         self._current_id = ""
 
+        self.setStyleSheet("background: #090B11;")
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         # ── Breadcrumb bar ──
-        bc = QHBoxLayout()
+        bc_frame = QFrame()
+        bc_frame.setStyleSheet(
+            "QFrame { background: rgba(255,255,255,0.035);"
+            "border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }")
+        bc = QHBoxLayout(bc_frame)
         bc.setContentsMargins(12, 8, 12, 8)
         self._bc_btn = QPushButton(f"🏠 {server_name} > Artistas")
         self._bc_btn.setFlat(True)
         self._bc_btn.setStyleSheet(
-            "QPushButton { color: #1c1c1e; font-size: 13px; font-weight: 600; "
-            "text-align: left; } QPushButton:hover { color: #FF7A00; }")
+            "QPushButton { color: rgba(255,255,255,0.78); font-size: 13px; font-weight: 650; }"
+            "QPushButton:hover { color: #FF7A00; }")
         self._bc_btn.clicked.connect(self._go_top)
         bc.addWidget(self._bc_btn)
         bc.addStretch()
-        layout.addLayout(bc)
-
-        self._header = QFrame()
-        self._header.setStyleSheet(
-            "QFrame { border-bottom: 1px solid rgba(0,0,0,0.06); }")
-        self._header.setLayout(bc)
+        layout.addWidget(bc_frame)
 
         # ── List ──
         self._list = QListWidget()
-        self._list.setIconSize(QSize(48, 48))
+        self._list.setIconSize(QSize(56, 56))
         self._list.setFrameShape(QFrame.NoFrame)
         self._list.setStyleSheet("""
-            QListWidget { background: #ffffff; border: none; outline: none; }
-            QListWidget::item { padding: 8px 12px; border-bottom: 1px solid rgba(0,0,0,0.04); }
-            QListWidget::item:hover { background: rgba(255,122,0,0.08); }
-            QListWidget::item:selected { background: #FF7A00; color: #fff; }
+            QListWidget { background: #090B11; border: none; outline: none; }
+            QListWidget::item {
+                padding: 10px 14px; margin: 2px 8px; border-radius: 12px;
+                color: rgba(255,255,255,0.78); font-size: 13px;
+                border: 1px solid transparent;
+            }
+            QListWidget::item:hover {
+                background: rgba(255,255,255,0.06); color: #fff;
+                border: 1px solid rgba(255,255,255,0.08);
+            }
+            QListWidget::item:selected {
+                background: rgba(255,255,255,0.105); color: #fff;
+                border: 1px solid rgba(255,255,255,0.14);
+            }
         """)
         self._list.doubleClicked.connect(self._on_item)
         layout.addWidget(self._list)
@@ -82,7 +93,8 @@ class RemoteBrowser(QWidget):
         # ── Status ──
         self._status = QLabel("Cargando...")
         self._status.setAlignment(Qt.AlignCenter)
-        self._status.setStyleSheet("color: #8e8e93; padding: 20px;")
+        self._status.setStyleSheet(
+            "color: rgba(255,255,255,0.40); padding: 32px; font-size: 14px;")
         layout.addWidget(self._status)
         self._status.hide()
 
@@ -172,7 +184,7 @@ class RemoteBrowser(QWidget):
         for a in artists:
             item = QListWidgetItem(f"{a.name}")
             item.setData(Qt.UserRole, ("artist", a.id, a.name))
-            item.setSizeHint(QSize(0, 48))
+            item.setSizeHint(QSize(0, 56))
             self._list.addItem(item)
 
     def _populate_albums(self, albums: list[RemoteAlbum]):

@@ -201,6 +201,23 @@ class GStreamerEngine(QObject):
         self._setup_timer()
         self._setup_spectrum()
 
+        # Configure EQ bands programmatically (GstChildProxy)
+        if self._eq.mode == "graphic" and not self._is_dsd:
+            try:
+                eq_elem = self._pipeline.get_by_name("eq_nbands")
+                if not eq_elem:
+                    # Try to find in the audio-sink bin
+                    audio_sink = self._pipeline.get_property("audio-sink")
+                    if audio_sink:
+                        eq_elem = audio_sink.get_by_name("eq_nbands")
+                if eq_elem:
+                    for i, db in enumerate(self._eq.bands_31[:31]):
+                        band = eq_elem.get_child_by_index(i)
+                        if band:
+                            band.set_property("gain", float(db))
+            except Exception:
+                pass
+
         ret = self._pipeline.set_state(Gst.State.PLAYING)
         if ret == Gst.StateChangeReturn.FAILURE:
             logging.getLogger("astra.player").error(

@@ -132,7 +132,7 @@ def build_eq_graphic_chain(bands_db: list[float]) -> str:
     set programmatically via GStreamer element API after pipeline creation.
     For now, equalizer-nbands defaults to unity gain (0 dB per band).
     """
-    return "equalizer-nbands"
+    return "equalizer-nbands name=eq_nbands"
 
 
 def build_eq_parametric_chain(bands: list[dict], preamp_db: float) -> str:
