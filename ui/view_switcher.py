@@ -1,7 +1,9 @@
 """Segmented view switcher — premium capsule control with QButtonGroup."""
-from PySide6.QtCore import Signal, Qt, QSize, QPropertyAnimation
+from PySide6.QtCore import Signal, Qt, QSize, QPropertyAnimation, QEasingCurve, QRect
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QButtonGroup, QGraphicsOpacityEffect
+from PySide6.QtWidgets import (
+    QWidget, QPushButton, QHBoxLayout, QButtonGroup, QGraphicsOpacityEffect, QFrame,
+)
 
 from ui.design_tokens import VIEW_BUTTON_W, VIEW_BUTTON_H, VIEW_ICON_W, VIEW_ICON_H
 
@@ -70,9 +72,9 @@ _QSS = """
         border: 1px solid rgba(255,255,255,0.115);
     }
     QWidget#segmentedViewSwitcher QPushButton:checked {
-        background: rgba(255,255,255,0.145);
+        background: transparent;
         color: #FFFFFF;
-        border: 1px solid rgba(255,255,255,0.185);
+        border: 1px solid transparent;
     }
     QWidget#segmentedViewSwitcher QPushButton:pressed {
         background: rgba(255,255,255,0.175);
@@ -83,6 +85,11 @@ _QSS = """
         background: transparent;
         color: rgba(255,255,255,0.25);
         border: 1px solid transparent;
+    }
+    QFrame#activeViewPill {
+        background: rgba(255,255,255,0.145);
+        border: 1px solid rgba(255,255,255,0.185);
+        border-radius: 14px;
     }
 """
 
@@ -127,10 +134,24 @@ class SegmentedViewSwitcher(QWidget):
         self._current = "list"
         self._active_anim = None
         self._active_effect_button = None
+
+        # Active pill overlay
+        self._active_pill = QFrame(self)
+        self._active_pill.setObjectName("activeViewPill")
+        self._active_pill.setFixedSize(VIEW_BUTTON_W, VIEW_BUTTON_H)
+        self._active_pill.hide()
+        self._pill_anim = QPropertyAnimation(self._active_pill, b"geometry")
+        self._pill_anim.setDuration(140)
+        self._pill_anim.setEasingCurve(QEasingCurve.OutCubic)
+
         self.setStyleSheet(_QSS)
         self.setFixedWidth(0)
         self.hide()
         self._update_tooltips()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._position_pill(animate=False)
 
     def set_view(self, mode: str, emit: bool = True):
         if mode not in self._buttons:
@@ -145,11 +166,29 @@ class SegmentedViewSwitcher(QWidget):
         for m, btn in self._buttons.items():
             btn.setChecked(m == mode)
 
+        self._position_pill()
         self._update_tooltips()
 
         if emit:
             self.view_changed.emit(mode)
             self._pulse_active_button(self._buttons[mode])
+
+    def _position_pill(self, animate: bool = True):
+        btn = self._buttons.get(self._current)
+        if not btn or not btn.isVisible():
+            self._active_pill.hide()
+            return
+
+        target = QRect(btn.geometry())
+        if animate and self._active_pill.isVisible():
+            self._pill_anim.stop()
+            self._pill_anim.setStartValue(self._active_pill.geometry())
+            self._pill_anim.setEndValue(target)
+            self._pill_anim.start()
+        else:
+            self._active_pill.setGeometry(target)
+        self._active_pill.show()
+        self._active_pill.lower()  # behind buttons
 
     def _clear_active_effect(self):
         if self._active_anim is not None:
@@ -247,6 +286,7 @@ class SegmentedViewSwitcher(QWidget):
             btn.setMaximumSize(w, VIEW_BUTTON_H)
 
         self._resize_to_content()
+        self._position_pill(animate=False)
 
     def _resize_to_content(self):
         visible = [b for b in self._buttons.values() if b.isVisible()]
