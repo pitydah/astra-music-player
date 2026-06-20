@@ -177,6 +177,7 @@ class MainWindow(QMainWindow):
         self._playlist_refs: list = []
         self._album_sort_key = "title"
         self._album_filter_mode = "all"
+        self._fade_anim = None
 
         # ── Music Identifier (must exist before _setup_ui) ──
         self._detection = DetectionService(self._db, NullRecognizer(), self)
@@ -934,6 +935,7 @@ class MainWindow(QMainWindow):
         self._sidebar.setGraphicsEffect(shadow)
 
     def _on_sidebar_navigate(self, key: str):
+        self._restore_central_opacity()
         self._current_playlist = None
 
         # Configure header based on section
@@ -1315,6 +1317,7 @@ class MainWindow(QMainWindow):
     # ── CoverFlow ──
 
     def _on_view_mode_changed(self, mode: str):
+        self._restore_central_opacity()
         # Protect CoverFlow — only available in albums section
         if mode == "coverflow" and self._current_section_key != "albums":
             return
@@ -1454,16 +1457,100 @@ class MainWindow(QMainWindow):
     def _fade_content(self, target: str):
         if self._views.current() == target:
             return
+
+        # Stop any running animation
+        if self._fade_anim is not None:
+            self._fade_anim.stop()
+            self._fade_anim = None
+
+        # Always restore full opacity before changing view
+        self._restore_central_opacity()
+
         self._views.show(target)
+
+        # Subtle fade-in: 0.88 → 1.0, 100ms (barely visible, won't look broken if skipped)
         effect = QGraphicsOpacityEffect(self._content)
+        effect.setOpacity(0.88)
         self._content.setGraphicsEffect(effect)
+
         anim = QPropertyAnimation(effect, b"opacity")
-        anim.setDuration(200)
-        anim.setStartValue(0.3)
+        anim.setDuration(100)
+        anim.setStartValue(0.88)
         anim.setEndValue(1.0)
         anim.setEasingCurve(QEasingCurve.OutCubic)
-        anim.finished.connect(lambda: self._content.setGraphicsEffect(None))
+        self._fade_anim = anim
+
+        def _finish():
+            effect.setOpacity(1.0)
+            self._content.setGraphicsEffect(None)
+            self._fade_anim = None
+
+        anim.finished.connect(_finish)
         anim.start()
+
+    def _restore_central_opacity(self):
+        """Force full opacity on the central content stack and all child views."""
+        # Stop any running fade
+        if self._fade_anim is not None:
+            self._fade_anim.stop()
+            self._fade_anim = None
+
+        # Restore content stack
+        for w in [self._content, self._album_grid, self._song_grid,
+                  self._folder_browser, self._radio_widget,
+                  self._playlist_hub, self._metadata_editor,
+                  self._discover, self._identifier_view]:
+            if w is None:
+                continue
+            try:
+                eff = w.graphicsEffect()
+                if isinstance(eff, QGraphicsOpacityEffect):
+                    eff.setOpacity(1.0)
+                    w.setGraphicsEffect(None)
+                w.setEnabled(True)
+            except Exception:
+                pass
+
+        # Also check the QStackedWidget itself
+        try:
+            cw = self._content.parentWidget()
+            if cw:
+                eff = cw.graphicsEffect()
+                if isinstance(eff, QGraphicsOpacityEffect):
+                    eff.setOpacity(1.0)
+                    cw.setGraphicsEffect(None)
+                cw.setEnabled(True)
+        except Exception:
+            pass
+
+        # Debug if ASTRA_UI_DEBUG=1
+        if os.getenv("ASTRA_UI_DEBUG") == "1":
+            self._debug_central_visual_state()
+
+    def _debug_central_visual_state(self):
+        widgets = [
+            ("content_stack", self._content),
+            ("album_grid", self._album_grid),
+            ("song_grid", self._song_grid),
+            ("folder_browser", self._folder_browser),
+            ("radio_widget", getattr(self, '_radio_widget', None)),
+            ("playlist_hub", getattr(self, '_playlist_hub', None)),
+            ("metadata_editor", getattr(self, '_metadata_editor', None)),
+            ("discover", getattr(self, '_discover', None)),
+        ]
+        for name, w in widgets:
+            if w is None:
+                continue
+            eff = w.graphicsEffect()
+            from PySide6.QtWidgets import QGraphicsOpacityEffect
+            opacity = eff.opacity() if isinstance(eff, QGraphicsOpacityEffect) else None
+            print(
+                f"[ASTRA UI DEBUG] {name}: "
+                f"enabled={w.isEnabled()} "
+                f"visible={w.isVisible()} "
+                f"effect={type(eff).__name__ if eff else 'None'} "
+                f"opacity={opacity}"
+            )
 
     def _show_list_view(self):
         self._view_switcher.set_view("list", emit=False)

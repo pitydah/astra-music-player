@@ -63,11 +63,11 @@ QTableView::item { padding: 6px 12px; border-bottom: none; color: rgba(255,255,2
 QTableView::item:hover { background: rgba(255,122,0,0.06); }
 QTableView::item:selected { background: rgba(255,122,0,0.12); color: #fff; }
 QHeaderView::section {
-    background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4); padding: 8px 12px;
+    background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.64); padding: 8px 12px;
     border: none; border-bottom: 1px solid rgba(255,255,255,0.06);
     font-size: 11px; font-weight: 600;
 }
-QHeaderView::section:hover { color: #FF7A00; }
+QHeaderView::section:hover { color: rgba(255,255,255,0.90); }
 
 QSlider::groove:horizontal { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; }
 QSlider::handle:horizontal {
@@ -131,6 +131,27 @@ QMenuBar::item {
 }
 QMenuBar::item:selected {
     background: rgba(255,122,0,0.15); color: #FF7A00;
+}
+
+/* ── Disabled-state protection: never go fully gray ── */
+QWidget:disabled {
+    color: rgba(255,255,255,0.66);
+}
+QLabel:disabled {
+    color: rgba(255,255,255,0.66);
+}
+QPushButton:disabled {
+    color: rgba(255,255,255,0.42);
+    background: rgba(255,255,255,0.030);
+    border: 1px solid rgba(255,255,255,0.045);
+}
+QTreeView:disabled, QTreeWidget:disabled {
+    color: rgba(255,255,255,0.66);
+    background: transparent;
+}
+QTableView:disabled {
+    color: rgba(255,255,255,0.66);
+    background: transparent;
 }
 
 QPushButton[flat=\"true\"] {

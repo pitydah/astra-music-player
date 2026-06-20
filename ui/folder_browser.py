@@ -71,7 +71,7 @@ class FolderBrowserWidget(QWidget):
                 font-weight: 600;
             }
             QPushButton:hover { background: rgba(255,255,255,0.09); color: #fff; }
-            QPushButton:pressed { background: rgba(255,122,0,0.16); }
+            QPushButton:pressed { background: rgba(255,255,255,0.12); }
         """
 
         self._home_btn = QPushButton("Inicio")
@@ -89,8 +89,8 @@ class FolderBrowserWidget(QWidget):
         self._breadcrumb.setStyleSheet("""
             QLabel#breadcrumbLabel {
                 color: rgba(255,255,255,0.86);
-                background: rgba(0,0,0,0.18);
-                border: 1px solid rgba(255,255,255,0.06);
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.08);
                 border-radius: 10px;
                 padding: 7px 12px;
                 font-size: 12px;
@@ -191,7 +191,7 @@ class FolderBrowserWidget(QWidget):
                 padding: 7px 10px;
                 margin: 1px 4px;
                 border-radius: 12px;
-                color: rgba(255,255,255,0.78);
+                color: rgba(255,255,255,0.86);
                 background: transparent;
                 border: 1px solid transparent;
             }
@@ -212,7 +212,7 @@ class FolderBrowserWidget(QWidget):
             }
             QHeaderView::section {
                 background: rgba(255,255,255,0.035);
-                color: rgba(255,255,255,0.64);
+                color: rgba(255,255,255,0.78);
                 border: none;
                 border-bottom: 1px solid rgba(255,255,255,0.06);
                 padding: 8px 10px;
@@ -221,7 +221,7 @@ class FolderBrowserWidget(QWidget):
             }
             QHeaderView::section:hover {
                 background: rgba(255,255,255,0.06);
-                color: rgba(255,255,255,0.82);
+                color: rgba(255,255,255,0.92);
             }
             QScrollBar:vertical {
                 background: rgba(255,255,255,0.025);
@@ -255,7 +255,7 @@ class FolderBrowserWidget(QWidget):
         self._status = QLabel("")
         self._status.setObjectName("folderStatus")
         self._status.setStyleSheet(
-            "QLabel#folderStatus { color: rgba(255,255,255,0.48); font-size: 12px;"
+            "QLabel#folderStatus { color: rgba(255,255,255,0.62); font-size: 12px;"
             "font-weight: 500; padding: 8px 12px; }")
         tree_layout.addWidget(self._status)
 
@@ -266,12 +266,10 @@ class FolderBrowserWidget(QWidget):
         self._details.setFixedWidth(260)
         self._details.setStyleSheet("""
             QFrame {
-                background: rgba(255,255,255,0.025);
-                border: 1px solid rgba(255,255,255,0.05);
-                border-radius: 16px;
-                padding: 16px;
+                background: rgba(255,255,255,0.035);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 18px;
             }
-            QLabel { background: transparent; border: none; }
         """)
         details_layout = QVBoxLayout(self._details)
         details_layout.setContentsMargins(16, 16, 16, 16)
@@ -290,9 +288,11 @@ class FolderBrowserWidget(QWidget):
         self._fav_toggle = QPushButton("★ Favorita")
         self._fav_toggle.setCheckable(True)
         self._fav_toggle.setStyleSheet("""
-            QPushButton { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5);
-              border-radius: 8px; padding: 6px; font-size: 12px; font-weight: 600; }
-            QPushButton:checked { color: #FF7A00; background: rgba(255,122,0,0.10); }
+            QPushButton { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.72);
+              border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+              padding: 7px; font-size: 12px; font-weight: 600; }
+            QPushButton:hover { background: rgba(255,255,255,0.08); color: #fff; }
+            QPushButton:checked { color: #fff; background: rgba(255,255,255,0.10); }
         """)
         self._fav_toggle.clicked.connect(self._toggle_favorite)
         details_layout.addWidget(self._fav_toggle)
@@ -300,16 +300,16 @@ class FolderBrowserWidget(QWidget):
 
         # Stats
         self._detail_name = QLabel("")
-        self._detail_name.setStyleSheet("                font-size:14px;font-weight:650;color:#fff;")
+        self._detail_name.setStyleSheet("font-size:14px;font-weight:650;color:#fff;")
         details_layout.addWidget(self._detail_name)
 
         self._detail_path = QLabel("")
         self._detail_path.setWordWrap(True)
-        self._detail_path.setStyleSheet("font-size:10px;color:rgba(255,255,255,0.35);")
+        self._detail_path.setStyleSheet("font-size:10.5px;color:rgba(255,255,255,0.62);")
         details_layout.addWidget(self._detail_path)
 
         self._detail_stats = QLabel("")
-        self._detail_stats.setStyleSheet("font-size:11px;color:rgba(255,255,255,0.52);")
+        self._detail_stats.setStyleSheet("font-size:11px;color:rgba(255,255,255,0.68);")
         details_layout.addWidget(self._detail_stats)
 
         details_layout.addStretch()
