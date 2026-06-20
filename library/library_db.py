@@ -121,6 +121,7 @@ class LibraryDB:
         self._conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_detected_tracks_artist_title ON detected_tracks(artist, title)")
         self._conn.commit()
+        self._run_migrations()
 
     def _run_migrations(self):
         existing = {r[0] for r in self._conn.execute("PRAGMA table_info(media_items)").fetchall()}
@@ -141,7 +142,8 @@ class LibraryDB:
         playlist_existing = {r[0] for r in self._conn.execute("PRAGMA table_info(playlists)").fetchall()}
         for col, col_def in [("cover_path", "TEXT DEFAULT ''"),
                               ("cover_type", "TEXT DEFAULT 'mosaic'"),
-                              ("description", "TEXT DEFAULT ''")]:
+                              ("description", "TEXT DEFAULT ''"),
+                              ("created_at", "REAL DEFAULT (strftime('%s','now'))")]:
             if col not in playlist_existing:
                 with contextlib.suppress(sqlite3.OperationalError):
                     self._conn.execute(f"ALTER TABLE playlists ADD COLUMN {col} {col_def}")
