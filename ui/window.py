@@ -176,6 +176,8 @@ class MainWindow(QMainWindow):
         self._playlist_ctrl = PlaylistController(self)
         from core.file_actions import FileActions
         self._file_actions = FileActions(self)
+        from ui.controllers.album_controller import AlbumController
+        self._album_ctrl = AlbumController(self, refresh_grid=self._show_album_grid)
         self._all_items: list[MediaItem] = []
         self._items_index: dict[str, MediaItem] = {}
         self._current_section_key: str = "library"
@@ -1847,55 +1849,19 @@ class MainWindow(QMainWindow):
             import subprocess
             subprocess.Popen(["xdg-open", d])
 
-    # TODO(astra): extract to ui/album_controller.py — album grid + detail actions
+    # Extracted to ui/controllers/album_controller.py — album grid + detail actions
 
     def _on_album_create_playlist(self, fps: list):
-        tracks = self._playback.to_trackrefs(fps) or fps
-        self._playback.enqueue(tracks, play_now=False)
-        self._toast.show("Álbum añadido a la cola", "success")
+        self._album_ctrl.create_playlist(fps)
 
     def _on_album_search_cover(self, group):
-        tracks = group.data.get("tracks", []) if group.data else []
-        if tracks:
-            d = os.path.dirname(tracks[0].filepath)
-            from library.album_art import fetch_cover_online, cache_cover
-            try:
-                album_name = group.title
-                artist = getattr(tracks[0], 'artist', '') or ''
-                fetched = fetch_cover_online(album_name, artist)
-                if fetched:
-                    # Save to cover path
-                    cover_path = os.path.join(d, "cover.jpg")
-                    fetched.save(cover_path)
-                    cache_cover(cover_path, None, "large")
-                    self._toast.show("Carátula descargada", "success")
-                    self._show_album_grid()
-                else:
-                    self._toast.show("No se encontró carátula", "warning")
-            except Exception as e:
-                self._toast.show(f"Error al buscar carátula: {e}", "error")
+        self._album_ctrl.search_cover(group)
 
     def _on_album_open_folder(self, folder: str):
-        import subprocess
-        subprocess.Popen(["xdg-open", folder])
+        self._album_ctrl.open_folder(folder)
 
     def _on_album_show_details(self, group):
-        tracks = group.data.get("tracks", []) if group.data else []
-        count = len(tracks)
-        dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
-        dur_str = f"{dur//60}:{int(dur%60):02d}" if dur > 0 else "—"
-        exts = set(
-            (getattr(t, 'ext', '') or '').upper().lstrip(".")
-            for t in tracks if getattr(t, 'ext', ''))
-        fmt_str = ", ".join(sorted(exts)) or "—"
-        msg = (
-            f"Álbum: {group.title}\n"
-            f"Artista: {group.subtitle or '—'}\n"
-            f"Canciones: {count}\n"
-            f"Duración: {dur_str}\n"
-            f"Formato: {fmt_str}"
-        )
-        QMessageBox.information(self, "Detalles del álbum", msg)
+        self._album_ctrl.show_details(group)
 
     # Extracted to ui/controllers/playlist_controller.py — Hub + import/export
 

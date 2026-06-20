@@ -1,0 +1,59 @@
+"""Album controller — actions on albums: play, queue, cover search, details."""
+import os
+import subprocess
+
+from PySide6.QtWidgets import QMessageBox
+
+
+class AlbumController:
+    def __init__(self, window, refresh_grid=None):
+        self._win = window
+        self._refresh_grid = refresh_grid or (lambda: None)
+
+    def create_playlist(self, fps: list):
+        tracks = self._win._playback.to_trackrefs(fps) or fps
+        self._win._playback.enqueue(tracks, play_now=False)
+        self._win._toast.show("Álbum añadido a la cola", "success")
+
+    def search_cover(self, group):
+        tracks = group.data.get("tracks", []) if group.data else []
+        if not tracks:
+            return
+        d = os.path.dirname(tracks[0].filepath)
+        try:
+            from library.album_art import find_cover_in_dir
+            from library.artwork_cache import cache_cover
+            cover_path = os.path.join(d, "cover.jpg")
+            if os.path.isfile(cover_path):
+                cache_cover(cover_path, None, "large")
+                self._win._toast.show("Carátula ya existente", "success")
+                self._refresh_grid()
+            elif find_cover_in_dir(d):
+                self._win._toast.show("Carátula encontrada localmente", "success")
+                self._refresh_grid()
+            else:
+                self._win._toast.show(
+                    "Búsqueda online de carátulas pendiente de implementar", "info")
+        except Exception as e:
+            self._win._toast.show(f"Error al buscar carátula: {e}", "error")
+
+    def open_folder(self, folder: str):
+        subprocess.Popen(["xdg-open", folder])
+
+    def show_details(self, group):
+        tracks = group.data.get("tracks", []) if group.data else []
+        count = len(tracks)
+        dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
+        dur_str = f"{dur // 60}:{int(dur % 60):02d}" if dur > 0 else "—"
+        exts = set(
+            (getattr(t, 'ext', '') or '').upper().lstrip(".")
+            for t in tracks if getattr(t, 'ext', ''))
+        fmt_str = ", ".join(sorted(exts)) or "—"
+        msg = (
+            f"Álbum: {group.title}\n"
+            f"Artista: {group.subtitle or '—'}\n"
+            f"Canciones: {count}\n"
+            f"Duración: {dur_str}\n"
+            f"Formato: {fmt_str}"
+        )
+        QMessageBox.information(self._win, "Detalles del álbum", msg)
