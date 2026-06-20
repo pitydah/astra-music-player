@@ -1,2 +1,0 @@
-[console_scripts]
-astra-music-player = main:main
