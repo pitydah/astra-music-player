@@ -42,6 +42,8 @@ class SidebarController(QObject):
                                "sidebar_popular")
         self._sidebar.add_item("mix", "identifier", "Identificador",
                                "sidebar_identifier")
+        self._sidebar.add_item("mix", "favs", "Favoritos", "sidebar_popular")
+        self._sidebar.add_item("mix", "recent", "Recientes", "sidebar_mix")
 
         # Radio
         self._sidebar.add_section("rad", "Radio", "sidebar_radio")

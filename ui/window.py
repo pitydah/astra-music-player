@@ -68,6 +68,10 @@ SECTION_CONFIG = {
                    "views": [], "search": False, "default": None},
     "playlists": {"title": "Playlist", "subtitle": "Colecciones personalizadas",
                   "views": ["list", "grid"], "search": True, "default": "list"},
+    "favs":      {"title": "Favoritos", "subtitle": "Canciones marcadas",
+                  "views": ["list", "grid"], "search": True, "default": "list"},
+    "recent":    {"title": "Recientes", "subtitle": "Reproducidas recientemente",
+                  "views": ["list", "grid"], "search": True, "default": "list"},
 }
 
 
@@ -866,6 +870,49 @@ class MainWindow(QMainWindow):
                     ToastNotification.warning(
                         "El mix no contiene archivos disponibles", self)
 
+        elif key == "favs":
+            self._section_title.setText("Favoritos")
+            self._section_subtitle.setText("Canciones marcadas como favoritas")
+            favs = self._db.get_favorites()
+            items = []
+            for fp in favs:
+                item = self._items_index.get(fp)
+                if item:
+                    items.append(item)
+            refs = [TrackRef(uri=i.filepath, title=i.title or os.path.basename(i.filepath),
+                             artist=i.artist, album=i.album, duration=i.duration,
+                             year=i.year, genre=i.genre) for i in items]
+            self._model.populate(refs)
+            self._count.setText(f"{len(refs)} canciones")
+            self._views.show("library"); self._table.setModel(self._model)
+            self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260)
+            self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
+            self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+            self._table.setColumnWidth(6, 75)
+            self._search.show()
+
+        elif key == "recent":
+            self._section_title.setText("Recientes")
+            self._section_subtitle.setText("Reproducidas recientemente")
+            history = self._db.get_play_history()
+            items = []
+            for h in history[:50]:
+                fp = h.get("track_id", "")
+                item = self._items_index.get(fp)
+                if item:
+                    items.append(item)
+            refs = [TrackRef(uri=i.filepath, title=i.title or os.path.basename(i.filepath),
+                             artist=i.artist, album=i.album, duration=i.duration,
+                             year=i.year, genre=i.genre) for i in items]
+            self._model.populate(refs)
+            self._count.setText(f"{len(refs)} canciones")
+            self._views.show("library"); self._table.setModel(self._model)
+            self._table.setColumnWidth(0, 72); self._table.setColumnWidth(1, 260)
+            self._table.setColumnWidth(2, 170); self._table.setColumnWidth(3, 170)
+            self._table.setColumnWidth(4, 55); self._table.setColumnWidth(5, 110)
+            self._table.setColumnWidth(6, 75)
+            self._search.show()
+
         elif key == "identifier":
             self._section_title.setText("Identificador")
             self._identifier_view.set_detected_tracks(
@@ -1509,13 +1556,32 @@ class MainWindow(QMainWindow):
 
         menu.addSeparator()
 
-        # Future: detect real devices via Engine/GStreamer
-        action_pc = menu.addAction("Audio del PC")
-        action_dac = menu.addAction("DAC USB")
-        action_hdmi = menu.addAction("HDMI / Monitor")
-        action_pc.setEnabled(False)
-        action_dac.setEnabled(False)
-        action_hdmi.setEnabled(False)
+        # Detect real audio sinks via GStreamer
+        try:
+            import gi
+            gi.require_version("Gst", "1.0")
+            from gi.repository import Gst
+            monitor = Gst.DeviceMonitor()
+            monitor.add_filter("Audio/Sink", None)
+            monitor.start()
+            devices = monitor.get_devices()
+            monitor.stop()
+            if devices:
+                for dev in devices:
+                    name = dev.get_display_name() or dev.get_device_class() or "Audio device"
+                    action = menu.addAction(name)
+                    action.triggered.connect(
+                        lambda checked=False, d=dev: self._playback.set_output_device(d))
+            else:
+                # Fallback: check for pipewire/pulse directly
+                pass
+        except Exception:
+            pass
+
+        menu.addSeparator()
+        action_pipewire = menu.addAction("PipeWire (sistema)")
+        action_pipewire.triggered.connect(lambda: self._playback.set_output_device(None))
+        action_pipewire.setEnabled(True)
 
         from PySide6.QtGui import QCursor
         menu.exec(QCursor.pos())
