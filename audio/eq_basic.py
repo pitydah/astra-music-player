@@ -46,46 +46,56 @@ class BandSlider(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
-        label_h = 16
+        label_h = 14
+        db_h = 14
 
         # ── Groove ──
-        groove_x = 6; groove_w = 10
-        groove_rect = QRectF(groove_x, 2, groove_w, h - label_h - 8)
+        groove_x = 5; groove_w = 12
+        groove_rect = QRectF(groove_x, 2, groove_w, h - label_h - db_h - 6)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#2a2a3a"))
-        p.drawRoundedRect(groove_rect, 3, 3)
+        p.setBrush(QColor(255, 255, 255, 18))
+        p.drawRoundedRect(groove_rect, 4, 4)
 
         # ── Zero line ──
-        zero_y = 2 + _db_to_y(0, h - label_h - 8)
-        p.setPen(QPen(QColor("#3a3a4a"), 1))
-        p.drawLine(int(groove_x), zero_y, int(groove_x + groove_w), zero_y)
+        zero_y = 2 + _db_to_y(0, h - label_h - db_h - 6)
+        p.setPen(QPen(QColor(255, 255, 255, 30), 1))
+        p.drawLine(int(groove_x), int(zero_y), int(groove_x + groove_w), int(zero_y))
 
         # ── Fill ──
-        fill_top = 2 + _db_to_y(self._value, h - label_h - 8)
+        fill_top = 2 + _db_to_y(self._value, h - label_h - db_h - 6)
         fill_bottom = zero_y if self._value >= 0 else fill_top
         fill_h = abs(fill_bottom - fill_top)
         if fill_h > 0:
             gradient = QLinearGradient(0, 0, 0, h)
-            gradient.setColorAt(0, QColor("#FF7A00"))
-            gradient.setColorAt(1, QColor("#268CFA"))
+            gradient.setColorAt(0, QColor(255, 122, 0, 160))
+            gradient.setColorAt(1, QColor(232, 0, 109, 120))
             p.setBrush(gradient)
             fill_rect = QRectF(groove_x, min(fill_top, fill_bottom),
                               groove_w, fill_h + 0.5)
-            p.drawRoundedRect(fill_rect, 2, 2)
+            p.drawRoundedRect(fill_rect, 3, 3)
 
         # ── Handle ──
-        handle_y = 2 + _db_to_y(self._value, h - label_h - 8)
-        handle_size = 22 if self._hover or self._dragging else 18
+        handle_y = 2 + _db_to_y(self._value, h - label_h - db_h - 6)
+        handle_size = 20 if self._hover or self._dragging else 16
         p.setBrush(QColor("#ffffff"))
-        p.setPen(QPen(QColor("#FF7A00"), 2))
+        p.setPen(QPen(QColor(255, 122, 0, 80), 1.5))
         hx = (w - handle_size) // 2
-        p.drawRoundedRect(QRectF(hx, handle_y - 5, handle_size, 10), 3, 3)
+        p.drawRoundedRect(QRectF(hx, handle_y - 4, handle_size, 8), 3, 3)
 
-        # ── Label ──
-        p.setPen(QColor("#8e8e93"))
-        p.setFont(QFont("sans-serif", 9))
-        p.drawText(QRectF(0, h - label_h, w, label_h),
+        # ── Label (Hz) ──
+        p.setPen(QColor(255, 255, 255, 85))
+        p.setFont(QFont("sans-serif", 8.5))
+        p.drawText(QRectF(0, h - label_h - db_h, w, label_h),
                    Qt.AlignHCenter | Qt.AlignTop, self._label)
+
+        # ── Value (dB) ──
+        db_str = f"{self._value:+.1f}" if self._value != 0 else "0"
+        p.setPen(QColor(255, 255, 255, 100) if self._value == 0 else
+                 QColor(255, 122, 0, 180) if self._value > 0 else
+                 QColor(255, 100, 80, 160))
+        p.setFont(QFont("sans-serif", 8))
+        p.drawText(QRectF(0, h - db_h - 2, w, db_h),
+                   Qt.AlignHCenter | Qt.AlignTop, db_str)
 
     def mousePressEvent(self, event):
         self._dragging = True

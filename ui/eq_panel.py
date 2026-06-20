@@ -1,9 +1,9 @@
-"""Main equalizer dialog — basic ↔ advanced toggle, spectrum, curve."""
+"""Premium equalizer panel — dark glass, segmented modes, preset chips."""
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox,
-    QLabel, QCheckBox, QMessageBox, QTabWidget, QWidget,
+    QLabel, QCheckBox, QMessageBox, QWidget, QScrollArea,
 )
 
 from audio.eq_basic import GraphicEqWidget
@@ -16,10 +16,11 @@ from audio.eq_presets import (
 )
 from audio.eq_convert import graphic_to_parametric, parametric_to_graphic
 
+PRESET_LIST = ["Plano", "Rock", "Pop", "Jazz", "Clásica", "Vocal",
+               "Bass Boost", "Treble Boost", "Night"]
+
 
 class EqDialog(QDialog):
-    """Full equalizer panel with basic/advanced modes."""
-
     eq_bypass_changed = Signal(bool)
     eq_bands_graphic_changed = Signal(list)
     eq_bands_parametric_changed = Signal(list)
@@ -29,113 +30,240 @@ class EqDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Ecualizador")
-        self.resize(900, 620)
-        self.setMinimumSize(750, 450)
+        self.resize(950, 640)
+        self.setMinimumSize(750, 480)
+        self.setStyleSheet("""
+            QDialog { background: #090B11; border-radius: 16px; }
+        """)
         from ui.theme import apply_dialog_shadow
         apply_dialog_shadow(self)
         self._mode = "basic"
-        self._ab_state = None  # for A/B comparison
+        self._ab_state = None
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(10)
 
-        # ── Mode toggle ──
-        mode_row = QHBoxLayout()
-        mode_row.addWidget(QLabel("Modo:"))
-        self._mode_combo = QComboBox()
-        self._mode_combo.addItem("Básico (31 bandas)", "basic")
-        self._mode_combo.addItem("Avanzado (Paramétrico)", "advanced")
-        self._mode_combo.currentIndexChanged.connect(self._on_mode)
-        mode_row.addWidget(self._mode_combo)
-        mode_row.addStretch()
+        # ── Header ──
+        header = QHBoxLayout()
+        title_col = QVBoxLayout()
+        title_col.setSpacing(1)
+        title_lbl = QLabel("Ecualizador")
+        title_lbl.setStyleSheet(
+            "font-size: 17px; font-weight: 750; color: rgba(255,255,255,0.94);"
+            "background: transparent;")
+        subtitle = QLabel("Ajuste fino de frecuencias")
+        subtitle.setStyleSheet(
+            "font-size: 11.5px; color: rgba(255,255,255,0.48);"
+            "background: transparent;")
+        title_col.addWidget(title_lbl)
+        title_col.addWidget(subtitle)
+        header.addLayout(title_col)
+        header.addStretch()
 
-        self._preset_combo = QComboBox()
-        self._preset_combo.addItems(sorted(GRAPHIC_PRESETS.keys()))
-        self._preset_combo.currentTextChanged.connect(self._on_preset)
-        mode_row.addWidget(QLabel("Preset:"))
-        mode_row.addWidget(self._preset_combo)
+        self._status_badge = QLabel("Activo")
+        self._status_badge.setStyleSheet(
+            "background: rgba(255,122,0,0.12); color: #FF7A00;"
+            "border: 1px solid rgba(255,122,0,0.22); border-radius: 8px;"
+            "padding: 3px 10px; font-size: 11px; font-weight: 650;")
+        header.addWidget(self._status_badge)
 
-        save_btn = QPushButton("Guardar")
-        save_btn.clicked.connect(self._save_preset)
-        mode_row.addWidget(save_btn)
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(28, 28)
+        close_btn.setFlat(True)
+        close_btn.setStyleSheet(
+            "QPushButton { color: rgba(255,255,255,0.35); font-size: 16px; }"
+            "QPushButton:hover { color: #FF3C48; }")
+        close_btn.clicked.connect(self.close)
+        header.addWidget(close_btn)
+        layout.addLayout(header)
 
-        ab_btn = QPushButton("A/B")
-        ab_btn.setToolTip("Comparar dos configuraciones de EQ")
-        ab_btn.clicked.connect(self._ab_compare)
-        mode_row.addWidget(ab_btn)
+        # ── Mode selector (segmented capsule) ──
+        mode_frame = QWidget()
+        mode_frame.setStyleSheet("""
+            QWidget {
+                background: rgba(255,255,255,0.035);
+                border: 1px solid rgba(255,255,255,0.075);
+                border-radius: 14px; padding: 3px;
+            }
+        """)
+        mode_layout = QHBoxLayout(mode_frame)
+        mode_layout.setContentsMargins(3, 3, 3, 3)
+        mode_layout.setSpacing(0)
 
-        reset_btn = QPushButton("Reset")
-        reset_btn.clicked.connect(self._reset)
-        mode_row.addWidget(reset_btn)
+        btn_qss = """
+            QPushButton {
+                background: transparent; border: 1px solid transparent;
+                border-radius: 10px; padding: 6px 16px;
+                color: rgba(255,255,255,0.66); font-size: 12px; font-weight: 600;
+            }
+            QPushButton:hover { background: rgba(255,255,255,0.07); color: #fff; }
+            QPushButton[active="true"] {
+                background: rgba(255,255,255,0.125); color: #fff;
+                border: 1px solid rgba(255,255,255,0.12);
+            }
+        """
 
-        layout.addLayout(mode_row)
+        self._bypass_btn = QPushButton("Bypass")
+        self._bypass_btn.setCheckable(True)
+        self._bypass_btn.setStyleSheet(btn_qss)
+        self._bypass_btn.clicked.connect(lambda: self._set_mode("bypass_val"))
+        mode_layout.addWidget(self._bypass_btn)
+
+        self._graphic_btn = QPushButton("Gráfico (31 bandas)")
+        self._graphic_btn.setCheckable(True)
+        self._graphic_btn.setChecked(True)
+        self._graphic_btn.setProperty("active", True)
+        self._graphic_btn.setStyleSheet(btn_qss)
+        self._graphic_btn.style().polish(self._graphic_btn)
+        self._graphic_btn.clicked.connect(lambda: self._set_mode("graphic"))
+        mode_layout.addWidget(self._graphic_btn)
+
+        self._param_btn = QPushButton("Paramétrico")
+        self._param_btn.setCheckable(True)
+        self._param_btn.setStyleSheet(btn_qss)
+        self._param_btn.clicked.connect(lambda: self._set_mode("parametric"))
+        mode_layout.addWidget(self._param_btn)
+
+        mode_layout.addStretch()
+        layout.addWidget(mode_frame)
 
         # ── Spectrum + Curve ──
         self._spectrum = SpectrumWidget()
-        layout.addWidget(self._spectrum, 2)
+        layout.addWidget(self._spectrum, 1)
 
         self._curve = EqCurveWidget()
-        layout.addWidget(self._curve, 2)
+        layout.addWidget(self._curve, 1)
 
-        # ── Stacked: basic ↔ advanced ──
+        # ── EQ bands (basic or advanced) ──
         self._basic = GraphicEqWidget()
         self._advanced = AdvancedEqWidget()
         self._advanced.bands_changed.connect(self._on_advanced_change)
         self._advanced.preamp_changed.connect(self._on_preamp_adv)
-
-        layout.addWidget(self._basic, 4)
-        layout.addWidget(self._advanced, 4)
+        layout.addWidget(self._basic, 3)
+        layout.addWidget(self._advanced, 3)
         self._advanced.hide()
 
-        # ── Bottom toggles ──
+        # ── Presets (chips) ──
+        preset_row = QHBoxLayout()
+        preset_row.setSpacing(6)
+        preset_lbl = QLabel("Presets:")
+        preset_lbl.setStyleSheet(
+            "color: rgba(255,255,255,0.48); font-size: 11px;"
+            "background: transparent;")
+        preset_row.addWidget(preset_lbl)
+
+        chip_qss = """
+            QPushButton {
+                background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+                border-radius: 8px; padding: 5px 12px; color: rgba(255,255,255,0.6);
+                font-size: 11px; font-weight: 550;
+            }
+            QPushButton:hover {
+                background: rgba(255,255,255,0.08); color: #fff;
+                border: 1px solid rgba(255,255,255,0.12);
+            }
+        """
+        for preset_name in PRESET_LIST:
+            btn = QPushButton(preset_name)
+            btn.setStyleSheet(chip_qss)
+            btn.clicked.connect(lambda checked=False, n=preset_name: self._on_preset(n))
+            preset_row.addWidget(btn)
+        preset_row.addStretch()
+        layout.addLayout(preset_row)
+
+        # ── Bottom bar ──
         bottom = QHBoxLayout()
-        self._bypass_cb = QCheckBox("Ecualizador activo")
+        bottom.setSpacing(8)
+
+        self._bypass_cb = QCheckBox("Activo")
         self._bypass_cb.setChecked(True)
+        self._bypass_cb.setStyleSheet(
+            "QCheckBox { color: rgba(255,255,255,0.68); font-size: 12px; }")
         self._bypass_cb.toggled.connect(lambda v: self.eq_bypass_changed.emit(not v))
+        self._bypass_cb.toggled.connect(
+            lambda v: self._status_badge.setText("Activo" if v else "Bypass"))
+        self._bypass_cb.toggled.connect(
+            lambda v: self._status_badge.setStyleSheet(
+                "background: rgba(255,122,0,0.12); color: #FF7A00;"
+                "border: 1px solid rgba(255,122,0,0.22); border-radius: 8px;"
+                "padding: 3px 10px; font-size: 11px; font-weight: 650;"
+                if v else
+                "background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4);"
+                "border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;"
+                "padding: 3px 10px; font-size: 11px; font-weight: 650;"))
         bottom.addWidget(self._bypass_cb)
 
-        self._spectrum_cb = QCheckBox("Analizador de espectro")
+        self._spectrum_cb = QCheckBox("Spectrum")
         self._spectrum_cb.setChecked(True)
-        self._spectrum_cb.toggled.connect(
-            lambda v: self._spectrum.setVisible(v))
+        self._spectrum_cb.setStyleSheet(
+            "QCheckBox { color: rgba(255,255,255,0.55); font-size: 11px; }")
+        self._spectrum_cb.toggled.connect(lambda v: self._spectrum.setVisible(v))
         bottom.addWidget(self._spectrum_cb)
 
         bottom.addStretch()
+
         self._preamp_lbl = QLabel("Preamp: +0.0dB")
-        self._preamp_lbl.setStyleSheet("color: #8e8e93;")
+        self._preamp_lbl.setStyleSheet(
+            "color: rgba(255,255,255,0.48); font-size: 12px;")
         bottom.addWidget(self._preamp_lbl)
 
-        close_btn = QPushButton("Cerrar")
-        close_btn.clicked.connect(self.close)
-        bottom.addWidget(close_btn)
+        action_btn_qss = """
+            QPushButton {
+                background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 10px; padding: 7px 14px;
+                color: rgba(255,255,255,0.72); font-size: 12px; font-weight: 600;
+            }
+            QPushButton:hover { background: rgba(255,255,255,0.09); color: #fff; }
+        """
+        save_btn = QPushButton("Guardar")
+        save_btn.setStyleSheet(action_btn_qss)
+        save_btn.clicked.connect(self._save_preset)
+        bottom.addWidget(save_btn)
+
+        reset_btn = QPushButton("Reset")
+        reset_btn.setStyleSheet(action_btn_qss)
+        reset_btn.clicked.connect(self._reset)
+        bottom.addWidget(reset_btn)
+
+        ab_btn = QPushButton("A/B")
+        ab_btn.setToolTip("Comparar configuraciones")
+        ab_btn.setStyleSheet(action_btn_qss)
+        ab_btn.clicked.connect(self._ab_compare)
+        bottom.addWidget(ab_btn)
+
         layout.addLayout(bottom)
 
         # ── Wire basic sliders ──
         self._basic.bands_changed.connect(self._on_basic_change)
 
-    # ── Mode switching ──
-
-    def _on_mode(self):
-        mode = self._mode_combo.currentData()
-        if mode == self._mode:
+    def _set_mode(self, mode: str):
+        if mode == "bypass_val":
+            self._bypass_cb.setChecked(not self._bypass_cb.isChecked())
             return
 
-        if self._mode == "basic":
-            # Convert basic → advanced
-            bands, preamp = graphic_to_parametric(self._basic.get_bands())
-            self._advanced.load_preset(bands, preamp)
-        else:
-            # Convert advanced → basic
+        btn_map = {
+            "graphic": (self._graphic_btn, "basic"),
+            "parametric": (self._param_btn, "advanced"),
+        }
+        for m, (btn, view_mode) in btn_map.items():
+            active = (m == mode)
+            btn.setChecked(active)
+            btn.setProperty("active", active)
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+
+        if mode == "graphic" and self._mode == "advanced":
             configs, preamp = self._advanced.get_config()
             gbands = parametric_to_graphic(configs, preamp)
             self._basic.set_bands(gbands)
+        elif mode == "parametric" and self._mode == "basic":
+            bands, preamp = graphic_to_parametric(self._basic.get_bands())
+            self._advanced.load_preset(bands, preamp)
 
-        self._mode = mode
-        if mode == "basic":
-            self._basic.show()
-            self._advanced.hide()
-        else:
-            self._basic.hide()
-            self._advanced.show()
+        self._mode = "basic" if mode == "graphic" else "advanced"
+        self._basic.setVisible(self._mode == "basic")
+        self._advanced.setVisible(self._mode == "advanced")
 
     # ── Presets ──
 
@@ -144,7 +272,6 @@ class EqDialog(QDialog):
             bands = load_graphic_preset(name)
             self._basic.set_bands(bands)
             self.eq_bands_graphic_changed.emit(bands)
-            # Update curve
             pbands, _ = graphic_to_parametric(bands)
             self._curve.set_bands(pbands, 0.0)
         else:
@@ -163,18 +290,9 @@ class EqDialog(QDialog):
                 "preamp": 0.0,
             }
         save_custom_presets(presets)
-        # Refresh combo
-        self._preset_combo.blockSignals(True)
-        self._preset_combo.clear()
-        self._preset_combo.addItems(sorted(GRAPHIC_PRESETS.keys()))
-        for k in presets:
-            if self._preset_combo.findText(k) < 0:
-                self._preset_combo.addItem(k)
-        self._preset_combo.blockSignals(False)
 
     def _ab_compare(self):
         if self._ab_state is None:
-            # Save current as A
             if self._mode == "basic":
                 self._ab_state = ("basic", self._basic.get_bands(), 0.0)
             else:
@@ -198,12 +316,9 @@ class EqDialog(QDialog):
             self._advanced.reset()
             self.eq_bands_parametric_changed.emit([])
 
-    # ── Slider handlers ──
-
     def _on_basic_change(self, idx: int, value: float):
         bands = self._basic.get_bands()
         self.eq_bands_graphic_changed.emit(bands)
-        # Update curve
         pbands, _ = graphic_to_parametric(bands)
         self._curve.set_bands(pbands, 0.0)
 
