@@ -96,7 +96,7 @@ def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None) ->
 
     btn.setIconSize(QSize(icon_size, icon_size))
 
-    final_size = button_size or icon_size + 10
+    final_size = button_size or icon_size + 6
     btn.setFixedSize(final_size, final_size)
     btn.setMinimumSize(final_size, final_size)
     btn.setMaximumSize(final_size, final_size)
