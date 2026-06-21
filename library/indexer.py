@@ -156,7 +156,8 @@ class Indexer(QObject):
                     yield os.path.join(root, fn)
 
     def _is_unchanged(self, filepath: str) -> bool:
-        """ChangeDetector — skip files that haven't changed since last scan."""
+        """ChangeDetector — skip files that haven't changed since last scan.
+        Uses size + mtime first, then SHA-256 checksum for precision."""
         try:
             stat = os.stat(filepath)
         except OSError:
@@ -165,7 +166,35 @@ class Indexer(QObject):
             return True  # skip unreadable
 
         sig = self._db.get_file_signature(filepath)
-        return sig is not None and sig == (stat.st_size, stat.st_mtime)
+        if sig is None:
+            return False  # not in DB yet
+
+        db_size, db_mtime, db_hash = sig
+        if (stat.st_size, stat.st_mtime) != (db_size, db_mtime):
+            return False  # size or mtime changed — re-scan
+
+        # Size and mtime match — verify with content hash
+        if db_hash:
+            current_hash = self._compute_quick_hash(filepath)
+            return current_hash == db_hash
+
+        return True  # no hash stored yet, trust size+mtime
+
+    @staticmethod
+    def _compute_quick_hash(filepath: str) -> str:
+        """Compute SHA-256 of first 64KB + last 64KB for fast content verification."""
+        import hashlib
+        h = hashlib.sha256()
+        try:
+            size = os.path.getsize(filepath)
+            with open(filepath, "rb") as f:
+                h.update(f.read(min(65536, size)))
+                if size > 65536:
+                    f.seek(max(0, size - 65536))
+                    h.update(f.read(65536))
+            return h.hexdigest()
+        except OSError:
+            return ""
 
     def _build_record(self, filepath: str) -> dict | None:
         """MetadataExtractor + AlbumKeyBuilder — extract and normalize metadata."""
@@ -204,6 +233,18 @@ class Indexer(QObject):
         bpm = normalize_bpm(meta_full.get("bpm"))
         replaygain_track = meta_full.get("replaygain_track", 0.0)
         replaygain_album = meta_full.get("replaygain_album", 0.0)
+        replaygain_track_peak = meta_full.get("replaygain_track_peak", 0.0)
+        isrc = normalize_text(meta_full.get("isrc", ""), 128)
+        label = normalize_text(meta_full.get("label", ""), 256)
+        conductor = normalize_text(meta_full.get("conductor", ""), 256)
+        compilation = meta_full.get("compilation", 0)
+        media_type = normalize_text(meta_full.get("media_type", ""), 128)
+        encoder = normalize_text(meta_full.get("encoder", ""), 256)
+        copyright = normalize_text(meta_full.get("copyright", ""), 512)
+        originaldate = normalize_text(meta_full.get("originaldate", ""), 32)
+        remixer = normalize_text(meta_full.get("remixer", ""), 256)
+        grouping = normalize_text(meta_full.get("grouping", ""), 256)
+        mood = normalize_text(meta_full.get("mood", ""), 128)
 
         # AlbumKeyBuilder — cache embedded cover art with stable key
         cover_data = meta_full.get("cover_data", b"")
@@ -249,6 +290,13 @@ class Indexer(QObject):
             "bpm": bpm,
             "replaygain_track": replaygain_track,
             "replaygain_album": replaygain_album,
+            "replaygain_track_peak": replaygain_track_peak,
+            "isrc": isrc, "label": label, "conductor": conductor,
+            "compilation": compilation, "media_type": media_type,
+            "encoder": encoder, "copyright": copyright,
+            "originaldate": originaldate, "remixer": remixer,
+            "grouping": grouping, "mood": mood,
+            "content_hash": self._compute_quick_hash(filepath),
         }
 
     def _rebuild_indexes(self):

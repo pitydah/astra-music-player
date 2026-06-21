@@ -83,14 +83,17 @@ def extract_metadata(filepath: str) -> dict:
 
 
 def extract_metadata_full(filepath: str) -> dict:
-    """Extract full metadata including year, genre, track, composer, cover art via mutagen."""
+    """Extract full metadata: year, genre, composer, ISRC, label, conductor, etc. via mutagen."""
     info = {"year": 0, "genre": "", "track_number": 0, "composer": "",
             "cover_mime": "", "cover_data": b"", "albumartist": "",
             "disc_number": 0, "disc_total": 0, "track_total": 0,
             "originaldate": "", "mb_albumartist_id": "",
             "mb_album_id": "", "mb_track_id": "",
-            "replaygain_track": 0.0,
-            "replaygain_album": 0.0, "bit_depth": 0, "bpm": 0}
+            "replaygain_track": 0.0, "replaygain_track_peak": 0.0,
+            "replaygain_album": 0.0, "bit_depth": 0, "bpm": 0,
+            "isrc": "", "label": "", "conductor": "",
+            "compilation": 0, "media_type": "", "encoder": "",
+            "copyright": "", "remixer": "", "grouping": "", "mood": ""}
     try:
         from mutagen import File as MutagenFile
         mf = MutagenFile(filepath)
@@ -151,10 +154,26 @@ def extract_metadata_full(filepath: str) -> dict:
                                 "replaygain_track_gain")
             with contextlib.suppress(ValueError, Exception):
                 info["replaygain_track"] = float(rg_track.split(" ")[0]) if rg_track else 0.0
+            rg_track_peak = get_tag(mf.tags, "REPLAYGAIN_TRACK_PEAK",
+                                     "replaygain_track_peak")
+            with contextlib.suppress(ValueError, Exception):
+                info["replaygain_track_peak"] = float(rg_track_peak) if rg_track_peak else 0.0
             rg_album = get_tag(mf.tags, "REPLAYGAIN_ALBUM_GAIN",
                                 "replaygain_album_gain")
             with contextlib.suppress(ValueError, Exception):
                 info["replaygain_album"] = float(rg_album.split(" ")[0]) if rg_album else 0.0
+            info["isrc"] = get_tag(mf.tags, "TSRC", "ISRC", "isrc")
+            info["label"] = get_tag(mf.tags, "TPUB", "label", "LABEL", "\u00a9pub")
+            info["conductor"] = get_tag(mf.tags, "TPE3", "conductor", "TCONDUCTOR")
+            cp_val = get_tag(mf.tags, "TCMP", "cpil")
+            if cp_val:
+                info["compilation"] = 1 if cp_val in ("1", "true", "True") else 0
+            info["media_type"] = get_tag(mf.tags, "TMED", "MEDIA", "sourcemedia")
+            info["encoder"] = get_tag(mf.tags, "TENC", "TSSE")
+            info["copyright"] = get_tag(mf.tags, "TCOP", "copyright")
+            info["remixer"] = get_tag(mf.tags, "TPE4", "REMIXER")
+            info["grouping"] = get_tag(mf.tags, "TIT1", "GRP1", "GROUPING")
+            info["mood"] = get_tag(mf.tags, "TMOO", "MOOD")
             # Bit depth — try GStreamer first, then mutagen
             if hasattr(mf, 'info') and hasattr(mf.info, 'bits_per_sample'):
                 info["bit_depth"] = mf.info.bits_per_sample

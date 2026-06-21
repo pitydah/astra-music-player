@@ -69,6 +69,11 @@ class FileActions:
 
         worker.detail.connect(_on_detail)
 
+        # Connect indexer enrichment signal for auto-enrichment after scan
+        if hasattr(self._win, '_artist_enrich'):
+            worker.enrichment_requested.connect(
+                lambda key, name: self._win._artist_enrich.enrich_artist_by_key(key, name))
+
         def _on_done(added):
             overlay.hide()
             overlay.deleteLater()

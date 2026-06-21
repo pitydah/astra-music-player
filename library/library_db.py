@@ -174,9 +174,16 @@ class LibraryDB:
                               ("play_count", "INTEGER DEFAULT 0"), ("skip_count", "INTEGER DEFAULT 0"),
                               ("last_played", "REAL"), ("bpm", "INTEGER"),
                                ("replaygain_track", "REAL"), ("replaygain_album", "REAL"),
-                               ("bit_depth", "INTEGER DEFAULT 0"),
-                               ("mb_track_id", "TEXT DEFAULT ''"),
-                               ("bpm", "INTEGER DEFAULT 0")]:
+                                ("bit_depth", "INTEGER DEFAULT 0"),
+                                ("mb_track_id", "TEXT DEFAULT ''"),
+                                ("bpm", "INTEGER DEFAULT 0"),
+                                ("isrc", "TEXT DEFAULT ''"), ("label", "TEXT DEFAULT ''"),
+                                ("conductor", "TEXT DEFAULT ''"), ("compilation", "INTEGER DEFAULT 0"),
+                                ("media_type", "TEXT DEFAULT ''"), ("encoder", "TEXT DEFAULT ''"),
+                                ("copyright", "TEXT DEFAULT ''"), ("originaldate", "TEXT DEFAULT ''"),
+                                ("remixer", "TEXT DEFAULT ''"), ("grouping", "TEXT DEFAULT ''"),
+                                ("mood", "TEXT DEFAULT ''"), ("replaygain_track_peak", "REAL"),
+                                ("content_hash", "TEXT DEFAULT ''")]:
             if col not in existing:
                 with contextlib.suppress(sqlite3.OperationalError):
                     self._conn.execute(f"ALTER TABLE media_items ADD COLUMN {col} {col_def}")
@@ -216,7 +223,8 @@ class LibraryDB:
             self._conn.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS media_fts
                 USING fts5(title, artist, album, albumartist, genre, composer,
-                            filepath, filename, content='media_items', content_rowid='id')
+                            filepath, filename, isrc, label, conductor, grouping, mood,
+                            content='media_items', content_rowid='id')
             """)
             # Populate FTS5 with existing data (content= sync is for new rows only)
             self._conn.execute(
@@ -315,12 +323,12 @@ class LibraryDB:
             import logging
             logging.getLogger("astra").debug("Scanner: commit after add_file failed")
 
-    def get_file_signature(self, filepath: str) -> tuple[int, float] | None:
-        """Return (size, mtime) for a filepath, or None if not in DB."""
+    def get_file_signature(self, filepath: str) -> tuple | None:
+        """Return (size, mtime, content_hash) for a filepath, or None if not in DB."""
         row = self._conn.execute(
-            "SELECT size, mtime FROM media_items WHERE filepath=?",
+            "SELECT size, mtime, COALESCE(content_hash,'') FROM media_items WHERE filepath=?",
             (filepath,)).fetchone()
-        return (row[0], row[1]) if row else None
+        return (row[0], row[1], row[2]) if row else None
 
     def log_index_error(self, filepath: str, error: str, stage: str = ""):
         with contextlib.suppress(sqlite3.Error):
@@ -341,6 +349,9 @@ class LibraryDB:
             "disc_number", "disc_total", "composer",
             "mb_track_id", "mb_album_id", "mb_albumartist_id",
             "bit_depth", "bpm", "replaygain_track", "replaygain_album",
+            "replaygain_track_peak", "isrc", "label", "conductor",
+            "compilation", "media_type", "encoder", "copyright",
+            "originaldate", "remixer", "grouping", "mood", "content_hash",
         ]
         update_cols = [c for c in columns if c != "filepath"]
         set_clause = ", ".join(f"{c}=excluded.{c}" for c in update_cols)
@@ -354,10 +365,12 @@ class LibraryDB:
                 r.get(c, "" if c not in ("size", "mtime", "duration", "year",
                                           "track_number", "track_total",
                                           "disc_number", "disc_total",
-                                          "bit_depth", "bpm",
-                                          "replaygain_track", "replaygain_album")
+                                          "bit_depth", "bpm", "compilation",
+                                          "replaygain_track", "replaygain_album",
+                                          "replaygain_track_peak")
                     else 0 if c not in ("mtime", "duration",
-                                         "replaygain_track", "replaygain_album")
+                                         "replaygain_track", "replaygain_album",
+                                         "replaygain_track_peak")
                     else 0.0)
                 for c in columns))
         try:

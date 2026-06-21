@@ -6,7 +6,8 @@ logger = logging.getLogger("astra.search_index")
 
 # Columns to include in the FTS5 index
 FTS_COLUMNS = ["title", "artist", "album", "albumartist",
-                "genre", "composer", "filepath", "filename"]
+                "genre", "composer", "filepath", "filename",
+                "isrc", "label", "conductor", "grouping", "mood"]
 
 FTS_TABLE = "media_fts"
 

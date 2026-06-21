@@ -304,6 +304,13 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         self._load_library()
 
+        # Auto-enrich artists on startup (respects cache and refresh_days)
+        if hasattr(self, '_artist_enrich') and sget("artist_enrichment/enabled") is not False:
+            from core.settings_manager import get as sget
+            if hasattr(self._artist_repo, 'groups'):
+                self._artist_enrich.enrich_visible_artists(
+                    self._artist_repo.groups, limit=20)
+
         self._setup_tray()
 
         # ── Music Identifier signal connections ──

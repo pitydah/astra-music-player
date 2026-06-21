@@ -71,6 +71,27 @@ class ArtistEnrichmentService(QObject):
                  "nl", "pl", "sv", "ar", "tr", "cs", "ca", "eu", "gl"}
         return code if code in valid else "en"
 
+    def enrich_artist_by_key(self, artist_key: str, display_name: str,
+                              force: bool = False):
+        """Enrich an artist by key and display name (no ArtistGroup needed)."""
+        if not self._enabled or not artist_key:
+            return
+
+        if not force:
+            cached = self._cache.get_cached_artist(artist_key)
+            if cached and not self._cache.is_stale(artist_key):
+                info = _dict_to_info(cached)
+                if info and info.has_any_data:
+                    self.artist_enriched.emit(artist_key, info)
+                    return
+
+        if artist_key not in self._active_keys and artist_key not in self._pending:
+            self._pending.append(artist_key)
+            self._active_keys[artist_key] = display_name
+            self._queued += 1
+        if not self._timer.isActive():
+            self._timer.start()
+
     def enrich_artist(self, group, force: bool = False):
         if not self._enabled or not group or not group.key:
             return

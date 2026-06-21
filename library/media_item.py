@@ -38,6 +38,23 @@ class MediaItem:
     mb_albumartist_id: str = ""
     bit_depth: int = 0
     bpm: int = 0
+    isrc: str = ""
+    label: str = ""
+    conductor: str = ""
+    compilation: int = 0
+    media_type: str = ""
+    encoder: str = ""
+    copyright: str = ""
+    originaldate: str = ""
+    remixer: str = ""
+    grouping: str = ""
+    mood: str = ""
+    replaygain_track: float = 0.0
+    replaygain_album: float = 0.0
+    replaygain_track_peak: float = 0.0
+    play_count: int = 0
+    last_played: float = 0.0
+    rating: int = 0
 
     @property
     def display_title(self) -> str:
@@ -59,27 +76,35 @@ class MediaItem:
 
     @classmethod
     def from_row(cls, row: tuple) -> "MediaItem":
+        def _s(idx, default=""):
+            return str(row[idx]) if len(row) > idx and row[idx] is not None else default
+        def _i(idx, default=0):
+            return int(row[idx]) if len(row) > idx and row[idx] is not None else default
+        def _f(idx, default=0.0):
+            return float(row[idx]) if len(row) > idx and row[idx] is not None else default
+
         return cls(
-            id=row[0], filepath=row[1], filename=row[2], directory=row[3],
-            ext=row[4] or "", kind=row[5] or "", size=row[6] or 0,
-            mtime=row[7] or 0.0, duration=row[8] or 0.0,
-            channels=row[9] or 0, sample_rate=row[10] or 0,
-            bitrate=row[11] or 0, title=row[12] or "",
-            artist=str(row[13]) if row[13] else "",
-            album=str(row[14]) if row[14] else "",
-            year=row[15] if len(row) > 15 and row[15] else 0,
-            genre=row[16] if len(row) > 16 and row[16] else "",
-            track_number=row[17] if len(row) > 17 and row[17] else 0,
-            composer=row[18] if len(row) > 18 and row[18] else "",
-            albumartist=str(row[19]) if len(row) > 19 and row[19] else "",
-            disc_number=row[20] if len(row) > 20 and row[20] else 0,
-            disc_total=row[21] if len(row) > 21 and row[21] else 0,
-            track_total=row[22] if len(row) > 22 and row[22] else 0,
-            mb_track_id=str(row[23]) if len(row) > 23 and row[23] else "",
-            mb_album_id=str(row[24]) if len(row) > 24 and row[24] else "",
-            mb_albumartist_id=str(row[25]) if len(row) > 25 and row[25] else "",
-            bit_depth=row[26] if len(row) > 26 and row[26] else 0,
-            bpm=row[27] if len(row) > 27 and row[27] else 0,
+            id=_i(0), filepath=_s(1), filename=_s(2), directory=_s(3),
+            ext=_s(4), kind=_s(5), size=_i(6),
+            mtime=_f(7), duration=_f(8),
+            channels=_i(9), sample_rate=_i(10),
+            bitrate=_i(11), title=_s(12),
+            artist=_s(13), album=_s(14),
+            year=_i(15), genre=_s(16),
+            track_number=_i(17), composer=_s(18),
+            albumartist=_s(19), disc_number=_i(20),
+            disc_total=_i(21), track_total=_i(22),
+            mb_track_id=_s(23), mb_album_id=_s(24),
+            mb_albumartist_id=_s(25), bit_depth=_i(26),
+            bpm=_i(27), isrc=_s(28), label=_s(29),
+            conductor=_s(30), compilation=_i(31),
+            media_type=_s(32), encoder=_s(33),
+            copyright=_s(34), originaldate=_s(35),
+            remixer=_s(36), grouping=_s(37),
+            mood=_s(38), replaygain_track=_f(39),
+            replaygain_album=_f(40), replaygain_track_peak=_f(41),
+            play_count=_i(42), last_played=_f(43),
+            rating=_i(44),
         )
 
     @classmethod
@@ -113,4 +138,21 @@ class MediaItem:
             mb_albumartist_id=str(d.get("mb_albumartist_id") or ""),
             bit_depth=d.get("bit_depth", 0),
             bpm=d.get("bpm", 0),
+            isrc=str(d.get("isrc") or ""),
+            label=str(d.get("label") or ""),
+            conductor=str(d.get("conductor") or ""),
+            compilation=d.get("compilation", 0),
+            media_type=str(d.get("media_type") or ""),
+            encoder=str(d.get("encoder") or ""),
+            copyright=str(d.get("copyright") or ""),
+            originaldate=str(d.get("originaldate") or ""),
+            remixer=str(d.get("remixer") or ""),
+            grouping=str(d.get("grouping") or ""),
+            mood=str(d.get("mood") or ""),
+            replaygain_track=d.get("replaygain_track", 0.0),
+            replaygain_album=d.get("replaygain_album", 0.0),
+            replaygain_track_peak=d.get("replaygain_track_peak", 0.0),
+            play_count=d.get("play_count", 0),
+            last_played=d.get("last_played", 0.0),
+            rating=d.get("rating", 0),
         )
