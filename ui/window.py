@@ -106,9 +106,6 @@ SECTION_CONFIG = {
     "mix_popular": {"title": "Más escuchadas", "subtitle": "Mayor número de reproducciones",
                     "icon": "sidebar_popular", "views": [],
                     "search": False, "default": None},
-    "new_playlist": {"title": "Nueva playlist", "subtitle": "Crea una lista personalizada",
-                     "icon": "sidebar_add", "views": [],
-                     "search": False, "default": None},
     "add_server": {"title": "Añadir servidor", "subtitle": "Conecta Navidrome o Jellyfin",
                    "icon": "sidebar_add", "views": [],
                    "search": False, "default": None},
@@ -664,6 +661,18 @@ class MainWindow(QMainWindow):
             self._on_hub_create_from_folder)
         self._playlist_hub.create_from_queue_requested.connect(
             self._on_hub_create_from_queue)
+        self._playlist_hub.export_text_requested.connect(
+            lambda: self._toast_svc.show("Funcionalidad en desarrollo — disponible próximamente", "info"))
+        self._playlist_hub.find_duplicates_requested.connect(
+            lambda: self._toast_svc.show("Detección de duplicados pendiente de implementación", "info"))
+        self._playlist_hub.scan_metadata_requested.connect(
+            lambda: self._toast_svc.show("Revisión de metadatos pendiente de implementación", "info"))
+        self._playlist_hub.scan_missing_covers_requested.connect(
+            lambda: self._toast_svc.show("Búsqueda de carátulas faltantes pendiente de implementación", "info"))
+        self._playlist_hub.clean_empty_playlists_requested.connect(
+            lambda: self._toast_svc.show("Limpieza de playlists vacías pendiente de implementación", "info"))
+        self._playlist_hub.find_lost_files_requested.connect(
+            lambda: self._toast_svc.show("Búsqueda de canciones perdidas pendiente de implementación", "info"))
 
         self._playlist_detail = PlaylistDetailView()
         self._playlist_detail.play_requested.connect(self._on_hub_playlist_play)
@@ -1042,9 +1051,6 @@ class MainWindow(QMainWindow):
             self._views.show("folders")
             self._search.show()
 
-        elif key == "new_playlist":
-            self._create_playlist()
-
         elif key == "radio":
             self._configure_header_for_section(key)
             self._search_ctrl.set_active("radio")
@@ -1093,19 +1099,20 @@ class MainWindow(QMainWindow):
 
         elif key and key.startswith("mix_"):
             from library.smart_mixes import (get_daily_mix, get_unplayed,
-                                            get_popular)
+                                            get_popular, get_favorites_recent)
             self._section_title.setText({
                 "mix_daily": "Mix diario", "mix_unplayed": "No escuchadas",
                 "mix_popular": "Más escuchadas",
+                "mix_favorites": "Favoritos recientes",
             }.get(key, "Mix"))
             mixes = {"mix_daily": get_daily_mix, "mix_unplayed": get_unplayed,
-                    "mix_popular": get_popular}
+                    "mix_popular": get_popular, "mix_favorites": get_favorites_recent}
             fn = mixes.get(key)
             if fn:
                 files = fn()
                 files = [f for f in files
                          if isinstance(f, str) and (f.startswith("http") or os.path.isfile(f))]
-                if key == "mix_unplayed":
+                if key in ("mix_unplayed", "mix_favorites"):
                     # Show table view instead of auto-play
                     items = [self._items_index.get(f) for f in files]
                     items = [i for i in items if i]
@@ -1203,12 +1210,12 @@ class MainWindow(QMainWindow):
             self._configure_header_for_section(key)
             self._identifier_view.set_detected_tracks(
                 self._db.get_detected_tracks(100))
-            self._views.show("identifier")
+            self._fade_content("identifier")
 
         elif key == "home_audio":
             self._configure_header_for_section("home_audio")
             self._home_audio_view.refresh_if_needed()
-            self._views.show("home_audio")
+            self._fade_content("home_audio")
 
     def _on_sidebar_menu(self, pos):
         widget = self._sidebar.childAt(pos)

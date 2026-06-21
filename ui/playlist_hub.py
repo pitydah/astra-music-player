@@ -127,6 +127,12 @@ class PlaylistHubWidget(QWidget):
     create_from_artist_requested = Signal()
     create_from_genre_requested = Signal()
     create_from_search_requested = Signal()
+    export_text_requested = Signal()
+    find_duplicates_requested = Signal()
+    scan_metadata_requested = Signal()
+    scan_missing_covers_requested = Signal()
+    clean_empty_playlists_requested = Signal()
+    find_lost_files_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -560,6 +566,21 @@ class PlaylistHubWidget(QWidget):
         v.addWidget(d)
 
         v.addStretch()
+
+        # Dispatch by key — tool cards emit signals for window.py to handle
+        tool_signals = {
+            "import_m3u": self.import_m3u_requested,
+            "export_all": self.export_playlists_requested,
+            "export_text": self.export_text_requested,
+            "duplicates": self.find_duplicates_requested,
+            "metadata": self.scan_metadata_requested,
+            "missing_cover": self.scan_missing_covers_requested,
+            "empty_pl": self.clean_empty_playlists_requested,
+            "lost_files": self.find_lost_files_requested,
+        }
+        sig = tool_signals.get(key)
+        if sig:
+            card.mouseDoubleClickEvent = lambda e, s=sig: s.emit()
         return card
 
     # ── Section heading ──
