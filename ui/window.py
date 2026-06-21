@@ -173,9 +173,10 @@ class MainWindow(QMainWindow):
         self._playback.set_volume(70)
         self._player.set_library_db(self._db)
         self._model = TrackRefTableModel(self)
+        self._radio_manager = RadioManager()
         self._search_ctrl = SearchController(self)
         self._search_ctrl.register("local", LocalSource(self._db))
-        self._search_ctrl.register("radio", RadioSource(RadioManager()))
+        self._search_ctrl.register("radio", RadioSource(self._radio_manager))
         self._search_ctrl.results_ready.connect(self._on_search_results)
         from core.toast_service import ToastService
         self._toast_svc = ToastService(self)
@@ -622,8 +623,9 @@ class MainWindow(QMainWindow):
         self._coverflow = None
         self._remote_browser = None
         self._remote_placeholder = QWidget()
-        self._radio_widget = RadioWidget()
+        self._radio_widget = RadioWidget(self._radio_manager)
         self._radio_widget.station_selected.connect(self._play_radio)
+        self._radio_widget.count_changed.connect(self._on_radio_count)
 
         self._album_grid = AlbumGridWidget()
         self._album_grid.album_double_clicked.connect(
@@ -1046,7 +1048,9 @@ class MainWindow(QMainWindow):
         elif key == "radio":
             self._configure_header_for_section(key)
             self._search_ctrl.set_active("radio")
-            self._apply_filters()
+            self._current_section_key = "radio"
+            self._radio_widget.reload()
+            self._fade_content("radio")
 
         elif key == "add_server":
             self._add_server()
@@ -1356,6 +1360,13 @@ class MainWindow(QMainWindow):
             uri=url, title=name, artist="Radio",
             source_type="radio", source_label=name))
 
+    def _on_radio_count(self, visible: int, total: int):
+        if self._current_section_key == "radio":
+            if visible != total:
+                self._count.setText(f"{visible} de {total} emisoras")
+            else:
+                self._count.setText(f"{total} emisoras")
+
     # ── Search ──
 
     def _on_search(self, text: str):
@@ -1374,6 +1385,9 @@ class MainWindow(QMainWindow):
                 ]
             self._artist_grid.set_artists(filtered)
             self._count.setText(f"{len(filtered)} artistas")
+            return
+        if self._current_section_key == "radio":
+            self._radio_widget.set_filter(self._search_text)
             return
         self._apply_filters()
 
