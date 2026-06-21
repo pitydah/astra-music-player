@@ -252,7 +252,7 @@ class Indexer(QObject):
         }
 
     def _rebuild_indexes(self):
-        """Rebuild SQLite indexes for fast queries."""
+        """Rebuild SQLite indexes and FTS5 index for fast queries."""
         try:
             self._db._conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_media_artist ON media_items(artist)")
@@ -265,6 +265,11 @@ class Indexer(QObject):
             self._db._conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_media_year ON media_items(year)")
             self._db._conn.commit()
+            # Rebuild FTS5 to sync new/changed rows
+            from library.search_index import SearchIndex
+            idx = SearchIndex(self._db._conn)
+            if idx.fts_exists:
+                idx.rebuild_fts()
         except Exception as e:
             logger.warning(f"Index rebuild failed: {e}")
 

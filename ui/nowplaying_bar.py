@@ -724,6 +724,7 @@ class NowPlayingBar(QWidget):
             self._transmit_btn.setToolTip(f"Transmitiendo a: {device_name}")
         else:
             self._transmit_btn.setToolTip("Transmitir a dispositivo")
+        self._refresh_source_badge()
 
     def _set_button_active(self, btn, active: bool):
         """Toggle active visual state on a button via property."""

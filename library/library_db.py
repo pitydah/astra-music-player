@@ -218,6 +218,9 @@ class LibraryDB:
                 USING fts5(title, artist, album, albumartist, genre, composer,
                             filepath, filename, content='media_items', content_rowid='id')
             """)
+            # Populate FTS5 with existing data (content= sync is for new rows only)
+            self._conn.execute(
+                "INSERT INTO media_fts(media_fts) VALUES('rebuild')")
             self._conn.commit()
         except sqlite3.Error:
             pass

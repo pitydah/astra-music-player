@@ -13,12 +13,11 @@ class LocalSource(MusicSource):
         return self._to_refs(items)
 
     def search(self, query: str) -> list[TrackRef]:
-        # Use SearchEngine 2.0 for FTS5 + field-filtered queries
         engine = self._get_engine()
-        if engine and self._has_field_syntax(query):
+        if engine:
             results = engine.search(query, limit=200)
             return self._dicts_to_refs(results)
-        # Fallback to LIKE-based search
+        # Fallback to LIKE-based search when SearchEngine unavailable
         return self._to_refs(self._db.get_all(search=query))
 
     def _get_engine(self):
@@ -29,16 +28,6 @@ class LocalSource(MusicSource):
             except Exception:
                 pass
         return self._engine
-
-    @staticmethod
-    def _has_field_syntax(query: str) -> bool:
-        """Detect if query contains field:value syntax."""
-        return ":" in query and any(
-            q.split(":")[0].strip().lower() in (
-                "artist", "album", "genre", "format", "year",
-                "bitrate", "rating", "play_count", "path", "source",
-                "bpm", "sample_rate", "channels", "bit_depth",
-            ) for q in query.split() if ":" in q)
 
     def _to_refs(self, items) -> list[TrackRef]:
         return [TrackRef(

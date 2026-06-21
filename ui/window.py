@@ -1953,6 +1953,10 @@ class MainWindow(QMainWindow):
             # Trigger TheAudioDB album enrichment for external metadata
             self._enrich_album_background(key, item, tracks)
 
+            # Trigger artist enrichment for CoverFlow-navigated artist
+            if hasattr(self, '_artist_enrich') and item and item.subtitle:
+                self._artist_enrich.enrich_artist(item.subtitle)
+
             # Precarga vecinos ±2
             for off in (-2, -1, 1, 2):
                 ni = index + off
@@ -2009,6 +2013,14 @@ class MainWindow(QMainWindow):
             if not hasattr(self, '_album_enrich'):
                 self._album_enrich = AlbumEnrichmentService()
                 self._album_enrich.album_enriched.connect(self._on_album_enriched)
+                # Configure with API key from settings if available
+                try:
+                    import core.settings_manager as sm
+                    api_key = sm.get("integrations/theaudiodb_api_key")
+                    if api_key:
+                        self._album_enrich._client.api_key = api_key
+                except Exception:
+                    pass
             album_name = getattr(tracks[0], 'album', '') if tracks else ''
             artist_name = item.subtitle if item and item.subtitle else (
                 getattr(tracks[0], 'albumartist', '') or getattr(tracks[0], 'artist', ''))

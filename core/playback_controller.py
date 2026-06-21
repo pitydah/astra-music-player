@@ -174,6 +174,19 @@ class PlaybackController:
     def open_eq(self):
         from ui.eq_panel import EqDialog
         dlg = EqDialog(self._win)
+        # Load current EQ state from engine
+        engine = self._win._ctx.player
+        if hasattr(engine, '_engine'):
+            eng = engine._engine
+            if hasattr(eng, '_eq'):
+                eq = eng._eq
+                if hasattr(dlg, '_basic'):
+                    dlg._basic._bypass_cb.setChecked(eq.mode == "bypass")
+                    dlg._basic._preamp_slider.setValue(int(eq.preamp_db * 10))
+                    if eq.mode == "graphic" and hasattr(eq, 'bands_31') and eq.bands_31:
+                        for i, v in enumerate(eq.bands_31[:31]):
+                            if hasattr(dlg._basic, '_sliders') and i < len(dlg._basic._sliders):
+                                dlg._basic._sliders[i].setValue(int(v * 10))
         dlg.eq_bands_graphic_changed.connect(
             lambda bands: self._win._ctx.player.set_eq_graphic(bands))
         dlg.eq_bands_parametric_changed.connect(

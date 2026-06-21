@@ -26,6 +26,8 @@ class DetectionService(QObject):
         self._last_error = ""
         self._detections_total = 0
         self._duplicates_avoided = 0
+        self._capture = None
+        self._capture_timer = None
 
         self._provider_mgr.provider_changed.connect(
             lambda n, ok: self.provider_changed.emit(n, ok))
@@ -55,11 +57,26 @@ class DetectionService(QObject):
     def start(self, source: str = "", source_label: str = "",
               source_uri: str = ""):
         self._active = True
+        self._current_source = source
         self._set_status("listening")
+        # Continuous audio capture loop (every 15 seconds)
+        if not self._capture:
+            try:
+                from recognition.audio_capture_service import AudioCaptureService
+                self._capture = AudioCaptureService()
+            except Exception:
+                pass
+        if not self._capture_timer:
+            from PySide6.QtCore import QTimer
+            self._capture_timer = QTimer(self)
+            self._capture_timer.timeout.connect(self.identify_once)
+        self._capture_timer.start(15000)
         logger.info("Detection started source=%s", source)
 
     def stop(self):
         self._active = False
+        if self._capture_timer:
+            self._capture_timer.stop()
         self._set_status("idle")
 
     def toggle(self, source: str = ""):
@@ -71,19 +88,14 @@ class DetectionService(QObject):
     def identify_once(self):
         self._set_status("processing")
 
-        # Attempt real audio capture before recognition
+        # Use cached AudioCaptureService instance
         sample_bytes = None
-        try:
-            from recognition.audio_capture_service import AudioCaptureService
-            capture = AudioCaptureService()
-            if capture.is_available:
-                self._set_status("capturing")
-                sample_bytes = capture.capture_once()
-                self.sample_captured.emit(
-                    {"size": len(sample_bytes) if sample_bytes else 0,
-                     "format": "S16LE/22050Hz/mono"})
-        except Exception as e:
-            logger.debug("Audio capture skip: %s", e)
+        if self._capture and self._capture.is_available:
+            self._set_status("capturing")
+            sample_bytes = self._capture.capture_once()
+            self.sample_captured.emit(
+                {"size": len(sample_bytes) if sample_bytes else 0,
+                 "format": "S16LE/22050Hz/mono"})
 
         result = self.recognizer.identify(sample_bytes=sample_bytes,
                                           source=self._current_source if hasattr(self, '_current_source') else "")

@@ -118,6 +118,7 @@ class GStreamerEngine(QObject):
 
     def set_audio_profile(self, profile_key: str):
         self._audio_profile = profile_key
+        self._restart_if_playing()
 
     def set_dsd_mode(self, mode: str):
         self._dac.dsd_mode = mode

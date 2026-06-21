@@ -67,12 +67,21 @@ class FileActions:
                 f"Escaneando [{d.get('current', 0)}/{d.get('total', 0)}]{extra}\n"
                 f"{os.path.basename(d.get('filepath', ''))[:60]}")
 
-        worker.progress_detail.connect(_on_detail)
+        worker.detail.connect(_on_detail)
 
         def _on_done(added):
             overlay.hide()
             overlay.deleteLater()
             self._win._load_library()
+            # Rebuild FTS5 index and reset CoverFlow cache
+            try:
+                from library.search_index import SearchIndex
+                idx = SearchIndex(self._win._db._conn)
+                if idx.fts_exists:
+                    idx.rebuild_fts()
+            except Exception:
+                pass
+            self._win._coverflow_cache_key = None
             ToastNotification.success(
                 f"Escaneo completado: {added} archivos añadidos", self._win)
 
