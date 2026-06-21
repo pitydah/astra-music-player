@@ -77,11 +77,18 @@ class MediaItem:
     @classmethod
     def from_row(cls, row: tuple) -> "MediaItem":
         def _s(idx, default=""):
-            return str(row[idx]) if len(row) > idx and row[idx] is not None else default
+            v = row[idx] if len(row) > idx else None
+            return str(v) if v is not None else default
         def _i(idx, default=0):
-            return int(row[idx]) if len(row) > idx and row[idx] is not None else default
+            v = row[idx] if len(row) > idx else None
+            if v is None or v == "":
+                return default
+            return int(float(v)) if isinstance(v, str) else int(v)
         def _f(idx, default=0.0):
-            return float(row[idx]) if len(row) > idx and row[idx] is not None else default
+            v = row[idx] if len(row) > idx else None
+            if v is None or v == "":
+                return default
+            return float(v)
 
         return cls(
             id=_i(0), filepath=_s(1), filename=_s(2), directory=_s(3),
