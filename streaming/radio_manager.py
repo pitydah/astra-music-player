@@ -81,22 +81,52 @@ class RadioManager:
         gi.require_version("Gst", "1.0")
         from gi.repository import Gst
         Gst.init(None)
-        # NOTE: Recording pipeline uses Gst.parse_launch directly because
-        # PipelineFactory handles audio OUTPUT pipelines (playbin+sink), not
-        # recording/encoding pipelines (uridecodebin+encoder+filesink).
-        # A RecordingPipelineFactory would be overkill for this single use case.
-        pipeline_str = (
-            f"uridecodebin uri={url} ! audioconvert ! "
-            f"lamemp3enc target=bitrate bitrate=192 ! "
-            f"filesink location={output_path}"
-        )
-        self._record_pipeline = Gst.parse_launch(pipeline_str)
-        if self._record_pipeline:
-            self._record_pipeline.set_state(Gst.State.PLAYING)
-            return True
-        return False
+
+        # Sanitize URL for GStreamer properties (escape single quotes in f-strings)
+        safe_url = url.replace("'", "\\'")
+
+        pipeline = Gst.Pipeline.new("radio-record")
+        src = Gst.ElementFactory.make("uridecodebin", None)
+        conv = Gst.ElementFactory.make("audioconvert", None)
+
+        # Try lamemp3enc, fallback to opusenc
+        enc_name = "lamemp3enc"
+        enc = Gst.ElementFactory.make(enc_name, None)
+        if not enc:
+            enc_name = "opusenc"
+            enc = Gst.ElementFactory.make(enc_name, None)
+        if enc and enc_name == "lamemp3enc":
+            enc.set_property("target", "bitrate")
+            enc.set_property("bitrate", 192)
+
+        sink = Gst.ElementFactory.make("filesink", None)
+        if not all([src, conv, enc, sink]):
+            import logging
+            logging.getLogger("astra.radio").warning(
+                "Missing GStreamer elements for recording: uridecodebin=%s, audioconvert=%s, enc=%s/opusenc=%s, filesink=%s",
+                src is not None, conv is not None, enc is not None, enc_name, sink is not None)
+            return False
+
+        src.set_property("uri", safe_url)
+        sink.set_property("location", output_path)
+
+        for e in [src, conv, enc, sink]:
+            pipeline.add(e)
+        src.link(conv)
+        conv.link(enc)
+        enc.link(sink)
+
+        self._record_pipeline = pipeline
+        ret = pipeline.set_state(Gst.State.PLAYING)
+        if ret == Gst.StateChangeReturn.FAILURE:
+            import logging
+            logging.getLogger("astra.radio").warning("Failed to start recording pipeline")
+            self._record_pipeline = None
+            return False
+        return True
 
     def stop_recording(self):
         if hasattr(self, '_record_pipeline') and self._record_pipeline:
             self._record_pipeline.set_state(Gst.State.NULL)
+            self._record_pipeline.get_state(Gst.CLOCK_TIME_NONE)
             self._record_pipeline = None

@@ -103,9 +103,7 @@ class SourceStatusBadge(QPushButton):
 
     def set_text(self, text: str):
         """Set badge text with a colored dot prefix."""
-        prefix = "\u25cf "  # ● unicode bullet
-        if self._quality_cat in ("hires", "dsd"):
-            prefix = ""  # no extra dot — the badge itself is the indicator
+        prefix = "\u25cf "  # ● unicode bullet — visible for ALL categories
         display = prefix + text.strip()
         self.setText(display)
 

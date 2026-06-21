@@ -712,6 +712,37 @@ class NowPlayingBar(QWidget):
             identifier_state=self._identifier_state,
             replaygain=self._replaygain,
         )
+        # Build unified tooltip: quality + source + filepath + audio output
+        lines = [self._source_quality] if self._source_quality else []
+        if self._codec:
+            detail = self._codec.upper() if self._codec else ""
+            if self._bit_depth:
+                detail += f" · {self._bit_depth}-bit"
+            if self._sample_rate:
+                detail += f" · {self._sample_rate}"
+            if self._bitrate:
+                detail += f" · {self._bitrate}kbps"
+            if detail:
+                lines.append(detail)
+        src = ""
+        if self._source_type == "radio":
+            src = "Radio" if not self._source_label else f"Radio · {self._source_label}"
+        elif self._source_type in ("navidrome", "jellyfin"):
+            src = f"{self._source_type.upper()} · {self._source_label}" if self._source_label else self._source_type.upper()
+        elif self._filepath:
+            import os
+            fn = os.path.basename(self._filepath)
+            src = f"Archivo local · {fn[:80]}"
+        if src:
+            lines.append(src)
+        if self._audio_output_label:
+            lines.append(f"Salida · {self._audio_output_label}")
+        if self._transmitting and self._transmit_device_name:
+            lines.append(f"Transmitiendo a · {self._transmit_device_name}")
+        if self._replaygain:
+            lines.append("ReplayGain activo")
+        if lines:
+            self._quality_badge.setToolTip("\n".join(lines))
 
     def set_transmit_active(self, active: bool, device_name: str = ""):
         """Update transmit button style and tooltip from external controllers."""

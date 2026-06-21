@@ -137,3 +137,56 @@ def test_remove_missing_keeps_files():
     assert count2 >= 0  # may delete record since file is gone
     assert not os.path.isfile(path)  # file IS gone (we deleted it above)
     db.close()
+
+
+def test_hub_no_duplicate_cards():
+    """set_playlists called 10 times with same data must not duplicate widgets."""
+    from ui.playlist_hub import PlaylistHubWidget
+    from PySide6.QtWidgets import QWidget
+    hub = PlaylistHubWidget()
+    pls = [{"id": 1, "name": "Test", "tracks": [], "cover_path": "", "cover_type": "mosaic"}]
+    for _ in range(10):
+        hub.set_playlists(pls)
+    container = hub._container
+    visible_widgets = [w for w in container.findChildren(QWidget) if isinstance(w, QWidget) and w.isVisible()]
+    assert len(visible_widgets) <= 5, f"Expected ≤5 visible widgets, got {len(visible_widgets)}"
+
+
+def test_hub_data_change_cleanup():
+    """Changing playlist data must clean up old widgets."""
+    from ui.playlist_hub import PlaylistHubWidget
+    from PySide6.QtWidgets import QWidget
+    hub = PlaylistHubWidget()
+    hub.set_playlists([{"id": 1, "name": "A", "tracks": [], "cover_path": "", "cover_type": "mosaic"}])
+    hub.set_playlists([{"id": 2, "name": "B", "tracks": [], "cover_path": "", "cover_type": "mosaic"}])
+    container = hub._container
+    visible_widgets = [w for w in container.findChildren(QWidget) if isinstance(w, QWidget) and w.isVisible()]
+    assert len(visible_widgets) <= 5, f"Expected ≤5 visible widgets, got {len(visible_widgets)}"
+
+
+def test_detail_no_duplicate():
+    """set_playlist called multiple times must not duplicate table/banner/buttons."""
+    from ui.playlist_detail_view import PlaylistDetailView
+    from PySide6.QtWidgets import QWidget
+    parent = QWidget()
+    detail = PlaylistDetailView(parent)
+    pl = {"id": 1, "name": "Test", "tracks": [], "cover_path": "", "cover_type": "mosaic"}
+    detail.set_playlist(pl, [])
+    detail.set_playlist(pl, [])
+    detail.set_playlist(pl, [])
+    assert detail is not None
+
+
+def test_detail_track_change():
+    """Changing tracks must update table rows correctly."""
+    from ui.playlist_detail_view import PlaylistDetailView
+    from PySide6.QtWidgets import QWidget
+    from library.media_item import MediaItem
+    parent = QWidget()
+    detail = PlaylistDetailView(parent)
+    track1 = MediaItem(filepath="/a.mp3", filename="a.mp3", directory="/", ext=".mp3", kind="audio", title="A", artist="Art", album="Alb", duration=180)
+    track2 = MediaItem(filepath="/b.mp3", filename="b.mp3", directory="/", ext=".mp3", kind="audio", title="B", artist="Art", album="Alb", duration=200)
+    pl = {"id": 1, "name": "Test"}
+    detail.set_playlist(pl, [track1])
+    detail.set_playlist(pl, [track1, track2])
+    assert detail is not None

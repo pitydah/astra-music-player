@@ -57,12 +57,14 @@ class AudioOutputController:
             import gi
             gi.require_version("Gst", "1.0")
             from gi.repository import Gst
+            Gst.init(None)
 
             monitor = Gst.DeviceMonitor()
             monitor.add_filter("Audio/Sink", None)
             monitor.start()
             devs = monitor.get_devices()
             monitor.stop()
+            devs = devs or []  # guard against None
 
             results = []
             for dev in devs:

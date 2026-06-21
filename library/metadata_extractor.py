@@ -18,15 +18,27 @@ AUDIO_EXTS = frozenset({
 ALL_EXTS = AUDIO_EXTS
 
 
+_discoverer_cache = None
+
+
+def _get_discoverer():
+    global _discoverer_cache
+    if _discoverer_cache is None:
+        _discoverer_cache = GstPbutils.Discoverer.new(5 * Gst.SECOND)
+    return _discoverer_cache
+
+
 def extract_metadata(filepath: str) -> dict:
-    """Extract duration, sample_rate, channels, bitrate, tags via GStreamer."""
+    """Extract duration, sample_rate, channels, bitrate, tags via GStreamer.
+    Uses cached Discoverer instance for performance across scan iterations.
+    Called from worker threads (Indexer QThread), not UI thread."""
     info = {"duration": 0.0, "channels": 0, "sample_rate": 0,
             "bitrate": 0, "title": "", "artist": "", "album": "",
             "albumartist": "", "date": "", "tracknumber": 0,
             "trackcount": 0}
     try:
         uri = "file://" + os.path.abspath(filepath)
-        discoverer = GstPbutils.Discoverer.new(5 * Gst.SECOND)
+        discoverer = _get_discoverer()
         disc = discoverer.discover_uri(uri)
         if disc is None:
             return info

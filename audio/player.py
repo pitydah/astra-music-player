@@ -298,7 +298,12 @@ class GStreamerEngine(QObject):
             self._current = filepath_or_url
             self._setup_bus()
             self._setup_timer()
-            self._pipeline.set_state(Gst.State.PLAYING)
+            ret = self._pipeline.set_state(Gst.State.PLAYING)
+            if ret == Gst.StateChangeReturn.FAILURE:
+                self.error_occurred.emit("Failed to start playback")
+                self._state = PlaybackState.STOPPED
+                self.state_changed.emit(self._state)
+                return
             self._state = PlaybackState.PLAYING
             self.state_changed.emit(self._state)
 
@@ -384,7 +389,12 @@ class GStreamerEngine(QObject):
         self._dff_thread = threading.Thread(target=self._dff_feed, daemon=True)
         self._dff_thread.start()
 
-        self._pipeline.set_state(Gst.State.PLAYING)
+        ret = self._pipeline.set_state(Gst.State.PLAYING)
+        if ret == Gst.StateChangeReturn.FAILURE:
+            self.error_occurred.emit("Failed to start DFF playback")
+            self._state = PlaybackState.STOPPED
+            self.state_changed.emit(self._state)
+            return
         self._state = PlaybackState.PLAYING
         self.state_changed.emit(self._state)
 
@@ -395,11 +405,18 @@ class GStreamerEngine(QObject):
             return
         fh.seek(h.data_offset)
         remaining = h.data_size
+        max_pending = 32  # limit in-flight buffers to avoid flooding main loop
+        pending = 0
         while self._dff_running and remaining > 0:
+            if pending >= max_pending:
+                import time
+                time.sleep(0.01)  # brief backpressure
+                continue
             data = fh.read(min(16384, remaining))
             if not data:
                 break
             remaining -= len(data)
+            pending += 1
             GLib.idle_add(self._push_dff, bytes(data), remaining <= 0)
         if remaining <= 0 and self._dff_running:
             GLib.idle_add(self._push_dff_eos)
@@ -409,7 +426,10 @@ class GStreamerEngine(QObject):
             return False
         buf = Gst.Buffer.new_allocate(None, len(data), None)
         buf.fill(0, data)
-        self._appsrc.emit("push-buffer", buf)
+        ret = self._appsrc.emit("push-buffer", buf)
+        if ret != Gst.FlowReturn.OK:
+            logging.getLogger("astra.player").warning("DFF push-buffer failed: %s", ret)
+            self._dff_running = False
         return False
 
     def _push_dff_eos(self) -> bool:
@@ -421,13 +441,17 @@ class GStreamerEngine(QObject):
 
     def pause(self):
         if self._pipeline and self._state == PlaybackState.PLAYING:
-            self._pipeline.set_state(Gst.State.PAUSED)
+            ret = self._pipeline.set_state(Gst.State.PAUSED)
+            if ret == Gst.StateChangeReturn.FAILURE:
+                return
             self._state = PlaybackState.PAUSED
             self.state_changed.emit(self._state)
 
     def resume(self):
         if self._pipeline and self._state == PlaybackState.PAUSED:
-            self._pipeline.set_state(Gst.State.PLAYING)
+            ret = self._pipeline.set_state(Gst.State.PLAYING)
+            if ret == Gst.StateChangeReturn.FAILURE:
+                return
             self._state = PlaybackState.PLAYING
             self.state_changed.emit(self._state)
 
@@ -443,6 +467,7 @@ class GStreamerEngine(QObject):
         self._dff_running = False
         if self._pipeline:
             self._pipeline.set_state(Gst.State.NULL)
+            self._pipeline.get_state(Gst.CLOCK_TIME_NONE)  # wait for NULL transition
         if self._bus_id and self._pipeline:
             bus = self._pipeline.get_bus()
             bus.disconnect(self._bus_id)
@@ -597,8 +622,34 @@ class GStreamerEngine(QObject):
         if t == Gst.MessageType.EOS:
             self._on_media_finished_eos()
         elif t == Gst.MessageType.ERROR:
-            err, _ = message.parse_error()
+            err, debug = message.parse_error()
+            logging.getLogger("astra.player").warning(
+                "GStreamer error: %s | %s", err, debug)
             self.error_occurred.emit(f"GStreamer: {err}")
+        elif t == Gst.MessageType.WARNING:
+            err, debug = message.parse_warning()
+            logging.getLogger("astra.player").debug(
+                "GStreamer warning: %s | %s", err, debug)
+        elif t == Gst.MessageType.BUFFERING:
+            pct = message.parse_buffering()
+            logging.getLogger("astra.player").debug("Buffering: %d%%", pct)
+            if pct < 100 and self._state == PlaybackState.PLAYING:
+                self._pipeline.set_state(Gst.State.PAUSED)
+            elif pct >= 100 and self._state == PlaybackState.PLAYING:
+                self._pipeline.set_state(Gst.State.PLAYING)
+        elif t == Gst.MessageType.TAG:
+            pass  # Stream metadata — could emit track_changed for radio
+        elif t == Gst.MessageType.STATE_CHANGED:
+            if message.src == self._pipeline:
+                old, new, pending = message.parse_state_changed()
+                logging.getLogger("astra.player").debug(
+                    "State: %s → %s (pending: %s)",
+                    old.value_nick, new.value_nick, pending.value_nick)
+        elif t == Gst.MessageType.DURATION_CHANGED:
+            ok, dur = self._pipeline.query_duration(Gst.Format.TIME)
+            if ok and dur > 0:
+                self._duration = dur / 1e9
+                self.duration_changed.emit(self._duration)
 
     def _poll(self):
         if self._pipeline and self._state == PlaybackState.PLAYING:
@@ -693,6 +744,7 @@ class GStreamerEngine(QObject):
     def _on_media_finished(self):
         if not self.play_next():
             self._pipeline.set_state(Gst.State.NULL)
+            self._pipeline.get_state(Gst.CLOCK_TIME_NONE)
             self._state = PlaybackState.STOPPED
             self.state_changed.emit(self._state)
             self.finished.emit()

@@ -28,6 +28,7 @@ class DetectionService(QObject):
         self._duplicates_avoided = 0
         self._capture = None
         self._capture_timer = None
+        self._identifying = False
 
         self._provider_mgr.provider_changed.connect(
             lambda n, ok: self.provider_changed.emit(n, ok))
@@ -86,24 +87,32 @@ class DetectionService(QObject):
             self.start(source)
 
     def identify_once(self):
-        self._set_status("processing")
+        if not self._active:
+            return
+        if self._identifying:
+            return  # prevent overlapping capture/recognition cycles
+        self._identifying = True
+        try:
+            self._set_status("processing")
 
-        # Use cached AudioCaptureService instance
-        sample_bytes = None
-        if self._capture and self._capture.is_available:
-            self._set_status("capturing")
-            sample_bytes = self._capture.capture_once()
-            self.sample_captured.emit(
-                {"size": len(sample_bytes) if sample_bytes else 0,
-                 "format": "S16LE/22050Hz/mono"})
+            # Use cached AudioCaptureService instance
+            sample_bytes = None
+            if self._capture and self._capture.is_available:
+                self._set_status("capturing")
+                sample_bytes = self._capture.capture_once()
+                self.sample_captured.emit(
+                    {"size": len(sample_bytes) if sample_bytes else 0,
+                     "format": "S16LE/22050Hz/mono"})
 
-        result = self.recognizer.identify(sample_bytes=sample_bytes,
-                                          source=self._current_source if hasattr(self, '_current_source') else "")
-        if result:
-            self._handle_identified(result)
-        else:
-            self._set_status("no_match")
-            self.detection_failed.emit("Sin coincidencia")
+            result = self.recognizer.identify(sample_bytes=sample_bytes,
+                                              source=self._current_source if hasattr(self, '_current_source') else "")
+            if result:
+                self._handle_identified(result)
+            else:
+                self._set_status("no_match")
+                self.detection_failed.emit("Sin coincidencia")
+        finally:
+            self._identifying = False
 
     def add_manual_detection(self, title: str, artist: str,
                              source: str = "manual", album: str = "",

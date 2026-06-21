@@ -45,6 +45,10 @@ class PipelineFactory:
         conv = Gst.ElementFactory.make("audioconvert", None)
         sink = self._make_sink_from_route(route)
         if not all([src, dec, conv, sink]):
+            import logging
+            logging.getLogger("astra.pipeline").warning(
+                "DFF pipeline: missing elements — appsrc=%s avdec_dsd_msbf=%s audioconvert=%s sink=%s",
+                src is not None, dec is not None, conv is not None, sink is not None)
             return None
 
         pipeline = Gst.Pipeline.new("astra-dff")
@@ -111,6 +115,10 @@ class PipelineFactory:
                             audio_sink.add(eq_bin)
                             last.link(eq_bin)
                             last = eq_bin
+                        else:
+                            import logging
+                            logging.getLogger("astra.pipeline").warning(
+                                "Parametric EQ: parse_bin_from_description returned None (audioiirfilter missing?)")
                     except Exception as e:
                         import logging
                         logging.getLogger("astra.pipeline").debug(

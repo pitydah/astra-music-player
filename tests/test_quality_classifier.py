@@ -41,9 +41,10 @@ class TestQualityClassifier:
         r = classify_audio_quality(_item("wav", 96000, 24))
         assert r["category"] == "hires"
 
-    def test_wav_32bit_hires(self):
+    def test_wav_32bit_not_hires(self):
         r = classify_audio_quality(_item("wav", 48000, 32))
-        assert r["category"] == "hires"
+        assert r["category"] == "lossless"  # 32-bit alone does NOT make it Hi-Res
+        assert "HI-RES" not in r["label"]
 
     def test_dsd64(self):
         r = classify_audio_quality(_item("dsf", 2822400))
@@ -81,3 +82,28 @@ class TestQualityClassifier:
         r = classify_audio_quality(_item("flac", 0, 16))
         assert r["category"] == "lossless"
         assert "0" not in r["label"]  # no "0/16"
+
+    def test_flac_24_48_not_hires(self):
+        r = classify_audio_quality(_item("flac", 48000, 24))
+        assert r["category"] == "lossless"
+        assert "HI-RES" not in r["label"]
+
+    def test_flac_24_96_hires_label(self):
+        r = classify_audio_quality(_item("flac", 96000, 24))
+        assert r["category"] == "hires"
+        assert "HI-RES 24/96" in r["label"]
+
+    def test_flac_24_192_hires_label(self):
+        r = classify_audio_quality(_item("flac", 192000, 24))
+        assert r["category"] == "hires"
+        assert "24/192" in r["label"]
+
+    def test_dsd64_explicit(self):
+        r = classify_audio_quality(_item("dsf", 2822400))
+        assert r["category"] == "dsd"
+        assert r["label"] == "DSD64"
+
+    def test_dsd128_explicit(self):
+        r = classify_audio_quality(_item("dsf", 5644800))
+        assert r["category"] == "dsd"
+        assert r["label"] == "DSD128"

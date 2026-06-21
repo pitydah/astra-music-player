@@ -51,29 +51,28 @@ def classify_audio_quality(item_or_track: Any) -> dict:
 
 def _lossless_result(codec: str, sample_rate: int, bit_depth: int,
                      bitrate: int) -> dict:
-    """Build result for lossless/hires."""
-    # Infer bit_depth from sample_rate if missing
-    if bit_depth <= 0:
-        bit_depth = 24 if sample_rate >= HIRES_SR_THRESHOLD else 16
-    # Infer sample_rate from bitrate if missing
+    """Build result for lossless/hires. Hi-Res requires both bit_depth>=24 AND sample_rate>=96000."""
     if sample_rate <= 0 and bitrate > 0:
         sample_rate = _infer_sr_from_bitrate(bitrate, bit_depth)
 
-    # Hi-Res: 24-bit+ and 96kHz+
+    # Cannot determine Hi-Res without both reliable values
+    if bit_depth <= 0 or sample_rate <= 0:
+        if sample_rate > 0:
+            bd = bit_depth if bit_depth > 0 else 16
+            label = f"{codec} {bd}/{int(sample_rate / 1000)}"
+            tooltip = f"{codec} \u00b7 {bd}-bit \u00b7 {sample_rate / 1000:.0f} kHz"
+            return _result("lossless", label, tooltip)
+        return _result("lossless", codec, f"{codec}")
+
+    # Hi-Res: 24-bit+ AND 96kHz+
     if bit_depth >= HIRES_BIT_THRESHOLD and sample_rate >= HIRES_SR_THRESHOLD:
         label = f"HI-RES {bit_depth}/{int(sample_rate / 1000)}"
         tooltip = f"{codec} \u00b7 {bit_depth}-bit \u00b7 {sample_rate / 1000:.0f} kHz"
         return _result("hires", label, tooltip)
 
-    # Hi-Res via bit depth alone (32-bit at any rate)
-    if bit_depth >= 32 and sample_rate > 0:
-        label = f"HI-RES {bit_depth}/{int(sample_rate / 1000)}"
-        tooltip = f"{codec} \u00b7 {bit_depth}-bit \u00b7 {sample_rate / 1000:.0f} kHz"
-        return _result("hires", label, tooltip)
-
     # Standard lossless with sample_rate
+    bd = bit_depth if bit_depth > 0 else 16
     if sample_rate > 0:
-        bd = bit_depth if bit_depth > 0 else 16
         label = f"{codec} {bd}/{int(sample_rate / 1000)}"
         tooltip = f"{codec} \u00b7 {bd}-bit \u00b7 {sample_rate / 1000:.0f} kHz"
         return _result("lossless", label, tooltip)
