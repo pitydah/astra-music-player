@@ -100,7 +100,7 @@ def get_sidebar_icon(key: str, active: bool = False, hover: bool = False,
         return _missing_pixmap(SIDEBAR_NORMAL, size)
     # native_color SVGs: render preserving original colors (no tinting)
     if spec and spec.render_mode == "native_color":
-        return render_svg_icon(path, size, padding=0)
+        return render_svg_icon(path, size, padding=1)
     # symbolic_tint SVGs get tinted to match text opacity
     if active:
         return get_pixmap(key, SIDEBAR_ACTIVE, size)

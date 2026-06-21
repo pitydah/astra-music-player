@@ -47,6 +47,8 @@ class SidebarItem(QFrame):
         self._icon_label.setAlignment(Qt.AlignCenter)
         self._icon_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._icon_label.setStyleSheet(icon_label_qss())
+        self._icon_label.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._icon_label.setAutoFillBackground(False)
         self._load_icon()
         layout.addWidget(self._icon_label)
 
