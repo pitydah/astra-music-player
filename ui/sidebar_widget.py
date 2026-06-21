@@ -122,8 +122,7 @@ class SidebarWidget(QWidget):
             matches = text == "" or text in item.text().lower()
             item.setVisible(matches)
         for sec in self._sections.values():
-            has_vis = any(
-                not it.isHidden() for it in sec._items) if text != "" else True
+            has_vis = any(it.isVisible() for it in sec._items) if text != "" else True
             if text != "":
                 sec.header.setVisible(has_vis)
                 sec._container.setVisible(has_vis and not sec.header.collapsed)

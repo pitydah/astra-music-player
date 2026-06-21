@@ -1413,10 +1413,10 @@ class MainWindow(QMainWindow):
 
     def _on_sidebar_menu(self, pos):
         widget = self._sidebar.childAt(pos)
-        from ui.sidebar_widget import _Item
+        from ui.sidebar.sidebar_item import SidebarItem
         item = None
         while widget:
-            if isinstance(widget, _Item):
+            if isinstance(widget, SidebarItem):
                 item = widget
                 break
             widget = widget.parentWidget()
