@@ -41,7 +41,7 @@ _BTN_CSS = f"""
     QPushButton {{
         background: rgba(255,255,255,0.060); color: {_TEXT};
         border: 1px solid rgba(255,255,255,0.095); border-radius: 12px;
-        padding: 8px 13px; font-size: 12.5px; font-weight: 650;
+        padding: 8px 13px; font-size: 12.5px; font-weight: 600;
     }}
     QPushButton:hover {{
         background: rgba(255,255,255,0.095);

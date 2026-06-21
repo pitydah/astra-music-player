@@ -44,7 +44,7 @@ def _glass_btn_css(extra: str = "") -> str:
             border-radius: 14px;
             padding: 10px 14px;
             font-size: 12.5px;
-            font-weight: 650;
+            font-weight: 600;
             {extra}
         }}
         QPushButton:hover {{
@@ -444,7 +444,7 @@ class PlaylistHubWidget(QWidget):
         # Title
         t = QLabel(title)
         t.setStyleSheet(
-            "QLabel { color: #FFFFFF; font-size: 13px; font-weight: 650;"
+            "QLabel { color: #FFFFFF; font-size: 13px; font-weight: 600;"
             "  background: transparent; border: none; }")
         v.addWidget(t)
 
@@ -488,7 +488,7 @@ class PlaylistHubWidget(QWidget):
 
         t = QLabel(title)
         t.setStyleSheet(
-            "QLabel { color: #FFFFFF; font-size: 13px; font-weight: 650;"
+            "QLabel { color: #FFFFFF; font-size: 13px; font-weight: 600;"
             "  background: transparent; border: none; }")
         v.addWidget(t)
 
@@ -596,7 +596,7 @@ class PlaylistHubWidget(QWidget):
         t.setObjectName("sectionHeading")
         t.setStyleSheet(
             "QLabel#sectionHeading { color: #FFFFFF; font-size: 17px;"
-            "  font-weight: 760; background: transparent; border: none; }")
+            "  font-weight: 700; background: transparent; border: none; }")
         h.addWidget(t)
 
         if subtitle:

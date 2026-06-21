@@ -109,7 +109,7 @@ class DetectionResultCard(QFrame):
         line1 = f"{title_text} — {artist_text}" if artist_text else title_text
         t = QLabel(line1[:60])
         t.setStyleSheet(
-            "font-size: 13px; font-weight: 650; color: rgba(255,255,255,0.85);")
+            "font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85);")
         info.addWidget(t)
 
         parts = []

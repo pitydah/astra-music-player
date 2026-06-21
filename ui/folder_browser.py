@@ -95,7 +95,7 @@ class FolderBrowserWidget(QWidget):
                 border-radius: 10px;
                 padding: 7px 12px;
                 font-size: 12px;
-                font-weight: 650;
+                font-weight: 600;
             }
         """)
         toolbar_layout.addWidget(self._breadcrumb, 1)

@@ -45,7 +45,7 @@ class MiniPlayer(QWidget):
         title_bar = QHBoxLayout()
         title_lbl = QLabel("Astra")
         title_lbl.setStyleSheet(
-            "font-size: 12px; font-weight: 650; color: rgba(255,255,255,0.5);")
+            "font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.5);")
         close_btn = QPushButton("\u00d7")
         close_btn.setFixedSize(26, 26)
         close_btn.setFlat(True)
@@ -77,7 +77,7 @@ class MiniPlayer(QWidget):
         text_col.setSpacing(2)
         self._title_lbl = QLabel("Sin reproducción")
         self._title_lbl.setStyleSheet(
-            "font-size: 13px; font-weight: 650; color: rgba(255,255,255,0.95);")
+            "font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.95);")
         self._artist_lbl = QLabel("")
         self._artist_lbl.setStyleSheet(
             "font-size: 11px; color: rgba(255,255,255,0.55);")

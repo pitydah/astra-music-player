@@ -25,7 +25,7 @@ _BTN_CSS = f"""
         border-radius: 12px;
         padding: 8px 16px;
         font-size: 12.5px;
-        font-weight: 650;
+        font-weight: 600;
     }}
     QPushButton:hover {{
         background: rgba(255,255,255,0.095);
@@ -209,7 +209,7 @@ class PlaylistDetailView(QWidget):
             QHeaderView::section {{
                 background: rgba(255,255,255,0.030); color: {_TEXT3};
                 border: none; border-bottom: 1px solid rgba(255,255,255,0.05);
-                padding: 8px 10px; font-size: 11px; font-weight: 650;
+                padding: 8px 10px; font-size: 11px; font-weight: 600;
             }}
         """)
 

@@ -129,7 +129,7 @@ class _DiscoverCard(QFrame):
         text_col.setSpacing(4)
         title_lbl = QLabel(title)
         title_lbl.setStyleSheet(
-            "font-size: 16px; font-weight: 650; color: rgba(255,255,255,0.92);"
+            "font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.92);"
             "background: transparent;")
         text_col.addWidget(title_lbl)
 

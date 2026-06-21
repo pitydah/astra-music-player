@@ -54,7 +54,7 @@ class AlbumInfoBanner(QWidget):
 
         self._title_lbl = QLabel("")
         self._title_lbl.setStyleSheet(
-            "font-size: 18px; font-weight: 760; color: rgba(255,255,255,0.95);")
+            "font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.95);")
         info.addWidget(self._title_lbl)
 
         self._artist_lbl = QLabel("")
@@ -80,7 +80,7 @@ class AlbumInfoBanner(QWidget):
         badges.setSpacing(8)
         self._source_badge = QLabel("")
         self._source_badge.setStyleSheet(
-            "font-size: 10px; font-weight: 650; color: rgba(140,190,255,0.88);"
+            "font-size: 10px; font-weight: 600; color: rgba(140,190,255,0.88);"
             "background: rgba(70,145,255,0.14); border-radius: 6px;"
             "padding: 3px 8px;")
         self._source_badge.hide()

@@ -192,7 +192,7 @@ class ArtworkResizeDialog(QDialog):
         v.setSpacing(6)
 
         lbl = QLabel(title)
-        lbl.setStyleSheet(f"color: {_TEXT}; font-size: 13px; font-weight: 650; background: transparent;")
+        lbl.setStyleSheet(f"color: {_TEXT}; font-size: 13px; font-weight: 600; background: transparent;")
         v.addWidget(lbl, alignment=Qt.AlignCenter)
 
         img_lbl = QLabel()

@@ -22,7 +22,7 @@ _BTN_CSS = f"""
     QPushButton {{
         background: rgba(255,255,255,0.06); color: {_TEXT};
         border: 1px solid rgba(255,255,255,0.095); border-radius: 12px;
-        padding: 8px 14px; font-size: 12.5px; font-weight: 650;
+        padding: 8px 14px; font-size: 12.5px; font-weight: 600;
     }}
     QPushButton:hover {{
         background: rgba(255,255,255,0.095);
@@ -275,7 +275,7 @@ class ArtistDetailView(QWidget):
 
     def _build_albums_section(self, artist: ArtistGroup):
         section = QLabel("Álbumes")
-        section.setStyleSheet(f"color: {_TEXT}; font-size: 17px; font-weight: 760; background: transparent;")
+        section.setStyleSheet(f"color: {_TEXT}; font-size: 17px; font-weight: 700; background: transparent;")
         self._layout.addWidget(section)
 
         cols = max(1, (self.width() - 64) // 280)
@@ -318,7 +318,7 @@ class ArtistDetailView(QWidget):
         info.setSpacing(3)
 
         title = QLabel(album.title)
-        title.setStyleSheet(f"color: {_TEXT}; font-size: 13px; font-weight: 650; background: transparent;")
+        title.setStyleSheet(f"color: {_TEXT}; font-size: 13px; font-weight: 600; background: transparent;")
         info.addWidget(title)
 
         meta = f"{album.track_count} canciones"
@@ -391,7 +391,7 @@ class ArtistDetailView(QWidget):
 
     def _build_loose_tracks(self, artist: ArtistGroup):
         section = QLabel("Canciones sin álbum")
-        section.setStyleSheet(f"color: {_TEXT}; font-size: 17px; font-weight: 760; background: transparent;")
+        section.setStyleSheet(f"color: {_TEXT}; font-size: 17px; font-weight: 700; background: transparent;")
         self._layout.addWidget(section)
 
         table = QTableWidget()

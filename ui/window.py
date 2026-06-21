@@ -619,7 +619,11 @@ class MainWindow(QMainWindow):
         self._expanded = None
         self._coverflow = None
         self._remote_browser = None
-        self._remote_placeholder = QWidget()
+        self._remote_placeholder = QLabel("Conecta a un servidor remoto primero")
+        self._remote_placeholder.setAlignment(Qt.AlignCenter)
+        self._remote_placeholder.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.62); font-size: 15px; font-weight: 500;"
+            "  background: transparent; border: none; }")
         self._radio_widget = RadioWidget(self._radio_manager)
         self._radio_widget.station_selected.connect(self._play_radio)
         self._radio_widget.count_changed.connect(self._on_radio_count)
