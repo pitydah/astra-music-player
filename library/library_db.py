@@ -407,6 +407,40 @@ class LibraryDB:
         self._conn.commit()
         return len(missing)
 
+    def cleanup_missing(self) -> int:
+        """Fast cleanup: check known directories for missing files, rebuild if needed."""
+        dirs = self.get_directories()
+        if not dirs:
+            return 0
+        all_rows = self._conn.execute(
+            "SELECT id, filepath FROM media_items").fetchall()
+        missing_ids = []
+        for rid, fp in all_rows:
+            if not os.path.isfile(fp):
+                missing_ids.append(rid)
+        if not missing_ids:
+            return 0
+        for rid in missing_ids:
+            self._conn.execute("DELETE FROM media_items WHERE id=?", (rid,))
+        self._conn.execute(
+            "DELETE FROM playlist_items WHERE filepath NOT IN "
+            "(SELECT filepath FROM media_items)")
+        self._conn.execute(
+            "DELETE FROM favorites WHERE track_id NOT IN "
+            "(SELECT filepath FROM media_items)")
+        self._conn.execute(
+            "DELETE FROM play_history WHERE track_id NOT IN "
+            "(SELECT filepath FROM media_items)")
+        self._conn.commit()
+
+        # Rebuild FTS5 after deletions
+        from library.search_index import SearchIndex
+        idx = SearchIndex(self._conn)
+        if idx.fts_exists:
+            with contextlib.suppress(Exception):
+                idx.rebuild_fts()
+        return len(missing_ids)
+
     def get_all(self, kind: str | None = None, search: str | None = None,
                  group_by: str = "") -> list[MediaItem]:
         query = "SELECT * FROM media_items"

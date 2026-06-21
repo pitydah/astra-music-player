@@ -38,7 +38,7 @@ class ArtistEnrichmentService(QObject):
         self._mb.error_occurred.connect(self._on_client_error)
         self._wiki.bio_loaded.connect(self._on_bio_loaded)
         self._wiki.image_url_found.connect(self._on_wiki_image)
-        self._wiki.error_occurred.connect(lambda e: None)  # non-fatal
+        self._wiki.error_occurred.connect(lambda _e: None)  # non-fatal
         self._cache.image_downloaded.connect(self.artist_image_loaded.emit)
 
         self._timer = QTimer(self)
@@ -182,13 +182,17 @@ class ArtistEnrichmentService(QObject):
             return
         self._save_and_emit(key, _parse_to_info(info))
 
-    def _on_bio_loaded(self, artist_key: str, bio: str):
+    def _on_bio_loaded(self, artist_key: str, bio: str, lang: str = ""):
         if not bio:
             return
         cached = self._cache.get_cached_artist(artist_key)
         if cached:
-            cached["biography_es"] = bio if self._wiki_lang == "es" else cached.get("biography_es", bio)
-            cached["biography_en"] = bio if self._wiki_lang == "en" else cached.get("biography_en", "")
+            if lang == "es":
+                cached["biography_es"] = bio
+            elif lang == "en":
+                cached["biography_en"] = bio
+            else:
+                cached["biography_en"] = bio
             cached["biography"] = bio
             self._cache.save_artist(artist_key, cached)
             info = _dict_to_info(cached)
@@ -200,10 +204,10 @@ class ArtistEnrichmentService(QObject):
             return
         target = os.path.join(IMAGES_DIR, f"{artist_key}_thumb.jpg")
         self._cache.download_image(image_url, target, artist_key)
-        # Also update cached metadata with the URL
         cached = self._cache.get_cached_artist(artist_key)
         if cached:
             cached["thumb_url"] = image_url
+            cached["thumb_path"] = target
             self._cache.save_artist(artist_key, cached)
 
     def _on_client_error(self, msg: str):
@@ -250,6 +254,9 @@ def _parse_to_info(data: dict) -> ArtistExternalInfo:
         country=data.get("country", ""),
         formed_year=data.get("formed_year", ""),
         website=data.get("website", ""),
+        thumb_url=data.get("thumb_url", ""),
+        banner_url=data.get("banner_url", ""),
+        logo_url=data.get("logo_url", ""),
         fanart_urls=data.get("fanart_urls", []),
     )
 

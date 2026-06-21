@@ -38,4 +38,4 @@ class ArtistExternalInfo:
 
     @property
     def has_any_data(self) -> bool:
-        return bool(self.name or self.biography or self.thumb_url or self.genre)
+        return bool(self.biography or self.thumb_url or self.banner_url or self.genre)

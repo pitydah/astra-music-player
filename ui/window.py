@@ -302,7 +302,13 @@ class MainWindow(QMainWindow):
         self._ctx = AppContext(self)
 
         self._setup_shortcuts()
+        # Clean up missing files before loading library
+        removed = self._db.cleanup_missing()
         self._load_library()
+        if removed:
+            self._toast_svc.show(
+                f"{removed} archivos eliminados de la biblioteca (ya no existen)",
+                "info")
 
         # Auto-enrich artists on startup (respects cache and refresh_days)
         if hasattr(self, '_artist_enrich') and sget("artist_enrichment/enabled") is not False:
@@ -426,7 +432,7 @@ class MainWindow(QMainWindow):
 
     def _show_shortcuts(self):
         shortcuts = [
-            ("Ctrl+O", "Abrir archivo"),
+            ("Ctrl+O", "Abrir archivos"),
             ("Ctrl+D", "Añadir carpeta"),
             ("Space", "Reproducir / Pausar"),
             ("Ctrl+Right", "Siguiente canción"),
@@ -2132,7 +2138,7 @@ class MainWindow(QMainWindow):
     # Extracted to core/file_actions.py — open/scan/drop logic
 
     def _open_file(self):
-        self._file_actions.open_file(ALL_EXTS)
+        self._file_actions.open_files(ALL_EXTS)
 
     def _add_folder(self):
         self._file_actions.add_folder()

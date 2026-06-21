@@ -7,7 +7,7 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkRe
 
 
 class WikipediaClient(QObject):
-    bio_loaded = Signal(str, str)        # artist_key, bio_text
+    bio_loaded = Signal(str, str, str)       # artist_key, bio_text, language
     image_url_found = Signal(str, str)   # artist_key, image_url
     error_occurred = Signal(str)
 
@@ -65,14 +65,13 @@ class WikipediaClient(QObject):
         for _pid, page in pages.items():
             extract = page.get("extract", "")
             if extract:
-                self.bio_loaded.emit(artist_key, extract)
+                self.bio_loaded.emit(artist_key, extract, lang)
                 return
 
-        # Fallback to English if primary language failed
         if lang != "en":
             self.fetch_bio(artist_key, name, "en")
         else:
-            self.bio_loaded.emit(artist_key, "")
+            self.bio_loaded.emit(artist_key, "", lang)
 
     def _on_image_result(self, data: dict, artist_key: str):
         entities = data.get("entities", {})

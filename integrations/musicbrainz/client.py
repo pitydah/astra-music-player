@@ -111,15 +111,15 @@ class MusicBrainzClient(QObject):
 
     def _get(self, url: str, callback):
         import time
-        elapsed = time.time() - self._last_call
-        if elapsed < self._rate_limit:
-            time.sleep(self._rate_limit - elapsed)
+        now = time.time()
+        if now - self._last_call < self._rate_limit:
+            return  # rate limited — enrichment timer already gates
+        self._last_call = now
 
         req = QNetworkRequest(QUrl(url))
         req.setRawHeader(b"User-Agent", USER_AGENT.encode())
         req.setRawHeader(b"Accept", b"application/json")
         reply = self._nam.get(req)
-        self._last_call = time.time()
         reply.finished.connect(lambda r=reply, cb=callback: self._handle(r, cb))
 
     def _handle(self, reply: QNetworkReply, callback):

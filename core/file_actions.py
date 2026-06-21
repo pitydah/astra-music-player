@@ -15,15 +15,21 @@ class FileActions:
         self._db = window._db
         self._db_path = DB_PATH
 
-    def open_file(self, all_exts: frozenset):
+    def open_files(self, all_exts: frozenset):
         exts = " ".join(f"*{e}" for e in sorted(all_exts))
-        fp, _ = QFileDialog.getOpenFileName(
-            self._win, "Abrir archivo", os.path.expanduser("~"),
+        files, _ = QFileDialog.getOpenFileNames(
+            self._win, "Abrir archivos", os.path.expanduser("~"),
             f"Multimedia ({exts});;Todos (*)")
-        if fp:
+        if not files:
+            return
+        for fp in files:
             self._db.add_file(fp)
-            self._win._load_library()
-            self._win._play_file(fp)
+        self._win._load_library()
+        self._win._play_file(files[0])
+        if len(files) > 1:
+            from ui.toast_notification import ToastNotification
+            ToastNotification.info(
+                f"{len(files)} archivos añadidos", self._win)
 
     def add_folder(self):
         path = QFileDialog.getExistingDirectory(
@@ -77,6 +83,7 @@ class FileActions:
         def _on_done(added):
             overlay.hide()
             overlay.deleteLater()
+            self._win._db.cleanup_missing()
             self._win._load_library()
             # Rebuild FTS5 index and reset CoverFlow cache
             try:
