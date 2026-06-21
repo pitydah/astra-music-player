@@ -31,7 +31,7 @@ class SidebarBrand(QFrame):
         text_col.setSpacing(0)
         title = QLabel("ASTRA")
         title.setStyleSheet(
-            "font-size:16px;font-weight:760;color:rgba(255,255,255,0.96);"
+            "font-size:16px;font-weight:bold;color:rgba(255,255,255,0.96);"
             "background:transparent;border:none;")
         sub = QLabel("Music Player")
         sub.setStyleSheet(

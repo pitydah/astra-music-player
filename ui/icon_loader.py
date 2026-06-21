@@ -17,8 +17,8 @@ _log = logging.getLogger("astra.icons")
 
 # ── Color tokens for tinting ──
 
-SIDEBAR_NORMAL = QColor(255, 255, 255, 173)   # rgba(255,255,255,0.68)
-SIDEBAR_HOVER = QColor(255, 255, 255, 235)    # rgba(255,255,255,0.92)
+SIDEBAR_NORMAL = QColor(255, 255, 255, 217)   # rgba(255,255,255,0.85)
+SIDEBAR_HOVER = QColor(255, 255, 255, 245)    # rgba(255,255,255,0.96)
 SIDEBAR_ACTIVE = QColor(255, 255, 255, 255)   # #FFFFFF
 SIDEBAR_MUTED = QColor(255, 255, 255, 92)     # rgba(255,255,255,0.36)
 
@@ -88,7 +88,6 @@ def get_pixmap(key: str, color: QColor | None = None, size: int = 24) -> QPixmap
 def get_sidebar_icon(key: str, active: bool = False, hover: bool = False,
                      size: int = 22) -> QPixmap:
     """Get sidebar icon with correct tinting for SVGs, direct load for PNGs."""
-    spec = ICON_REGISTRY.get(key)
     path = icon_path(key)
     if not path:
         return _missing_pixmap(SIDEBAR_NORMAL, size)
@@ -99,10 +98,7 @@ def get_sidebar_icon(key: str, active: bool = False, hover: bool = False,
         if not pix.isNull():
             return pix.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         return _missing_pixmap(SIDEBAR_NORMAL, size)
-    # native_color SVGs: render preserving original colors
-    if spec and spec.render_mode == "native_color":
-        return render_svg_icon(path, size, padding=0)
-    # symbolic_tint SVGs get tinted
+    # All SVGs in sidebar get tinted to match text opacity
     if active:
         return get_pixmap(key, SIDEBAR_ACTIVE, size)
     if hover:

@@ -35,6 +35,7 @@ ICON_REGISTRY: dict[str, IconSpec] = {
     "sidebar_artists": IconSpec(
         key="sidebar_artists", path="icons/sidebar_artist.svg",
         family="sidebar", symbolic=True, allow_background=False,
+        render_mode="symbolic_tint",
         description="Artistas"),
     "sidebar_genres": IconSpec(
         key="sidebar_genres", path="icons/sidebar_clean/sidebar_mix_24.png",
@@ -91,15 +92,15 @@ ICON_REGISTRY: dict[str, IconSpec] = {
         description="Anadir"),
     "sidebar_devices": IconSpec(
         key="sidebar_devices", path="icons/sidebar_devices.svg",
-        family="sidebar", symbolic=True,
+        family="sidebar", symbolic=True, render_mode="symbolic_tint",
         description="Dispositivos"),
     "sidebar_artist": IconSpec(
         key="sidebar_artist", path="icons/sidebar_artist.svg",
-        family="sidebar", symbolic=True,
+        family="sidebar", symbolic=True, render_mode="symbolic_tint",
         description="Artista"),
     "sidebar_recent": IconSpec(
         key="sidebar_recent", path="icons/sidebar_recent.svg",
-        family="sidebar", symbolic=True,
+        family="sidebar", symbolic=True, render_mode="symbolic_tint",
         description="Recientes"),
     "sidebar_songs": IconSpec(
         key="sidebar_songs", path="icons/sidebar_clean/sidebar_songs_24.png",
@@ -109,11 +110,11 @@ ICON_REGISTRY: dict[str, IconSpec] = {
     # ── Home Audio ──
     "home_audio": IconSpec(
         key="home_audio", path="icons/sidebar/home-audio.svg",
-        family="sidebar", symbolic=True,
+        family="sidebar", symbolic=True, render_mode="symbolic_tint",
         description="Home Audio / Multiroom"),
     "metadata_editor": IconSpec(
         key="metadata_editor", path="icons/sidebar/metadata.svg",
-        family="sidebar", symbolic=True,
+        family="sidebar", symbolic=True, render_mode="symbolic_tint",
         description="Editor de metadatos"),
 
     # ── NowPlaying actions ──

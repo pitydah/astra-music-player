@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy
 
 from ui.icon_loader import get_sidebar_icon
 from ui.sidebar.sidebar_tokens import (
-    SIDEBAR_ICON_SIZE, SIDEBAR_ITEM_HEIGHT, SIDEBAR_ITEM_ACTIVE_HEIGHT, SIDEBAR_ACCENT_WIDTH, SIDEBAR_ITEM_INNER_X, SIDEBAR_ITEM_SPACING,
+    SIDEBAR_ICON_SIZE, SIDEBAR_ITEM_HEIGHT, SIDEBAR_ITEM_ACTIVE_HEIGHT, SIDEBAR_ACCENT_WIDTH, SIDEBAR_ITEM_SPACING,
 )
 from ui.sidebar.sidebar_styles import (
     item_qss, item_label_qss, badge_qss, accent_qss, icon_label_qss,
@@ -30,12 +30,13 @@ class SidebarItem(QFrame):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(SIDEBAR_ITEM_INNER_X, 0, SIDEBAR_ITEM_INNER_X, 0)
+        layout.setContentsMargins(12, 0, 12, 0)
         layout.setSpacing(SIDEBAR_ITEM_SPACING)
 
-        # Accent bar
+        # Accent bar — hidden unless active
         self._accent = QFrame()
-        self._accent.setFixedWidth(SIDEBAR_ACCENT_WIDTH)
+        self._accent.setFixedWidth(0)
+        self._accent.setVisible(False)
         self._accent.setStyleSheet(accent_qss(False))
         layout.addWidget(self._accent)
 
@@ -69,6 +70,7 @@ class SidebarItem(QFrame):
         name = self._icon_name
         if name:
             pix = get_sidebar_icon(name, active=self._active,
+                                   hover=self._hovered,
                                    size=SIDEBAR_ICON_SIZE)
         else:
             pix = QPixmap(SIDEBAR_ICON_SIZE, SIDEBAR_ICON_SIZE)
@@ -78,10 +80,15 @@ class SidebarItem(QFrame):
     def _apply_state(self, state: str):
         self.setStyleSheet(item_qss(state))
         self._label.setStyleSheet(item_label_qss(state))
-        self._accent.setStyleSheet(accent_qss(state == "active"))
+        if state == "active":
+            self._accent.setFixedWidth(SIDEBAR_ACCENT_WIDTH)
+            self._accent.setVisible(True)
+            self._accent.setStyleSheet(accent_qss(True))
+        else:
+            self._accent.setFixedWidth(0)
+            self._accent.setVisible(False)
         if self._badge_label:
             self._badge_label.setStyleSheet(badge_qss(state))
-        # Height adjustment for active
         h = SIDEBAR_ITEM_ACTIVE_HEIGHT if state == "active" else SIDEBAR_ITEM_HEIGHT
         self.setMinimumHeight(h)
 

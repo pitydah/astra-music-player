@@ -69,7 +69,7 @@ def section_header_qss(dark: bool = True, hover: bool = False) -> str:
         hover_c = "rgba(255,255,255,0.92)"
     c = hover_c if hover else normal_c
     return (
-        f"font-size:11px;font-weight:720;color:{c};"
+        f"font-size:10.5px;font-weight:bold;color:{c};"
         "background:transparent;border:none;"
     )
 
@@ -79,8 +79,8 @@ def section_chevron_qss(dark: bool = True, hover: bool = False) -> str:
         normal_c = "rgba(28,28,30,0.52)"
         hover_c = "rgba(28,28,30,0.72)"
     else:
-        normal_c = "rgba(255,255,255,0.52)"
-        hover_c = "rgba(255,255,255,0.72)"
+        normal_c = "rgba(255,255,255,0.62)"
+        hover_c = "rgba(255,255,255,0.78)"
     c = hover_c if hover else normal_c
     return (
         f"font-size:10px;color:{c};background:transparent;"
@@ -97,7 +97,7 @@ def _text_c(state: str) -> str:
 
 
 def _font_weight(state: str) -> int:
-    return {"normal": 540, "hover": 600, "active": 680}.get(state, 540)
+    return {"normal": 500, "hover": 600, "active": 700}.get(state, 500)
 
 
 def item_qss(state: str) -> str:
@@ -109,8 +109,8 @@ def item_qss(state: str) -> str:
         )
     if state == "hover":
         return (
-            "background: rgba(255,255,255,0.09);"
-            "border: 1px solid rgba(255,255,255,0.10);"
+            "background: rgba(255,255,255,0.05);"
+            "border: none;"
             "border-radius: 12px; margin: 1px 6px;"
         )
     return (
