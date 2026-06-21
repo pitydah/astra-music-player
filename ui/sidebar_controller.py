@@ -45,7 +45,7 @@ class SidebarController(QObject):
 
         # Home Audio
         self._sidebar.add_section("ha", "Home Audio", "home_audio")
-        self._sidebar.add_item("ha", "home_audio", "Panel Home Audio", "home_audio")
+        self._sidebar.add_item("ha", "home_audio", "Home Audio", "home_audio")
 
         # Radio
         self._sidebar.add_section("rad", "Radio", "sidebar_radio")
