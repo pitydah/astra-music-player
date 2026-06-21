@@ -42,14 +42,14 @@ class LocalMediaServerController(QObject):
             server.stop()
             self.server_stopped.emit()
 
-    def register_file(self, filepath: str) -> str:
+    def register_file(self, filepath: str, host: str = "localhost") -> str:
         """Register a local file and return its streaming URL."""
         server = self._get_server()
         if not server:
             raise ValueError("LocalMediaServer not initialized")
         if not server.is_running:
             self.start(self._port)
-        return server.register_file(filepath)
+        return server.register_file(filepath, host=host)
 
     def _get_server(self):
         if self._server is None:

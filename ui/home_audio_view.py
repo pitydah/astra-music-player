@@ -18,6 +18,7 @@ class HomeAudioView(QWidget):
     group_selected_requested = Signal(dict)
     open_settings_requested = Signal()
     open_receiver_wizard_requested = Signal()
+    create_group_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -29,6 +30,9 @@ class HomeAudioView(QWidget):
         self._transmit_active = False
         self._transmit_device_name = ""
         self._snap_ctrl_port = 1705
+        self._api_running = False
+        self._mdns_running = False
+        self._local_media_running = False
         self._devices = []
         self._groups = []
         self._activity_log = []
@@ -65,7 +69,8 @@ class HomeAudioView(QWidget):
 
     def set_data(self, ha_connected, multiroom_active, snapserver_running,
                  devices, groups, transmit_active=False, transmit_device_name="",
-                 snap_ctrl_port=1705):
+                 snap_ctrl_port=1705, api_running=False, mdns_running=False,
+                 local_media_running=False):
         prev_devices = len(self._devices)
         self._ha_connected = ha_connected
         self._multiroom_active = multiroom_active
@@ -73,6 +78,9 @@ class HomeAudioView(QWidget):
         self._transmit_active = transmit_active
         self._transmit_device_name = transmit_device_name
         self._snap_ctrl_port = snap_ctrl_port
+        self._api_running = api_running
+        self._mdns_running = mdns_running
+        self._local_media_running = local_media_running
         self._devices = devices or []
         self._groups = groups or []
         self._needs_refresh = False
@@ -354,10 +362,13 @@ class HomeAudioView(QWidget):
             return
         updates = {
             "Home Assistant": ("Conectado" if self._ha_connected else "No conectado",
-                               "#34C759" if self._ha_connected else "rgba(255,255,255,0.20)"),
-            "API Astra": ("No activa", "rgba(255,255,255,0.20)"),
-            "mDNS": ("No verificado", "rgba(255,255,255,0.20)"),
-            "Servidor local": ("No activo", "rgba(255,255,255,0.20)"),
+                               "#8FB7FF" if self._ha_connected else "rgba(255,255,255,0.20)"),
+            "API Astra": ("Activa" if self._api_running else "No activa",
+                          "#8FB7FF" if self._api_running else "rgba(255,255,255,0.20)"),
+            "mDNS": ("Activo" if self._mdns_running else "Inactivo",
+                     "#8FB7FF" if self._mdns_running else "rgba(255,255,255,0.20)"),
+            "Servidor local": ("Activo" if self._local_media_running else "No activo",
+                               "#8FB7FF" if self._local_media_running else "rgba(255,255,255,0.20)"),
             "Ultima sinc": ("—", "rgba(255,255,255,0.20)"),
         }
         for label, (dot, val) in self._sys_labels.items():
@@ -558,8 +569,7 @@ class HomeAudioView(QWidget):
             cl.addLayout(row)
 
         create_btn = _GhostButton("+ Crear grupo")
-        create_btn.clicked.connect(
-            lambda: self.open_settings_requested.emit())
+        create_btn.clicked.connect(self.create_group_requested.emit)
         cl.addWidget(create_btn)
         cl.addStretch()
         return card
@@ -924,7 +934,9 @@ class _DeviceTile(QFrame):
         layout.addWidget(sub)
 
         d_type = device.get("device_type") or device.get("backend") or ""
-        t = QLabel(d_type)
+        room = device.get("room") or device.get("area") or ""
+        type_label = f"{d_type}{' · ' + room if room else ''}"
+        t = QLabel(type_label)
         t.setStyleSheet("font-size: 10px; color: rgba(255,255,255,0.35);")
         layout.addWidget(t)
 

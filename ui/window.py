@@ -241,6 +241,8 @@ class MainWindow(QMainWindow):
             self._on_home_audio_device_volume)
         self._home_audio_view.group_selected_requested.connect(
             self._on_home_audio_group_selected)
+        self._home_audio_view.create_group_requested.connect(
+            self._on_home_audio_create_group)
 
         # Snapcast integration
         from integrations.snapcast.snapserver_manager import SnapServerManager
@@ -275,6 +277,9 @@ class MainWindow(QMainWindow):
         from integrations.home_assistant.local_media_server import (
             LocalMediaServer)
         self._local_media = LocalMediaServer(self)
+
+        # Detect LAN IP for serving files to Home Assistant
+        self._local_ip = self._resolve_lan_ip()
 
         # Artist enrichment via TheAudioDB
         from integrations.theaudiodb.artist_enrichment_service import (
@@ -2229,6 +2234,19 @@ class MainWindow(QMainWindow):
 
     # ── Home Audio ──
 
+    @staticmethod
+    def _resolve_lan_ip() -> str:
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(0)
+            s.connect(("10.254.254.254", 1))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return ""
+
     def _show_home_audio(self):
         self._configure_header_for_section("home_audio")
         self._home_audio_view.refresh_if_needed()
@@ -2262,15 +2280,16 @@ class MainWindow(QMainWindow):
 
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         btns.accepted.connect(lambda: self._try_ha_connection(
-            url_edit.text().strip(), token_edit.text().strip(), dlg))
+            url_edit.text().strip(), token_edit.text().strip(), dlg, verify_cb.isChecked()))
         btns.rejected.connect(dlg.reject)
         layout.addRow(btns)
         dlg.exec()
 
-    def _try_ha_connection(self, url: str, token: str, dialog):
+    def _try_ha_connection(self, url: str, token: str, dialog, verify_ssl: bool = True):
         from core.settings_manager import get as sget, set_ as sset
         sset("home_audio/ha_base_url", url)
         sset("home_audio/ha_token", token)
+        sset("home_audio/ha_verify_ssl", verify_ssl)
         dialog.accept()
 
         if not hasattr(self, '_ha_client'):
@@ -2321,16 +2340,18 @@ class MainWindow(QMainWindow):
             self._refresh_home_audio_state()
 
     def _on_home_audio_multiroom(self, enable: bool):
+        from core.settings_manager import get as sget
         if enable:
             # Start Astra API
             if not self._astra_api.is_running:
                 self._astra_api.start()
             # Start local media server
             if not self._local_media.is_running:
-                self._local_media.configure(8125)
+                self._local_media.configure(sget("home_audio/local_media_server_port"))
                 self._local_media.start()
             # Start mDNS
             if not self._mdns.is_running and self._mdns.is_available:
+                self._mdns.configure(port=self._astra_api.port)
                 self._mdns.start()
 
             if not self._snapserver.is_binary_available():
@@ -2344,6 +2365,10 @@ class MainWindow(QMainWindow):
                     devices=self._home_audio_view._devices,
                     groups=self._group_mgr.groups())
                 return
+            self._snapserver.configure(
+                tcp=sget("home_audio/snapserver_tcp_port"),
+                ctrl=sget("home_audio/snapserver_control_port"),
+                http=sget("home_audio/snapserver_http_port"))
             self._audio_capture.create_sink()
         else:
             self._snapserver.stop()
@@ -2353,72 +2378,40 @@ class MainWindow(QMainWindow):
             self._local_media.stop()
 
     def _on_home_audio_settings(self):
-        from core.settings_manager import get as sget
-        self._toast_svc.show(
-            "Preferencias Home Audio — "
-            f"HA: {sget('home_audio/ha_base_url') or 'no configurado'}",
-            "info")
+        self._show_preferences()
 
     def _on_home_audio_receiver_wizard(self):
         from integrations.snapcast.receivers import ReceiverWizard
         dlg = ReceiverWizard(self)
         dlg.exec()
 
-    def _stream_local_to_ha(self, filepath: str, entity_id: str, device_name: str):
-        if not hasattr(self, '_local_media') or not self._local_media.is_running:
-            # Try to auto-start
-            if hasattr(self, '_local_media'):
-                self._local_media.configure(8125)
-                self._local_media.start()
-            else:
-                self._toast_svc.show(
-                    "Servidor local de medios no disponible", "error")
-                return
-        try:
-            url = self._local_media.register_file(filepath)
-            self._ha_client.play_media(entity_id, url, "music")
-            self._ctx.player_bar.set_transmit_active(True, device_name)
-            self._toast_svc.show(
-                f"Enviando a {device_name}", "success")
-        except ValueError as e:
-            self._toast_svc.show(
-                f"No se pudo servir el archivo: {e}", "error")
-
     def _on_home_audio_cast(self, device: dict):
-        if not hasattr(self, '_ha_client') or not getattr(self, '_ha_connected', False):
-            self._toast_svc.show("No conectado a Home Assistant", "error")
-            return
-        current = self._playback.current
-        if not current:
-            self._toast_svc.show("No hay reproduccion activa", "info")
-            return
-        entity_id = device.get("entity_id", "")
-        device_name = device.get("name", "Dispositivo")
-        if current.startswith("http"):
-            self._ha_client.play_media(entity_id, current, "music")
-            self._ctx.player_bar.set_transmit_active(True, device_name)
-            self._toast_svc.show(
-                f"Enviando a {device_name}", "success")
+        if hasattr(self, '_ha_ctrl'):
+            self._ha_ctrl.cast_current(device)
         else:
-            self._stream_local_to_ha(current, entity_id, device_name)
+            self._toast_svc.show("Controlador Home Audio no disponible", "error")
 
     def _on_home_audio_device_play(self, device: dict):
         if not hasattr(self, '_ha_client'):
+            self._toast_svc.show("No conectado a Home Assistant", "error")
             return
         self._ha_client.media_play(device.get("entity_id", ""))
 
     def _on_home_audio_device_pause(self, device: dict):
         if not hasattr(self, '_ha_client'):
+            self._toast_svc.show("No conectado a Home Assistant", "error")
             return
         self._ha_client.media_pause(device.get("entity_id", ""))
 
     def _on_home_audio_device_stop(self, device: dict):
         if not hasattr(self, '_ha_client'):
+            self._toast_svc.show("No conectado a Home Assistant", "error")
             return
         self._ha_client.media_stop(device.get("entity_id", ""))
 
     def _on_home_audio_device_volume(self, device: dict, volume: int):
         if not hasattr(self, '_ha_client'):
+            self._toast_svc.show("No conectado a Home Assistant", "error")
             return
         self._ha_client.set_volume(device.get("entity_id", ""), volume / 100.0)
 
@@ -2429,6 +2422,15 @@ class MainWindow(QMainWindow):
             name = group.get("name", gid)
             self._ctx.player_bar.set_transmit_active(True, name)
             self._toast_svc.show(f"Zona activada: {name}", "success")
+            self._refresh_home_audio_state()
+
+    def _on_home_audio_create_group(self):
+        from PySide6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(
+            self, "Crear grupo", "Nombre del grupo o zona:")
+        if ok and name.strip() and hasattr(self, '_group_mgr'):
+            self._group_mgr.add_group(name.strip())
+            self._toast_svc.show(f"Grupo creado: {name.strip()}", "success")
             self._refresh_home_audio_state()
 
     # ── Snapcast handlers ──
@@ -2501,7 +2503,10 @@ class MainWindow(QMainWindow):
             groups=groups,
             transmit_active=tx_active,
             transmit_device_name=tx_name,
-            snap_ctrl_port=self._snapserver.control_port if hasattr(self, '_snapserver') else 1705)
+            snap_ctrl_port=self._snapserver.control_port if hasattr(self, '_snapserver') else 1705,
+            api_running=api_running,
+            mdns_running=mdns_running,
+            local_media_running=local_media_running)
 
         self._home_audio_view.set_diagnostics({
             "Home Assistant": "Conectado" if getattr(self, '_ha_connected', False) else "No conectado",

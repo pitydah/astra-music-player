@@ -40,7 +40,3 @@ class SnapcastController(QObject):
         if group_mgr:
             return group_mgr.groups()
         return []
-
-    def is_snapserver_running(self) -> bool:
-        snapserver = getattr(self._win, '_snapserver', None)
-        return snapserver is not None and snapserver.is_running

@@ -64,7 +64,8 @@ class HomeAudioController(QObject):
             return
 
         try:
-            url = lms_ctrl.register_file(filepath)
+            host = getattr(self._win, '_local_ip', 'localhost') or 'localhost'
+            url = lms_ctrl.register_file(filepath, host=host)
             self.ha_client.play_media(entity_id, url, "music")
             self._on_cast_success(entity_id, device_name)
         except ValueError as e:

@@ -81,7 +81,6 @@ DEFAULTS = {
     "home_audio/local_media_server_enabled": False,
     "home_audio/local_media_server_port": 8125,
     "home_audio/play_local_monitor": True,
-    "home_audio/last_destination": "",
     "artist_enrichment/enabled": True,
     "artist_enrichment/provider": "theaudiodb",
     "artist_enrichment/api_key": "2",

@@ -120,7 +120,8 @@ class LocalMediaServer(QObject):
         self._token_map.clear()
         self.stopped.emit()
 
-    def register_file(self, filepath: str, ttl_minutes: int = 30) -> str:
+    def register_file(self, filepath: str, ttl_minutes: int = 30,
+                       host: str = "localhost") -> str:
         """Register a file and return a public URL. Raises ValueError."""
         if not filepath or not os.path.isfile(filepath):
             raise ValueError(f"No existe: {filepath}")
@@ -145,7 +146,7 @@ class LocalMediaServer(QObject):
             f"{filepath}{time.time()}".encode()).hexdigest()[:24]
         self._registry[filepath] = time.time() + (ttl_minutes * 60)
         self._token_map[token] = filepath
-        return f"http://localhost:{self._port}/media/{token}/{os.path.basename(filepath)}"
+        return f"http://{host}:{self._port}/media/{token}/{os.path.basename(filepath)}"
 
     def unregister_file(self, token: str):
         filepath = self._token_map.pop(token, None)
