@@ -65,8 +65,8 @@ def section_header_qss(dark: bool = True, hover: bool = False) -> str:
         normal_c = "rgba(28,28,30,0.78)"
         hover_c = "rgba(28,28,30,0.92)"
     else:
-        normal_c = "rgba(255,255,255,0.78)"
-        hover_c = "rgba(255,255,255,0.92)"
+        normal_c = "rgba(255,255,255,0.88)"
+        hover_c = "rgba(255,255,255,0.96)"
     c = hover_c if hover else normal_c
     return (
         f"font-size:10.5px;font-weight:bold;color:{c};"
