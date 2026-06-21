@@ -3,11 +3,12 @@ import os
 import re
 
 from PySide6.QtCore import Qt, Signal, QUrl
-from PySide6.QtGui import QPixmap, QDesktopServices, QApplication
+from PySide6.QtGui import QPixmap, QDesktopServices
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QScrollArea, QGridLayout, QFrame, QMenu, QMessageBox,
     QFileDialog, QLineEdit, QDialog, QFormLayout, QDialogButtonBox,
+    QApplication,
 )
 
 from streaming.radio_manager import RadioManager
