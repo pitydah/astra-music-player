@@ -23,9 +23,7 @@ class HomeAudioView(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(
-            "background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            " stop:0 rgba(20,22,28,0.94), stop:1 rgba(8,10,16,0.94));")
+        self.setStyleSheet("background: transparent;")
         self._needs_refresh = True
         self._ha_connected = False
         self._multiroom_active = False

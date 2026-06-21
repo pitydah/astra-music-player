@@ -42,7 +42,10 @@ class SidebarController(QObject):
                                 "sidebar_identifier")
         self._sidebar.add_item("mix", "metadata_editor", "Editor de metadatos",
                                 "metadata_editor")
-        self._sidebar.add_item("mix", "home_audio", "Home Audio", "home_audio")
+
+        # Home Audio
+        self._sidebar.add_section("ha", "Home Audio", "home_audio")
+        self._sidebar.add_item("ha", "home_audio", "Panel Home Audio", "home_audio")
 
         # Radio
         self._sidebar.add_section("rad", "Radio", "sidebar_radio")
