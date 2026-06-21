@@ -148,6 +148,11 @@ class PlayerService(QObject):
         if hasattr(self._engine, 'set_output_device_id'):
             self._engine.set_output_device_id(device_id)
 
+    def get_output_device_id(self) -> str:
+        if hasattr(self._engine, 'get_output_device_id'):
+            return self._engine.get_output_device_id()
+        return "auto"
+
     def get_audio_devices(self):
         from audio.output_device_manager import list_devices
         return list_devices()

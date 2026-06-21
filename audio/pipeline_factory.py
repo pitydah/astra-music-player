@@ -167,15 +167,21 @@ class PipelineFactory:
 
             # Branch 3: transmit
             if transmit_device and route.use_transmit:
+                # Extract host string from TransmitDevice or use raw string
+                if isinstance(transmit_device, str):
+                    host = transmit_device
+                elif hasattr(transmit_device, 'address'):
+                    host = transmit_device.address
+                else:
+                    host = str(transmit_device)
                 q3 = Gst.ElementFactory.make("queue", None)
                 c3 = Gst.ElementFactory.make("audioconvert", None)
                 r3 = Gst.ElementFactory.make("audioresample", None)
                 caps = Gst.Caps.from_string(
                     "audio/x-raw,rate=48000,channels=2")
-                t_sink = Gst.ElementFactory.make(
-                    "tcpclientsink", None) if isinstance(transmit_device, str) else None
+                t_sink = Gst.ElementFactory.make("tcpclientsink", None)
                 if all([q3, c3, r3, t_sink]):
-                    t_sink.set_property("host", transmit_device)
+                    t_sink.set_property("host", host)
                     for e in [q3, c3, r3, t_sink]:
                         audio_sink.add(e)
                     q3.link(c3)

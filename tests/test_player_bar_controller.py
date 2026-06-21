@@ -7,7 +7,7 @@ def test_init(qtbot):
     bar = NowPlayingBar()
     qtbot.addWidget(bar)
     ctrl = PlayerBarController(bar)
-    assert ctrl._bar is bar
+    assert ctrl._player_bar is bar
 
 
 def test_set_track(qtbot):

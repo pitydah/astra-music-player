@@ -20,6 +20,8 @@ class AppContext:
 
         # ── Extracted services (may not be initialized yet — use getattr) ──
         self.toast = getattr(window, '_toast_svc', None)
+        # NOTE: `player_bar` holds a PlayerBarController (facade), NOT the NowPlayingBar widget.
+        # The raw widget is at `window._player_bar`.
         self.player_bar = getattr(window, '_player_bar_ctrl', None)
         self.bg_theme = getattr(window, '_bg_theme', None)
         self.mpris = getattr(window, '_mpris_ctrl', None)

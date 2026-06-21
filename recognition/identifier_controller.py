@@ -50,6 +50,16 @@ class IdentifierController(QObject):
         self._detection.provider_changed.connect(self.provider_changed.emit)
         self._provider_mgr.provider_changed.connect(self.provider_changed.emit)
 
+        # Load API keys from settings for AudD + AcoustID
+        try:
+            import core.settings_manager as sm
+            for provider in ("audd", "acoustid"):
+                key = sm.get(f"identifier/api_key_{provider}")
+                if key:
+                    self._provider_mgr.set_api_key(provider, key)
+        except Exception:
+            pass
+
     @property
     def enabled(self) -> bool:
         return self._enabled

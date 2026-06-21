@@ -73,7 +73,7 @@ class Indexer(QObject):
             if self._cancelled:
                 return self._finish()
 
-            # Phase 2+3+4: Detect changes, extract metadata, build album keys
+            # Process files: detect changes, extract metadata, build album keys
             self._state.set_phase(ScanPhase.EXTRACTING)
             batch_writer = BatchWriter(self._db._conn)
 
