@@ -61,13 +61,6 @@ def _svg_padding_for_spec(spec, default: int = 1) -> int:
     return default  # sidebar: 1-2px padding
 
 
-def _svg_edge_for_spec(spec, default: int = 1) -> int:
-    """Return edge clearing px for SVG icons by UI family."""
-    if spec and spec.family in ("action", "view"):
-        return 0   # no edge clearing — preserves icon content
-    return default  # sidebar: 1px edge cleanup for black borders
-
-
 def get_qicon(key: str, color: QColor | None = None, size: int = 24) -> QIcon:
     """Return a QIcon with optional tinting, always alpha-safe for SVGs."""
     from ui.icon_registry import ICON_REGISTRY
@@ -83,8 +76,7 @@ def get_qicon(key: str, color: QColor | None = None, size: int = 24) -> QIcon:
         if color and not is_native:
             return QIcon(_tinted_pixmap(path, color, size))
         padding = _svg_padding_for_spec(spec, default=1)
-        edge = _svg_edge_for_spec(spec, default=1)
-        return QIcon(render_svg_icon(path, size, padding=padding, edge=edge))
+        return QIcon(render_svg_icon(path, size, padding=padding))
 
     # PNG
     if color:
@@ -107,13 +99,11 @@ def get_pixmap(key: str, color: QColor | None = None, size: int = 24) -> QPixmap
     if is_svg:
         if is_native:
             padding = _svg_padding_for_spec(spec, default=1)
-            edge = _svg_edge_for_spec(spec, default=1)
-            return render_svg_icon(path, size, padding=padding, edge=edge)
+            return render_svg_icon(path, size, padding=padding)
         if color:
             return _tinted_pixmap(path, color, size)
         padding = _svg_padding_for_spec(spec, default=1)
-        edge = _svg_edge_for_spec(spec, default=1)
-        return render_svg_icon(path, size, padding=padding, edge=edge)
+        return render_svg_icon(path, size, padding=padding)
 
     # PNG — native_color never gets tinted, symbolic may
     if is_native:
@@ -144,7 +134,7 @@ def get_sidebar_icon(key: str, active: bool = False, hover: bool = False,
         return _missing_pixmap(SIDEBAR_NORMAL, size)
     # native_color SVGs: render preserving original colors (no tinting)
     if spec and spec.render_mode == "native_color":
-        return render_svg_icon(path, size, padding=1, edge=2)
+        return render_svg_icon(path, size, padding=1)
     # symbolic_tint SVGs get tinted to match text opacity
     if active:
         return get_pixmap(key, SIDEBAR_ACTIVE, size)
@@ -160,8 +150,7 @@ def get_tray_icon() -> QIcon:
     if path:
         spec = ICON_REGISTRY.get("tray_icon")
         padding = _svg_padding_for_spec(spec, default=4)
-        edge = _svg_edge_for_spec(spec, default=1)
-        pix = render_svg_icon(path, 64, padding=padding, edge=edge)
+        pix = render_svg_icon(path, 64, padding=padding)
         return QIcon(pix)
     # Fallback to app icon
     app_path = HERE / "icons" / "app_icon.png"
