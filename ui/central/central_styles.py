@@ -152,23 +152,37 @@ def menu_qss() -> str:
 
 def table_header_qss() -> str:
     return """
+        QHeaderView {
+            background: #10131A;
+            border: none;
+        }
         QHeaderView::section {
             background: qlineargradient(
                 x1:0, y1:0, x2:0, y2:1,
-                stop:0 rgba(255,255,255,0.065),
-                stop:1 rgba(255,255,255,0.025)
+                stop:0 #181C25,
+                stop:1 #10131A
             );
-            border: none;
-            border-right: 1px solid rgba(255,255,255,0.05);
-            border-bottom: 1px solid rgba(255,255,255,0.10);
-            padding: 8px 12px;
-            color: rgba(255,255,255,0.84);
+            color: rgba(255,255,255,0.86);
             font-size: 12px;
             font-weight: 600;
+            padding: 7px 10px;
+            border: none;
+            border-right: 1px solid rgba(255,255,255,0.055);
+            border-bottom: 1px solid rgba(255,255,255,0.085);
         }
         QHeaderView::section:hover {
-            background: rgba(255,255,255,0.07);
+            background: rgba(143,183,255,0.16);
             color: rgba(255,255,255,0.96);
+        }
+        QHeaderView::section:checked {
+            background: rgba(143,183,255,0.22);
+            color: rgba(255,255,255,1.00);
+        }
+        QTableCornerButton::section {
+            background: #10131A;
+            border: none;
+            border-bottom: 1px solid rgba(255,255,255,0.085);
+            border-right: 1px solid rgba(255,255,255,0.055);
         }
     """
 
