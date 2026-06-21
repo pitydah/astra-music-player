@@ -1,8 +1,8 @@
 # Astra Music Player
 
-Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 180 tests · ruff 0
+Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 206 tests · ruff 0
 
-[![Tests](https://img.shields.io/badge/tests-180%2F180-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-206%2F206-brightgreen)]()
 [![Ruff](https://img.shields.io/badge/ruff-0-green)]()
 [![Python](https://img.shields.io/badge/python-3.11+-blue)]()
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange)]()
@@ -60,18 +60,121 @@ Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 180 tes
 
 ## Instalación
 
+### Arch Linux / CachyOS / Manjaro
 ```bash
-# Dependencias Python
-pip install PySide6 mutagen numpy shazamio pyaudio
-
-# Requisitos del sistema
-sudo apt install python3-gi gir1.2-gstreamer-1.0 gstreamer1.0-plugins-* libchromaprint-tools avahi-utils
-
-# Ejecutar
-python3 main.py
+git clone https://github.com/pitydah/astra-music-player.git
+cd astra-music-player
+./scripts/install_arch.sh
+source .venv/bin/activate
+astra-music-player
 ```
 
-## Atajos de teclado
+### Ubuntu / Debian / Linux Mint
+```bash
+git clone https://github.com/pitydah/astra-music-player.git
+cd astra-music-player
+./scripts/install_debian_ubuntu.sh
+source .venv/bin/activate
+astra-music-player
+```
+
+### Fedora
+```bash
+git clone https://github.com/pitydah/astra-music-player.git
+cd astra-music-player
+./scripts/install_fedora.sh
+source .venv/bin/activate
+astra-music-player
+```
+
+### openSUSE (Tumbleweed / Leap)
+```bash
+git clone https://github.com/pitydah/astra-music-player.git
+cd astra-music-player
+./scripts/install_opensuse.sh
+source .venv/bin/activate
+astra-music-player
+```
+
+### Ejecutar desde fuente (sin instalar al sistema)
+```bash
+git clone https://github.com/pitydah/astra-music-player.git
+cd astra-music-player
+./scripts/run_from_source.sh
+```
+
+### Activar entorno virtual
+```bash
+# Bash / Zsh:
+source .venv/bin/activate
+
+# Fish:
+source .venv/bin/activate.fish
+```
+
+### Diagnóstico de dependencias
+```bash
+python3 scripts/check_runtime.py
+```
+
+### Dependencias por funcionalidad
+
+| Funcionalidad | Dependencia | Crítica |
+|--------------|-------------|---------|
+| Reproducción | GStreamer + plugins base/good/bad/ugly | ✅ |
+| UI | PySide6 / Qt6 | ✅ |
+| Metadatos | mutagen, numpy | ✅ |
+| MPRIS / KDE | dbus-python | Opcional |
+| Identificación | shazamio, pyaudio, fpcalc | Opcional |
+| Multiroom | snapcast (snapserver + snapclient) | Opcional |
+| Home Assistant | (solo red, sin deps extra) | Opcional |
+| mDNS / descubrimiento | avahi-utils | Opcional |
+| Letras sincronizadas | (solo red, LRCLIB API) | Opcional |
+
+### Problemas comunes
+
+**Error: `from gi.repository import Gst`**
+```bash
+# Ubuntu/Debian:
+sudo apt install python3-gi gir1.2-gstreamer-1.0
+
+# Arch:
+sudo pacman -S python-gobject
+
+# Fedora:
+sudo dnf install python3-gobject
+```
+
+**Error: `No module named 'PySide6'`**
+```bash
+pip install PySide6
+# O usa --system-site-packages al crear el venv
+```
+
+**Error: dbus / MPRIS**
+```bash
+# Ubuntu/Debian:
+sudo apt install python3-dbus
+
+# Arch:
+sudo pacman -S python-dbus
+
+# Instalar dbus-python por pip puede fallar — preferir paquete del sistema
+```
+
+**Fish shell: activar venv**
+```fish
+source .venv/bin/activate.fish
+```
+
+## Instalación desde fuente
+
+```bash
+git clone https://github.com/pitydah/astra-music-player
+cd astra-music-player
+pip install .
+astra-music-player
+```
 
 | Atajo | Acción |
 |-------|--------|
@@ -319,7 +422,7 @@ astra-music-player/
 
 | Métrica | Valor |
 |---------|-------|
-| Tests | **180** en 25 archivos |
+| Tests | **206** en 25 archivos |
 | Archivos `.py` | **171** |
 | Ruff | **0** |
 | Bugs (F-class) | **0** |

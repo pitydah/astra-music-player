@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +45,29 @@ jobs:
 
       - name: Compile check
         run: python -m compileall -q .
+
+      - name: Check runtime (CI mode)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python3 scripts/check_runtime.py || true
+
+      - name: Verify pip install
+        run: |
+          pip install -e .
+          python3 -c "from main import main; print('entry point OK')"
+
+      - name: Verify icons and data included
+        run: |
+          python3 -c "
+          import pathlib
+          root = pathlib.Path('.').resolve()
+          icons = list(root.rglob('icons/*.svg'))
+          desktop = root / 'data' / 'astra-music-player.desktop'
+          print(f'icons/: {len(icons)} SVGs')
+          print(f'desktop: {desktop.exists()}')
+          assert len(icons) > 0, 'No SVG icons found'
+          assert desktop.exists(), 'Desktop file missing'
+          "
 
       - name: Tests (pytest)
         env:

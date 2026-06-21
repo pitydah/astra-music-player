@@ -1,0 +1,11 @@
+include requirements*.txt
+include install_*.sh
+recursive-include icons *
+recursive-include data *
+recursive-include docs *.md
+recursive-include scripts *.sh *.py
+include MANIFEST.in
+include README.md
+include LICENSE
+include NOTICE
+include AGENTS.md
