@@ -49,7 +49,7 @@ class StatusPill(QLabel):
         "processing": ("rgba(175,82,250,0.88)", "#AF52FA"),
         "identified": ("rgba(52,199,89,0.88)", "#34C759"),
         "no_match": ("rgba(255,255,255,0.42)", "rgba(255,255,255,0.12)"),
-        "error": ("rgba(255,69,58,0.88)", "#FF453A"),
+        "error": ("rgba(143,183,255,0.72)", "#8FB7FF"),
         "idle": ("rgba(255,255,255,0.42)", "rgba(255,255,255,0.12)"),
     }
     LABELS = {
@@ -143,7 +143,7 @@ class DetectionResultCard(QFrame):
         del_btn = _GlassButton("X")
         del_btn.setFixedWidth(32)
         del_btn.setStyleSheet(del_btn.styleSheet() + (
-            "QPushButton:hover { color: #FF453A; }"))
+            "QPushButton:hover { color: #8FB7FF; }"))
         del_btn.clicked.connect(lambda: self.delete_requested.emit(track))
         lay.addWidget(del_btn)
 

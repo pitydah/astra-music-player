@@ -1115,7 +1115,7 @@ class MainWindow(QMainWindow):
         self._player.position_changed.connect(pb.set_position)
         self._player.duration_changed.connect(pb.set_duration)
         self._player.state_changed.connect(self._on_state)
-        self._player.error_occurred.connect(lambda m: print(f"Error: {m}"))
+        self._player.error_occurred.connect(lambda m: self._toast_svc.show(f"Error: {m}", "error"))
         pb.play_clicked.connect(self._playback.toggle)
         pb.shuffle_clicked.connect(self._playback.toggle_shuffle)
         pb.repeat_clicked.connect(self._playback.toggle_repeat)

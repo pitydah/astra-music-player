@@ -224,7 +224,7 @@ class MusicIdentifierView(QWidget):
         clear_btn.setStyleSheet(
             "QPushButton { color: rgba(255,255,255,0.32); font-size: 11px;"
             "  background: transparent; border: none; }"
-            "QPushButton:hover { color: #FF453A; }")
+            "QPushButton:hover { color: #8FB7FF; }")
         clear_btn.setCursor(Qt.PointingHandCursor)
         clear_btn.clicked.connect(self.clear_requested.emit)
         cl.addWidget(clear_btn, alignment=Qt.AlignRight)

@@ -57,8 +57,8 @@ class ArtistEnrichmentService(QObject):
     def _detect_language() -> str:
         """Detect system language: settings override, then $LANG, then locale, fallback 'es'."""
         try:
-            from core.settings_manager import get_str as sget
-            lang = sget("artist_enrichment/wiki_lang") or ""
+            from core.settings_manager import get_str
+            lang = get_str("artist_enrichment/wiki_lang") or ""
             if lang and len(lang) >= 2:
                 return lang[:2]
         except Exception:
