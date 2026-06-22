@@ -7,7 +7,7 @@ Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 206 tes
 [![Python](https://img.shields.io/badge/python-3.11+-blue)]()
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange)]()
 
-![Astra](icons/app_icon.png)
+![Michi](icons/app_icon.png)
 
 ## Características
 
@@ -34,7 +34,7 @@ Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 206 tes
 - 📡 **Snapcast** — SnapServerManager (QProcess), AudioCapture (pactl null-sink), GroupManager (zonas QSettings), SnapClientDiscovery (avahi-browse)
 - 🔀 **Cast unificado** — Menú combinando salida local + TransmitManager + Snapcast + Home Assistant
 - 🎯 **Transmit desacoplado** — 7 controladores: AudioOutput, Snapcast, HomeAudio, Cast, LocalMediaServer, MiniPlayer, TransmitManager
-- 🌐 **Astra HTTP API** — REST en puerto 8124, token Bearer, endpoints player/status/destinations/play_media/library/browse
+- 🌐 **Michi HTTP API** — REST en puerto 8124, token Bearer, endpoints player/status/destinations/play_media/library/browse
 - 📢 **mDNS advertiser** — `avahi-publish-service` para descubrimiento automático
 - 🖥️ **Receiver Wizard** — Guías HTML para Raspberry Pi, ESP32 y Docker Snapclient
 
@@ -268,7 +268,7 @@ michi-music-player/
 │   │   ├── discovery.py              # avahi-browse — Snapclient discovery
 │   │   ├── group_manager.py          # Zonas CRUD en QSettings
 │   │   └── receivers.py              # ReceiverWizard (RPi/ESP32/Docker)
-│   ├── http_api/                   # Astra HTTP API
+│   ├── http_api/                   # Michi HTTP API
 │   │   ├── http_api.py               # REST server (puerto 8124)
 │   │   └── mdns_advertiser.py        # avahi-publish-service
 │   ├── artist_metadata/              # Enriquecimiento de metadatos externos
@@ -395,7 +395,7 @@ michi-music-player/
 | CoverFlow 3D clásico Apple + reflejos + backdrop | ✅ Completo |
 | AlbumInfoBanner + enriquecimiento externo | ✅ Completo |
 | Artistas (grid premium + ficha detalle + MusicBrainz + Wikipedia) | ✅ Completo |
-| Home Audio multiroom (HA + Snapcast + Astra API + mDNS) | ✅ Completo |
+| Home Audio multiroom (HA + Snapcast + Michi API + mDNS) | ✅ Completo |
 | Transmit desacoplado (7 controladores) | ✅ Completo |
 | Recognition real (ShazamIO + AudD HTTP API + AcoustID fpcalc) | ✅ Completo |
 | AudioCaptureService continuo (PyAudio 22050Hz, loop 15s) | ✅ Completo |

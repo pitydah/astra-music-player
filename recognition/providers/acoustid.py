@@ -74,7 +74,7 @@ class AcoustIDProvider(BaseRecognizer):
             }
             url = ACOUSTID_API_URL + "?" + urllib.parse.urlencode(params)
 
-            req = urllib.request.Request(url, headers={"User-Agent": "Astra/2.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Michi/2.0"})
             with urllib.request.urlopen(req, timeout=15) as resp:
                 body = json.loads(resp.read().decode())
 

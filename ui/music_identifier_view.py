@@ -287,7 +287,7 @@ class MusicIdentifierView(QWidget):
         elif source_type in ("radio", "navidrome", "jellyfin", "remote_stream"):
             self._lbl_pause.setText("")
             self._lbl_source_detail.setText(
-                "Escuchando automaticamente — Astra reconocera nuevas canciones.")
+                "Escuchando automaticamente — Michi reconocera nuevas canciones.")
         elif source_type in ("local_file", "device_file"):
             self._lbl_pause.setText(
                 "Pausado: archivo local con metadatos conocidos")

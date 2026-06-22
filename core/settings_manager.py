@@ -58,7 +58,7 @@ DEFAULTS = {
     "transmit/quality": "320",
     "sync/auto_start": False,
     "sync/port": 53318,
-    "sync/alias": "Astra PC",
+    "sync/alias": "Michi PC",
     "sync/discovery_enabled": True,
     "radio/auto_update": True,
     "radio/auto_reconnect": True,

@@ -211,7 +211,7 @@ def _missing_pixmap(color: QColor | None, size: int) -> QPixmap:
 
 # ── Debug runtime validator ──
 
-if os.environ.get("ASTRA_DEBUG_ICONS"):
+if os.environ.get("MICHI_DEBUG_ICONS"):
     import xml.etree.ElementTree as ET
 
     def _check_black_bg(path: str):

@@ -109,7 +109,7 @@ class IdentifierController(QObject):
         if not self._enabled:
             return "Identificador desactivado"
         if source_type in LOCAL_SOURCES:
-            return "Archivo local: Astra ya conoce sus metadatos"
+            return "Archivo local: Michi ya conoce sus metadatos"
         if source_type in ("unknown", ""):
             return "Sin fuente reconocida para identificar"
         return ""

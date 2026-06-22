@@ -26,5 +26,5 @@ class TrayController:
     def notify(self, title: str, artist: str):
         if self._icon and self._icon.isVisible():
             self._icon.showMessage(
-                "Astra", f"{title} — {artist}",
+                "Michi", f"{title} — {artist}",
                 QSystemTrayIcon.NoIcon, 3000)

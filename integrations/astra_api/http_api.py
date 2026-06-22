@@ -1,4 +1,4 @@
-"""Astra HTTP API — exposes player control for Home Assistant integration."""
+"""Michi HTTP API — exposes player control for Home Assistant integration."""
 import json
 import os
 import uuid
@@ -10,7 +10,7 @@ API_PORT_DEFAULT = 8124
 
 
 class _AstraHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for Astra API. Reads from AppStateStore, writes via MichiApiBridge."""
+    """HTTP request handler for Michi API. Reads from AppStateStore, writes via MichiApiBridge."""
 
     def __init__(self, *args, state_store=None, bridge=None, token="", db=None, **kwargs):
         self._store = state_store
@@ -291,7 +291,7 @@ def make_handler(store, bridge, token, db):
 
 
 class MichiHttpApi:
-    """Manages the Astra HTTP API server lifecycle."""
+    """Manages the Michi HTTP API server lifecycle."""
 
     def __init__(self, window, port: int = API_PORT_DEFAULT):
         self._window = window

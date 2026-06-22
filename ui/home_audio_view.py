@@ -325,7 +325,7 @@ class HomeAudioView(QWidget):
         cl.addSpacing(10)
 
         rows_data = [
-            "Home Assistant", "API Astra", "mDNS", "Servidor local", "Ultima sinc",
+            "Home Assistant", "API Michi", "mDNS", "Servidor local", "Ultima sinc",
         ]
         self._sys_labels = {}
         for label in rows_data:
@@ -364,7 +364,7 @@ class HomeAudioView(QWidget):
         updates = {
             "Home Assistant": ("Conectado" if self._ha_connected else "No conectado",
                                "#8FB7FF" if self._ha_connected else "rgba(255,255,255,0.20)"),
-            "API Astra": ("Activa" if self._api_running else "No activa",
+            "API Michi": ("Activa" if self._api_running else "No activa",
                           "#8FB7FF" if self._api_running else "rgba(255,255,255,0.20)"),
             "mDNS": ("Activo" if self._mdns_running else "Inactivo",
                      "#8FB7FF" if self._mdns_running else "rgba(255,255,255,0.20)"),
@@ -595,7 +595,7 @@ class HomeAudioView(QWidget):
 
         rows = [
             "Home Assistant", "Snapserver", "mDNS",
-            "API Astra", "Servidor local", "Ultimo error",
+            "API Michi", "Servidor local", "Ultimo error",
             "IP local", "Firewall",
         ]
         self._diag_labels = {}
@@ -639,7 +639,7 @@ class HomeAudioView(QWidget):
             "Home Assistant": "Conectado" if self._ha_connected else "No conectado",
             "Snapserver": "Activo" if self._snapserver_running else "Detenido",
             "mDNS": "Activo" if getattr(self, '_mdns_running', False) else "Inactivo",
-            "API Astra": "Activa" if getattr(self, '_api_running', False) else "No activa",
+            "API Michi": "Activa" if getattr(self, '_api_running', False) else "No activa",
             "Servidor local": "Activo" if getattr(self, '_local_media_running', False) else "No activo",
             "Ultimo error": "—",
             "IP local": "—",

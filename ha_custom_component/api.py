@@ -32,7 +32,7 @@ class AstraApiClient:
                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 return await resp.json()
         except Exception as e:
-            _LOGGER.debug("Astra GET %s error: %s", path, e)
+            _LOGGER.debug("Michi GET %s error: %s", path, e)
             return {}
 
     async def _post(self, path: str, data: dict = None) -> dict:
@@ -43,7 +43,7 @@ class AstraApiClient:
                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 return await resp.json()
         except Exception as e:
-            _LOGGER.debug("Astra POST %s error: %s", path, e)
+            _LOGGER.debug("Michi POST %s error: %s", path, e)
             return {}
 
     # ── Player status ──
@@ -110,7 +110,7 @@ class AstraApiClient:
 
 
 def get_client(hass: HomeAssistant) -> AstraApiClient | None:
-    """Get Astra API client from config entry."""
+    """Get Michi API client from config entry."""
     entries = hass.config_entries.async_entries(DOMAIN)
     if not entries:
         return None

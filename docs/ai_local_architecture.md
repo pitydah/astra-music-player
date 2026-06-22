@@ -46,7 +46,7 @@ All external data flows through a MetadataBroker that enforces privacy rules.
 
 ## Current state (June 2026)
 
-Astra has no AI integration. The enrichment pipeline already respects:
+Michi has no AI integration. The enrichment pipeline already respects:
 - `artist_enrichment/enabled` — master switch
 - `artist_enrichment/online_enabled` — blocks all HTTP when false
 - `artist_enrichment/coverart_enabled` — blocks Cover Art Archive

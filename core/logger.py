@@ -1,7 +1,7 @@
 """Centralized logger for Michi Music Player.
 
 Logs to ~/.local/share/michi-music-player/michi.log
-Console output only when ASTRA_DEBUG=1 or --debug flag.
+Console output only when MICHI_DEBUG=1 or --debug flag.
 """
 
 import logging
@@ -13,7 +13,7 @@ LOG_FILE = os.path.join(LOG_DIR, "michi.log")
 
 
 def _is_debug() -> bool:
-    return os.environ.get("ASTRA_DEBUG") == "1" or "--debug" in sys.argv
+    return os.environ.get("MICHI_DEBUG") == "1" or "--debug" in sys.argv
 
 
 def setup_logging():

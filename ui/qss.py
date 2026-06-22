@@ -1,4 +1,4 @@
-"""QSS helpers — premium glass, cards, buttons, scrollbars for Astra."""
+"""QSS helpers — premium glass, cards, buttons, scrollbars for Michi."""
 from ui.style_tokens import COLORS, RADIUS
 
 

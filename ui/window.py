@@ -376,7 +376,7 @@ class MainWindow(QMainWindow):
             elif key == "group_manager":
                 self._group_mgr = svc
 
-        # Astra API
+        # Michi API
         self._features.register("michi_api",
             enabled=sm.get_bool("home_audio/michi_api_enabled") and not self._safe_mode)
         if self._features.is_enabled("michi_api"):
@@ -1493,7 +1493,7 @@ class MainWindow(QMainWindow):
     def _show_new_playlist(self, key):
         self._create_playlist()
 
-    # ── Astra API Bridge handlers ──
+    # ── Michi API Bridge handlers ──
 
     @staticmethod
     def _state_to_str(state) -> str:
@@ -2666,7 +2666,7 @@ class MainWindow(QMainWindow):
     def _on_home_audio_multiroom(self, enable: bool):
         from core.settings_manager import get_int
         if enable:
-            # Start Astra API
+            # Start Michi API
             if not self._michi_api.is_running:
                 self._michi_api.start()
             # Start local media server
@@ -2834,7 +2834,7 @@ class MainWindow(QMainWindow):
 
         self._home_audio_view.set_diagnostics({
             "Home Assistant": "Conectado" if getattr(self, '_ha_connected', False) else "No conectado",
-            "API Astra": "Activa" if api_running else "No activa",
+            "API Michi": "Activa" if api_running else "No activa",
             "mDNS": "Activo" if mdns_running else (
                 "No disponible" if not (hasattr(self, '_mdns') and self._mdns.is_available) else "No activo"),
             "Snapserver": "Activo" if snap_running else "Detenido",

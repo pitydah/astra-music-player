@@ -87,7 +87,7 @@ class AstraMediaPlayer(MediaPlayerEntity):
             self._attr_source_list = [d["name"] for d in dests]
             self._attr_source = "local"
         except Exception as e:
-            _LOGGER.debug("Astra update error: %s", e)
+            _LOGGER.debug("Michi update error: %s", e)
 
     async def async_media_play(self):
         await self._post("/api/player/play")

@@ -58,7 +58,7 @@ class _Page(QWidget):
 
 class GeneralPage(_Page):
     def __init__(self):
-        super().__init__("General", "Comportamiento básico de Astra", "sidebar_library")
+        super().__init__("General", "Comportamiento básico de Michi", "sidebar_library")
 
         card = SettingsCard("Inicio")
         self._tray = SettingsSwitch(sm.get("general/start_minimized"))
@@ -67,7 +67,7 @@ class GeneralPage(_Page):
         self._close_action = SettingsCombo(
             ["Cerrar aplicación", "Minimizar a bandeja", "Preguntar siempre"],
             "Cerrar aplicación")
-        card.add_row(SettingsRow("Iniciar minimizado", "Abre Astra en la bandeja del sistema", self._tray))
+        card.add_row(SettingsRow("Iniciar minimizado", "Abre Michi en la bandeja del sistema", self._tray))
         card.add_row(SettingsRow("Recordar sesión", "Restaura la última vista y cola al abrir", self._remember))
         card.add_row(SettingsRow("Confirmar salida", "Pregunta antes de cerrar", self._confirm_exit))
         card.add_row(SettingsRow("Al cerrar ventana", "Qué hacer cuando se cierra la ventana principal", self._close_action))
@@ -77,7 +77,7 @@ class GeneralPage(_Page):
         self._music_folder = SettingsPathPicker(sm.get("general/music_folder"))
         self._downloads = SettingsPathPicker(sm.get("general/download_folder"))
         config_btn = SettingsActionButton("Abrir carpeta de configuración")
-        config_btn.clicked.connect(lambda: _open_path("~/.config/Astra"))
+        config_btn.clicked.connect(lambda: _open_path("~/.config/Michi"))
         card2.add_row(SettingsRow("Carpeta de música", "Directorio principal de tu biblioteca", self._music_folder))
         card2.add_row(SettingsRow("Carpeta de descargas", "Donde se guardan descargas y streams", self._downloads))
         card2.add_row(SettingsRow("Configuración", "Archivos de configuración y caché", config_btn))
@@ -88,7 +88,7 @@ class GeneralPage(_Page):
         self._notify = SettingsSwitch(True)
         self._mpris = SettingsSwitch(True)
         self._remember_geom = SettingsSwitch(True)
-        card3.add_row(SettingsRow("Icono en bandeja", "Mantener Astra accesible desde la bandeja", self._tray_icon))
+        card3.add_row(SettingsRow("Icono en bandeja", "Mantener Michi accesible desde la bandeja", self._tray_icon))
         card3.add_row(SettingsRow("Notificaciones del sistema", "Alertas de cambio de canción", self._notify))
         card3.add_row(SettingsRow("Integración MPRIS", "Control multimedia del escritorio", self._mpris))
         card3.add_row(SettingsRow("Recordar tamaño y posición", "Restaura la geometría al abrir", self._remember_geom))
@@ -700,7 +700,7 @@ class ShortcutsPage(_Page):
 
         card = SettingsCard("General")
         self._global = SettingsSwitch(sm.get("shortcuts/global_enabled"))
-        card.add_row(SettingsRow("Atajos globales", "Funcionan aunque Astra no tenga el foco", self._global))
+        card.add_row(SettingsRow("Atajos globales", "Funcionan aunque Michi no tenga el foco", self._global))
         info = QLabel(
             "Espacio       — Reproducir/Pausa\n"
             "Ctrl + →      — Siguiente\n"
@@ -764,7 +764,7 @@ class AdvancedPage(_Page):
         self._export.clicked.connect(self._do_export)
         self._import.clicked.connect(self._do_import)
         self._open_logs.clicked.connect(lambda: _open_path("~/.local/share/michi-music-player/"))
-        self._open_config.clicked.connect(lambda: _open_path("~/.config/Astra/"))
+        self._open_config.clicked.connect(lambda: _open_path("~/.config/Michi/"))
         self._reset_all.clicked.connect(self._do_reset)
 
     def _do_export(self):
@@ -787,7 +787,7 @@ class AdvancedPage(_Page):
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             sm.restore_defaults()
-            QMessageBox.information(self, "Reset", "Preferencias restauradas. Reinicia Astra.")
+            QMessageBox.information(self, "Reset", "Preferencias restauradas. Reinicia Michi.")
 
     def apply(self):
         sm.set_("advanced/debug_log", self._debug.isChecked())
@@ -886,14 +886,14 @@ class HomeAudioPage(_Page):
         self.add_card(card2)
 
         # API + mDNS card
-        card3 = SettingsCard("Astra API + mDNS")
+        card3 = SettingsCard("Michi API + mDNS")
         self._api_enabled = SettingsSwitch(sm.get("home_audio/michi_api_enabled"))
         self._api_port = SettingsSlider(1024, 65535, sm.get("home_audio/michi_api_port"))
         self._api_token = _line_edit(sm.get("home_audio/michi_api_token") or "")
         self._mdns_enabled = SettingsSwitch(sm.get("home_audio/mdns_enabled"))
-        card3.add_row(SettingsRow("Activar API Astra", "Control remoto desde HA",
+        card3.add_row(SettingsRow("Activar API Michi", "Control remoto desde HA",
                                   self._api_enabled))
-        card3.add_row(SettingsRow("Puerto API", "Puerto HTTP de Astra", self._api_port))
+        card3.add_row(SettingsRow("Puerto API", "Puerto HTTP de Michi", self._api_port))
         card3.add_row(SettingsRow("Token API", "Token de autenticacion", self._api_token))
         card3.add_row(SettingsRow("Activar mDNS", "Descubrimiento automatico en red",
                                   self._mdns_enabled))

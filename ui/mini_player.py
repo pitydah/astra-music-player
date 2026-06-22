@@ -16,7 +16,7 @@ class MiniPlayer(QWidget):
     def __init__(self, playback, parent=None):
         super().__init__(parent)
         self._playback = playback
-        self.setWindowTitle("Astra — Mini reproductor")
+        self.setWindowTitle("Michi — Mini reproductor")
         self.setFixedSize(320, 200)
         self.setWindowFlags(
             Qt.Window | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
@@ -43,7 +43,7 @@ class MiniPlayer(QWidget):
 
         # Title bar (drag handle)
         title_bar = QHBoxLayout()
-        title_lbl = QLabel("Astra")
+        title_lbl = QLabel("Michi")
         title_lbl.setStyleSheet(
             "font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.5);")
         close_btn = QPushButton("\u00d7")

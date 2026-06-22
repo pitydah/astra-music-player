@@ -65,5 +65,5 @@ python tools/normalize_svg_icon.py icono.svg --family sidebar --out icons/sideba
 ## Debug runtime
 
 ```bash
-ASTRA_DEBUG_ICONS=1 python -m astra
+MICHI_DEBUG_ICONS=1 python -m michi
 ```

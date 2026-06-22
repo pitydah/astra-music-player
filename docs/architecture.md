@@ -60,5 +60,5 @@ User clicks play → window._play_file()
 | Radio stations | JSON | `~/.local/share/michi-music-player/radio_stations.json` |
 | Subsonic servers | JSON | `~/.local/share/michi-music-player/subsonic_servers.json` |
 | Transmit devices | JSON | `~/.local/share/michi-music-player/transmit_devices.json` |
-| Settings | QSettings | `~/.config/Astra/MusicPlayer.conf` |
+| Settings | QSettings | `~/.config/Michi/MusicPlayer.conf` |
 | Album art cache | SQLite | (same DB) |

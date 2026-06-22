@@ -322,7 +322,7 @@ class PreferencesWindow(QDialog):
     def _restore_all(self):
         reply = QMessageBox.question(
             self, "Restaurar todo",
-            "Esto restaurará TODAS las preferencias de Astra a sus valores por defecto.\n\n¿Continuar?",
+            "Esto restaurará TODAS las preferencias de Michi a sus valores por defecto.\n\n¿Continuar?",
             QMessageBox.Yes | QMessageBox.No)
         if reply != QMessageBox.Yes:
             return
@@ -330,7 +330,7 @@ class PreferencesWindow(QDialog):
         self._page_widgets = [None] * len(PAGE_DEFS)
         self._switch_page(self._nav.currentRow())
         self._pending_changes.clear()
-        QMessageBox.information(self, "Restaurado", "Todas las preferencias han sido restauradas. Reinicia Astra.")
+        QMessageBox.information(self, "Restaurado", "Todas las preferencias han sido restauradas. Reinicia Michi.")
 
     def _do_export(self):
         from PySide6.QtWidgets import QFileDialog
@@ -346,6 +346,6 @@ class PreferencesWindow(QDialog):
                 sm.import_from_file(path)
                 self._page_widgets = [None] * len(PAGE_DEFS)
                 self._switch_page(self._nav.currentRow())
-                QMessageBox.information(self, "Importado", "Configuración importada. Reinicia Astra para aplicar todos los cambios.")
+                QMessageBox.information(self, "Importado", "Configuración importada. Reinicia Michi para aplicar todos los cambios.")
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"No se pudo importar:\n{e}")

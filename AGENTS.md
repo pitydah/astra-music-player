@@ -358,7 +358,7 @@ stream starts → IdentifierController.set_current_track(source_type="radio", ..
       → if match → _on_detection_result → RecognitionMatcher → history
 
 local file starts → IdentifierController.set_current_track(source_type="local_file", ...)
-  → _should_listen("local_file") → False → _pause("Archivo local: Astra ya conoce sus metadatos")
+  → _should_listen("local_file") → False → _pause("Archivo local: Michi ya conoce sus metadatos")
 ```
 
 ## 11. Common Tasks

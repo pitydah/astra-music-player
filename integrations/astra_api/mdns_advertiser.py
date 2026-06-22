@@ -1,4 +1,4 @@
-"""mDNS advertiser — announces Astra API via avahi-publish-service."""
+"""mDNS advertiser — announces Michi API via avahi-publish-service."""
 import shutil
 
 from PySide6.QtCore import QObject, Signal, QProcess

@@ -40,7 +40,7 @@ class AstraMediaSource(MediaSource):
                     timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 return await resp.json()
         except Exception as e:
-            _LOGGER.debug("Astra media_source error: %s", e)
+            _LOGGER.debug("Michi media_source error: %s", e)
             return {}
 
     async def async_browse_media(self, item: MediaSourceItem) -> BrowseMediaSource:
@@ -105,10 +105,10 @@ class AstraMediaSource(MediaSource):
 
         cfg = self._get_config()
         if not cfg:
-            raise Unresolvable("Astra not configured")
+            raise Unresolvable("Michi not configured")
 
         return PlayMedia(
-            url=f"astra://{media_id}",
+            url=f"michi://{media_id}",
             mime_type="audio/x-michi-local",
         )
 
