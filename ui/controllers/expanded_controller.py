@@ -16,6 +16,8 @@ class ExpandedController:
 
         if self._win._ctx.expanded is None:
             self._win._ctx.expanded = ExpandedNowPlaying()
+            if hasattr(self._win, '_workers'):
+                self._win._ctx.expanded._lyrics._workers = self._win._workers
             self._win._ctx.expanded.go_back.connect(self.back)
             self._win._ctx.expanded.play_clicked.connect(self._win._ctx.playback.toggle)
             self._win._ctx.expanded.prev_clicked.connect(self.prev)

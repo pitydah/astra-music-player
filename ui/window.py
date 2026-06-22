@@ -237,6 +237,7 @@ class MainWindow(QMainWindow):
         self._toast_svc = ToastService(self)
         from core.worker_manager import WorkerManager
         self._workers = WorkerManager(self)
+        self._db._worker_mgr = self._workers
         self._shutdown.register("playback", lambda: self._playback.stop())
         self._shutdown.register("db", lambda: self._db.close())
 
@@ -1608,6 +1609,7 @@ class MainWindow(QMainWindow):
         try:
             client = SubsonicClient(srv_data)
             self._remote_browser = RemoteBrowser(client, name)
+            self._remote_browser._workers = self._workers
             self._remote_browser.track_selected.connect(self._play_stream)
             self._views.replace("remote", self._remote_browser)
             self._views.show("remote")

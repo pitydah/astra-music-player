@@ -244,6 +244,18 @@ class LibraryDB:
         if kind == "unknown":
             return None
 
+        # Offload heavy metadata extraction to WorkerManager if available
+        worker = getattr(self, '_worker_mgr', None)
+        if worker:
+            fname = os.path.basename(filepath)
+            dname = os.path.dirname(filepath)
+            stat = os.stat(filepath)
+            self._insert_basic(filepath, fname, dname, ext, kind, stat)
+            worker.run_task(f"meta:{os.path.basename(filepath)}",
+                lambda fp=filepath: (extract_metadata(fp), extract_metadata_full(fp)))
+            return None
+
+        # Synchronous fallback
         stat = os.stat(filepath)
         meta = extract_metadata(filepath)
         meta_full = extract_metadata_full(filepath)
@@ -322,6 +334,16 @@ class LibraryDB:
         except Exception:
             import logging
             logging.getLogger("astra").debug("Scanner: commit after add_file failed")
+
+    def _insert_basic(self, filepath, fname, dname, ext, kind, stat):
+        """Insert basic file info (no metadata) — fast, non-blocking."""
+        with contextlib.suppress(sqlite3.Error):
+            self._conn.execute(
+                "INSERT OR IGNORE INTO media_items "
+                "(filepath, filename, directory, ext, kind, size, mtime) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (filepath, fname, dname, ext, kind, stat.st_size, stat.st_mtime))
+            self._conn.commit()
 
     def get_file_signature(self, filepath: str) -> tuple | None:
         """Return (size, mtime, content_hash) for a filepath, or None if not in DB."""

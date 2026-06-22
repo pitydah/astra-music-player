@@ -116,11 +116,17 @@ class WorkerManager(QObject):
     def _on_identify_done(self, result):
         self.identify_done.emit(result)
 
-    def run_task(self, task_id: str, fn, *args, **kwargs):
-        """Run an arbitrary function in background. Emits task_done or task_error."""
+    def run_task(self, task_id: str, fn, *args, on_done=None, on_error=None, **kwargs):
+        """Run an arbitrary function in background. Connects optional on_done/on_error callbacks."""
         worker = _TaskWorker(fn, *args, **kwargs)
-        worker._signals.done.connect(lambda r, tid=task_id: self.task_done.emit(tid, r))
-        worker._signals.error.connect(lambda e, tid=task_id: self.task_error.emit(tid, e))
+        cb_done = on_done
+        cb_err = on_error
+        worker._signals.done.connect(
+            lambda r, tid=task_id, cb=cb_done:
+                (self.task_done.emit(tid, r), cb(r) if cb else None))
+        worker._signals.error.connect(
+            lambda e, tid=task_id, cb=cb_err:
+                (self.task_error.emit(tid, e), cb(e) if cb else None))
         self._pool.start(worker)
 
     def pending(self) -> int:

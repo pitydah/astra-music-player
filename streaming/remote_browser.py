@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
-    QLabel, QPushButton, QApplication, QFrame,
+    QLabel, QPushButton, QFrame,
 )
 import urllib.request
 import urllib.error
@@ -156,8 +156,17 @@ class RemoteBrowser(QWidget):
         self._list.clear()
         self._status.setText(f"Cargando {label}...")
         self._status.show()
-        QApplication.processEvents()
 
+        workers = getattr(self, '_workers', None)
+        if workers:
+            workers.run_task(
+                f"subsonic:{label}",
+                loader,
+                on_done=lambda data: self._on_remote_data(data, populator),
+                on_error=lambda e: self._status.setText(f"Error: {e}"))
+            return
+
+        # Synchronous fallback
         try:
             data = loader()
             populator(data)
@@ -178,6 +187,10 @@ class RemoteBrowser(QWidget):
         except Exception as e:
             self._status.setText(f"Error inesperado: {e}")
             self._status.show()
+
+    def _on_remote_data(self, data, populator):
+        populator(data)
+        self._status.hide()
 
     def _populate_artists(self, artists: list[RemoteArtist]):
         self._list.clear()

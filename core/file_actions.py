@@ -83,19 +83,23 @@ class FileActions:
         def _on_done(added):
             overlay.hide()
             overlay.deleteLater()
-            self._win._db.cleanup_missing()
-            self._win._load_library()
-            # Rebuild FTS5 index and reset CoverFlow cache
-            try:
-                from library.search_index import SearchIndex
-                idx = SearchIndex(self._win._db._conn)
-                if idx.fts_exists:
-                    idx.rebuild_fts()
-            except Exception:
-                pass
-            self._win._coverflow_cache_key = None
-            ToastNotification.success(
-                f"Escaneo completado: {added} archivos añadidos", self._win)
+
+            # Offload cleanup to WorkerManager
+            def do_cleanup():
+                self._win._db.cleanup_missing()
+
+            def on_cleanup_done(_result):
+                self._win._load_library()
+                self._win._coverflow_cache_key = None
+                ToastNotification.success(
+                    f"Escaneo completado: {added} archivos añadidos", self._win)
+
+            if hasattr(self._win, '_workers'):
+                self._win._workers.run_task("post_scan_cleanup", do_cleanup,
+                                             on_done=on_cleanup_done)
+            else:
+                do_cleanup()
+                on_cleanup_done(None)
 
         worker.moveToThread(thread)
         worker.finished.connect(lambda a: _on_done(a))

@@ -57,6 +57,18 @@ class LyricsWidget(QWidget):
         self._display.set_lines([])
         self._progress.setVisible(True)
 
+        workers = getattr(self, '_workers', None)
+        if workers:
+            def fetch():
+                return self._client.get_lyrics(title, artist, album, duration)
+            workers.run_task(
+                f"lyrics:{title}:{artist}",
+                fetch,
+                on_done=lambda r: self._on_lyrics_done(r, title),
+                on_error=lambda e: self._on_lyrics_failed())
+            return
+
+        # Synchronous fallback
         result = self._client.get_lyrics(title, artist, album, duration)
         if result:
             self._lines = result.lines
@@ -65,7 +77,20 @@ class LyricsWidget(QWidget):
             self.lyrics_loaded.emit(title)
         else:
             self._display.set_no_lyrics()
+        self._progress.setVisible(False)
 
+    def _on_lyrics_done(self, result, title):
+        if result:
+            self._lines = result.lines
+            self._plain = result.plain
+            self._display.set_lines(self._lines)
+            self.lyrics_loaded.emit(title)
+        else:
+            self._display.set_no_lyrics()
+        self._progress.setVisible(False)
+
+    def _on_lyrics_failed(self):
+        self._display.set_no_lyrics()
         self._progress.setVisible(False)
 
     def set_position(self, seconds: float):
