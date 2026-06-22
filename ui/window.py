@@ -282,6 +282,26 @@ class MainWindow(QMainWindow):
         from core.app_context import AppContext
         self._ctx = AppContext(self)
 
+        # AppServices — immutable DI for new controllers
+        from core.app_services import AppServices
+        self._services = AppServices(
+            db=self._db,
+            playback=self._playback,
+            player=self._player,
+            model=self._model,
+            toast=self._toast_svc,
+            player_bar=getattr(self, '_player_bar_ctrl', None),
+            features=self._features,
+            artist_repo=self._artist_repo,
+            genre_repo=self._genre_repo,
+            fade_to=self._fade_content,
+            navigate=self._on_sidebar_navigate,
+            configure_header=self._configure_header_for_section,
+            rebuild_sidebar=self._rebuild_sidebar,
+            load_library=self._load_library,
+            play_file=self._play_file,
+        )
+
     def _init_optional_services(self):
         """Music identifier, HomeAudioView, Snapcast, API, mDNS, enrichment, MPRIS."""
         import core.settings_manager as sm
@@ -1025,8 +1045,6 @@ class MainWindow(QMainWindow):
         self._genre_repo = GenreRepository()
         from ui.controllers.artist_controller import ArtistController
         self._artist_ctrl = ArtistController(self)
-        from ui.controllers.genre_controller import GenreController
-        self._genre_ctrl = GenreController(self)
         from core.playback_controller import PlaybackController
         self._playback_ctrl = PlaybackController(self)
 
