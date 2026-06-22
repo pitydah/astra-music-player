@@ -95,6 +95,22 @@ class AppContext:
         return self._win._artist_repo
 
     @property
+    def genre_repo(self):
+        return self._win._genre_repo
+
+    @property
+    def genre_grid(self):
+        return self._win._genre_grid
+
+    @property
+    def genre_detail(self):
+        return self._win._genre_detail
+
+    @property
+    def all_items(self):
+        return self._win._all_items
+
+    @property
     def items_index(self):
         return self._win._items_index
 

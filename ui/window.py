@@ -59,6 +59,8 @@ from ui.playlist_detail_view import PlaylistDetailView
 from ui.metadata_editor import MetadataEditorWidget
 from ui.artist_grid import ArtistGridWidget
 from ui.artist_detail_view import ArtistDetailView
+from ui.genre_grid import GenreGridWidget
+from ui.genre_detail_view import GenreDetailView
 from ui.home_audio_view import HomeAudioView
 from recognition.detection_service import DetectionService
 
@@ -73,9 +75,9 @@ SECTION_CONFIG = {
     "artists":    {"title": "Artistas", "subtitle": "Explora tu biblioteca por artista y álbumes",
                    "icon": "sidebar_artist", "views": ["grid", "list"],
                    "search": True, "default": "grid"},
-    "genres":     {"title": "Géneros", "subtitle": "Explora por estilo musical",
-                   "icon": "sidebar_popular", "views": ["list", "grid"],
-                   "search": True, "default": "list"},
+    "genres":     {"title": "Géneros", "subtitle": "Atlas de estilos de tu biblioteca",
+                    "icon": "sidebar_popular", "views": ["grid", "list"],
+                    "search": True, "default": "grid"},
     "folders":    {"title": "Carpetas", "subtitle": "Explorador musical local",
                    "icon": "sidebar_folders", "views": ["tree"],
                    "search": True, "default": "tree"},
@@ -749,6 +751,28 @@ class MainWindow(QMainWindow):
         self._artist_detail.track_metadata_requested.connect(
             lambda fp: self._open_metadata_for_files([fp]))
 
+        # Genre grid + detail
+        self._genre_grid = GenreGridWidget()
+        self._genre_detail = GenreDetailView()
+        self._genre_grid.genre_selected.connect(self._open_genre_detail)
+        self._genre_grid.genre_play_requested.connect(self._play_genre)
+        self._genre_grid.genre_shuffle_requested.connect(self._shuffle_genre)
+        self._genre_grid.genre_queue_requested.connect(self._queue_genre)
+        self._genre_grid.genre_playlist_requested.connect(self._create_playlist_from_genre)
+        self._genre_grid.genre_metadata_requested.connect(self._edit_genre_metadata)
+        self._genre_grid.genre_normalize_requested.connect(self._normalize_genre)
+        self._genre_detail.back_requested.connect(self._genre_ctrl.back_to_overview)
+        self._genre_detail.play_requested.connect(self._play_genre)
+        self._genre_detail.shuffle_requested.connect(self._shuffle_genre)
+        self._genre_detail.queue_requested.connect(self._queue_genre)
+        self._genre_detail.playlist_requested.connect(self._create_playlist_from_genre)
+        self._genre_detail.metadata_requested.connect(self._edit_genre_metadata)
+        self._genre_detail.normalize_requested.connect(self._normalize_genre)
+        self._genre_detail.track_play_requested.connect(
+            lambda fp: self._play_filepaths([fp], play_now=True))
+        self._genre_detail.track_queue_requested.connect(
+            lambda fp: self._play_filepaths([fp], play_now=False))
+
         # Enrichment service signals
         self._artist_enrich.artist_enriched.connect(self._on_artist_enriched)
         self._artist_enrich.artist_image_loaded.connect(self._on_artist_image_loaded)
@@ -782,6 +806,8 @@ class MainWindow(QMainWindow):
         self._views.register("home_audio", self._home_audio_view)
         self._views.register("artist_grid", self._artist_grid)
         self._views.register("artist_detail", self._artist_detail)
+        self._views.register("genre_grid", self._genre_grid)
+        self._views.register("genre_detail", self._genre_detail)
         self._views.register("folders", self._folder_browser)
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
@@ -799,8 +825,12 @@ class MainWindow(QMainWindow):
         self._bg_theme = BackgroundThemeService(self._content)
         from ui.controllers.artist_repository import ArtistRepository
         self._artist_repo = ArtistRepository()
+        from ui.controllers.genre_repository import GenreRepository
+        self._genre_repo = GenreRepository()
         from ui.controllers.artist_controller import ArtistController
         self._artist_ctrl = ArtistController(self)
+        from ui.controllers.genre_controller import GenreController
+        self._genre_ctrl = GenreController(self)
         from core.playback_controller import PlaybackController
         self._playback_ctrl = PlaybackController(self)
 
@@ -1052,27 +1082,9 @@ class MainWindow(QMainWindow):
             self._search.show()
 
         elif key == "genres":
-            self._section_title.setText("Géneros")
-            self._section_subtitle.setText("Explora por estilo musical")
-            items = self._db.get_all(group_by="genre")
-            refs = [TrackRef(uri=i.filepath, title=i.genre or "Sin género",
-                             duration=i.duration, genre=i.genre or "Sin género")
-                    for i in items if i.genre]
-            self._model.populate(refs)
-            self._count.setText(f"{len(refs)} géneros")
-            if refs:
-                self._views.show("library")
-                self._table.setModel(self._model)
-                self._table.setColumnWidth(0, 72)
-                self._table.setColumnWidth(1, 240)
-                self._table.setColumnWidth(2, 170)
-                self._table.setColumnWidth(3, 170)
-                self._table.setColumnWidth(4, 55)
-                self._table.setColumnWidth(5, 110)
-                self._table.setColumnWidth(6, 75)
-            else:
-                self._views.show("empty")
-            self._search.show()
+            if not self._all_items and self._db:
+                self._load_library()
+            self._genre_ctrl.show_genres_overview(self._view_mode)
 
         elif key == "folders":
             self._section_title.setText("Carpetas")
@@ -2001,6 +2013,29 @@ class MainWindow(QMainWindow):
 
     def _edit_artist_metadata(self, artist_key: str):
         self._artist_ctrl.edit_artist_metadata(artist_key)
+
+    # ── Genre handlers ──
+
+    def _open_genre_detail(self, genre_key: str):
+        self._genre_ctrl.open_genre_detail(genre_key)
+
+    def _play_genre(self, genre_key: str):
+        self._genre_ctrl.play_genre(genre_key)
+
+    def _shuffle_genre(self, genre_key: str):
+        self._genre_ctrl.play_genre(genre_key, shuffle=True)
+
+    def _queue_genre(self, genre_key: str):
+        self._genre_ctrl.queue_genre(genre_key)
+
+    def _create_playlist_from_genre(self, genre_key: str):
+        self._genre_ctrl.create_playlist_from_genre(genre_key)
+
+    def _edit_genre_metadata(self, genre_key: str):
+        self._genre_ctrl.edit_genre_metadata(genre_key)
+
+    def _normalize_genre(self, genre_key: str):
+        self._genre_ctrl.normalize_genre(genre_key)
 
     def _refresh_artist_info(self, artist_key: str):
         repo = self._ctx.artist_repo
