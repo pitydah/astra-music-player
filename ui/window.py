@@ -2557,7 +2557,7 @@ class MainWindow(QMainWindow):
             return ""
 
     def _on_home_audio_connect(self):
-        from core.settings_manager import get as sget, get_bool
+        from core.settings_manager import get_bool, get_str
         from PySide6.QtWidgets import (
             QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QCheckBox)
         dlg = QDialog(self)
@@ -2566,8 +2566,8 @@ class MainWindow(QMainWindow):
         layout = QFormLayout(dlg)
         layout.setSpacing(10)
 
-        saved_url = sget("home_audio/ha_base_url") or ""
-        saved_token = sget("home_audio/ha_token") or ""
+        saved_url = get_str("home_audio/ha_base_url") or ""
+        saved_token = get_str("home_audio/ha_token") or ""
 
         url_edit = QLineEdit(saved_url)
         url_edit.setPlaceholderText("http://homeassistant.local:8123")
@@ -2590,7 +2590,7 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _try_ha_connection(self, url: str, token: str, dialog, verify_ssl: bool = True):
-        from core.settings_manager import get as sget, set_ as sset
+        from core.settings_manager import set_ as sset, get_bool
         sset("home_audio/ha_base_url", url)
         sset("home_audio/ha_token", token)
         sset("home_audio/ha_verify_ssl", verify_ssl)
@@ -2607,7 +2607,7 @@ class MainWindow(QMainWindow):
 
         self._toast_svc.show("Probando conexion con Home Assistant...", "info")
         self._ha_client.configure(
-            url, token, sget("home_audio/ha_verify_ssl"))
+            url, token, get_bool("home_audio/ha_verify_ssl"))
         self._ha_client.test_connection()
 
     def _on_ha_connection_result(self, ok: bool, msg: str):
@@ -2644,14 +2644,14 @@ class MainWindow(QMainWindow):
             self._refresh_home_audio_state()
 
     def _on_home_audio_multiroom(self, enable: bool):
-        from core.settings_manager import get as sget
+        from core.settings_manager import get_int
         if enable:
             # Start Astra API
             if not self._astra_api.is_running:
                 self._astra_api.start()
             # Start local media server
             if not self._local_media.is_running:
-                self._local_media.configure(sget("home_audio/local_media_server_port"))
+                self._local_media.configure(get_int("home_audio/local_media_server_port"))
                 self._local_media.start()
             # Start mDNS
             if not self._mdns.is_running and self._mdns.is_available:
@@ -2670,9 +2670,9 @@ class MainWindow(QMainWindow):
                     groups=self._group_mgr.groups())
                 return
             self._snapserver.configure(
-                tcp=sget("home_audio/snapserver_tcp_port"),
-                ctrl=sget("home_audio/snapserver_control_port"),
-                http=sget("home_audio/snapserver_http_port"))
+                tcp=get_int("home_audio/snapserver_tcp_port"),
+                ctrl=get_int("home_audio/snapserver_control_port"),
+                http=get_int("home_audio/snapserver_http_port"))
             self._audio_capture.create_sink()
         else:
             self._snapserver.stop()

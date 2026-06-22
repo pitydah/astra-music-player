@@ -6,8 +6,9 @@ from PySide6.QtWidgets import QMessageBox
 
 
 class AlbumController:
-    def __init__(self, window, refresh_grid=None):
+    def __init__(self, window, refresh_grid=None, services=None):
         self._win = window
+        self._svc = services
         self._refresh_grid = refresh_grid or (lambda: None)
 
     def _toast(self, text: str, level: str = "info"):

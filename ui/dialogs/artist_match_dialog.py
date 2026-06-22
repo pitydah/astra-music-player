@@ -1,4 +1,4 @@
-"""Artist match dialog — let the user select the correct TheAudioDB match."""
+"""Artist match dialog — let the user select the correct MusicBrainz / Wikipedia match."""
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QWidget,
@@ -32,7 +32,7 @@ class ArtistMatchDialog(QDialog):
         layout.addWidget(title)
 
         sub = QLabel(
-            "Selecciona el artista correcto de TheAudioDB o ignora la info externa.")
+            "Selecciona el artista correcto de MusicBrainz o ignora la info externa.")
         sub.setStyleSheet("font-size: 11px; color: rgba(255,255,255,0.48);")
         sub.setWordWrap(True)
         layout.addWidget(sub)

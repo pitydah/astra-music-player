@@ -5,8 +5,9 @@ from PySide6.QtWidgets import QFileDialog, QInputDialog
 
 
 class PlaylistController:
-    def __init__(self, window):
+    def __init__(self, window, services=None):
         self._win = window
+        self._svc = services
 
     def _toast(self, text: str, level: str = "info"):
         self._win._ctx.toast.show(text, level)

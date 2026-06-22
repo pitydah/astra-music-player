@@ -9,8 +9,9 @@ logger = logging.getLogger("astra.cast.controller")
 class CastController:
     """Unified casting — delegates to SnapcastController or HomeAudioController."""
 
-    def __init__(self, window):
+    def __init__(self, window, services=None):
         self._win = window
+        self._svc = services
 
     def show_cast_menu(self):
         """Show the unified transmit/cast menu: local output + net devices + zones + HA."""

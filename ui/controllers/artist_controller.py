@@ -4,8 +4,9 @@ import os
 
 
 class ArtistController:
-    def __init__(self, window):
+    def __init__(self, window, services=None):
         self._win = window
+        self._svc = services
 
     def show_artists_view(self, mode: str):
         self._win._ctx.artist_grid.set_view_mode(mode)

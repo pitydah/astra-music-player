@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Tokens:
-    accent_orange: str
+    accent_blue: str
     accent_pink: str
     accent_red: str
     bg_app: str
@@ -22,8 +22,8 @@ class Tokens:
 
 _TOKEN_MAP = {
     "dark": Tokens(
-        accent_orange="#FF7A00",
-        accent_pink="#DD007A",
+        accent_blue="#8FB7FF",
+        accent_pink="rgba(143,183,255,0.60)",
         accent_red="#FF243D",
         bg_app="#0D0F16",
         bg_panel="rgba(28,30,40,0.82)",
@@ -37,7 +37,7 @@ _TOKEN_MAP = {
         text_faint="rgba(245,245,247,0.36)",
     ),
     "light": Tokens(
-        accent_orange="#FF7A00",
+        accent_blue="#8FB7FF",
         accent_pink="#CC0066",
         accent_red="#CC1A2E",
         bg_app="#F5F5F7",
@@ -52,8 +52,8 @@ _TOKEN_MAP = {
         text_faint="rgba(28,28,30,0.36)",
     ),
     "amoled": Tokens(
-        accent_orange="#FF7A00",
-        accent_pink="#DD007A",
+        accent_blue="#8FB7FF",
+        accent_pink="rgba(143,183,255,0.60)",
         accent_red="#FF243D",
         bg_app="#000000",
         bg_panel="rgba(10,10,12,0.88)",
@@ -91,12 +91,12 @@ def current_theme() -> str:
 
 _t = _TOKEN_MAP["dark"]
 
-COLOR_ACCENT_ORANGE = _t.accent_orange
+COLOR_ACCENT_ORANGE = _t.accent_blue
 COLOR_ACCENT_PINK = _t.accent_pink
 COLOR_ACCENT_RED = _t.accent_red
 
 ACCENT_GRADIENT = ("qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-                   " stop:0 #FF7A00, stop:1 #DD007A)")
+                   " stop:0 #8FB7FF, stop:1 rgba(143,183,255,0.60))")
 
 COLOR_BG_APP = _t.bg_app
 COLOR_BG_PANEL = _t.bg_panel
