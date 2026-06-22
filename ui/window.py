@@ -184,12 +184,14 @@ class MainWindow(QMainWindow):
         _log.info("Phase state: %.0f ms", (perf_counter() - _t0) * 1000)
         self._init_core()
         _log.info("Phase core: %.0f ms", (perf_counter() - _t0) * 1000)
+        self._init_optional_services()
+        _log.info("Phase optional: %.0f ms", (perf_counter() - _t0) * 1000)
         self._init_ui()
         _log.info("Phase ui: %.0f ms", (perf_counter() - _t0) * 1000)
         self._init_controllers()
         _log.info("Phase controllers: %.0f ms", (perf_counter() - _t0) * 1000)
-        self._init_optional_services()
-        _log.info("Phase optional: %.0f ms", (perf_counter() - _t0) * 1000)
+        self._setup_shortcuts()
+        self._wire_home_audio_signals()
         self._connect_signals()
         _log.info("Phase signals: %.0f ms", (perf_counter() - _t0) * 1000)
         self._load_initial_data()
@@ -218,6 +220,37 @@ class MainWindow(QMainWindow):
         self._album_sort_key = "title"
         self._album_filter_mode = "all"
         self._coverflow_cache_key: tuple | None = None
+
+        # Optional attributes — initialized as None, filled by their init phase
+        self._playlist_ctrl = None
+        self._genre_ctrl = None
+        self._genre_repo = None
+        self._artist_ctrl = None
+        self._artist_repo = None
+        self._artist_enrich = None
+        self._snapserver = None
+        self._audio_capture = None
+        self._snap_discovery = None
+        self._group_mgr = None
+        self._astra_api = None
+        self._mdns = None
+        self._local_media = None
+        self._detection = None
+        self._identifier_ctrl = None
+        self._mpris_ctrl = None
+        self._mpris = None
+        self._transmit_mgr = None
+        self._file_actions = None
+        self._expanded_ctrl = None
+        self._album_ctrl = None
+        self._cast_ctrl = None
+        self._snapcast_ctrl = None
+        self._ha_ctrl = None
+        self._local_media_ctrl = None
+        self._mini_player_ctrl = None
+        self._audio_output_ctrl = None
+        self._playback_ctrl = None
+        self._tray_ctrl = None
 
     def _init_core(self):
         """DB, player engine, playback service, model, search — must not fail."""
@@ -377,6 +410,10 @@ class MainWindow(QMainWindow):
             enabled=sm.get_bool("artist_enrichment/enabled") and not self._safe_mode)
         self._artist_enrich = self._safe_init("enrichment",
             lambda: self._make_artist_enrichment())
+        if self._artist_enrich:
+            self._artist_enrich.artist_enriched.connect(self._on_artist_enriched)
+            self._artist_enrich.artist_image_loaded.connect(self._on_artist_image_loaded)
+            self._artist_enrich.enrichment_failed.connect(self._on_artist_enrichment_failed)
 
         # Album info repository
         from metadata.album_info_repository import AlbumInfoRepository
@@ -395,10 +432,6 @@ class MainWindow(QMainWindow):
         self._transmit_mgr = TransmitManager(self)
         self._transmit_mgr.active_changed.connect(self._on_transmit_active_changed)
         self._shutdown.register("transmit", lambda: None)  # no explicit stop needed
-
-        self._setup_shortcuts()
-        # Wire HomeAudioView signals
-        self._wire_home_audio_signals()
 
     def _load_initial_data(self):
         """Library loading, cleanup, enrichment, tray — after everything is wired."""
@@ -989,11 +1022,6 @@ class MainWindow(QMainWindow):
             lambda fp: self._play_filepaths([fp], play_now=True))
         self._genre_detail.track_queue_requested.connect(
             lambda fp: self._play_filepaths([fp], play_now=False))
-
-        # Enrichment service signals
-        self._artist_enrich.artist_enriched.connect(self._on_artist_enriched)
-        self._artist_enrich.artist_image_loaded.connect(self._on_artist_image_loaded)
-        self._artist_enrich.enrichment_failed.connect(self._on_artist_enrichment_failed)
 
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
