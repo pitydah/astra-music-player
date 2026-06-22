@@ -425,9 +425,14 @@ class MainWindow(QMainWindow):
             self._sync_mgr.start()
             self._sync_action.setChecked(True)
 
-    def _show_preferences(self):
-        from ui.preferences_window import PreferencesWindow
+    def _show_preferences(self, section: str = ""):
+        from ui.preferences_window import PreferencesWindow, PAGE_DEFS
         dlg = PreferencesWindow(self)
+        if section:
+            for i, (_name, key, _icon) in enumerate(PAGE_DEFS):
+                if key == section:
+                    dlg._nav.setCurrentRow(i)
+                    break
         dlg.exec()
 
     def _show_shortcuts(self):
@@ -2403,7 +2408,7 @@ class MainWindow(QMainWindow):
             self._local_media.stop()
 
     def _on_home_audio_settings(self):
-        self._show_preferences()
+        self._show_preferences("home_audio")
 
     def _on_home_audio_receiver_wizard(self):
         from integrations.snapcast.receivers import ReceiverWizard
@@ -2577,7 +2582,7 @@ class MainWindow(QMainWindow):
                 self._search_ctrl.search(f"{title} {artist}")
 
     def _on_identifier_settings(self):
-        self._toast_svc.show("Preferencias del identificador: proximamente en ajustes", "info")
+        self._show_preferences("identifier")
 
     def _on_identifier_play(self, track: dict):
         fp = track.get("matched_filepath") or track.get("filepath", "")

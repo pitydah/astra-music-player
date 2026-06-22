@@ -105,9 +105,70 @@ DEFAULTS = {
 def get(key: str):
     return SETTINGS.value(key, DEFAULTS.get(key))
 
+def get_bool(key: str) -> bool:
+    v = SETTINGS.value(key, DEFAULTS.get(key))
+    if v is None:
+        return False
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.lower() in ("true", "1", "yes")
+    if isinstance(v, int):
+        return v != 0
+    return False
+
+def get_int(key: str) -> int:
+    v = SETTINGS.value(key, DEFAULTS.get(key))
+    if v is None or v == "":
+        return 0
+    try:
+        return int(v)
+    except (ValueError, TypeError):
+        return 0
+
+def get_float(key: str) -> float:
+    v = SETTINGS.value(key, DEFAULTS.get(key))
+    if v is None or v == "":
+        return 0.0
+    try:
+        return float(v)
+    except (ValueError, TypeError):
+        return 0.0
+
+def get_str(key: str) -> str:
+    v = SETTINGS.value(key, DEFAULTS.get(key))
+    if v is None:
+        return ""
+    return str(v)
+
+def get_list(key: str) -> list:
+    import json as _json
+    v = SETTINGS.value(key, DEFAULTS.get(key))
+    if v is None:
+        return []
+    if isinstance(v, list):
+        return v
+    if isinstance(v, str):
+        try:
+            return _json.loads(v)
+        except (_json.JSONDecodeError, ValueError):
+            return []
+    return []
 
 def set_(key: str, value):
     SETTINGS.setValue(key, value)
+
+def set_bool(key: str, value: bool):
+    SETTINGS.setValue(key, bool(value))
+
+def set_int(key: str, value: int):
+    SETTINGS.setValue(key, int(value))
+
+def set_float(key: str, value: float):
+    SETTINGS.setValue(key, float(value))
+
+def set_str(key: str, value: str):
+    SETTINGS.setValue(key, str(value))
 
 
 def export_to_file(path: str):

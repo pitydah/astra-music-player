@@ -13,7 +13,7 @@ from ui.settings_pages import (
     AudioPage, EqualizerPage, MetadataPage, PlaylistPage,
     ArtistsAlbumsPage, RadioPage, ServersPage, DevicesPage,
     SyncPage, ShortcutsPage, AdvancedPage, AboutPage,
-    HomeAudioPage,
+    HomeAudioPage, IdentifierPage,
 )
 from ui.icons import get_icon
 import core.settings_manager as sm
@@ -44,6 +44,7 @@ PAGE_DEFS = [
     ("Home Audio", "home_audio", "home_audio"),
     ("Atajos", "shortcuts", "sidebar_library"),
     ("Avanzado", "advanced", "warm_settings"),
+    ("Identificador", "identifier", "sidebar_identifier"),
     ("Acerca de", "about", "warm_settings"),
 ]
 
@@ -239,7 +240,7 @@ class PreferencesWindow(QDialog):
             "servers": ServersPage, "devices": DevicesPage,
             "sync": SyncPage, "shortcuts": ShortcutsPage,
             "advanced": AdvancedPage, "about": AboutPage,
-            "home_audio": HomeAudioPage,
+            "home_audio": HomeAudioPage, "identifier": IdentifierPage,
         }
         cls = page_classes.get(key, GeneralPage)
         page = cls()

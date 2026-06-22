@@ -359,6 +359,23 @@ class AudioPage(_Page):
         sm.set_("audio/replaygain_mode", self._rg_mode.currentText())
         sm.set_("audio/spectrum_enabled", self._spectrum.isChecked())
 
+        # Apply to running services
+        try:
+            from PySide6.QtWidgets import QApplication
+            for w in QApplication.topLevelWidgets():
+                if hasattr(w, '_ctx') and hasattr(w._ctx, 'playback'):
+                    ps = w._ctx.playback
+                    ps.set_gapless_enabled(self._gapless.isChecked())
+                    ps.set_replaygain_mode(self._rg_mode.currentText())
+                    ps.set_spectrum_enabled(self._spectrum.isChecked())
+                    # Apply profile/output device (pipeline restart)
+                    dev_id = self._dev.currentText()
+                    if dev_id and dev_id != "auto":
+                        ps.set_output_device_id(dev_id)
+                    break
+        except Exception:
+            pass
+
 
 # ═══════════════════════════════════════════
 # 6. Ecualizador
@@ -403,6 +420,18 @@ class EqualizerPage(_Page):
         sm.set_("eq/preset", self._preset.currentText())
         sm.set_("eq/preamp", float(self._preamp.value()))
         sm.set_("eq/show_spectrum", self._spectrum.isChecked())
+
+        try:
+            from PySide6.QtWidgets import QApplication
+            for w in QApplication.topLevelWidgets():
+                if hasattr(w, '_ctx') and hasattr(w._ctx, 'playback'):
+                    ps = w._ctx.playback
+                    ps.set_eq_bypass(not self._enabled.isChecked())
+                    ps.set_eq_preamp(float(self._preamp.value()))
+                    ps.set_spectrum_enabled(self._spectrum.isChecked())
+                    break
+        except Exception:
+            pass
 
 
 # ═══════════════════════════════════════════
@@ -862,6 +891,90 @@ class HomeAudioPage(_Page):
         sm.set_("home_audio/local_media_server_enabled", self._lms_enabled.isChecked())
         sm.set_("home_audio/local_media_server_port", self._lms_port.value())
         sm.set_("home_audio/play_local_monitor", self._local_mon.isChecked())
+
+        # Apply to running services
+        try:
+            from PySide6.QtWidgets import QApplication
+            for w in QApplication.topLevelWidgets():
+                if hasattr(w, '_astra_api'):
+                    api = w._astra_api
+                    api.configure(port=self._api_port.value(),
+                                  token=self._api_token.text())
+                    if self._api_enabled.isChecked() and not api.is_running:
+                        api.start()
+                    elif not self._api_enabled.isChecked() and api.is_running:
+                        api.stop()
+                if hasattr(w, '_mdns'):
+                    mdns = w._mdns
+                    mdns.configure(port=self._api_port.value())
+                    if self._mdns_enabled.isChecked() and not mdns.is_running:
+                        mdns.start()
+                    elif not self._mdns_enabled.isChecked() and mdns.is_running:
+                        mdns.stop()
+                if hasattr(w, '_snapserver'):
+                    ss = w._snapserver
+                    ss.configure(tcp=self._snap_tcp.value(),
+                                 ctrl=self._snap_ctrl.value(),
+                                 http=self._snap_http.value())
+                break
+        except Exception:
+            pass
+
+
+# ═══════════════════════════════════════════
+# Identificador musical
+# ═══════════════════════════════════════════
+
+class IdentifierPage(_Page):
+    def __init__(self):
+        super().__init__("Identificador musical", "Detección de música en reproducción", "sidebar_identifier")
+
+        card = SettingsCard("General")
+        self._auto = SettingsSwitch(sm.get("identifier/auto_enabled"))
+        self._provider = SettingsCombo(
+            ["none", "shazamio", "audd", "acoustid"],
+            sm.get("identifier/provider"))
+        self._interval = SettingsSlider(10, 120, sm.get("identifier/interval_seconds"), " s")
+        card.add_row(SettingsRow("Activar automático", "Identificar automáticamente al reproducir", self._auto))
+        card.add_row(SettingsRow("Proveedor", "ShazamIO, AudD, AcoustID o ninguno", self._provider))
+        card.add_row(SettingsRow("Intervalo", "Segundos entre identificaciones", self._interval))
+        self.add_card(card)
+
+        card2 = SettingsCard("Fuentes")
+        self._radio = SettingsSwitch(sm.get("identifier/listen_radio"))
+        self._remote = SettingsSwitch(sm.get("identifier/listen_remote"))
+        self._local = SettingsSwitch(sm.get("identifier/listen_local"))
+        card2.add_row(SettingsRow("Radio", "Identificar emisoras online", self._radio))
+        card2.add_row(SettingsRow("Streaming remoto", "Navidrome, Jellyfin, Subsonic", self._remote))
+        card2.add_row(SettingsRow("Archivos locales", "Identificar archivos sin metadatos", self._local))
+        self.add_card(card2)
+
+        card3 = SettingsCard("Historial y arte")
+        self._history = SettingsSwitch(sm.get("identifier/save_history"))
+        self._artwork = SettingsSwitch(sm.get("identifier/download_artwork"))
+        card3.add_row(SettingsRow("Guardar historial", "Conservar historial de detecciones", self._history))
+        card3.add_row(SettingsRow("Descargar carátulas", "Obtener portada al identificar", self._artwork))
+        self.add_card(card3)
+
+        card4 = SettingsCard("API Keys")
+        self._audd_key = _line_edit(sm.get("identifier/api_key_audd") or "")
+        self._acoustid_key = _line_edit(sm.get("identifier/api_key_acoustid") or "")
+        card4.add_row(SettingsRow("AudD API Key", "Clave para proveedor AudD", self._audd_key))
+        card4.add_row(SettingsRow("AcoustID Key", "Clave para proveedor AcoustID", self._acoustid_key))
+        self.add_card(card4)
+        self.add_stretch()
+
+    def apply(self):
+        sm.set_("identifier/auto_enabled", self._auto.isChecked())
+        sm.set_("identifier/provider", self._provider.currentText())
+        sm.set_("identifier/listen_radio", self._radio.isChecked())
+        sm.set_("identifier/listen_remote", self._remote.isChecked())
+        sm.set_("identifier/listen_local", self._local.isChecked())
+        sm.set_("identifier/interval_seconds", self._interval.value())
+        sm.set_("identifier/save_history", self._history.isChecked())
+        sm.set_("identifier/download_artwork", self._artwork.isChecked())
+        sm.set_("identifier/api_key_audd", self._audd_key.text())
+        sm.set_("identifier/api_key_acoustid", self._acoustid_key.text())
 
 
 def _line_edit(text: str = ""):
