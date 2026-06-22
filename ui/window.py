@@ -287,54 +287,50 @@ class MainWindow(QMainWindow):
 
     def _init_controllers(self):
         """Required controllers — navigation, playback, playlist, library."""
+        # Repos first
+        from ui.controllers.artist_repository import ArtistRepository
+        self._artist_repo = ArtistRepository()
+
+        # AppContext + AppServices before controllers that use them
+        from core.app_context import AppContext
+        self._ctx = AppContext(self)
+        from core.app_services import AppServices
+        svc = AppServices(
+            db=self._db, playback=self._playback, player=self._player,
+            model=self._model, toast=self._toast_svc,
+            player_bar=getattr(self, '_player_bar_ctrl', None),
+            features=self._features,
+            artist_repo=self._artist_repo, genre_repo=self._genre_repo,
+            fade_to=self._fade_content, navigate=self._on_sidebar_navigate,
+            configure_header=self._configure_header_for_section,
+            rebuild_sidebar=self._rebuild_sidebar,
+            load_library=self._load_library, play_file=self._play_file,
+        )
+        self._services = svc
+
+        # Controllers — pass AppServices for progressive migration
         from core.file_actions import FileActions
         self._file_actions = FileActions(self)
         from ui.controllers.album_controller import AlbumController
-        self._album_ctrl = AlbumController(self, refresh_grid=self._show_album_grid)
+        self._album_ctrl = AlbumController(self, refresh_grid=self._show_album_grid, services=svc)
         from ui.controllers.transmit_controller import TransmitController
-        self._transmit_ctrl = TransmitController(self)
+        self._transmit_ctrl = TransmitController(self, services=svc)
         from ui.controllers.audio_output_controller import AudioOutputController
-        self._audio_output_ctrl = AudioOutputController(self)
+        self._audio_output_ctrl = AudioOutputController(self, services=svc)
         from ui.controllers.snapcast_controller import SnapcastController
-        self._snapcast_ctrl = SnapcastController(self, self)
+        self._snapcast_ctrl = SnapcastController(self, self, services=svc)
         from ui.controllers.home_audio_controller import HomeAudioController
-        self._ha_ctrl = HomeAudioController(self, self)
+        self._ha_ctrl = HomeAudioController(self, self, services=svc)
         from ui.controllers.cast_controller import CastController
-        self._cast_ctrl = CastController(self)
+        self._cast_ctrl = CastController(self, services=svc)
         from ui.controllers.local_media_server_controller import LocalMediaServerController
         self._local_media_ctrl = LocalMediaServerController(self, self)
         from ui.controllers.mini_player_controller import MiniPlayerController
-        self._mini_player_ctrl = MiniPlayerController(self, self)
+        self._mini_player_ctrl = MiniPlayerController(self, self, services=svc)
         from ui.controllers.expanded_controller import ExpandedController
-        self._expanded_ctrl = ExpandedController(self)
-        from ui.controllers.artist_repository import ArtistRepository
-        self._artist_repo = ArtistRepository()
+        self._expanded_ctrl = ExpandedController(self, services=svc)
         from ui.controllers.artist_controller import ArtistController
-        self._artist_ctrl = ArtistController(self)
-
-        # AppContext
-        from core.app_context import AppContext
-        self._ctx = AppContext(self)
-
-        # AppServices — immutable DI for new controllers
-        from core.app_services import AppServices
-        self._services = AppServices(
-            db=self._db,
-            playback=self._playback,
-            player=self._player,
-            model=self._model,
-            toast=self._toast_svc,
-            player_bar=getattr(self, '_player_bar_ctrl', None),
-            features=self._features,
-            artist_repo=self._artist_repo,
-            genre_repo=self._genre_repo,
-            fade_to=self._fade_content,
-            navigate=self._on_sidebar_navigate,
-            configure_header=self._configure_header_for_section,
-            rebuild_sidebar=self._rebuild_sidebar,
-            load_library=self._load_library,
-            play_file=self._play_file,
-        )
+        self._artist_ctrl = ArtistController(self, services=svc)
 
     def _init_optional_services(self):
         """Music identifier, HomeAudioView, Snapcast, API, mDNS, enrichment, MPRIS."""

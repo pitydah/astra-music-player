@@ -77,23 +77,44 @@ class AlbumInfoRepository:
 
 def _dict_to_summary(data: dict) -> AlbumSummary | None:
     try:
+        # Parse raw_json for extra fields if present
+        raw = data.get("raw_json", "")
+        extra = {}
+        if raw:
+            import json as _json
+            try:
+                extra = _json.loads(raw)
+                if not isinstance(extra, dict):
+                    extra = {}
+            except _json.JSONDecodeError:
+                pass
+
+        # Merge: explicit columns take priority, raw_json fills gaps
+        def _get(key, default=""):
+            return data.get(key) or extra.get(key) or default
+
         return AlbumSummary(
             album_key=data.get("album_key", ""),
             title=data.get("title", data.get("album", "")),
             artist=data.get("artist", ""),
             year=str(data.get("year", "")),
-            genre=data.get("genre", ""),
-            style=data.get("style", ""),
-            mood=data.get("mood", ""),
-            description=data.get("description", ""),
+            genre=_get("genre"),
+            style=_get("style"),
+            mood=_get("mood"),
+            description=_get("description"),
             track_count=int(data.get("track_count", 0)),
             duration=float(data.get("duration", 0)),
-            cover_path=data.get("cover_path", ""),
-            thumb_path=data.get("thumb_path", ""),
-            fanart_path=data.get("fanart_path", ""),
-            source=data.get("source", "cache"),
+            cover_path=_get("cover_path"),
+            cover_url=_get("cover_url"),
+            thumb_path=_get("thumb_path"),
+            thumb_url=_get("thumb_url"),
+            fanart_path=_get("fanart_path"),
+            source=_get("source", "cache"),
             match_confidence=float(data.get("match_confidence", 0)),
             updated_at=str(data.get("updated_at", "")),
+            dominant_color=_get("dominant_color"),
+            track_list=data.get("track_list") or extra.get("track_list") or [],
+            external_ids=data.get("external_ids") or extra.get("external_ids") or {},
         )
     except Exception:
         return None
