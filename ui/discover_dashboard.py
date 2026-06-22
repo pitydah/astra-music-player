@@ -62,7 +62,7 @@ class DiscoverDashboard(QWidget):
              "sidebar_popular"),
             ("favs", "Favoritos", "Canciones que has marcado como favoritas",
              "qlineargradient(x1:0, y1:0, x2:1, y2:1, "
-             "stop:0 rgba(232,0,109,0.12), stop:1 rgba(255,122,0,0.06))",
+             "stop:0 rgba(143,183,255,0.12), stop:1 rgba(143,183,255,0.06))",
              "sidebar_popular"),
             ("recent", "Recientes", "Reproducidas recientemente",
              "qlineargradient(x1:0, y1:0, x2:1, y2:1, "
@@ -92,16 +92,21 @@ class _DiscoverCard(QFrame):
 
     def __init__(self, title: str, desc: str, bg: str, icon_name: str):
         super().__init__()
+        self.setObjectName("discoverCard")
         self.setMinimumHeight(140)
         self.setCursor(Qt.PointingHandCursor)
         self.setStyleSheet(f"""
-            QFrame {{
+            QFrame#discoverCard {{
                 background: {bg};
-                border: 1px solid rgba(255,255,255,0.08);
+                border: 1px solid rgba(255,255,255,0.04);
                 border-radius: 16px;
             }}
-            QFrame:hover {{
-                border: 1px solid rgba(143,183,255,0.16);
+            QFrame#discoverCard:hover {{
+                border: 1px solid rgba(143,183,255,0.12);
+            }}
+            QFrame#discoverCard QLabel {{
+                background: transparent;
+                border: none;
             }}
         """)
 

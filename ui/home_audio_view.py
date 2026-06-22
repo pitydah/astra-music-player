@@ -351,7 +351,7 @@ class HomeAudioView(QWidget):
                 sep = QFrame()
                 sep.setFrameShape(QFrame.HLine)
                 sep.setStyleSheet(
-                    "border: none; border-top: 1px solid rgba(255,255,255,0.06);")
+                    "border: none; border-top: 1px solid rgba(255,255,255,0.02);")
                 cl.addWidget(sep)
 
         self._refresh_system_rows()
@@ -544,8 +544,8 @@ class HomeAudioView(QWidget):
             zone_icon = QLabel("")
             zone_icon.setFixedSize(32, 32)
             zone_icon.setStyleSheet(
-                "background: rgba(143,183,255,0.08); border-radius: 10px;"
-                "border: 1px solid rgba(143,183,255,0.14);")
+                "background: rgba(143,183,255,0.06); border-radius: 10px;"
+                "border: 1px solid rgba(143,183,255,0.06);")
             from ui.icons import get_pixmap
             zpx = get_pixmap("sidebar_devices", size=18)
             if not zpx.isNull():
@@ -757,12 +757,13 @@ _STATUS_COLORS = {
 class StatusPill(QFrame):
     def __init__(self, label: str, value: str, level: str = "neutral"):
         super().__init__()
+        self.setObjectName("statusPill")
         color = _STATUS_COLORS.get(level, _STATUS_COLORS["neutral"])
         self.setStyleSheet(
-            "QFrame { background: rgba(255,255,255,0.03);"
+            "QFrame#statusPill { background: rgba(255,255,255,0.03);"
             "  border: 1px solid rgba(255,255,255,0.02);"
             "  border-radius: 10px; padding: 5px 10px; }"
-            "QLabel { background: transparent; }")
+            "QFrame#statusPill QLabel { background: transparent; }")
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
@@ -804,12 +805,12 @@ class _PrimaryButton(QPushButton):
         super().__init__(text)
         self.setStyleSheet(
             "QPushButton { color: #FFFFFF; font-size: 12px; font-weight: 700;"
-            "  background: rgba(143,183,255,0.18);"
-            "  border: 1px solid rgba(143,183,255,0.32);"
+            "  background: rgba(143,183,255,0.16);"
+            "  border: 1px solid rgba(143,183,255,0.18);"
             "  border-radius: 13px; padding: 10px 18px; }"
-            "QPushButton:hover { background: rgba(143,183,255,0.28);"
-            "  border: 1px solid rgba(143,183,255,0.48); }"
-            "QPushButton:pressed { background: rgba(143,183,255,0.12); }")
+            "QPushButton:hover { background: rgba(143,183,255,0.24);"
+            "  border: 1px solid rgba(143,183,255,0.26); }"
+            "QPushButton:pressed { background: rgba(143,183,255,0.30); }")
         self.setCursor(Qt.PointingHandCursor)
 
 
@@ -878,13 +879,13 @@ class _HeroVisual(QWidget):
 class _GlassCard(QFrame):
     def __init__(self, name: str = ""):
         super().__init__()
-        if name:
-            self.setObjectName(name)
+        obj_name = name or "glassCard"
+        self.setObjectName(obj_name)
         self.setStyleSheet(
-            "QFrame { background: rgba(255,255,255,0.025);"
-            "  border-radius: 14px;"
-            "  border: 1px solid rgba(255,255,255,0.020); }"
-            "QLabel { background: transparent; }")
+            f"QFrame#{obj_name} {{ background: rgba(255,255,255,0.025);"
+            f"  border-radius: 14px;"
+            f"  border: 1px solid rgba(255,255,255,0.020); }}"
+            f"QFrame#{obj_name} QLabel {{ background: transparent; }}")
 
 
 def _clear_layout(layout):
@@ -905,13 +906,14 @@ class _DeviceTile(QFrame):
 
     def __init__(self, device: dict):
         super().__init__()
+        self.setObjectName("deviceTile")
         self._device = device
         self.setStyleSheet(
-            "QFrame { background: rgba(255,255,255,0.035);"
-            "  border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); }"
-            "QFrame:hover { background: rgba(255,255,255,0.055);"
-            "  border: 1px solid rgba(255,255,255,0.10); }"
-            "QLabel { background: transparent; }")
+            "QFrame#deviceTile { background: rgba(255,255,255,0.030);"
+            "  border-radius: 14px; border: 1px solid rgba(255,255,255,0.025); }"
+            "QFrame#deviceTile:hover { background: rgba(255,255,255,0.050);"
+            "  border: 1px solid rgba(143,183,255,0.10); }"
+            "QFrame#deviceTile QLabel { background: transparent; }")
         self.setCursor(Qt.ArrowCursor)
         self.setMinimumHeight(150)
         self.setMaximumHeight(160)

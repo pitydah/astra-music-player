@@ -200,7 +200,7 @@ class PlaylistDetailView(QWidget):
         table.setStyleSheet(f"""
             QTableWidget {{
                 background: transparent; color: {_TEXT}; border: none;
-                gridline-color: rgba(255,255,255,0.03);
+                gridline-color: transparent;
                 selection-background-color: {_SELECTED}; selection-color: {_TEXT};
                 alternate-background-color: rgba(255,255,255,0.015);
             }}
@@ -208,7 +208,7 @@ class PlaylistDetailView(QWidget):
             QTableWidget::item:hover {{ background: {_HOVER}; }}
             QHeaderView::section {{
                 background: rgba(255,255,255,0.030); color: {_TEXT3};
-                border: none; border-bottom: 1px solid rgba(255,255,255,0.05);
+                border: none; border-bottom: 1px solid rgba(255,255,255,0.02);
                 padding: 8px 10px; font-size: 11px; font-weight: 600;
             }}
         """)

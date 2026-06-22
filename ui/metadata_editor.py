@@ -273,7 +273,7 @@ class MetadataEditorWidget(QWidget):
         self._table.setStyleSheet(f"""
             QTableWidget {{
                 background: transparent; color: {_TEXT}; border: none;
-                gridline-color: rgba(255,255,255,0.045);
+                gridline-color: transparent;
                 selection-background-color: {_SELECTED}; selection-color: {_TEXT};
                 alternate-background-color: rgba(255,255,255,0.018);
             }}
@@ -281,7 +281,7 @@ class MetadataEditorWidget(QWidget):
             QTableWidget::item:hover {{ background: {_HOVER}; }}
             QHeaderView::section {{
                 background: rgba(255,255,255,0.045); color: rgba(255,255,255,0.86);
-                border: none; border-bottom: 1px solid rgba(255,255,255,0.075);
+                border: none; border-bottom: 1px solid rgba(255,255,255,0.03);
                 padding: 8px 10px; font-size: 11.5px; font-weight: 700;
             }}
         """)
@@ -944,7 +944,7 @@ class MetadataEditorWidget(QWidget):
               alternate-background-color: rgba(255,255,255,0.018); }}
             QHeaderView::section {{
                 background: rgba(255,255,255,0.045); color: rgba(255,255,255,0.86);
-                border: none; border-bottom: 1px solid rgba(255,255,255,0.075);
+                border: none; border-bottom: 1px solid rgba(255,255,255,0.03);
                 padding: 8px 10px; font-size: 11px; font-weight: 700;
             }}
         """)

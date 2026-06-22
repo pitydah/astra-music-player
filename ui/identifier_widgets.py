@@ -33,12 +33,12 @@ class _PrimaryButton(QPushButton):
     def __init__(self, text):
         super().__init__(text)
         self.setStyleSheet(
-            "QPushButton { color: #fff; font-size: 12px; font-weight: 740;"
-            "  background: rgba(70,145,255,0.22);"
-            "  border: 1px solid rgba(90,165,255,0.42);"
+            "QPushButton { color: #fff; font-size: 12px; font-weight: 700;"
+            "  background: rgba(143,183,255,0.22);"
+            "  border: 1px solid rgba(143,183,255,0.42);"
             "  border-radius: 12px; padding: 9px 18px; }"
-            "QPushButton:hover { background: rgba(90,165,255,0.32);"
-            "  border: 1px solid rgba(120,190,255,0.56); }")
+            "QPushButton:hover { background: rgba(143,183,255,0.32);"
+            "  border: 1px solid rgba(143,183,255,0.56); }")
         self.setCursor(Qt.PointingHandCursor)
 
 
@@ -86,9 +86,10 @@ class DetectionResultCard(QFrame):
 
     def __init__(self, track: dict):
         super().__init__()
+        self.setObjectName("detectionCard")
         self._track = track
         self.setStyleSheet(
-            "QFrame { background: rgba(255,255,255,0.035);"
+            "QFrame#detectionCard { background: rgba(255,255,255,0.025);"
             "  border: 1px solid rgba(255,255,255,0.06);"
             "  border-radius: 14px; }"
             "QFrame:hover { background: rgba(255,255,255,0.055);"
