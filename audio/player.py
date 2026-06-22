@@ -467,7 +467,11 @@ class GStreamerEngine(QObject):
         self._dff_running = False
         if self._pipeline:
             self._pipeline.set_state(Gst.State.NULL)
-            self._pipeline.get_state(Gst.CLOCK_TIME_NONE)  # wait for NULL transition
+            result = self._pipeline.get_state(2 * Gst.SECOND)
+            if result[0] == Gst.StateChangeReturn.FAILURE:
+                import logging
+                logging.getLogger("astra.player").warning(
+                    "Pipeline NULL transition failed in stop()")
         if self._bus_id and self._pipeline:
             bus = self._pipeline.get_bus()
             bus.disconnect(self._bus_id)
@@ -744,7 +748,11 @@ class GStreamerEngine(QObject):
     def _on_media_finished(self):
         if not self.play_next():
             self._pipeline.set_state(Gst.State.NULL)
-            self._pipeline.get_state(Gst.CLOCK_TIME_NONE)
+            result = self._pipeline.get_state(2 * Gst.SECOND)
+            if result[0] == Gst.StateChangeReturn.FAILURE:
+                import logging
+                logging.getLogger("astra.player").warning(
+                    "Pipeline NULL transition failed in _on_media_finished")
             self._state = PlaybackState.STOPPED
             self.state_changed.emit(self._state)
             self.finished.emit()

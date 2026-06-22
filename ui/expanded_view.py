@@ -31,6 +31,9 @@ class ExpandedNowPlaying(QWidget):
     add_to_playlist = Signal(str)
     queue_reordered = Signal(list)   # list of filepaths
 
+    eq_requested = Signal()
+    file_info_requested = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._state = "stopped"
@@ -253,10 +256,10 @@ class ExpandedNowPlaying(QWidget):
 
     def _show_menu(self):
         menu = QMenu(self)
-        menu.addAction("Ecualizador...", lambda: None)
+        menu.addAction("Ecualizador...", self.eq_requested.emit)
         menu.addSeparator()
-        menu.addAction("Añadir a playlist", lambda: None)
-        menu.addAction("Información del archivo", lambda: None)
+        menu.addAction("Añadir a playlist...", lambda: self.add_to_playlist.emit(""))
+        menu.addAction("Información del archivo", self.file_info_requested.emit)
         menu.exec(self._menu_btn.mapToGlobal(self._menu_btn.rect().bottomRight()))
 
     def resizeEvent(self, event):

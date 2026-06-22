@@ -24,6 +24,16 @@ class ExpandedController:
             self._win._ctx.expanded.volume_changed.connect(self._win._ctx.playback.set_volume)
             self._win._ctx.expanded.track_from_queue.connect(self.queue_track)
             self._win._ctx.expanded.queue_reordered.connect(self._win._ctx.playback.reorder_queue)
+            self._win._ctx.expanded.add_to_playlist.connect(
+                lambda fp="": self._win._ctx.playlist_ctrl.hub_create_from_folder()
+                if hasattr(self._win._ctx, 'playlist_ctrl') else None)
+            self._win._ctx.expanded.eq_requested.connect(
+                lambda: self._win._show_preferences("eq")
+                if hasattr(self._win, '_show_preferences') else None)
+            self._win._ctx.expanded.file_info_requested.connect(
+                lambda: self._win._open_metadata_for_files(
+                    [self._win._ctx.playback.current])
+                if self._win._ctx.playback.current and hasattr(self._win, '_open_metadata_for_files') else None)
 
             self._win._ctx.player.position_changed.connect(self._win._ctx.expanded.set_position)
             self._win._ctx.player.duration_changed.connect(self._win._ctx.expanded.set_duration)

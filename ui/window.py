@@ -284,10 +284,10 @@ class MainWindow(QMainWindow):
         # Artist enrichment via MusicBrainz + Wikipedia + Cover Art Archive
         from integrations.theaudiodb.artist_enrichment_service import (
             ArtistEnrichmentService)
-        from core.settings_manager import get as sget
+        from core.settings_manager import get_bool
         self._artist_enrich = ArtistEnrichmentService(self)
         self._artist_enrich.configure(
-            enabled=sget("artist_enrichment/enabled") is not False)
+            enabled=get_bool("artist_enrichment/enabled"))
 
         # Album info repository + enrichment
         from metadata.album_info_repository import AlbumInfoRepository
@@ -311,11 +311,12 @@ class MainWindow(QMainWindow):
                 "info")
 
         # Auto-enrich artists on startup (respects cache and refresh_days)
-        if hasattr(self, '_artist_enrich') and sget("artist_enrichment/enabled") is not False:
-            from core.settings_manager import get as sget
-            if hasattr(self._artist_repo, 'groups'):
-                self._artist_enrich.enrich_visible_artists(
-                    self._artist_repo.groups, limit=20)
+        from core.settings_manager import get_bool
+        if (get_bool("artist_enrichment/enabled")
+                and hasattr(self, '_artist_enrich')
+                and hasattr(self._artist_repo, 'groups')):
+            self._artist_enrich.enrich_visible_artists(
+                self._artist_repo.groups, limit=20)
 
         self._setup_tray()
 
@@ -1032,8 +1033,8 @@ class MainWindow(QMainWindow):
             self._artist_repo.build(self._all_items)
             self._artist_grid.set_artists(self._artist_repo.groups)
             if hasattr(self, '_artist_enrich'):
-                from core.settings_manager import get as sget
-                if sget("artist_enrichment/preload_visible") is not False:
+                from core.settings_manager import get_bool
+                if get_bool("artist_enrichment/preload_visible"):
                     self._artist_enrich.enrich_visible_artists(
                         self._artist_repo.groups, limit=12)
             if self._view_mode not in ("grid", "list"):
@@ -1796,7 +1797,9 @@ class MainWindow(QMainWindow):
 
             # Trigger artist enrichment for CoverFlow-navigated artist
             if hasattr(self, '_artist_enrich') and item and item.subtitle:
-                self._artist_enrich.enrich_artist(item.subtitle)
+                from library.artist_grouping import normalize_artist_name
+                artist_key = normalize_artist_name(item.subtitle)
+                self._artist_enrich.enrich_artist_by_key(artist_key, item.subtitle)
 
             # Precarga vecinos ±2
             for off in (-2, -1, 1, 2):

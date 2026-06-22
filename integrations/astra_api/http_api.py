@@ -111,14 +111,18 @@ class _AstraHandler(BaseHTTPRequestHandler):
         body = self._read_json()
 
         if self.path == "/api/player/play":
-            if hasattr(win, '_playback') and hasattr(win._playback, 'play'):
-                win._playback.play()
-            self._send_json(200, {"status": "ok"})
+            if hasattr(win, '_playback') and hasattr(win._playback, 'play_or_resume'):
+                win._playback.play_or_resume()
+                self._send_json(200, {"status": "ok"})
+            else:
+                self._send_json(409, {"error": "player_service_missing_method"})
 
         elif self.path == "/api/player/pause":
             if hasattr(win, '_playback') and hasattr(win._playback, 'pause'):
                 win._playback.pause()
-            self._send_json(200, {"status": "ok"})
+                self._send_json(200, {"status": "ok"})
+            else:
+                self._send_json(409, {"error": "player_service_missing_method"})
 
         elif self.path == "/api/player/stop":
             if hasattr(win, '_playback') and hasattr(win._playback, 'stop'):
