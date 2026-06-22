@@ -24,8 +24,8 @@ Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 206 tes
 - 📚 **Indexer 2.0 incremental** — FileWalker → ChangeDetector (size+mtime) → MetadataExtractor → AlbumKeyBuilder → BatchWriter (100/lote) → Cleanup → FTS5 rebuild
 - 🔍 **Search 2.0 FTS5** — Búsqueda full-text con filtros: `artist:Genesis`, `album:"The Lamb"`, `format:flac`, `year:>2000`, `bitrate:>=320`, `rating:>=4`
 - 🌀 **CoverFlow 3D clásico Apple** — Física de desplazamiento, reflejos, slider premium, backdrop difuminado, modos render (classic_3d/safe_2d/no_reflection)
-- 🖼️ **AlbumInfoBanner** — Card glass 130-175px, mini cover 88×88, badges TheAudioDB/Caché/Local, botones Reproducir/+Cola/Detalles
-- 🎤 **Artistas enriquecidos vía TheAudioDB** — Bio, imágenes (thumb/banner/logo/fanart), géneros, estilo, puntuación, display_name búsqueda
+- 🖼️ **AlbumInfoBanner** — Card glass 130-175px, mini cover 88×88, badges Info externa/Caché/Local, botones Reproducir/+Cola/Detalles
+- 🎤 **Artistas enriquecidos** — Bio, imágenes (MusicBrainz + Wikipedia), géneros, estilo, display_name búsqueda
 - 📋 **Playlists** — Importar/exportar M3U, crear desde carpeta/cola/álbum/artista/género/búsqueda
 - 🏗️ **Metadata avanzada** — MusicBrainz IDs, BPM, ReplayGain tags, bit_depth, disc_number/total, albumartist, originaldate
 
@@ -271,7 +271,7 @@ astra-music-player/
 │   ├── astra_api/                    # Astra HTTP API
 │   │   ├── http_api.py               # REST server (puerto 8124)
 │   │   └── mdns_advertiser.py        # avahi-publish-service
-│   ├── theaudiodb/                   # TheAudioDB enrichment
+│   ├── artist_metadata/              # Enriquecimiento de metadatos externos
 │   │   ├── client.py                 # API client
 │   │   ├── models.py                 # ArtistExternalInfo (20 campos)
 │   │   ├── cache.py                  # SQLite cache + imágenes locales
@@ -393,8 +393,8 @@ astra-music-player/
 | Indexer 2.0 incremental + batch writing | ✅ Completo |
 | Search 2.0 FTS5 + field filters (`artist:`, `year:>`, `format:`) | ✅ Completo |
 | CoverFlow 3D clásico Apple + reflejos + backdrop | ✅ Completo |
-| AlbumInfoBanner + enriquecimiento TheAudioDB | ✅ Completo |
-| Artistas (grid premium + ficha detalle + TheAudioDB bio/imágenes) | ✅ Completo |
+| AlbumInfoBanner + enriquecimiento externo | ✅ Completo |
+| Artistas (grid premium + ficha detalle + MusicBrainz + Wikipedia) | ✅ Completo |
 | Home Audio multiroom (HA + Snapcast + Astra API + mDNS) | ✅ Completo |
 | Transmit desacoplado (7 controladores) | ✅ Completo |
 | Recognition real (ShazamIO + AudD HTTP API + AcoustID fpcalc) | ✅ Completo |

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class ArtistExternalInfo:
-    provider: str = "theaudiodb"
+    provider: str = "musicbrainz"
     artist_id: str = ""
     name: str = ""
     mbid: str = ""

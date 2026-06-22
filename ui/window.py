@@ -375,11 +375,12 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         # Wire HomeAudioView signals
         self._wire_home_audio_signals()
-        # Wire Music Identifier signals
-        self._wire_identifier_signals()
 
     def _load_initial_data(self):
         """Library loading, cleanup, enrichment, tray — after everything is wired."""
+        if self._safe_mode:
+            self._toast_svc.show(
+                "Modo seguro activado — servicios opcionales deshabilitados", "info")
         removed = self._db.cleanup_missing()
         self._load_library()
         if removed:
@@ -469,7 +470,7 @@ class MainWindow(QMainWindow):
         return svc
 
     def _make_artist_enrichment(self):
-        from integrations.theaudiodb.artist_enrichment_service import ArtistEnrichmentService
+        from integrations.artist_metadata.artist_enrichment_service import ArtistEnrichmentService
         from core.settings_manager import get_bool
         svc = ArtistEnrichmentService(self)
         svc.configure(enabled=get_bool("artist_enrichment/enabled"))
@@ -586,9 +587,9 @@ class MainWindow(QMainWindow):
                 lambda: self._sync_action.setText(
                     "Activar sincronización Android"))
             self._sync_mgr.error_occurred.connect(
-                lambda m: print(f"Sync error: {m}"))
+                lambda m: self._toast_svc.show(f"Sync error: {m}", "error"))
             self._sync_mgr.client_connected.connect(
-                lambda d: print(f"Device connected: {d}"))
+                lambda d: self._toast_svc.show(f"Dispositivo conectado: {d}", "info"))
 
         if self._sync_mgr.is_active:
             self._sync_mgr.stop()
@@ -2035,7 +2036,7 @@ class MainWindow(QMainWindow):
         if not key or not tracks:
             return
         try:
-            from integrations.theaudiodb.album_enrichment_service import AlbumEnrichmentService
+            from integrations.artist_metadata.album_enrichment_service import AlbumEnrichmentService
             from library.album_key import make_artist_key
             if not hasattr(self, '_album_enrich'):
                 self._album_enrich = AlbumEnrichmentService()

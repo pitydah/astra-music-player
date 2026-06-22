@@ -1,5 +1,4 @@
 """Settings Pages — all 16 preference categories for Astra Music Player."""
-import os
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QScrollArea, QFileDialog, QMessageBox,
@@ -78,7 +77,7 @@ class GeneralPage(_Page):
         self._music_folder = SettingsPathPicker(sm.get("general/music_folder"))
         self._downloads = SettingsPathPicker(sm.get("general/download_folder"))
         config_btn = SettingsActionButton("Abrir carpeta de configuración")
-        config_btn.clicked.connect(lambda: os.system("xdg-open ~/.config/Astra"))
+        config_btn.clicked.connect(lambda: _open_path("~/.config/Astra"))
         card2.add_row(SettingsRow("Carpeta de música", "Directorio principal de tu biblioteca", self._music_folder))
         card2.add_row(SettingsRow("Carpeta de descargas", "Donde se guardan descargas y streams", self._downloads))
         card2.add_row(SettingsRow("Configuración", "Archivos de configuración y caché", config_btn))
@@ -764,8 +763,8 @@ class AdvancedPage(_Page):
 
         self._export.clicked.connect(self._do_export)
         self._import.clicked.connect(self._do_import)
-        self._open_logs.clicked.connect(lambda: os.system("xdg-open ~/.local/share/astra-music-player/"))
-        self._open_config.clicked.connect(lambda: os.system("xdg-open ~/.config/Astra/"))
+        self._open_logs.clicked.connect(lambda: _open_path("~/.local/share/astra-music-player/"))
+        self._open_config.clicked.connect(lambda: _open_path("~/.config/Astra/"))
         self._reset_all.clicked.connect(self._do_reset)
 
     def _do_export(self):
@@ -839,7 +838,7 @@ class AboutPage(_Page):
 
         iv.addSpacing(8)
         gh = SettingsActionButton("GitHub")
-        gh.clicked.connect(lambda: os.system("xdg-open https://github.com/pitydah/astra-music-player"))
+        gh.clicked.connect(lambda: _open_path("https://github.com/pitydah/astra-music-player"))
         iv.addWidget(gh)
 
         card.add_row(info_widget)
@@ -1014,6 +1013,15 @@ class IdentifierPage(_Page):
         sm.set_("identifier/download_artwork", self._artwork.isChecked())
         sm.set_("identifier/api_key_audd", self._audd_key.text())
         sm.set_("identifier/api_key_acoustid", self._acoustid_key.text())
+
+
+def _open_path(path: str):
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtCore import QUrl
+    import os as _os
+    expanded = _os.path.expanduser(path)
+    QDesktopServices.openUrl(QUrl.fromLocalFile(expanded) if not path.startswith("http")
+                              else QUrl(path))
 
 
 def _line_edit(text: str = ""):

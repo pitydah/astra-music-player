@@ -5,7 +5,7 @@ import os
 from PySide6.QtCore import QObject, Signal, QTimer
 
 from integrations.musicbrainz.client import MusicBrainzClient
-from integrations.theaudiodb.album_cache import AlbumCache
+from integrations.artist_metadata.album_cache import AlbumCache
 from metadata.album_summary import AlbumSummary
 
 CACHE_DIR = os.path.expanduser("~/.cache/astra/artist_metadata/albums")

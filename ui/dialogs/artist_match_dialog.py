@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from integrations.theaudiodb.models import ArtistExternalInfo
+from integrations.artist_metadata.models import ArtistExternalInfo
 
 
 class ArtistMatchDialog(QDialog):

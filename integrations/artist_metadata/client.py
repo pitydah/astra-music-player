@@ -5,7 +5,7 @@ from urllib.parse import quote
 from PySide6.QtCore import QObject, Signal, QUrl
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
-from integrations.theaudiodb.models import ArtistExternalInfo
+from integrations.artist_metadata.models import ArtistExternalInfo
 
 BASE_URL = "https://www.theaudiodb.com/api/v1/json"
 

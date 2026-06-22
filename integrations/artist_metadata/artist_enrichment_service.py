@@ -5,8 +5,8 @@ import locale
 
 from PySide6.QtCore import QObject, Signal, QTimer
 
-from integrations.theaudiodb.cache import ArtistCache, IMAGES_DIR
-from integrations.theaudiodb.models import ArtistExternalInfo
+from integrations.artist_metadata.cache import ArtistCache, IMAGES_DIR
+from integrations.artist_metadata.models import ArtistExternalInfo
 from integrations.musicbrainz.client import MusicBrainzClient
 from integrations.wikipedia.client import WikipediaClient
 

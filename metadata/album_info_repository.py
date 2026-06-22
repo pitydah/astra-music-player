@@ -16,7 +16,7 @@ class AlbumInfoRepository:
             return self._lru[album_key]
 
         # 2. TheAudioDB local cache
-        from integrations.theaudiodb.album_cache import AlbumCache
+        from integrations.artist_metadata.album_cache import AlbumCache
         cached = AlbumCache().get_metadata(album_key)
         if cached:
             summary = _dict_to_summary(cached)
