@@ -70,21 +70,37 @@ class DiscoverDashboard(QWidget):
              "sidebar_recent"),
         ]
 
-        for i, (key, name, desc, bg, icon_name) in enumerate(cards):
-            card = _DiscoverCard(name, desc, bg, icon_name)
-            card.clicked.connect(lambda k=key: self.navigate_requested.emit(k))
-            row = i // 2
-            col = i % 2
-            grid.addWidget(card, row, col)
-
-        layout.addLayout(grid)
-        layout.addStretch()
+        self._cards_data = cards
+        self._grid = grid
+        self._layout = layout
+        self._last_cols = -1
+        self._rebuild_cards()
 
         self._scroll.setWidget(container)
 
         main = QVBoxLayout(self)
         main.setContentsMargins(0, 0, 0, 0)
         main.addWidget(self._scroll)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._rebuild_cards()
+
+    def _rebuild_cards(self):
+        cols = max(1, (self.width() - 64) // 380)
+        if cols == self._last_cols:
+            return
+        self._last_cols = cols
+        # Clear existing cards
+        while self._grid.count():
+            item = self._grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        for i, (key, name, desc, bg, icon_name) in enumerate(self._cards_data):
+            card = _DiscoverCard(name, desc, bg, icon_name)
+            card.clicked.connect(lambda checked=False, k=key:
+                                 self.navigate_requested.emit(k))
+            self._grid.addWidget(card, i // cols, i % cols)
 
 
 class _DiscoverCard(QFrame):

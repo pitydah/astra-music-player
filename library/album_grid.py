@@ -52,6 +52,7 @@ class AlbumGridWidget(QWidget):
     cover_search_requested = Signal(object)
     open_folder_requested = Signal(str)
     details_requested = Signal(object)
+    add_folder_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -62,6 +63,8 @@ class AlbumGridWidget(QWidget):
         self._filter_mode = "all"
         self._group_mode = None
         self._last_sig = None
+        self._groups_cache = None
+        self._last_cols = -1
         self._selected_index = -1
         self._cards: list[_AlbumCard] = []
 
@@ -113,13 +116,23 @@ class AlbumGridWidget(QWidget):
         return max(1, width // (card_w + 20))
 
     def _rebuild_grid(self):
+        cols = self._calculate_columns()
+
+        # Reuse cached groups on resize if only columns changed
+        if self._groups_cache is not None and cols == self._last_cols:
+            sig = (cols, len(self._groups_cache), self._sort_key,
+                   self._filter_mode, self._group_mode)
+            if sig == self._last_sig:
+                return
+        self._last_cols = cols
+
         groups = load_covers_for_albums(self._items, self._cover_size)
         groups = self._apply_filter(groups)
         self._sort_groups(groups)
+        self._groups_cache = groups
         self._groups = groups
-        cols = self._calculate_columns()
 
-        # Complete signature: cols, count, sort_key, filter_mode, first 50 titles
+        # Complete signature
         sig = (cols, len(groups), self._sort_key, self._filter_mode,
                self._group_mode, tuple(g.title for g in groups[:50]))
         if sig == self._last_sig:
@@ -281,6 +294,7 @@ class AlbumGridWidget(QWidget):
                 border: 1px solid rgba(255,255,255,0.18);
             }
         """)
+        btn.clicked.connect(self.add_folder_requested.emit)
         v.addWidget(btn, alignment=Qt.AlignCenter)
 
         self._grid.addWidget(wrapper, 0, 0, Qt.AlignHCenter)

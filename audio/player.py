@@ -12,6 +12,7 @@ DAC: bit-perfect, DoP, standard. EQ: graphic 31-band, parametric biquads.
 import os
 import threading
 import logging
+import contextlib
 import numpy as np
 from enum import Enum
 from dataclasses import dataclass
@@ -405,19 +406,15 @@ class GStreamerEngine(QObject):
             return
         fh.seek(h.data_offset)
         remaining = h.data_size
-        max_pending = 32  # limit in-flight buffers to avoid flooding main loop
-        pending = 0
         while self._dff_running and remaining > 0:
-            if pending >= max_pending:
-                import time
-                time.sleep(0.01)  # brief backpressure
-                continue
             data = fh.read(min(16384, remaining))
             if not data:
                 break
             remaining -= len(data)
-            pending += 1
             GLib.idle_add(self._push_dff, bytes(data), remaining <= 0)
+            if remaining > 0 and self._dff_running:
+                import time
+                time.sleep(0.005)  # throttle to avoid flooding the event loop
         if remaining <= 0 and self._dff_running:
             GLib.idle_add(self._push_dff_eos)
 
@@ -429,8 +426,7 @@ class GStreamerEngine(QObject):
         ret = self._appsrc.emit("push-buffer", buf)
         if ret != Gst.FlowReturn.OK:
             logging.getLogger("astra.player").warning("DFF push-buffer failed: %s", ret)
-            self._dff_running = False
-        return False
+        return False  # one-shot via GLib.idle_add
 
     def _push_dff_eos(self) -> bool:
         if self._appsrc:
@@ -630,6 +626,25 @@ class GStreamerEngine(QObject):
             logging.getLogger("astra.player").warning(
                 "GStreamer error: %s | %s", err, debug)
             self.error_occurred.emit(f"GStreamer: {err}")
+            # Cleanup pipeline after error
+            self._dff_running = False
+            if self._pipeline:
+                self._pipeline.set_state(Gst.State.NULL)
+                self._pipeline.get_state(2 * Gst.SECOND)
+            if self._bus_id and self._pipeline:
+                with contextlib.suppress(Exception):
+                    bus = self._pipeline.get_bus()
+                    bus.disconnect(self._bus_id)
+                    bus.remove_signal_watch()
+            self._pipeline = None
+            self._appsrc = None
+            self._state = PlaybackState.STOPPED
+            self.state_changed.emit(self._state)
+            if self._file_handle:
+                with contextlib.suppress(Exception):
+                    self._file_handle.close()
+                self._file_handle = None
+            self._timer.stop() if hasattr(self, '_timer') and self._timer else None
         elif t == Gst.MessageType.WARNING:
             err, debug = message.parse_warning()
             logging.getLogger("astra.player").debug(

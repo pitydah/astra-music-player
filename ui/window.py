@@ -2286,7 +2286,7 @@ class MainWindow(QMainWindow):
         self._fade_content("home_audio")
 
     def _on_home_audio_connect(self):
-        from core.settings_manager import get as sget
+        from core.settings_manager import get as sget, get_bool
         from PySide6.QtWidgets import (
             QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QCheckBox)
         dlg = QDialog(self)
@@ -2304,7 +2304,7 @@ class MainWindow(QMainWindow):
         token_edit.setEchoMode(QLineEdit.Password)
         token_edit.setPlaceholderText("Token de acceso de larga duracion")
         verify_cb = QCheckBox("Verificar SSL")
-        verify_cb.setChecked(sget("home_audio/ha_verify_ssl") is not False)
+        verify_cb.setChecked(get_bool("home_audio/ha_verify_ssl"))
         verify_cb.setStyleSheet("color: rgba(255,255,255,0.72);")
 
         layout.addRow("URL:", url_edit)

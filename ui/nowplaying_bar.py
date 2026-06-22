@@ -21,10 +21,10 @@ QSlider::sub-page:horizontal {
     border-radius: 3px;
     background: qlineargradient(
         x1:0, y1:0, x2:1, y2:0,
-        stop:0 #FF7A00,
-        stop:0.38 #FF243D,
-        stop:0.72 #D00073,
-        stop:1 #6B1B8F
+        stop:0 #8FB7FF,
+        stop:0.38 rgba(143,183,255,0.80),
+        stop:0.72 rgba(143,183,255,0.70),
+        stop:1 rgba(143,183,255,0.50)
     );
 }
 QSlider::add-page:horizontal {
@@ -40,9 +40,9 @@ QSlider::handle:horizontal {
     border: 3px solid #FFFFFF;
     background: qlineargradient(
         x1:0, y1:0, x2:1, y2:1,
-        stop:0 #FF7A00,
-        stop:0.5 #FF243D,
-        stop:1 #B0007A
+        stop:0 #8FB7FF,
+        stop:0.5 rgba(143,183,255,0.80),
+        stop:1 rgba(143,183,255,0.60)
     );
 }
 """
@@ -58,10 +58,10 @@ QSlider::sub-page:horizontal {
     border-radius: 2px;
     background: qlineargradient(
         x1:0, y1:0, x2:1, y2:0,
-        stop:0 #FF7A00,
-        stop:0.38 #FF243D,
-        stop:0.72 #D00073,
-        stop:1 #6B1B8F
+        stop:0 #8FB7FF,
+        stop:0.38 rgba(143,183,255,0.80),
+        stop:0.72 rgba(143,183,255,0.70),
+        stop:1 rgba(143,183,255,0.50)
     );
 }
 QSlider::add-page:horizontal {
@@ -77,9 +77,9 @@ QSlider::handle:horizontal {
     border: 2px solid #FFFFFF;
     background: qlineargradient(
         x1:0, y1:0, x2:1, y2:1,
-        stop:0 #FF7A00,
-        stop:0.5 #FF243D,
-        stop:1 #B0007A
+        stop:0 #8FB7FF,
+        stop:0.5 rgba(143,183,255,0.80),
+        stop:1 rgba(143,183,255,0.60)
     );
 }
 """
@@ -279,7 +279,7 @@ class NowPlayingBar(QWidget):
             self._bg_rgba = "rgba(245, 245, 247, 220)"
             self._text_color = "#1c1c1e"
             self._text_sec = "rgba(28,28,30,0.6)"
-            self._accent = "#FF7A00"
+            self._accent = "#8FB7FF"
             self._border = "rgba(0,0,0,0.06)"
             self._shadow_alpha = 30
 
@@ -532,7 +532,6 @@ class NowPlayingBar(QWidget):
         badge_row.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         badge_row.addStretch()
         badge_row.addWidget(self._quality_badge)
-        badge_row.addSpacing(70)
         right_layout.addLayout(badge_row)
 
         layout.addWidget(right_widget, 0)
@@ -632,8 +631,11 @@ class NowPlayingBar(QWidget):
     def _apply_elide(self):
         """Apply text elision to prevent overflow."""
         w = self.width()
-        # Estimate available width for text (left card is ~300-410px of bar)
-        avail = max(80, w - 580)
+        # Available width: bar minus left card (~300px) minus right controls (~220px)
+        left_card_w = 300
+        if hasattr(self, '_cover_btn'):
+            left_card_w = self._cover_btn.width() + 120
+        avail = max(60, w - left_card_w - 240)
         fm = self._title_lbl.fontMetrics()
         self._title_lbl.setText(
             fm.elidedText(self._raw_title, Qt.ElideRight, avail))

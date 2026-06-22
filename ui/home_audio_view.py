@@ -228,6 +228,7 @@ class HomeAudioView(QWidget):
         btn_ha = _PrimaryButton("Conectar Home Assistant")
         btn_ha.clicked.connect(self.connect_requested.emit)
         btn_mr = _SecondaryButton("Activar Multiroom")
+        self._hero_btn_mr = btn_mr
         btn_mr.clicked.connect(
             lambda: self.enable_multiroom_requested.emit(not self._multiroom_active))
         btn_rf = _GhostButton("Actualizar")
@@ -637,9 +638,9 @@ class HomeAudioView(QWidget):
         updates = {
             "Home Assistant": "Conectado" if self._ha_connected else "No conectado",
             "Snapserver": "Activo" if self._snapserver_running else "Detenido",
-            "mDNS": "No verificado",
-            "API Astra": "No activa",
-            "Servidor local": "No activo",
+            "mDNS": "Activo" if getattr(self, '_mdns_running', False) else "Inactivo",
+            "API Astra": "Activa" if getattr(self, '_api_running', False) else "No activa",
+            "Servidor local": "Activo" if getattr(self, '_local_media_running', False) else "No activo",
             "Ultimo error": "—",
             "IP local": "—",
             "Firewall": "—",
@@ -782,7 +783,10 @@ class StatusPill(QFrame):
     def set_state(self, value: str, level: str):
         color = _STATUS_COLORS.get(level, _STATUS_COLORS["neutral"])
         self._dot.setStyleSheet(f"border-radius: 3px; background: {color};")
-        self._text.setText(f"{self._label} · {value}")
+        text = f"{self._label} · {value}"
+        if len(text) > 36:
+            text = text[:34] + "\u2026"
+        self._text.setText(text)
         self._text.setStyleSheet(
             f"font-size: 11px; font-weight: 600; color: {color};")
 
