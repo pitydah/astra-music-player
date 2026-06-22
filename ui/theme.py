@@ -19,7 +19,7 @@ def build_plasma_palette() -> QPalette:
     p.setColor(QPalette.Base,            QColor("#ffffff"))
     p.setColor(QPalette.AlternateBase,   QColor("#fafafa"))
     p.setColor(QPalette.Text,            QColor("#1c1c1e"))
-    p.setColor(QPalette.Highlight,       QColor("#FF7A00"))
+    p.setColor(QPalette.Highlight,       QColor("#8FB7FF"))
     p.setColor(QPalette.HighlightedText, QColor("#ffffff"))
     p.setColor(QPalette.Button,          QColor("#f5f5f7"))
     p.setColor(QPalette.ButtonText,      QColor("#1c1c1e"))
@@ -30,7 +30,7 @@ def build_plasma_palette() -> QPalette:
     p.setColor(QPalette.Shadow,          QColor("#636366"))
     p.setColor(QPalette.ToolTipBase,     QColor("#f5f5f7"))
     p.setColor(QPalette.ToolTipText,     QColor("#1c1c1e"))
-    p.setColor(QPalette.Link,            QColor("#FF7A00"))
+    p.setColor(QPalette.Link,            QColor("#8FB7FF"))
     p.setColor(QPalette.LinkVisited,     QColor("#DD007A"))
     p.setColor(QPalette.PlaceholderText, QColor("#8e8e93"))
     return p
@@ -48,10 +48,10 @@ QTreeWidget::item {
     font-size: 13px;
 }
 QTreeWidget::item:selected {
-    background: rgba(255,122,0,0.25); color: #ffffff; font-weight: 600;
+    background: rgba(143,183,255,0.25); color: #ffffff; font-weight: 600;
 }
 QTreeWidget::item:hover:!selected {
-    background: rgba(255,122,0,0.06);
+    background: rgba(143,183,255,0.06);
 }
 QTreeWidget::branch { background: transparent; }
 
@@ -60,8 +60,8 @@ QTableView {
     border-radius: 12px; gridline-color: transparent;
 }
 QTableView::item { padding: 6px 12px; border-bottom: none; color: rgba(255,255,255,0.85); }
-QTableView::item:hover { background: rgba(255,122,0,0.06); }
-QTableView::item:selected { background: rgba(255,122,0,0.12); color: #fff; }
+QTableView::item:hover { background: rgba(143,183,255,0.06); }
+QTableView::item:selected { background: rgba(143,183,255,0.12); color: #fff; }
 QHeaderView::section {
     background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.64); padding: 8px 12px;
     border: none; border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -72,21 +72,21 @@ QHeaderView::section:hover { color: rgba(255,255,255,0.90); }
 QSlider::groove:horizontal { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; }
 QSlider::handle:horizontal {
     width: 10px; height: 10px; margin: -4px 0; border-radius: 5px;
-    background: #ffffff; border: 2px solid #FF7A00;
+    background: #ffffff; border: 2px solid #8FB7FF;
 }
-QSlider::handle:horizontal:hover { background: #FF7A00; }
-QSlider::sub-page:horizontal { background: #FF7A00; border-radius: 2px; }
+QSlider::handle:horizontal:hover { background: #8FB7FF; }
+QSlider::sub-page:horizontal { background: #8FB7FF; border-radius: 2px; }
 
 QProgressBar {
     background: rgba(255,255,255,0.06); border: none; border-radius: 4px; height: 6px;
 }
-QProgressBar::chunk { background: #FF7A00; border-radius: 3px; }
+QProgressBar::chunk { background: #8FB7FF; border-radius: 3px; }
 
 QLineEdit {
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px; padding: 6px 12px; color: rgba(255,255,255,0.85);
 }
-QLineEdit:focus { border-color: #FF7A00; }
+QLineEdit:focus { border-color: #8FB7FF; }
 
 QComboBox {
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
@@ -95,7 +95,7 @@ QComboBox {
 QComboBox:hover { border-color: rgba(255,255,255,0.15); }
 QComboBox QAbstractItemView {
     background: rgba(30,30,35,0.95); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 8px; selection-background-color: #FF7A00;
+    border-radius: 8px; selection-background-color: #8FB7FF;
     selection-color: #fff; outline: none;
 }
 
@@ -117,7 +117,7 @@ QMenu {
     border-radius: 10px; padding: 4px; color: rgba(255,255,255,0.85);
 }
 QMenu::item { padding: 6px 32px 6px 12px; border-radius: 6px; }
-QMenu::item:selected { background: rgba(255,122,0,0.25); color: #fff; }
+QMenu::item:selected { background: rgba(143,183,255,0.25); color: #fff; }
 QMenu::separator {
     height: 1px; background: rgba(255,255,255,0.06); margin: 3px 8px;
 }
@@ -130,7 +130,7 @@ QMenuBar::item {
     padding: 5px 10px; border-radius: 6px; margin: 1px 2px; color: rgba(255,255,255,0.7);
 }
 QMenuBar::item:selected {
-    background: rgba(255,122,0,0.15); color: #FF7A00;
+    background: rgba(143,183,255,0.15); color: #8FB7FF;
 }
 
 /* ── Disabled-state protection: never go fully gray ── */

@@ -62,8 +62,8 @@ class EqDialog(QDialog):
 
         self._status_badge = QLabel("Activo")
         self._status_badge.setStyleSheet(
-            "background: rgba(255,122,0,0.12); color: #FF7A00;"
-            "border: 1px solid rgba(255,122,0,0.22); border-radius: 8px;"
+            "background: rgba(143,183,255,0.12); color: #8FB7FF;"
+            "border: 1px solid rgba(143,183,255,0.22); border-radius: 8px;"
             "padding: 3px 10px; font-size: 11px; font-weight: 600;")
         header.addWidget(self._status_badge)
 
@@ -184,8 +184,8 @@ class EqDialog(QDialog):
             lambda v: self._status_badge.setText("Activo" if v else "Bypass"))
         self._bypass_cb.toggled.connect(
             lambda v: self._status_badge.setStyleSheet(
-                "background: rgba(255,122,0,0.12); color: #FF7A00;"
-                "border: 1px solid rgba(255,122,0,0.22); border-radius: 8px;"
+                "background: rgba(143,183,255,0.12); color: #8FB7FF;"
+                "border: 1px solid rgba(143,183,255,0.22); border-radius: 8px;"
                 "padding: 3px 10px; font-size: 11px; font-weight: 600;"
                 if v else
                 "background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4);"

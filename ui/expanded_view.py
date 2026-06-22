@@ -56,7 +56,7 @@ class ExpandedNowPlaying(QWidget):
         self._back_btn.setFlat(True)
         self._back_btn.setStyleSheet(
             "QPushButton { color: rgba(245,245,247,0.7); font-size: 13px; }"
-            "QPushButton:hover { color: #FF7A00; }")
+            "QPushButton:hover { color: #8FB7FF; }")
         self._back_btn.clicked.connect(self.go_back.emit)
         self._menu_btn = _make_btn("menu", 18)
         self._menu_btn.clicked.connect(self._show_menu)
@@ -103,7 +103,7 @@ class ExpandedNowPlaying(QWidget):
         # Quality badge
         self._quality = QLabel("")
         self._quality.setAlignment(Qt.AlignCenter)
-        self._quality.setStyleSheet("font-size: 11px; color: #FF7A00; font-weight: 500;")
+        self._quality.setStyleSheet("font-size: 11px; color: #8FB7FF; font-weight: 500;")
         body.addWidget(self._quality)
 
         body.addSpacing(16)
@@ -178,7 +178,7 @@ class ExpandedNowPlaying(QWidget):
         fav_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); } QPushButton:hover { color: #FF3C48; }")
         dl_btn = QPushButton("⤓ Descargar")
         dl_btn.setFlat(True)
-        dl_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); } QPushButton:hover { color: #FF7A00; }")
+        dl_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); } QPushButton:hover { color: #8FB7FF; }")
         act_row.addWidget(fav_btn)
         act_row.addWidget(dl_btn)
         body.addLayout(act_row)
@@ -219,7 +219,7 @@ class ExpandedNowPlaying(QWidget):
         self._queue_list.setStyleSheet("""
             QListWidget { background: transparent; border: none; }
             QListWidget::item { padding: 8px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-            QListWidget::item:hover { background: rgba(255,122,0,0.06); }
+            QListWidget::item:hover { background: rgba(143,183,255,0.06); }
         """)
         self._queue_list.doubleClicked.connect(self._on_queue_dbl)
         main.addWidget(self._queue_list, 1)
@@ -281,7 +281,7 @@ class ExpandedNowPlaying(QWidget):
             self._quality.setText(f" {quality} ")
             self._quality.setStyleSheet(
                 "font-size: 11px; padding: 2px 10px; border-radius: 8px;"
-                "background: rgba(255,122,0,0.08); color: #FF7A00; font-weight: 600;")
+                "background: rgba(143,183,255,0.08); color: #8FB7FF; font-weight: 600;")
         else:
             self._quality.setText("")
             self._quality.setStyleSheet("")

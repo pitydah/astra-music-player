@@ -14,7 +14,7 @@ SPEC_MAX_HZ = 20000
 SPEC_FREQS = np.logspace(np.log10(SPEC_MIN_HZ), np.log10(SPEC_MAX_HZ), SPEC_BANDS)
 
 SPECTRUM_PALETTE = [
-    QColor("#FF7A00"), QColor("#FF7A00"), QColor("#2eb8e6"), QColor("#20c0e0"),
+    QColor("#8FB7FF"), QColor("#8FB7FF"), QColor("#2eb8e6"), QColor("#20c0e0"),
     QColor("#18c8d8"), QColor("#10d0cc"), QColor("#18d8b8"), QColor("#28e0a0"),
     QColor("#40e880"), QColor("#60f058"), QColor("#80f838"), QColor("#a0f820"),
     QColor("#c0f010"), QColor("#dce808"), QColor("#f0d800"), QColor("#f8c000"),
@@ -114,7 +114,7 @@ class SpectrumWidget(QWidget):
                     first = False
                 else:
                     path.lineTo(x, y)
-            p.setPen(QPen(QColor("#FF7A00"), 1.5))
+            p.setPen(QPen(QColor("#8FB7FF"), 1.5))
             p.setBrush(Qt.NoBrush)
             p.drawPath(path)
 

@@ -120,7 +120,7 @@ class FolderBrowserWidget(QWidget):
 
         self._play_btn = QPushButton("▶ Reproducir carpeta")
         self._play_btn.setStyleSheet(btn_qss + """
-            QPushButton { color: #FF7A00; border-color: rgba(255,122,0,0.25); }
+            QPushButton { color: #8FB7FF; border-color: rgba(143,183,255,0.25); }
             QPushButton:hover { color: #FF9A3D; }
         """)
         self._play_btn.clicked.connect(self._play_folder)

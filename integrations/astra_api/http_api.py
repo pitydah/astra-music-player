@@ -10,11 +10,13 @@ API_PORT_DEFAULT = 8124
 
 
 class _AstraHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for Astra API."""
+    """HTTP request handler for Astra API. Reads from AppStateStore, writes via AstraApiBridge."""
 
-    def __init__(self, *args, window=None, token="", **kwargs):
-        self._window = window
+    def __init__(self, *args, state_store=None, bridge=None, token="", db=None, **kwargs):
+        self._store = state_store
+        self._bridge = bridge
         self._token = token
+        self._db = db
         super().__init__(*args, **kwargs)
 
     def _check_auth(self) -> bool:
@@ -44,62 +46,32 @@ class _AstraHandler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if not self._check_auth():
             return
-        win = self._window
 
         if path == "/api/player/status":
-            state = "idle"
-            if hasattr(win, '_playback'):
-                st = getattr(win._playback, 'state', None)
-                from audio.player import PlaybackState
-                if st == PlaybackState.PLAYING:
-                    state = "playing"
-                elif st == PlaybackState.PAUSED:
-                    state = "paused"
-                elif st == PlaybackState.STOPPED:
-                    state = "idle"
-            current = getattr(win, '_playback', None)
-            current_path = current.current if current else ""
-
-            ref = getattr(win, '_current_ref', None)
+            snap = self._store.player_snapshot() if self._store else {}
             data = {
-                "state": state,
-                "title": ref.title if ref else os.path.basename(current_path) if current_path else "",
-                "artist": ref.artist if ref else "",
-                "album": ref.album if ref else "",
-                "duration": int(ref.duration) if ref else 0,
-                "position": 0,
-                "volume": getattr(win, '_player_bar', None)._vol.value() if hasattr(win, '_player_bar') else 70,
-                "source_type": ref.source_type if ref else "local_file",
-                "source_label": ref.source_label if ref else "",
-                "destination": "local",
-                "cover_url": ref.cover_path if ref else "",
+                "state": snap.get("state", "idle"),
+                "title": snap.get("title", ""),
+                "artist": snap.get("artist", ""),
+                "album": snap.get("album", ""),
+                "duration": snap.get("duration", 0),
+                "position": snap.get("position", 0),
+                "volume": snap.get("volume", 70),
+                "source_type": snap.get("source_type", "local_file"),
+                "source_label": snap.get("source_label", ""),
+                "destination": snap.get("destination", "local"),
+                "cover_url": snap.get("cover_url", ""),
             }
             self._send_json(200, data)
 
-        elif path == "/api/player/destinations":
-            groups = []
-            zones = []
-            if hasattr(win, '_group_mgr'):
-                groups = win._group_mgr.groups()
-            if hasattr(win, '_home_audio_view') and hasattr(win, '_ha_connected') and win._ha_connected:
-                zones = [
-                    {"id": d["id"], "name": d["name"], "type": d.get("backend", "home_assistant")}
-                    for d in win._home_audio_view._devices if d.get("available")]
-            dests = [
-                {"id": "local", "name": "Este equipo", "type": "local"},
-            ]
-            for g in groups:
-                dests.append({"id": g["id"], "name": g["name"], "type": "snapcast_group"})
-            for z in zones:
-                dests.append(z)
-            self._send_json(200, dests)
-
         elif path == "/api/library/browse":
-            self._handle_library_browse(win)
+            self._handle_library_browse()
+            return
 
         elif path.startswith("/api/library/item/"):
             media_id = path[len("/api/library/item/"):]
-            self._handle_library_item(win, media_id)
+            self._handle_library_item(media_id)
+            return
 
         else:
             self._send_json(404, {"error": "not_found"})
@@ -107,61 +79,54 @@ class _AstraHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._check_auth():
             return
-        win = self._window
         body = self._read_json()
 
         if self.path == "/api/player/play":
-            if hasattr(win, '_playback') and hasattr(win._playback, 'play_or_resume'):
-                win._playback.play_or_resume()
-                self._send_json(200, {"status": "ok"})
-            else:
-                self._send_json(409, {"error": "player_service_missing_method"})
+            if self._bridge:
+                self._bridge.play_requested.emit()
+            self._send_json(200, {"status": "ok"})
 
         elif self.path == "/api/player/pause":
-            if hasattr(win, '_playback') and hasattr(win._playback, 'pause'):
-                win._playback.pause()
-                self._send_json(200, {"status": "ok"})
-            else:
-                self._send_json(409, {"error": "player_service_missing_method"})
+            if self._bridge:
+                self._bridge.pause_requested.emit()
+            self._send_json(200, {"status": "ok"})
 
         elif self.path == "/api/player/stop":
-            if hasattr(win, '_playback') and hasattr(win._playback, 'stop'):
-                win._playback.stop()
+            if self._bridge:
+                self._bridge.stop_requested.emit()
             self._send_json(200, {"status": "ok"})
 
         elif self.path == "/api/player/next":
-            if hasattr(win, '_playback') and hasattr(win._playback, 'play_next'):
-                win._playback.play_next()
+            if self._bridge:
+                self._bridge.next_requested.emit()
             self._send_json(200, {"status": "ok"})
 
         elif self.path == "/api/player/previous":
-            if hasattr(win, '_playback') and hasattr(win._playback, 'play_prev'):
-                win._playback.play_prev()
+            if self._bridge:
+                self._bridge.previous_requested.emit()
             self._send_json(200, {"status": "ok"})
 
         elif self.path == "/api/player/volume":
             vol = body.get("volume", 70)
-            if hasattr(win, '_player_bar'):
-                win._player_bar.volume_changed.emit(int(vol))
+            if self._bridge:
+                self._bridge.volume_requested.emit(int(vol))
             self._send_json(200, {"status": "ok", "volume": vol})
 
         elif self.path == "/api/player/play_media":
-            self._handle_play_media(win, body)
+            if self._bridge:
+                self._bridge.play_media_requested.emit(body)
+            self._send_json(200, {"status": "ok"})
 
         elif self.path == "/api/player/select_destination":
-            dest_id = body.get("id", "local")
-            if dest_id == "local":
-                if hasattr(win, '_ctx'):
-                    win._ctx.player_bar.set_transmit_active(False)
-            elif hasattr(win, '_group_mgr'):
-                win._group_mgr.activate_group(dest_id)
-                for g in win._group_mgr.groups():
-                    if g["id"] == dest_id:
-                        win._ctx.player_bar.set_transmit_active(True, g["name"])
+            dest_id = body.get("id", "local") or "local"
+            if self._bridge:
+                self._bridge.select_destination_requested.emit(dest_id)
             self._send_json(200, {"status": "ok"})
 
         elif self.path == "/api/library/play":
-            self._handle_library_play(win, body)
+            if self._bridge:
+                self._bridge.library_play_requested.emit(body)
+            self._send_json(200, {"status": "ok"})
 
         else:
             self._send_json(404, {"error": "not_found"})
@@ -175,12 +140,12 @@ class _AstraHandler(BaseHTTPRequestHandler):
 
     # ── Library browsing ──
 
-    def _handle_library_browse(self, win):
+    def _handle_library_browse(self):
         from urllib.parse import urlparse, parse_qs
         qs = parse_qs(urlparse(self.path).query or "")
         parent_id = (qs.get("parent_id", [None])[0] or "").strip()
 
-        db = getattr(win, '_db', None)
+        db = self._db
         if not db:
             self._send_json(200, {"parent_id": parent_id, "items": []})
             return
@@ -208,7 +173,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
         items = []
 
         if parent_id == "folders":
-            all_items = getattr(win, '_all_items', []) or db.get_all()
+            all_items = getattr(self, '_all_items', []) or db.get_all()
             dirs = sorted(set(os.path.dirname(i.filepath) for i in all_items))
             for d in dirs[:50]:
                 items.append({
@@ -219,7 +184,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
                 })
 
         elif parent_id == "artists":
-            all_items = getattr(win, '_all_items', []) or db.get_all()
+            all_items = getattr(self, '_all_items', []) or db.get_all()
             artists = sorted(set(i.artist for i in all_items if i.artist))
             for a in artists[:100]:
                 items.append({
@@ -230,7 +195,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
                 })
 
         elif parent_id == "albums":
-            all_items = getattr(win, '_all_items', []) or db.get_all()
+            all_items = getattr(self, '_all_items', []) or db.get_all()
             from library.album_art import group_by_album
             groups = group_by_album(all_items)
             for album, artist, _tracks in groups[:50]:
@@ -261,7 +226,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
 
         elif parent_id.startswith("folder:"):
             folder = parent_id[len("folder:"):]
-            all_items = getattr(win, '_all_items', []) or db.get_all()
+            all_items = getattr(self, '_all_items', []) or db.get_all()
             tracks = [i for i in all_items if os.path.dirname(i.filepath) == folder]
             items = _tracks_to_media_items(tracks)
 
@@ -272,7 +237,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
 
         elif parent_id.startswith("album:"):
             album_name = parent_id[len("album:"):]
-            all_items = getattr(win, '_all_items', []) or db.get_all()
+            all_items = getattr(self, '_all_items', []) or db.get_all()
             tracks = [i for i in all_items if i.album == album_name]
             items = _tracks_to_media_items(tracks)
 
@@ -283,59 +248,14 @@ class _AstraHandler(BaseHTTPRequestHandler):
 
         self._send_json(200, {"parent_id": parent_id, "children": items})
 
-    def _handle_library_item(self, win, media_id: str):
-        db = getattr(win, '_db', None)
-        all_items = getattr(win, '_all_items', []) or (db.get_all() if db else [])
+    def handle_library_item(self, media_id: str):
+        db = self._db
+        all_items = getattr(self, '_all_items', []) or (db.get_all() if db else [])
         for i in all_items:
             if i.filepath == media_id:
                 self._send_json(200, _track_to_item(i))
                 return
         self._send_json(404, {"error": "not_found"})
-
-    def _handle_play_media(self, win, body):
-        media_id = body.get("media_id", "")
-        dest = body.get("destination", "local")
-        if dest != "local" and hasattr(win, '_group_mgr'):
-            win._group_mgr.activate_group(dest)
-        if media_id.startswith("http"):
-            track = type('TrackRef', (), {
-                'uri': media_id,
-                'title': body.get("title", ""),
-                'artist': body.get("artist", ""),
-                'album': body.get("album", ""),
-                'duration': 0.0,
-                'cover_path': body.get("image_url", ""),
-                'source_type': 'home_assistant',
-                'source_label': 'Home Assistant',
-            })()
-            if hasattr(win, '_playback_ctrl'):
-                win._playback_ctrl.play_trackref(track)
-        elif os.path.isfile(media_id):
-            from sources.base_source import TrackRef
-            track = TrackRef(
-                uri=media_id,
-                title=body.get("title", os.path.basename(media_id)),
-                artist=body.get("artist", ""),
-                album=body.get("album", ""),
-            )
-            if hasattr(win, '_playback_ctrl'):
-                win._playback_ctrl.play_trackref(track)
-        self._send_json(200, {"status": "ok"})
-
-    def _handle_library_play(self, win, body):
-        media_id = body.get("media_id", "")
-        dest = body.get("destination", "local")
-        if dest != "local" and hasattr(win, '_group_mgr'):
-            win._group_mgr.activate_group(dest)
-        if os.path.isfile(media_id):
-            from sources.base_source import TrackRef
-            track = TrackRef(
-                uri=media_id,
-                title=os.path.basename(media_id),
-            )
-            if hasattr(win, '_playback_ctrl'):
-                win._playback_ctrl.play_trackref(track)
-        self._send_json(200, {"status": "ok"})
 
     def log_message(self, format, *args):
         pass  # suppress stderr logging
@@ -363,10 +283,10 @@ def _track_to_item(track) -> dict:
     }
 
 
-def make_handler(window, token):
-    """Factory to create handler instances with window and token."""
+def make_handler(store, bridge, token, db):
+    """Factory to create handler instances with state store, bridge, token, and db."""
     def _handler(*args, **kwargs):
-        return _AstraHandler(*args, window=window, token=token, **kwargs)
+        return _AstraHandler(*args, state_store=store, bridge=bridge, token=token, db=db, **kwargs)
     return _handler
 
 
@@ -380,6 +300,8 @@ class AstraHttpApi:
         self._server = None
         self._thread = None
         self._running = False
+        self._store = None
+        self._bridge = None
 
     @property
     def is_running(self) -> bool:
@@ -408,13 +330,18 @@ class AstraHttpApi:
             saved = get("home_audio/astra_api_token") or ""
             self._token = saved or self.generate_token()
 
+    def set_store_and_bridge(self, store, bridge):
+        self._store = store
+        self._bridge = bridge
+
     def start(self):
-        if self._running:
+        if self._running or not self._store or not self._bridge:
             return
         host = "127.0.0.1"
         self._server = HTTPServer(
             (host, self._port),
-            make_handler(self._window, self._token))
+            make_handler(self._store, self._bridge, self._token,
+                        getattr(self._window, '_db', None)))
         self._thread = Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
         self._running = True

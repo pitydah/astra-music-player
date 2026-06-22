@@ -100,7 +100,7 @@ class MiniPlayer(QWidget):
             QSlider::sub-page:horizontal {
                 background: qlineargradient(
                     x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #FF7A00, stop:0.5 #FF243D,
+                    stop:0 #8FB7FF, stop:0.5 #FF243D,
                     stop:0.8 #D00073, stop:1 #6B1B8F
                 );
                 border-radius: 2px;

@@ -450,9 +450,31 @@ class MainWindow(QMainWindow):
         return svc
 
     def _make_astra_api(self):
+        from core.state_store import AppStateStore
+        from integrations.astra_api.bridge import AstraApiBridge
         from integrations.astra_api.http_api import AstraHttpApi
+        store = AppStateStore(self)
+        bridge = AstraApiBridge(self)
+        # Wire bridge signals to window handlers
+        bridge.play_requested.connect(lambda: self._playback.play_or_resume())
+        bridge.pause_requested.connect(lambda: self._playback.pause())
+        bridge.stop_requested.connect(lambda: self._playback.stop())
+        bridge.next_requested.connect(lambda: self._playback.play_next())
+        bridge.previous_requested.connect(lambda: self._playback.play_prev())
+        bridge.volume_requested.connect(lambda v: self._playback.set_volume(v))
+        bridge.play_media_requested.connect(self._on_api_play_media)
+        bridge.select_destination_requested.connect(self._on_api_select_dest)
+        bridge.library_play_requested.connect(self._on_api_library_play)
+        self._state_store = store
+        self._api_bridge = bridge
         svc = AstraHttpApi(self)
         svc.configure()
+        svc.set_store_and_bridge(store, bridge)
+        # Update state store on player changes
+        self._playback.state_changed.connect(
+            lambda s: store.update_player(state=self._state_to_str(s)))
+        self._playback.volume_changed.connect(
+            lambda v: store.update_player(volume=v))
         self._shutdown.register("astra_api", lambda: svc.stop())
         return svc
 
@@ -1429,6 +1451,31 @@ class MainWindow(QMainWindow):
 
     def _show_new_playlist(self, key):
         self._create_playlist()
+
+    # ── Astra API Bridge handlers ──
+
+    @staticmethod
+    def _state_to_str(state) -> str:
+        if state is None:
+            return "idle"
+        return str(state).split(".")[-1].lower() if "." in str(state) else str(state).lower()
+
+    def _on_api_play_media(self, body: dict):
+        media_id = body.get("media_id", "")
+        if media_id and self._playback:
+            self._playback.play(media_id, body.get("title", ""), body.get("artist", ""))
+
+    def _on_api_select_dest(self, dest_id: str):
+        if dest_id == "local":
+            if hasattr(self, '_ctx') and hasattr(self._ctx, 'player_bar'):
+                self._ctx.player_bar.set_transmit_active(False)
+        elif hasattr(self, '_group_mgr'):
+            self._group_mgr.activate_group(dest_id)
+
+    def _on_api_library_play(self, body: dict):
+        media_id = body.get("media_id", "")
+        if media_id and self._playback:
+            self._playback.play(media_id)
 
     def _on_sidebar_menu(self, pos):
         widget = self._sidebar.childAt(pos)

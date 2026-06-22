@@ -84,6 +84,6 @@ class EqCurveWidget(QWidget):
         p.setOpacity(1.0)
 
         # Curve line
-        p.setPen(QPen(QColor("#FF7A00"), 2))
+        p.setPen(QPen(QColor("#8FB7FF"), 2))
         p.setBrush(Qt.NoBrush)
         p.drawPath(path)

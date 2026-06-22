@@ -61,7 +61,7 @@ class RemoteBrowser(QWidget):
         self._bc_btn.setFlat(True)
         self._bc_btn.setStyleSheet(
             "QPushButton { color: rgba(255,255,255,0.78); font-size: 13px; font-weight: 600; }"
-            "QPushButton:hover { color: #FF7A00; }")
+            "QPushButton:hover { color: #8FB7FF; }")
         self._bc_btn.clicked.connect(self._go_top)
         bc.addWidget(self._bc_btn)
         bc.addStretch()
