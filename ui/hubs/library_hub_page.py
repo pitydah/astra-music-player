@@ -71,7 +71,7 @@ class LibraryHubPage(QWidget):
             ("canciones", "Canciones", "library", "Toda tu música local en una tabla con busqueda y filtros."),
             ("albums", "Álbumes", "albums", "Carátulas y navegación visual por album."),
             ("artists", "Artistas", "artists", "Explora tu biblioteca por artista y sus álbumes."),
-            ("genres", "Géneros", "genres", "Atlas de estilos y familias músicales."),
+            ("genres", "Géneros", "genres", "Atlas de estilos y familias musicales."),
             ("folders", "Carpetas", "folders", "Explorador de archivos por carpeta en tu disco."),
         ]
 

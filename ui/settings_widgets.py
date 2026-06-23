@@ -15,7 +15,7 @@ _BORDER = "rgba(255,255,255,0.075)"
 _TEXT = "#FFFFFF"
 _TEXT2 = "rgba(255,255,255,0.78)"
 _TEXT3 = "rgba(255,255,255,0.62)"
-_TEXT_DIM = "rgba(255,255,255,0.34)"
+_TEXT_DIM = "rgba(255,255,255,0.42)"
 
 
 class SettingsCard(QFrame):
@@ -73,7 +73,7 @@ class SettingsRow(QFrame):
         left = QVBoxLayout()
         left.setSpacing(1)
         t = QLabel(title)
-        t.setStyleSheet(f"color: {_TEXT2}; font-size: 12px; font-weight: 560; background: transparent;")
+        t.setStyleSheet(f"color: {_TEXT2}; font-size: 12px; font-weight: 600; background: transparent;")
         left.addWidget(t)
         if description:
             d = QLabel(description)

@@ -2,6 +2,12 @@
 
 from PySide6.QtGui import QPalette, QColor
 
+from ui.central.central_tokens import (
+    SURFACE_POPUP, BORDER_NORMAL, BORDER_FOCUS,
+    ACCENT_SURFACE, ACCENT_SELECTION,
+    TEXT_NORMAL,
+)
+
 
 def is_dark_mode(palette: QPalette | None = None) -> bool:
     """Detect if the current system theme is dark."""
@@ -60,8 +66,8 @@ QTableView {
     border-radius: 12px; gridline-color: transparent;
 }
 QTableView::item { padding: 6px 12px; border-bottom: none; color: rgba(255,255,255,0.85); }
-QTableView::item:hover { background: rgba(143,183,255,0.06); }
-QTableView::item:selected { background: rgba(143,183,255,0.12); color: #fff; }
+QTableView::item:hover { background: """ + ACCENT_SURFACE + """; }
+QTableView::item:selected { background: """ + ACCENT_SELECTION + """; color: #fff; }
 QHeaderView::section {
     background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.64); padding: 8px 12px;
     border: none; border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -94,7 +100,7 @@ QComboBox {
 }
 QComboBox:hover { border-color: rgba(255,255,255,0.15); }
 QComboBox QAbstractItemView {
-    background: rgba(30,30,35,0.95); border: 1px solid rgba(255,255,255,0.06);
+    background: """ + SURFACE_POPUP + """; border: 1px solid """ + BORDER_NORMAL + """;
     border-radius: 8px; selection-background-color: #8FB7FF;
     selection-color: #fff; outline: none;
 }
@@ -113,11 +119,11 @@ QScrollBar::handle:horizontal:hover { background: rgba(255,255,255,0.2); }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 
 QMenu {
-    background: rgba(30,30,35,0.95); border: 1px solid rgba(255,255,255,0.06);
+    background: """ + SURFACE_POPUP + """; border: 1px solid """ + BORDER_NORMAL + """;
     border-radius: 10px; padding: 4px; color: rgba(255,255,255,0.85);
 }
 QMenu::item { padding: 6px 32px 6px 12px; border-radius: 6px; }
-QMenu::item:selected { background: rgba(143,183,255,0.25); color: #fff; }
+QMenu::item:selected { background: """ + BORDER_FOCUS + """; color: #fff; }
 QMenu::separator {
     height: 1px; background: rgba(255,255,255,0.06); margin: 3px 8px;
 }
@@ -161,11 +167,11 @@ QPushButton[flat=\"true\"]:hover { background: rgba(255,255,255,0.06); }
 QPushButton[flat=\"true\"]:pressed { background: rgba(255,255,255,0.1); }
 
 QToolTip {
-    background: rgba(30,30,35,0.95); color: rgba(255,255,255,0.85);
+    background: """ + SURFACE_POPUP + """; color: """ + TEXT_NORMAL + """;
     border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 4px 8px;
 }
 
-QDialog { background: rgba(30,30,35,0.95); }
+QDialog { background: """ + SURFACE_POPUP + """; }
 """
 
 

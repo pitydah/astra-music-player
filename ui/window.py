@@ -79,13 +79,13 @@ SECTION_CONFIG = {
     "genres":     {"title": "Géneros", "subtitle": "Atlas de estilos de tu biblioteca",
                     "icon": "sidebar_popular", "views": ["grid", "list"],
                     "search": True, "default": "grid"},
-    "folders":    {"title": "Carpetas", "subtitle": "Explorador músical local",
+    "folders":    {"title": "Carpetas", "subtitle": "Explorador musical local",
                    "icon": "sidebar_folders", "views": ["tree"],
                    "search": True, "default": "tree"},
     "radio":      {"title": "Emisoras", "subtitle": "Radios por URL y mosaicos",
                    "icon": "sidebar_radio", "views": ["grid", "list"],
                    "search": True, "default": "grid"},
-    "identifier": {"title": "Identificador", "subtitle": "Detección músical",
+    "identifier": {"title": "Identificador", "subtitle": "Detección musical",
                    "icon": "sidebar_identifier", "views": [],
                    "search": False, "default": None},
     "playlists":  {"title": "Playlist", "subtitle": "Colecciones personalizadas",
@@ -106,7 +106,7 @@ SECTION_CONFIG = {
     "mix_unplayed": {"title": "No escuchadas", "subtitle": "Canciones por descubrir",
                      "icon": "sidebar_unplayed", "views": ["list", "grid"],
                      "search": True, "default": "list"},
-    "mix_popular": {"title": "Más escuchadas", "subtitle": "Mayor número de reproducciónes",
+    "mix_popular": {"title": "Más escuchadas", "subtitle": "Mayor número de reproducciones",
                     "icon": "sidebar_popular", "views": [],
                     "search": False, "default": None},
     "add_server": {"title": "Añadir servidor", "subtitle": "Conecta Navidrome o Jellyfin",
@@ -163,8 +163,12 @@ SECTION_CONFIG = {
                         "icon": "sidebar_servers", "views": [],
                         "search": False, "default": None},
     "settings_hub":   {"title": "Configuración",
-                        "subtitle": "Preferencias de la aplicacion",
+                        "subtitle": "Preferencias de la aplicación",
                         "icon": "warm_settings", "views": [],
+                        "search": False, "default": None},
+    "devices":        {"title": "Dispositivos",
+                        "subtitle": "Unidades y discos externos",
+                        "icon": "sidebar_devices", "views": [],
                         "search": False, "default": None},
 }
 
@@ -1417,18 +1421,23 @@ class MainWindow(QMainWindow):
         if self._nav_history_index > 0:
             self._nav_history_index -= 1
             self._nav_restoring = True
-            key = self._nav_history[self._nav_history_index]
-            self._on_sidebar_navigate(key)
-            self._nav_restoring = False
+            try:
+                key = self._nav_history[self._nav_history_index]
+                self._on_sidebar_navigate(key)
+            finally:
+                self._nav_restoring = False
             self._update_nav_buttons()
 
     def _navigate_forward(self):
         if self._nav_history_index < len(self._nav_history) - 1:
             self._nav_history_index += 1
             self._nav_restoring = True
-            key = self._nav_history[self._nav_history_index]
-            self._on_sidebar_navigate(key)
-            self._nav_restoring = False
+            try:
+                key = self._nav_history[self._nav_history_index]
+                self._on_sidebar_navigate(key)
+            finally:
+                self._nav_restoring = False
+            self._update_nav_buttons()
 
     def _update_nav_buttons(self):
         if hasattr(self, '_back_btn'):
@@ -2157,6 +2166,7 @@ class MainWindow(QMainWindow):
             "playback_hub": "",
             "connections_hub": "",
             "settings_hub": "",
+            "devices": "",
         }
         self._search.setPlaceholderText(searchers.get(section_key, "Buscar..."))
         self._search.setVisible(search)

@@ -22,6 +22,21 @@ _TEXT_PRIMARY = TEXT_PRIMARY
 _TEXT_SECONDARY = TEXT_SECONDARY
 _TEXT_MUTED = TEXT_DISABLED
 
+# ── Intermediate tokens (reused across multiple functions) ──
+_TOKEN_05 = "rgba(255,255,255,0.05)"
+_TOKEN_08 = "rgba(255,255,255,0.08)"
+_TOKEN_10 = "rgba(255,255,255,0.10)"
+_TOKEN_20 = "rgba(255,255,255,0.20)"
+_ACCENT_10 = "rgba(143,183,255,0.10)"
+_ACCENT_16 = "rgba(143,183,255,0.16)"
+_ACCENT_18 = "rgba(143,183,255,0.18)"
+_ACCENT_24 = "rgba(143,183,255,0.24)"
+_ACCENT_28 = "rgba(143,183,255,0.28)"
+_ACCENT_30 = "rgba(143,183,255,0.30)"
+_TEXT_78 = "rgba(255,255,255,0.78)"
+_TEXT_88 = "rgba(255,255,255,0.88)"
+_TEXT_96 = "rgba(255,255,255,0.96)"
+
 
 def content_surface_qss() -> str:
     return """

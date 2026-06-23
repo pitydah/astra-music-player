@@ -19,7 +19,7 @@ ICON_REGISTRY: dict[str, IconSpec] = {
     "app_icon": IconSpec(
         key="app_icon", path="icons/app_icon.png",
         family="app", symbolic=False, allow_background=True,
-        description="Icono principal de la aplicacion"),
+        description="Icono principal de la aplicación"),
 
     # ── Sidebar ──
     "sidebar_library": IconSpec(

@@ -42,7 +42,7 @@ class AudioLabPage(QWidget):
 
         subtitle = QLabel(
             "Herramientas avanzadas para importar, corregir, "
-            "enriquecer y preservar tu colección músical."
+            "enriquecer y preservar tu colección musical."
         )
         subtitle.setObjectName("audioLabSubtitle")
         subtitle.setWordWrap(True)

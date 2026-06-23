@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QPushButton, QProgressBar,
 )
 
-from ui.central.central_styles import glass_card_qss, glass_button_qss
+from ui.central.central_styles import glass_card_qss, glass_button_qss, glass_chip_qss
 
 
 class ConnectionsHubPage(QWidget):
@@ -40,7 +40,7 @@ class ConnectionsHubPage(QWidget):
 
         servers = self._get_servers()
         subtitle = QLabel(
-            f"Servidores músicales, Home Audio, dispositivos y diagnóstico de red. "
+            f"Servidores musicales, Home Audio, dispositivos y diagnóstico de red. "
             f"{len(servers)} servidores configurados."
         )
         subtitle.setObjectName("connectionsHubSubtitle")
@@ -88,14 +88,11 @@ class ConnectionsHubPage(QWidget):
             for d in devices:
                 dname = d.get("name", d.get("mount", "Dispositivo"))
                 dmount = d.get("mount", "")
-                chip = QPushButton(f"{dname} ({dmount})")
+                chip = QLabel(dname)
+                chip.setToolTip(dmount)
                 chip.setCursor(Qt.PointingHandCursor)
-                chip.setStyleSheet(
-                    "QPushButton { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); "
-                    "border-radius: 8px; padding: 6px 12px; color: rgba(143,183,255,0.62); font-size: 11px; }"
-                    "QPushButton:hover { background: rgba(143,183,255,0.08); border: 1px solid rgba(143,183,255,0.12); }"
-                )
-                chip.clicked.connect(lambda checked=None, m=dmount: self._navigate(f"dev:{m}"))
+                chip.setStyleSheet(glass_chip_qss() + "QLabel:hover { background: rgba(143,183,255,0.08); }")
+                chip.mousePressEvent = lambda e, m=dmount: self._navigate(f"dev:{m}")
                 dev_row.addWidget(chip)
             dev_row.addStretch()
             dc_layout.addLayout(dev_row)
@@ -147,7 +144,7 @@ class ConnectionsHubPage(QWidget):
         content_layout.addWidget(discover_card)
 
         actions = [
-            ("add_server", "Añadir servidor músical",
+            ("add_server", "Añadir servidor musical",
              "Conecta Navidrome, Jellyfin o Subsonic para acceder a tu música remota."),
             ("home_audio", "Home Audio",
              "Audio multiroom, parlantes Snapcast y Home Assistant."),
@@ -175,7 +172,7 @@ class ConnectionsHubPage(QWidget):
             def run(self):
                 from integrations.connections.discovery_manager import DiscoveryManager
                 mgr = DiscoveryManager(timeout=0.3)
-                results = mgr.scan_known_ports("127.0.0.1")
+                results = mgr.scan_known_ports()
                 mdns = mgr.scan_mdns()
                 all_results = results + mdns
                 classified = [mgr.build_discovered_server(r) for r in all_results]

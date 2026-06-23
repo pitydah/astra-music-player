@@ -97,7 +97,7 @@ def _text_c(state: str) -> str:
 
 
 def _font_weight(state: str) -> int:
-    return {"normal": 500, "hover": 600, "active": 700}.get(state, 500)
+    return {"normal": 500, "hover": 500, "active": 600}.get(state, 500)
 
 
 def item_qss(state: str) -> str:

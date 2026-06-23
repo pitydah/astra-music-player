@@ -81,7 +81,7 @@ class PlaylistController:
 
     def hub_create_from_folder(self):
         folder = QFileDialog.getExistingDirectory(
-            self._win, "Seleccionar carpeta músical")
+            self._win, "Seleccionar carpeta musical")
         if not folder:
             return
         from library.library_db import AUDIO_EXTS
