@@ -25,6 +25,7 @@ class SidebarController(QObject):
         self._sidebar.add_item("hub", "home", "Inicio", "sidebar_library")
         self._sidebar.add_item("hub", "library_hub", "Biblioteca", "sidebar_library")
         self._sidebar.add_item("hub", "mix_hub", "Mix", "sidebar_mix")
+        self._sidebar.add_item("hub", "playlist_hub", "Playlist", "sidebar_playlists")
         self._sidebar.add_item("hub", "playback_hub", "Reproducción", "warm_play")
         self._sidebar.add_item("hub", "connections_hub", "Conexiones", "sidebar_servers")
         self._sidebar.add_item("hub", "radio", "Radio", "sidebar_radio")
