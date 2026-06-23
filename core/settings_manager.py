@@ -147,6 +147,19 @@ DEFAULTS = {
     "recommendation/cache_days": 7,
     "recommendation/explain_reasons": True,
     "recommendation/save_feedback": True,
+    "recommendation/use_acoustic_similarity": False,
+    "audio_analysis/enabled": False,
+    "audio_analysis/backend": "basic",
+    "audio_analysis/use_librosa": False,
+    "audio_analysis/use_embeddings": False,
+    "audio_analysis/auto_analyze": False,
+    "audio_analysis/max_workers": 1,
+    "audio_analysis/max_batch": 50,
+    "audio_analysis/sample_duration": 90,
+    "audio_analysis/cache_days": 180,
+    "audio_analysis/resource_confirm": True,
+    "audio_analysis/show_warning": True,
+    "ai_assistant/use_audio_analysis": False,
 }
 
 

@@ -74,6 +74,15 @@ from integrations.ai_assistant.tools.recommendation_tools import (
     explain_recommendation,
     save_recommendation_as_playlist,
 )
+from integrations.ai_assistant.tools.audio_analysis_tools import (
+    get_audio_analysis_status,
+    analyze_track_audio,
+    analyze_selected_tracks,
+    find_sonically_similar,
+    create_acoustic_mix,
+    explain_acoustic_features,
+    list_tracks_missing_features,
+)
 from integrations.ai_assistant.schemas import PendingAction, ToolResult
 
 logger = logging.getLogger("michi.ai_assistant.service")
@@ -151,6 +160,13 @@ class AIAssistantService:
         self._tools.register("create_smart_mix", create_smart_mix)
         self._tools.register("explain_recommendation", explain_recommendation)
         self._tools.register("save_recommendation_as_playlist", save_recommendation_as_playlist)
+        self._tools.register("get_audio_analysis_status", get_audio_analysis_status)
+        self._tools.register("analyze_track_audio", analyze_track_audio)
+        self._tools.register("analyze_selected_tracks", analyze_selected_tracks)
+        self._tools.register("find_sonically_similar", find_sonically_similar)
+        self._tools.register("create_acoustic_mix", create_acoustic_mix)
+        self._tools.register("explain_acoustic_features", explain_acoustic_features)
+        self._tools.register("list_tracks_missing_features", list_tracks_missing_features)
 
     @property
     def ollama_available(self) -> bool:
@@ -491,6 +507,43 @@ class AIAssistantService:
             t,
         ):
             return ("save_recommendation_as_playlist", {"recommendation_id": ""}, text)
+
+        # Audio analysis patterns
+        if re.search(
+            r"\b(busca|buscar|encuentra)\s+(canciones?\s+)?(que\s+)?(suenen?|suena[nr]?)\s+(parecido|similar|como|igual)\b|"
+            r"\b(simili?tud|parecido)\s+(sonor[ao]|ac[uú]stic[ao]|audio)\b|"
+            r"\b(sonicamente\s+similar|por\s+sonido|por\s+audio)\b",
+            t,
+        ):
+            track_ids = self._extract_track_ids_from_context()
+            if track_ids:
+                return ("find_sonically_similar", {"track_id": track_ids[0]}, text)
+            return ("find_sonically_similar", {"track_id": 0}, text)
+
+        if re.search(
+            r"\b(analiza|analizar|examina|extrae)\s+(el\s+)?(audio|sonido|acustic[oa])\s+(de\s+)?(esta|la|el)\b|"
+            r"\b(analiza\s+(esta|la)\s+cancion)\b",
+            t,
+        ):
+            track_ids = self._extract_track_ids_from_context()
+            if track_ids:
+                return ("analyze_track_audio", {"track_id": track_ids[0]}, text)
+            return ("analyze_track_audio", {"track_id": 0}, text)
+
+        if re.search(
+            r"\b(qu[eé]\s+)?(canciones|temas|pistas)\s+(sin\s+analizar|sin\s+features|faltan?\s+analizar|faltan?\s+features)\b|"
+            r"\b(que\s+(canciones|temas)\s+faltan?\s+(por\s+)?analizar)\b",
+            t,
+        ):
+            return ("list_tracks_missing_features", {}, text)
+
+        if re.search(
+            r"\b(qu[eé]\s+)?features\s+(tiene|hay|ac[uú]stic[ao]s?)\b|"
+            r"\b(explica\s+(el\s+)?(perfil|analisis|features)\s+(ac[uú]stic[oa]|de\s+audio))\b|"
+            r"\b(estado\s+(del\s+)?(analisis|audio)\s+ac[uú]stico)\b",
+            t,
+        ):
+            return ("get_audio_analysis_status", {}, text)
 
         if re.search(
             r"\b(info|informacion)\s+(del|de la|del album|del disco|sobre el album|sobre el disco)\s+",

@@ -13,6 +13,7 @@ SAFE_KEYS = frozenset({
     "channels", "bit_depth", "bpm",
     "play_count", "mood", "grouping",
     "score", "reasons", "strategy",
+    "bpm_confidence", "energy_bucket", "acoustic_labels",
 })
 
 FORBIDDEN_KEYS = frozenset({

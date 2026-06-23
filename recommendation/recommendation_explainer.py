@@ -32,6 +32,8 @@ def explain(result: RecommendationResult) -> RecommendationExplanation:
         "seed_radio": f"Radio basada en {result.artist}",
         "balanced_mix": "Mix equilibrado entre familiar y nuevo",
         "quality_mix": "Audio de alta calidad: " + result.format.upper(),
+        "acoustic_similarity": f"Suena parecido a la referencia (score: {result.score:.0%})",
+        "hybrid": f"Recomendacion hibrida metadata + acustica (score: {result.score:.0%})",
     }
 
     return RecommendationExplanation(

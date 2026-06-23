@@ -15,6 +15,8 @@ from recommendation.similarity_engine import (
     metadata_similarity,
     discovery,
     seed_radio,
+    acoustic_similarity,
+    hybrid_score,
 )
 from recommendation.recommendation_explainer import explain
 from recommendation.recommendation_repository import RecommendationRepository
@@ -239,3 +241,83 @@ class RecommendationService:
     def rebuild_profile(self) -> dict[str, Any]:
         self._profile = build_profile(self._db, use_favorites=True)
         return self.get_profile_summary()
+
+    def recommend_by_sound(self, track_id: int,
+                           limit: int = 30) -> dict[str, Any]:
+        from core.settings_manager import get_bool
+        if not get_bool("recommendation/use_acoustic_similarity"):
+            return {"error": "Similitud acustica desactivada.", "results": []}
+
+        from audio_analysis.analysis_service import AnalysisService
+        analysis = AnalysisService(self._db)
+        if not analysis.available:
+            return {"error": "Analisis acustico no disponible.", "results": []}
+
+        rec_id = generate_recommendation_id()
+        items = self._items()
+        seed = next((i for i in items if getattr(i, "id", 0) == track_id), None)
+        if not seed:
+            return {"recommendation_id": rec_id, "error": "Track no encontrado.", "results": []}
+
+        results = acoustic_similarity(items, seed, analysis_svc=analysis, limit=limit)
+        safe = _sanitize_results(results)
+        self._repo.cache_recommendation(rec_id, "sound", str(track_id),
+                                         "acoustic_similarity", results,
+                                         [explain(r) for r in results], self._cache_days)
+
+        return {
+            "recommendation_id": rec_id,
+            "seed": {"type": "sound", "value": str(track_id),
+                     "title": getattr(seed, "title", ""), "artist": getattr(seed, "artist", "")},
+            "strategy": "acoustic_similarity",
+            "results": safe,
+            "total": len(safe),
+        }
+
+    def recommend_hybrid(self, description: str,
+                          limit: int = 30) -> dict[str, Any]:
+        from core.settings_manager import get_bool
+        use_acoustic = get_bool("recommendation/use_acoustic_similarity")
+
+        from audio_analysis.analysis_service import AnalysisService
+        analysis = AnalysisService(self._db) if use_acoustic else None
+
+        rec_id = generate_recommendation_id()
+        items = self._items()
+        seed = self._find_seed(description)
+        results: list[RecommendationResult] = []
+
+        if seed:
+            for item in items:
+                if getattr(item, "id", 0) == getattr(seed, "id", 0):
+                    continue
+                score, reasons = hybrid_score(
+                    item, seed, self._profile,
+                    acoustic_weight=0.25 if use_acoustic else 0.0,
+                    analysis_svc=analysis,
+                )
+                if score > 0.05:
+                    results.append(RecommendationResult(
+                        track_id=getattr(item, "id", 0),
+                        title=str(getattr(item, "title", "") or ""),
+                        artist=str(getattr(item, "artist", "") or ""),
+                        album=str(getattr(item, "album", "") or ""),
+                        score=score, reasons=reasons, strategy="hybrid",
+                    ))
+
+            results.sort(key=lambda x: x.score, reverse=True)
+        else:
+            results = discovery(items, limit=limit)
+
+        results = results[:limit]
+        self._repo.cache_recommendation(rec_id, "hybrid", description,
+                                         "hybrid", results,
+                                         [explain(r) for r in results], self._cache_days)
+
+        return {
+            "recommendation_id": rec_id,
+            "seed": {"type": "hybrid", "value": description},
+            "strategy": "hybrid",
+            "results": _sanitize_results(results),
+            "total": len(results),
+        }

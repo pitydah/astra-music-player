@@ -254,3 +254,84 @@ def quality_mix(all_items: list, limit: int = 30) -> list[RecommendationResult]:
             "quality_mix",
         ))
     return results
+
+
+def acoustic_similarity(all_items: list, seed: Any,
+                        analysis_svc: Any = None,
+                        limit: int = 30) -> list[RecommendationResult]:
+    results: list[RecommendationResult] = []
+    if analysis_svc is None:
+        return results
+
+    seed_id = _get(seed, "id")
+    if not seed_id:
+        return results
+
+    similar = analysis_svc.find_sonically_similar(int(seed_id), limit=limit) if hasattr(analysis_svc, "find_sonically_similar") else []
+    for s in similar:
+        for item in all_items:
+            if _get(item, "id") == s.get("track_id"):
+                results.append(_build_result(
+                    item, s.get("score", 0.5),
+                    s.get("reasons", ["Similitud acustica"]),
+                    "acoustic_similarity",
+                ))
+                break
+    return results[:limit]
+
+
+def hybrid_score(track: Any, seed: Any, profile: Any = None,
+                 acoustic_weight: float = 0.0,
+                 analysis_svc: Any = None) -> tuple[float, list[str]]:
+    metadata_score = 0.0
+    artist_match = 1.0 if _get(track, "artist").lower() == _get(seed, "artist").lower() else 0.0
+    genre_match = _genre_overlap(track, seed)
+    year_prox = _year_proximity(track, seed)
+    metadata_score = (
+        artist_match * 0.30
+        + genre_match * 0.30
+        + year_prox * 0.15
+        + _format_match(track, seed) * 0.10
+        + _quality_bonus(track) * 0.15
+    )
+
+    profile_score = 0.0
+    if profile:
+        if _get(track, "artist").lower() in [a.lower() for a in (profile.top_artists or [])]:
+            profile_score += 0.6
+        if _get(track, "genre").lower() in [g.lower() for g in (profile.top_genres or [])]:
+            profile_score += 0.4
+        profile_score = min(profile_score, 1.0)
+
+    acoustic_score = 0.0
+    acoustic_reasons: list[str] = []
+    if acoustic_weight > 0 and analysis_svc:
+        from audio_analysis.feature_extractor import make_track_key
+        seed_fp = getattr(seed, "filepath", "")
+        cand_key = make_track_key(getattr(track, "filepath", ""))
+        if seed_fp and analysis_svc.has_features(make_track_key(seed_fp)):
+            safe = analysis_svc.get_safe_labels(cand_key) if analysis_svc.has_features(cand_key) else None
+            if safe and safe.get("acoustic_labels") != ["no_data"]:
+                acoustic_reasons = safe.get("acoustic_labels", [])
+                acoustic_score = 0.5
+
+    if acoustic_weight > 0:
+        total = (
+            metadata_score * (1.0 - acoustic_weight) * 0.55
+            + profile_score * (1.0 - acoustic_weight) * 0.35
+            + acoustic_score * acoustic_weight
+            + (0.10 if not hasattr(track, "_seen") else 0.0)
+        )
+    else:
+        total = metadata_score * 0.55 + profile_score * 0.35 + _quality_bonus(track) * 0.10
+
+    reasons = []
+    if artist_match:
+        reasons.append("Mismo artista")
+    if genre_match >= 0.5:
+        reasons.append("Genero similar")
+    if year_prox >= 0.8:
+        reasons.append("Ano cercano")
+    reasons.extend(acoustic_reasons)
+
+    return (round(min(total, 1.0), 4), reasons)

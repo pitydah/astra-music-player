@@ -31,7 +31,7 @@ class ToolRegistry:
                 error=f"Herramienta bloqueada: {name}. Permisos insuficientes.",
                 permission_denied=True,
             )
-        if level == PermissionLevel.REVERSIBLE:
+        if level == PermissionLevel.REVERSIBLE or level == PermissionLevel.RESOURCE_INTENSIVE:
             return ToolResult(
                 name=name, success=False,
                 error=f"Herramienta '{name}' requiere confirmacion. "

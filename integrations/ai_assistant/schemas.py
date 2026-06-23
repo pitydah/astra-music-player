@@ -11,6 +11,7 @@ class PermissionLevel(Enum):
     REVERSIBLE = auto()
     SENSITIVE = auto()
     FORBIDDEN = auto()
+    RESOURCE_INTENSIVE = auto()
 
 
 @dataclass(slots=True)

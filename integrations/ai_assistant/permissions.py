@@ -43,6 +43,13 @@ TOOL_PERMISSIONS: dict[str, PermissionLevel] = {
     "create_smart_mix":               PermissionLevel.READ_ONLY,
     "explain_recommendation":         PermissionLevel.READ_ONLY,
     "save_recommendation_as_playlist": PermissionLevel.REVERSIBLE,
+    "get_audio_analysis_status":       PermissionLevel.READ_ONLY,
+    "analyze_track_audio":             PermissionLevel.RESOURCE_INTENSIVE,
+    "analyze_selected_tracks":         PermissionLevel.RESOURCE_INTENSIVE,
+    "find_sonically_similar":          PermissionLevel.READ_ONLY,
+    "create_acoustic_mix":             PermissionLevel.READ_ONLY,
+    "explain_acoustic_features":       PermissionLevel.READ_ONLY,
+    "list_tracks_missing_features":    PermissionLevel.READ_ONLY,
 }
 
 

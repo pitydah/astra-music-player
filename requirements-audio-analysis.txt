@@ -1,0 +1,5 @@
+# Optional dependencies for audio analysis (Fase 6)
+# Install with: pip install -r requirements-audio-analysis.txt
+
+librosa>=0.10
+soundfile>=0.12
