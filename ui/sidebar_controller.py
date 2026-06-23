@@ -1,6 +1,7 @@
-"""Sidebar Controller — manages sidebar sections and navigation dispatch."""
+"""Sidebar controller — rebuilds sidebar sections with hub-focused navigation."""
 
 from PySide6.QtCore import QObject, Signal
+
 
 
 class SidebarController(QObject):
@@ -18,49 +19,14 @@ class SidebarController(QObject):
     def rebuild(self, servers: list):
         self._sidebar._clear()
 
-        # Biblioteca
-        self._sidebar.add_section("lib", "Biblioteca", "sidebar_library")
-        self._sidebar.add_item("lib", "library", "Todas las canciones",
-                               "sidebar_library")
-        self._sidebar.add_item("lib", "albums", "Álbumes", "sidebar_albums")
-        self._sidebar.add_item("lib", "artists", "Artistas", "sidebar_artist")
-        self._sidebar.add_item("lib", "genres", "Géneros", "sidebar_popular")
-        self._sidebar.add_item("lib", "folders", "Carpetas", "sidebar_folders")
+        # ── Hubs principales ──
+        self._sidebar.add_section("hub", "Michi Music", "sidebar_mix")
+        self._sidebar.add_item("hub", "home", "Inicio", "sidebar_library")
+        self._sidebar.add_item("hub", "library_hub", "Biblioteca", "sidebar_library")
+        self._sidebar.add_item("hub", "mix_hub", "Mix", "sidebar_mix")
+        self._sidebar.add_item("hub", "playback_hub", "Reproduccion", "warm_play")
+        self._sidebar.add_item("hub", "connections_hub", "Conexiones", "sidebar_servers")
+        self._sidebar.add_item("hub", "audio_lab", "Audio Lab", "sidebar_mix")
+        self._sidebar.add_item("hub", "settings_hub", "Configuracion", "warm_settings")
 
-        # Playlists — solo Menú de playlist + playlists del usuario
-        self._sidebar.add_section("pl", "Playlist", "sidebar_playlists")
-        self._sidebar.add_item("pl", "playlist_hub", "Menú de playlist",
-                               "sidebar_playlists")
-        for p in self._db.get_playlists():
-            self._sidebar.add_item("pl", f"pl:{p['id']}", p['name'],
-                                   "sidebar_playlist_item")
-
-        # Herramientas
-        self._sidebar.add_section("mix", "Herramientas", "sidebar_mix")
-        self._sidebar.add_item("mix", "discover", "Panel Descubrir", "sidebar_mix")
-        self._sidebar.add_item("mix", "identifier", "Identificador",
-                                "sidebar_identifier")
-        self._sidebar.add_item("mix", "home_audio", "Home Audio", "home_audio")
-        self._sidebar.add_item("mix", "assistant", "Asistente", "sidebar_mix")
-        self._sidebar.add_item("mix", "audio_lab", "Audio Lab", "sidebar_mix")
-
-        # Radio
-        self._sidebar.add_section("rad", "Radio", "sidebar_radio")
-        self._sidebar.add_item("rad", "radio", "Emisoras", "sidebar_radio")
-
-        # Servidores
-        self._sidebar.add_section("srv", "Servidores", "sidebar_servers")
-        for srv in servers:
-            ico = "sidebar_navidrome" if srv.stype == "navidrome" else "sidebar_jellyfin"
-            self._sidebar.add_item("srv", f"srv:{srv.name}", srv.name, ico)
-        self._sidebar.add_item("srv", "add_server", "+ Añadir servidor",
-                               "sidebar_add")
-
-        # Dispositivos
-        self._sidebar.add_section("dev", "Dispositivos", "sidebar_devices")
-        from library.library_db import get_mounted_devices
-        for d in get_mounted_devices():
-            self._sidebar.add_item("dev", f"dev:{d['mount']}", d['name'],
-                                   "sidebar_devices")
-
-        self._sidebar.set_active("library")
+        self._sidebar.set_active("home")

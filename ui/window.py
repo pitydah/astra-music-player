@@ -142,6 +142,30 @@ SECTION_CONFIG = {
                        "subtitle": "Importacion Hi-Fi y ripeo seguro de CDs",
                        "icon": "sidebar_mix", "views": [],
                        "search": False, "default": None},
+    "home":           {"title": "Inicio",
+                        "subtitle": "Tu musica en un solo lugar",
+                        "icon": "sidebar_library", "views": [],
+                        "search": False, "default": None},
+    "library_hub":    {"title": "Biblioteca",
+                        "subtitle": "Musica local, servidores y archivos offline",
+                        "icon": "sidebar_library", "views": [],
+                        "search": False, "default": None},
+    "mix_hub":        {"title": "Mix",
+                        "subtitle": "Smart mixes, recomendaciones y playlists mixtas",
+                        "icon": "sidebar_mix", "views": [],
+                        "search": False, "default": None},
+    "playback_hub":   {"title": "Reproduccion",
+                        "subtitle": "Cola, historial, favoritos y radio",
+                        "icon": "warm_play", "views": [],
+                        "search": False, "default": None},
+    "connections_hub":{"title": "Conexiones",
+                        "subtitle": "Servidores, Home Audio y dispositivos",
+                        "icon": "sidebar_servers", "views": [],
+                        "search": False, "default": None},
+    "settings_hub":   {"title": "Configuracion",
+                        "subtitle": "Preferencias de la aplicacion",
+                        "icon": "warm_settings", "views": [],
+                        "search": False, "default": None},
 }
 
 
@@ -187,6 +211,12 @@ NAV_ROUTES = {
     "audio_lab": "_show_audio_lab",
     "metadata_studio": "_show_metadata_editor",
     "michi_disc_lab": "_show_michi_disc_lab",
+    "home": "_show_home_page",
+    "library_hub": "_show_library_hub_page",
+    "mix_hub": "_show_mix_hub_page",
+    "playback_hub": "_show_playback_hub_page",
+    "connections_hub": "_show_connections_hub_page",
+    "settings_hub": "_show_settings_hub_page",
 }
 
 
@@ -284,6 +314,12 @@ class MainWindow(QMainWindow):
         self._album_repo = None
         self._audio_lab_page = None
         self._michi_disc_lab_page = None
+        self._home_page = None
+        self._library_hub_page = None
+        self._mix_hub_page = None
+        self._playback_hub_page = None
+        self._connections_hub_page = None
+        self._settings_hub_page = None
 
     def _init_core(self):
         """DB, player engine, playback service, model, search — must not fail."""
@@ -1613,6 +1649,54 @@ class MainWindow(QMainWindow):
             self._views.register("michi_disc_lab", self._michi_disc_lab_page)
         self._fade_content("michi_disc_lab")
 
+    def _show_home_page(self, key=None):
+        if self._home_page is None:
+            from ui.hubs.home_page import HomePage
+            self._home_page = HomePage(db=self._db)
+        if not self._views.widget("home"):
+            self._views.register("home", self._home_page)
+        self._fade_content("home")
+
+    def _show_library_hub_page(self, key=None):
+        if self._library_hub_page is None:
+            from ui.hubs.library_hub_page import LibraryHubPage
+            self._library_hub_page = LibraryHubPage(window=self)
+        if not self._views.widget("library_hub"):
+            self._views.register("library_hub", self._library_hub_page)
+        self._fade_content("library_hub")
+
+    def _show_mix_hub_page(self, key=None):
+        if self._mix_hub_page is None:
+            from ui.hubs.mix_hub_page import MixHubPage
+            self._mix_hub_page = MixHubPage()
+        if not self._views.widget("mix_hub"):
+            self._views.register("mix_hub", self._mix_hub_page)
+        self._fade_content("mix_hub")
+
+    def _show_playback_hub_page(self, key=None):
+        if self._playback_hub_page is None:
+            from ui.hubs.playback_hub_page import PlaybackHubPage
+            self._playback_hub_page = PlaybackHubPage()
+        if not self._views.widget("playback_hub"):
+            self._views.register("playback_hub", self._playback_hub_page)
+        self._fade_content("playback_hub")
+
+    def _show_connections_hub_page(self, key=None):
+        if self._connections_hub_page is None:
+            from ui.hubs.connections_hub_page import ConnectionsHubPage
+            self._connections_hub_page = ConnectionsHubPage()
+        if not self._views.widget("connections_hub"):
+            self._views.register("connections_hub", self._connections_hub_page)
+        self._fade_content("connections_hub")
+
+    def _show_settings_hub_page(self, key=None):
+        if self._settings_hub_page is None:
+            from ui.hubs.settings_hub_page import SettingsHubPage
+            self._settings_hub_page = SettingsHubPage()
+        if not self._views.widget("settings_hub"):
+            self._views.register("settings_hub", self._settings_hub_page)
+        self._fade_content("settings_hub")
+
     def _show_new_playlist(self, key):
         self._create_playlist()
 
@@ -1976,6 +2060,12 @@ class MainWindow(QMainWindow):
             "metadata_review": "",
             "audio_lab": "",
             "michi_disc_lab": "",
+            "home": "",
+            "library_hub": "",
+            "mix_hub": "",
+            "playback_hub": "",
+            "connections_hub": "",
+            "settings_hub": "",
         }
         self._search.setPlaceholderText(searchers.get(section_key, "Buscar..."))
         self._search.setVisible(search)

@@ -1,0 +1,134 @@
+"""MixHubPage — smart mixes, recommendations, and mixed-source playlists."""
+
+from __future__ import annotations
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QFrame, QScrollArea, QPushButton,
+)
+
+from ui.central.central_styles import glass_card_qss, glass_button_qss
+
+
+class MixHubPage(QWidget):
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setObjectName("mixHubPage")
+        self._build_ui()
+
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setObjectName("mixHubScroll")
+
+        content = QWidget()
+        content.setObjectName("mixHubContent")
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(40, 32, 40, 32)
+        content_layout.setSpacing(20)
+
+        title = QLabel("Mix")
+        title.setObjectName("mixHubTitle")
+        content_layout.addWidget(title)
+
+        subtitle = QLabel(
+            "Smart mixes, recomendaciones inteligentes y playlists que combinan "
+            "musica local y remota."
+        )
+        subtitle.setObjectName("mixHubSubtitle")
+        subtitle.setWordWrap(True)
+        content_layout.addWidget(subtitle)
+
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(16)
+
+        discover_card = self._build_card(
+            "discover", "Descubrir",
+            "Smart mixes diarios, no escuchadas, mas populares y redescubrimiento.",
+            "Explorar",
+            "discover",
+        )
+        cards_layout.addWidget(discover_card, 1)
+
+        recommend_card = self._build_card(
+            "recommend", "Recomendaciones IA",
+            "Michi Assistant te recomienda musica basada en tus gustos, generos y estado de animo.",
+            "Abrir asistente",
+            "assistant",
+        )
+        cards_layout.addWidget(recommend_card, 1)
+
+        content_layout.addLayout(cards_layout)
+
+        playlist_card = self._build_card(
+            "playlists", "Playlists y listas inteligentes",
+            "Organiza, mezcla e importa tus listas de reproduccion. "
+            "Combina fuentes locales y remotas.",
+            "Gestionar playlists",
+            "playlist_hub",
+        )
+        content_layout.addWidget(playlist_card)
+
+        content_layout.addStretch()
+
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
+
+        self._apply_qss()
+
+    def _build_card(self, key: str, title: str, description: str,
+                    btn_text: str, navigate_to: str) -> QFrame:
+        card = QFrame()
+        card.setObjectName(f"mixCard_{key}")
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(20, 20, 20, 20)
+        card_layout.setSpacing(10)
+
+        card_title = QLabel(title)
+        card_layout.addWidget(card_title)
+
+        card_desc = QLabel(description)
+        card_desc.setWordWrap(True)
+        card_layout.addWidget(card_desc)
+
+        card_layout.addStretch()
+
+        btn = QPushButton(btn_text)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(lambda checked=None, t=navigate_to: self._navigate(t))
+        card_layout.addWidget(btn)
+
+        return card
+
+    def _navigate(self, target: str):
+        w = self.window()
+        if w and hasattr(w, '_on_sidebar_navigate'):
+            w._on_sidebar_navigate(target)
+
+    def _apply_qss(self):
+        self.setStyleSheet("""
+            QWidget#mixHubPage { background: #090B11; }
+            QScrollArea#mixHubScroll { background: transparent; border: none; }
+            QWidget#mixHubContent { background: transparent; }
+            QLabel#mixHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
+            QLabel#mixHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
+        """)
+        for key in ("discover", "recommend", "playlists"):
+            card = self.findChild(QFrame, f"mixCard_{key}")
+            if card:
+                card.setStyleSheet(glass_card_qss(f"mixCard_{key}"))
+            for lbl in (card.findChildren(QLabel) if card else []):
+                if "font-size" not in (lbl.styleSheet() or ""):
+                    lbl.setStyleSheet(
+                        "QLabel { color: rgba(255,255,255,0.62); font-size: 12px; "
+                        "background: transparent; border: none; }"
+                    )
+            for btn in (card.findChildren(QPushButton) if card else []):
+                btn.setStyleSheet(glass_button_qss("primary"))
