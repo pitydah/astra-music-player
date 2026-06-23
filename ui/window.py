@@ -742,26 +742,33 @@ class MainWindow(QMainWindow):
 
         self.menuBar().hide()
 
-    def _toggle_sync(self):
-        if not hasattr(self, '_sync_mgr'):
-            from sync.sync_manager import SyncManager
-            self._sync_mgr = SyncManager(self._db, self)
-            self._sync_mgr.sync_started.connect(
-                lambda p: self._sync_action.setText(
-                    f"✓ Sincronización activa (puerto {p})"))
-            self._sync_mgr.sync_stopped.connect(
-                lambda: self._sync_action.setText(
-                    "Activar sincronización Android"))
-            self._sync_mgr.error_occurred.connect(
-                lambda m: self._toast_svc.show(f"Sync error: {m}", "error"))
-            self._sync_mgr.client_connected.connect(
-                lambda d: self._toast_svc.show(f"Dispositivo conectado: {d}", "info"))
+    def _ensure_sync_manager(self):
+        """Lazy-create SyncManager with all signal wiring."""
+        if hasattr(self, '_sync_mgr'):
+            return self._sync_mgr
+        from sync.sync_manager import SyncManager
+        self._sync_mgr = SyncManager(self._db, self)
+        self._sync_mgr.sync_started.connect(
+            lambda p: self._sync_action.setText(
+                f"✓ Sincronización activa (puerto {p})"))
+        self._sync_mgr.sync_stopped.connect(
+            lambda: self._sync_action.setText(
+                "Activar sincronización Android"))
+        self._sync_mgr.error_occurred.connect(
+            lambda m: (self._toast_svc.show(f"Sync error: {m}", "error")
+                       if self._toast_svc else None))
+        self._sync_mgr.client_connected.connect(
+            lambda d: (self._toast_svc.show(f"Dispositivo conectado: {d}", "info")
+                       if self._toast_svc else None))
+        return self._sync_mgr
 
-        if self._sync_mgr.is_active:
-            self._sync_mgr.stop()
+    def _toggle_sync(self):
+        mgr = self._ensure_sync_manager()
+        if mgr.is_active:
+            mgr.stop()
             self._sync_action.setChecked(False)
         else:
-            self._sync_mgr.start()
+            mgr.start()
             self._sync_action.setChecked(True)
 
     def _show_preferences(self, section: str = ""):
@@ -1805,7 +1812,7 @@ class MainWindow(QMainWindow):
     def _show_devices_page(self, key=None):
         if self._devices_page is None:
             from ui.devices_page import DevicesPage
-            sync_mgr = getattr(self, '_sync_mgr', None)
+            sync_mgr = self._ensure_sync_manager()
             self._devices_page = DevicesPage(db=self._db, sync_manager=sync_mgr)
         if not self._views.widget("devices_page"):
             self._views.register("devices_page", self._devices_page)

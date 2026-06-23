@@ -216,6 +216,10 @@ class DevicesPage(QWidget):
             sync_btn = QPushButton("Sincronizar ahora")
             sync_btn.setCursor(Qt.PointingHandCursor)
             sync_btn.setStyleSheet(glass_button_qss("primary"))
+            if isinstance(device, PairedDevice):
+                did = device.device_id
+                sync_btn.clicked.connect(
+                    lambda c=None, d=did: self._on_sync_device(d))
             cl2.addWidget(sync_btn)
 
             forget_btn = QPushButton("Olvidar")
@@ -276,6 +280,32 @@ class DevicesPage(QWidget):
         if self._controller:
             self._controller.unpair_device(device_id)
             self._show_paired()
+
+    def _on_sync_device(self, device_id: str):
+        if not self._controller:
+            return
+        manifest = self._controller.build_manifest_from_favorites(device_id)
+        if manifest and manifest.total_tracks > 0:
+            size_mb = manifest.total_size / (1024 * 1024)
+            self._subtitle.setText(
+                f"Manifiesto preparado: {manifest.total_tracks} canciones, "
+                f"{size_mb:.1f} MB para dispositivo {device_id}"
+            )
+        else:
+            items = self._db.get_all()[:30] if hasattr(self._db, "get_all") else []
+            track_ids = [getattr(i, "id", 0) for i in items if getattr(i, "id", 0)]
+            manifest = self._controller.build_manifest(track_ids, device_id)
+            if manifest and manifest.total_tracks > 0:
+                size_mb = manifest.total_size / (1024 * 1024)
+                self._subtitle.setText(
+                    f"Manifiesto preparado: {manifest.total_tracks} canciones "
+                    f"({size_mb:.1f} MB). El dispositivo puede descargar ahora."
+                )
+            else:
+                self._subtitle.setText(
+                    "No se pudo generar manifiesto. Verifica que haya "
+                    "canciones en tu biblioteca."
+                )
 
     def _apply_qss(self):
         self.setStyleSheet("""
