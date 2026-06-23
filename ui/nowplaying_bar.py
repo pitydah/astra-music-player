@@ -13,40 +13,38 @@ from ui.icons import get_icon
 SEEK_STYLESHEET = """
 QSlider#seekSlider::groove:horizontal,
 QSlider#volumeSlider::groove:horizontal {
-    height: 5px;
-    background: #3B3F47;
-    border-radius: 3px;
+    height: 4px;
+    background: #303642;
+    border-radius: 2px;
 }
 QSlider#seekSlider::sub-page:horizontal,
 QSlider#volumeSlider::sub-page:horizontal {
-    height: 5px;
-    border-radius: 3px;
     background: qlineargradient(
         x1:0, y1:0, x2:1, y2:0,
         stop:0 #FF7A00,
-        stop:0.35 #FF3B30,
-        stop:0.65 #F21B5B,
+        stop:0.35 #FF4A2D,
+        stop:0.68 #F21B5B,
         stop:1 #9F0C80
     );
+    border-radius: 2px;
 }
 QSlider#seekSlider::add-page:horizontal,
 QSlider#volumeSlider::add-page:horizontal {
-    height: 5px;
-    border-radius: 3px;
-    background: #3B3F47;
+    background: #303642;
+    border-radius: 2px;
 }
 QSlider#seekSlider::handle:horizontal,
 QSlider#volumeSlider::handle:horizontal {
-    width: 13px;
-    height: 13px;
+    width: 11px;
+    height: 11px;
     margin: -4px 0;
-    border-radius: 7px;
+    border-radius: 6px;
     background: #F92141;
     border: 2px solid #F5F5F7;
 }
 QSlider#seekSlider::handle:horizontal:hover,
 QSlider#volumeSlider::handle:horizontal:hover {
-    background: #FF3B30;
+    background: #FF4A2D;
 }
 QSlider#seekSlider::handle:horizontal:pressed,
 QSlider#volumeSlider::handle:horizontal:pressed {
@@ -600,6 +598,8 @@ class NowPlayingBar(QWidget):
     def set_duration(self, seconds: float):
         self._duration = seconds
         self._dur_lbl.setText(_fmt(seconds))
+        if self._duration <= 0:
+            self._seek.setValue(0)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
