@@ -1,4 +1,4 @@
-"""Device sync controller — pairing, manifest generation, sync status."""
+"""Device sync controller — pairing, manifest generation, persistent storage."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from PySide6.QtCore import QObject, Signal
 
 from ui.services.device_registry import DeviceRegistry, PairedDevice
 from ui.services.sync_manifest_builder import SyncManifestBuilder, SyncManifest
+from ui.services.sync_manifest_store import SyncManifestStore
 from ui.services.sync_queue import SyncQueue, SyncJob
 
 logger = logging.getLogger("michi.sync.controller")
@@ -24,6 +25,7 @@ class DeviceSyncController(QObject):
         self._db = db
         self._registry = DeviceRegistry()
         self._manifest_builder = SyncManifestBuilder(db)
+        self._manifest_store = SyncManifestStore()
         self._queue = SyncQueue()
         self._manifests: dict[str, SyncManifest] = {}
 
@@ -53,39 +55,62 @@ class DeviceSyncController(QObject):
         manifest = self._manifest_builder.build_from_tracks(
             track_ids, destination_root=destination, device_id=device_id,
         )
-        if manifest.total_tracks > 0:
-            self._manifests[device_id] = manifest
-            self.manifest_ready.emit(device_id, manifest.total_tracks, manifest.total_size)
-        return manifest
+        return self._store_manifest(device_id, manifest)
 
     def build_manifest_from_playlist(self, playlist_id: int, device_id: str,
                                      destination: str = "") -> SyncManifest:
         manifest = self._manifest_builder.build_from_playlist(
             playlist_id, destination_root=destination, device_id=device_id,
         )
-        if manifest.total_tracks > 0:
-            self._manifests[device_id] = manifest
-            self.manifest_ready.emit(device_id, manifest.total_tracks, manifest.total_size)
-        return manifest
+        return self._store_manifest(device_id, manifest)
 
     def build_manifest_from_favorites(self, device_id: str,
                                       destination: str = "") -> SyncManifest:
         manifest = self._manifest_builder.build_from_favorites(
             destination_root=destination, device_id=device_id,
         )
+        return self._store_manifest(device_id, manifest)
+
+    def build_manifest_from_all(self, device_id: str,
+                                destination: str = "") -> SyncManifest:
+        items = self._db.get_all() if hasattr(self._db, "get_all") else []
+        track_ids = [getattr(i, "id", 0) for i in items if getattr(i, "id", 0)]
+        return self.build_manifest(track_ids, device_id, destination)
+
+    def _store_manifest(self, device_id: str,
+                        manifest: SyncManifest) -> SyncManifest:
         if manifest.total_tracks > 0:
             self._manifests[device_id] = manifest
-            self.manifest_ready.emit(device_id, manifest.total_tracks, manifest.total_size)
+            public = manifest.to_public_dict()
+            self._manifest_store.save(device_id, public)
+            self._registry.update(device_id, last_sync=manifest.created_at)
+            self.manifest_ready.emit(
+                device_id, manifest.total_tracks, manifest.total_size)
         return manifest
 
     def get_manifest(self, device_id: str) -> SyncManifest | None:
-        return self._manifests.get(device_id)
+        if device_id in self._manifests:
+            return self._manifests[device_id]
+        public = self._manifest_store.load_latest(device_id)
+        if public:
+            manifest = SyncManifest(
+                manifest_id=public.get("manifest_id", ""),
+                device_id=device_id,
+                created_at=public.get("created_at", ""),
+                total_tracks=public.get("total_tracks", 0),
+                total_size=public.get("total_size", 0),
+            )
+            self._manifests[device_id] = manifest
+            return manifest
+        return None
 
     def get_manifest_public(self, device_id: str) -> dict | None:
-        manifest = self._manifests.get(device_id)
-        if manifest:
-            return manifest.to_public_dict()
-        return None
+        if device_id in self._manifests:
+            return self._manifests[device_id].to_public_dict()
+        return self._manifest_store.load_latest(device_id)
+
+    def get_manifest_history(self, device_id: str) -> list[dict]:
+        return self._manifest_store.load_history(device_id)
 
     def get_sync_history(self) -> list[SyncJob]:
         return self._queue.get_history()

@@ -1,11 +1,11 @@
-"""Michi Sync Suite — professional device sync hub using existing SyncManager."""
+"""Michi Sync Suite — professional device sync hub with content selector + manifest viewer."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QFrame, QScrollArea, QPushButton,
+    QFrame, QScrollArea, QPushButton, QComboBox,
 )
 
 from ui.central.central_styles import (
@@ -29,6 +29,7 @@ class DevicesPage(QWidget):
             self._sync_mgr.set_manifest_provider(
                 self._controller.get_manifest_public)
         self._discovered: list[dict] = []
+        self._content_mode = "favorites"
         self._build_ui()
         self._wire_sync_manager()
         self._refresh()
@@ -39,7 +40,6 @@ class DevicesPage(QWidget):
         layout.setSpacing(0)
 
         scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
         sbar = scroll.verticalScrollBar()
         sbar.setSingleStep(20)
         scroll.setObjectName("devicesScroll")
@@ -54,27 +54,16 @@ class DevicesPage(QWidget):
         title.setObjectName("devicesTitle")
         cl.addWidget(title)
 
-        self._subtitle = QLabel(
-            "Sincroniza tu musica con telefonos, tablets y dispositivos."
-        )
+        self._subtitle = QLabel("Sincroniza tu música con tus dispositivos.")
         self._subtitle.setObjectName("devicesSubtitle")
         self._subtitle.setWordWrap(True)
         cl.addWidget(self._subtitle)
 
-        # ── Sync status ──
-        status_row = QHBoxLayout()
-        self._status_label = QLabel("Sync: inactivo")
-        self._status_label.setStyleSheet("QLabel { color: rgba(255,255,255,0.48); font-size: 12px; }")
-        status_row.addWidget(self._status_label)
-        status_row.addStretch()
+        # ── Server summary ──
+        self._build_server_card(cl)
 
-        self._toggle_sync_btn = QPushButton("Activar Michi Sync")
-        self._toggle_sync_btn.setCursor(Qt.PointingHandCursor)
-        self._toggle_sync_btn.clicked.connect(self._on_toggle_sync)
-        status_row.addWidget(self._toggle_sync_btn)
-        cl.addLayout(status_row)
-
-        cl.addSpacing(4)
+        # ── Content selector ──
+        self._build_content_selector(cl)
 
         # ── Paired devices ──
         sec1 = QLabel("EMPAREJADOS")
@@ -84,7 +73,7 @@ class DevicesPage(QWidget):
         self._paired_layout.setSpacing(10)
         cl.addLayout(self._paired_layout)
 
-        # ── Discovered on network ──
+        # ── Discovered ──
         sec2 = QLabel("RED LOCAL")
         sec2.setStyleSheet(section_label_qss())
         cl.addWidget(sec2)
@@ -92,11 +81,33 @@ class DevicesPage(QWidget):
         self._discovered_layout.setSpacing(10)
         cl.addLayout(self._discovered_layout)
 
-        # ── Profiles ──
-        sec3 = QLabel("PERFILES")
+        # ── Manifest viewer ──
+        sec3 = QLabel("ÚLTIMO MANIFIESTO")
         sec3.setStyleSheet(section_label_qss())
         cl.addWidget(sec3)
+        self._manifest_viewer = QLabel("Sin manifiesto generado.")
+        self._manifest_viewer.setWordWrap(True)
+        self._manifest_viewer.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.52); font-size: 11px; "
+            "font-family: monospace; }")
+        cl.addWidget(self._manifest_viewer)
 
+        # ── Test buttons ──
+        test_row = QHBoxLayout()
+        test_row.setSpacing(8)
+        for label, slot in [
+            ("Probar /api/ping", self._on_test_ping),
+            ("Probar manifiesto", self._on_test_manifest),
+        ]:
+            btn = QPushButton(label)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet(glass_button_qss("ghost"))
+            btn.clicked.connect(slot)
+            test_row.addWidget(btn)
+        test_row.addStretch()
+        cl.addLayout(test_row)
+
+        # ── Profiles ──
         profiles_row = QHBoxLayout()
         profiles_row.setSpacing(12)
         for pid, pinfo in TRANSCODE_PROFILES.items():
@@ -121,6 +132,54 @@ class DevicesPage(QWidget):
         layout.addWidget(scroll)
         self._apply_qss()
 
+    def _build_server_card(self, cl):
+        card = QFrame()
+        card.setObjectName("syncServerCard")
+        c2 = QVBoxLayout(card)
+        c2.setContentsMargins(20, 16, 20, 16)
+        c2.setSpacing(8)
+
+        row1 = QHBoxLayout()
+        self._status_label = QLabel("Sync: inactivo")
+        self._status_label.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.52); font-size: 12px; }")
+        row1.addWidget(self._status_label)
+        row1.addStretch()
+
+        self._toggle_btn = QPushButton("Activar Michi Sync")
+        self._toggle_btn.setCursor(Qt.PointingHandCursor)
+        self._toggle_btn.clicked.connect(self._on_toggle_sync)
+        row1.addWidget(self._toggle_btn)
+        c2.addLayout(row1)
+
+        self._server_info = QLabel("Puerto 53318 · 0 dispositivos emparejados")
+        self._server_info.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.38); font-size: 11px; }")
+        c2.addWidget(self._server_info)
+
+        card.setStyleSheet(glass_card_qss("syncServerCard", "elevated"))
+        cl.addWidget(card)
+
+    def _build_content_selector(self, cl):
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(QLabel("Sincronizar:").styleSheet(
+            "QLabel { color: rgba(255,255,255,0.52); font-size: 12px; }"))
+        sel_label = QLabel("Sincronizar:")
+        sel_label.setStyleSheet("QLabel { color: rgba(255,255,255,0.52); font-size: 12px; }")
+        row.addWidget(sel_label)
+
+        self._content_combo = QComboBox()
+        self._content_combo.addItem("Favoritos", "favorites")
+        self._content_combo.addItem("Primeras 30 canciones", "sample")
+        self._content_combo.addItem("Toda la biblioteca", "all")
+        self._content_combo.currentIndexChanged.connect(
+            lambda: setattr(self, '_content_mode',
+                            self._content_combo.currentData()))
+        row.addWidget(self._content_combo)
+        row.addStretch()
+        cl.addLayout(row)
+
     def _wire_sync_manager(self):
         if not self._sync_mgr:
             return
@@ -129,77 +188,96 @@ class DevicesPage(QWidget):
         self._sync_mgr.client_connected.connect(self._on_client_connected)
 
     def _refresh(self):
-        self._update_sync_status()
+        self._update_server_card()
         self._show_paired()
         self._show_discovered()
+        self._update_manifest_viewer()
 
-    def _update_sync_status(self):
-        active = self._sync_mgr and self._sync_mgr.is_active
+    def _update_server_card(self):
+        active = self._sync_mgr and self._sync_mgr.is_active()
+        paired = len(self._controller.paired_devices) if self._controller else 0
+        url = f"http://<ip>:{53318 if active else 0}"
+
         if active:
-            self._status_label.setText("Sync: activo — puerto 53318")
-            self._toggle_sync_btn.setText("Desactivar")
-            self._toggle_sync_btn.setStyleSheet(glass_button_qss("secondary"))
-            self._subtitle.setText(
-                "Servidor activo. Tu biblioteca esta disponible para "
-                "dispositivos en la red local."
-            )
+            self._status_label.setText("Sync: ACTIVO")
+            self._toggle_btn.setText("Desactivar")
+            self._toggle_btn.setStyleSheet(glass_button_qss("secondary"))
         else:
             self._status_label.setText("Sync: inactivo")
-            self._toggle_sync_btn.setText("Activar Michi Sync")
-            self._toggle_sync_btn.setStyleSheet(glass_button_qss("primary"))
-            self._subtitle.setText(
-                "Activa el servidor para sincronizar musica con tus "
-                "dispositivos en la red local."
-            )
+            self._toggle_btn.setText("Activar Michi Sync")
+            self._toggle_btn.setStyleSheet(glass_button_qss("primary"))
+
+        self._server_info.setText(
+            f"Puerto 53318 · URL: {url} · {paired} dispositivos emparejados"
+        )
 
     def _show_paired(self):
         while self._paired_layout.count():
             w = self._paired_layout.takeAt(0).widget()
             if w:
                 w.deleteLater()
-
         if not self._controller:
             return
-
         devices = self._controller.paired_devices
         if not devices:
             empty = QLabel("Sin dispositivos emparejados.")
             empty.setStyleSheet("QLabel { color: rgba(255,255,255,0.38); font-size: 12px; padding: 8px; }")
             self._paired_layout.addWidget(empty)
             return
-
         for d in devices:
-            card = self._build_device_card(d, paired=True)
-            self._paired_layout.addWidget(card)
+            self._paired_layout.addWidget(
+                self._build_device_card(d, paired=True))
 
     def _show_discovered(self):
         while self._discovered_layout.count():
             w = self._discovered_layout.takeAt(0).widget()
             if w:
                 w.deleteLater()
-
         if not self._discovered:
             empty = QLabel("No hay dispositivos en la red local.")
             empty.setStyleSheet("QLabel { color: rgba(255,255,255,0.38); font-size: 12px; padding: 8px; }")
             self._discovered_layout.addWidget(empty)
             return
-
         for d in self._discovered:
-            card = self._build_device_card(d, paired=False)
-            self._discovered_layout.addWidget(card)
+            self._discovered_layout.addWidget(
+                self._build_device_card(d, paired=False))
+
+    def _update_manifest_viewer(self):
+        if not self._controller:
+            return
+        text = "Sin manifiesto generado."
+        for d in self._controller.paired_devices:
+            public = self._controller.get_manifest_public(d.device_id)
+            if public:
+                tracks = public.get("tracks", [])
+                preview = []
+                for t in tracks[:10]:
+                    chk = t.get("checksum", "")[:8]
+                    preview.append(
+                        f"  {t['title'][:40]} · {t['artist'][:30]}\n"
+                        f"    {t['download_path']}  SHA256:{chk}"
+                    )
+                text = (
+                    f"Manifest: {public.get('manifest_id')}\n"
+                    f"Dispositivo: {d.device_id}\n"
+                    f"Tracks: {public.get('total_tracks')} · "
+                    f"Tamaño: {public.get('total_size',0)/1048576:.1f} MB\n"
+                    f"Creado: {public.get('created_at')}\n\n"
+                    + "\n".join(preview)
+                )
+                break
+        self._manifest_viewer.setText(text)
 
     def _build_device_card(self, device, paired: bool = False) -> QFrame:
         card = QFrame()
         card_id = device.get("device_id", device.get("alias", "unknown"))
         card.setObjectName(f"devCard_{card_id}")
-
-        cl2 = QHBoxLayout(card)
-        cl2.setContentsMargins(16, 14, 16, 14)
-        cl2.setSpacing(12)
+        c2 = QHBoxLayout(card)
+        c2.setContentsMargins(16, 14, 16, 14)
+        c2.setSpacing(12)
 
         info = QVBoxLayout()
         info.setSpacing(4)
-
         name = device.get("name", device.get("alias", "Dispositivo"))
         nl = QLabel(str(name))
         nl.setStyleSheet("QLabel { color: rgba(255,255,255,0.88); font-size: 14px; font-weight: 600; }")
@@ -208,37 +286,44 @@ class DevicesPage(QWidget):
         if paired and isinstance(device, PairedDevice):
             meta = f"{device.device_type} · {device.host}:{device.port}"
         else:
-            host = device.get("host", device.get("ip", ""))
-            meta = f"Red local · {host}"
+            meta = f"Red local · {device.get('host', device.get('ip', ''))}"
         ml = QLabel(meta)
         ml.setStyleSheet("QLabel { color: rgba(255,255,255,0.44); font-size: 11px; }")
         info.addWidget(ml)
-        cl2.addLayout(info, 1)
+        c2.addLayout(info, 1)
 
         if paired:
-            sync_btn = QPushButton("Sincronizar ahora")
-            sync_btn.setCursor(Qt.PointingHandCursor)
-            sync_btn.setStyleSheet(glass_button_qss("primary"))
+            sid = QPushButton("Sincronizar ahora")
+            sid.setCursor(Qt.PointingHandCursor)
+            sid.setStyleSheet(glass_button_qss("primary"))
             if isinstance(device, PairedDevice):
                 did = device.device_id
-                sync_btn.clicked.connect(
-                    lambda c=None, d=did: self._on_sync_device(d))
-            cl2.addWidget(sync_btn)
+                sid.clicked.connect(lambda c=None, d=did: self._on_sync_device(d))
+            c2.addWidget(sid)
 
-            forget_btn = QPushButton("Olvidar")
-            forget_btn.setCursor(Qt.PointingHandCursor)
+            forget = QPushButton("Olvidar")
+            forget.setCursor(Qt.PointingHandCursor)
             if hasattr(device, "device_id"):
                 did = device.device_id
-                forget_btn.clicked.connect(lambda c=None, d=did: self._on_unpair(d))
-            cl2.addWidget(forget_btn)
+                forget.clicked.connect(lambda c=None, d=did: self._on_unpair(d))
+            c2.addWidget(forget)
+
+            view = QPushButton("Manifiesto")
+            view.setCursor(Qt.PointingHandCursor)
+            if isinstance(device, PairedDevice):
+                did = device.device_id
+                view.clicked.connect(
+                    lambda c=None, d=did: (
+                        self._show_manifest_for(d), self._update_manifest_viewer()
+                    ))
+            c2.addWidget(view)
         else:
-            pair_btn = QPushButton("Emparejar")
-            pair_btn.setCursor(Qt.PointingHandCursor)
+            pair = QPushButton("Emparejar")
+            pair.setCursor(Qt.PointingHandCursor)
             alias = device.get("alias", "")
             ip_val = device.get("ip", device.get("host", ""))
-            pair_btn.clicked.connect(
-                lambda c=None, a=alias, h=ip_val: self._on_pair(a, h))
-            cl2.addWidget(pair_btn)
+            pair.clicked.connect(lambda c=None, a=alias, h=ip_val: self._on_pair(a, h))
+            c2.addWidget(pair)
 
         card.setStyleSheet(glass_card_qss(f"devCard_{card_id}",
                             "elevated" if paired else "base"))
@@ -247,7 +332,7 @@ class DevicesPage(QWidget):
     def _on_toggle_sync(self):
         if self._sync_mgr:
             self._sync_mgr.toggle()
-        self._update_sync_status()
+        self._update_server_card()
 
     def _on_peer_found(self, alias: str, ip: str):
         for d in self._discovered:
@@ -255,7 +340,6 @@ class DevicesPage(QWidget):
                 d["ip"] = ip
                 self._show_discovered()
                 return
-        # Get device_id from discovery
         device_id = f"sync_{alias}"
         if self._sync_mgr:
             info = self._sync_mgr.get_peer_info(alias)
@@ -292,9 +376,7 @@ class DevicesPage(QWidget):
                 device_type = info.get("device_type", "android")
         if device_id == f"sync_{alias}":
             self._subtitle.setText(
-                "Este dispositivo no entrega ID persistente; "
-                "el emparejamiento puede no ser estable."
-            )
+                "Dispositivo sin ID persistente.")
         self._controller.pair_device(
             device_id, alias, host=ip,
             device_type=device_type, device_model=device_model,
@@ -303,37 +385,80 @@ class DevicesPage(QWidget):
                            if d.get("alias") != alias]
         self._show_discovered()
         self._show_paired()
+        self._update_server_card()
 
     def _on_unpair(self, device_id: str):
         if self._controller:
             self._controller.unpair_device(device_id)
             self._show_paired()
+            self._update_server_card()
 
     def _on_sync_device(self, device_id: str):
         if not self._controller:
             return
-        manifest = self._controller.build_manifest_from_favorites(device_id)
+        mode = self._content_mode
+        manifest = None
+        if mode == "favorites":
+            manifest = self._controller.build_manifest_from_favorites(device_id)
+        elif mode == "all":
+            manifest = self._controller.build_manifest_from_all(device_id)
+        else:
+            items = self._db.get_all()[:30] if hasattr(self._db, "get_all") else []
+            tids = [getattr(i, "id", 0) for i in items if getattr(i, "id", 0)]
+            manifest = self._controller.build_manifest(tids, device_id)
+
         if manifest and manifest.total_tracks > 0:
             size_mb = manifest.total_size / (1024 * 1024)
             self._subtitle.setText(
                 f"Manifiesto listo: {manifest.total_tracks} canciones, "
-                f"{size_mb:.1f} MB. Abre Michi Sync en tu Android para descargar."
+                f"{size_mb:.1f} MB. Abre Michi Sync en tu Android.")
+        else:
+            self._subtitle.setText("No se pudo generar el manifiesto.")
+        self._update_manifest_viewer()
+
+    def _show_manifest_for(self, device_id: str):
+        if not self._controller:
+            return
+        public = self._controller.get_manifest_public(device_id)
+        if public:
+            self._manifest_viewer.setText(
+                f"Mostrando manifiesto para {device_id}\n"
+                f"Tracks: {public.get('total_tracks')} · "
+                f"Tamaño: {public.get('total_size',0)/1048576:.1f} MB"
             )
         else:
-            items = self._db.get_all()[:30] if hasattr(self._db, "get_all") else []
-            track_ids = [getattr(i, "id", 0) for i in items if getattr(i, "id", 0)]
-            manifest = self._controller.build_manifest(track_ids, device_id)
-            if manifest and manifest.total_tracks > 0:
-                size_mb = manifest.total_size / (1024 * 1024)
+            self._manifest_viewer.setText("Sin manifiesto para este dispositivo.")
+
+    def _on_test_ping(self):
+        if not self._sync_mgr:
+            self._subtitle.setText("Servidor no iniciado.")
+            return
+        import urllib.request
+        try:
+            req = urllib.request.Request(
+                "http://127.0.0.1:53318/api/ping", method="GET")
+            with urllib.request.urlopen(req, timeout=3) as r:
+                import json
+                data = json.loads(r.read().decode())
                 self._subtitle.setText(
-                    f"Manifiesto listo: {manifest.total_tracks} canciones, "
-                    f"{size_mb:.1f} MB. Abre Michi Sync en tu Android para descargar."
-                )
-            else:
-                self._subtitle.setText(
-                    "No se pudo generar el manifiesto. Verifica que haya "
-                    "canciones en tu biblioteca."
-                )
+                    f"/api/ping OK — version {data.get('version','?')}")
+        except Exception as e:
+            self._subtitle.setText(f"Error: {e}")
+
+    def _on_test_manifest(self):
+        if not self._controller:
+            return
+        devices = self._controller.paired_devices
+        if not devices:
+            self._subtitle.setText("Sin dispositivos emparejados.")
+            return
+        public = self._controller.get_manifest_public(devices[0].device_id)
+        if public:
+            self._subtitle.setText(
+                f"Manifiesto OK: {public.get('total_tracks')} tracks, "
+                f"{public.get('total_size',0)/1048576:.1f} MB")
+        else:
+            self._subtitle.setText("Sin manifiesto. Genera uno primero.")
 
     def _apply_qss(self):
         self.setStyleSheet("""
@@ -342,4 +467,12 @@ class DevicesPage(QWidget):
             QWidget#devicesContent { background: transparent; }
             QLabel#devicesTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
             QLabel#devicesSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
+            QComboBox {
+                background: rgba(255,255,255,0.045);
+                border: 1px solid rgba(255,255,255,0.06);
+                border-radius: 8px;
+                padding: 6px 10px;
+                color: rgba(255,255,255,0.82);
+                font-size: 12px;
+            }
         """)
