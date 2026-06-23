@@ -80,6 +80,10 @@ class SyncManager(QObject):
         """Register a manifest provider for GET /api/sync/manifest."""
         self._server.set_manifest_provider(provider)
 
+    def get_peer_info(self, alias: str) -> dict | None:
+        """Return stored announce info for a discovered peer."""
+        return self._discovery.get_peer_info(alias)
+
     def _load_alias(self) -> str:
         path = os.path.expanduser("~/.local/share/michi-music-player/sync_alias")
         if os.path.exists(path):

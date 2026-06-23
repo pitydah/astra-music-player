@@ -265,6 +265,8 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             except Exception:
                 return self._send_error("Invalid request")
             token = SessionToken.generate(req.alias)
+            client_id = req.client_device_id or f"{req.alias}_{req.device_model or req.device}"
+            server_id = make_device_id()
             if srv:
                 srv._sessions[token.token] = token
                 library_size = srv._db.get_stats()["total"] if srv._db else 0
@@ -272,7 +274,8 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
                 library_size = 0
             resp = RegisterResponse(
                 session_token=token.token,
-                device_id=make_device_id(),
+                server_device_id=server_id,
+                client_device_id=client_id,
                 library_size=library_size,
             )
             if srv:

@@ -141,16 +141,30 @@ class DiscoveryServer(QObject):
 
         # Announce or response
         was_new = msg.alias not in self._peers
-        self._peers[msg.alias] = time.time()
+        self._peers[msg.alias] = {"ts": time.time(), "msg": msg, "ip": ip}
 
         if was_new:
             self.peer_found.emit(msg.alias, ip)
 
+    def get_peer_info(self, alias: str) -> dict | None:
+        """Return stored announce message for a peer, or None."""
+        entry = self._peers.get(alias)
+        if entry:
+            return {
+                "alias": entry["msg"].alias,
+                "device_id": entry["msg"].device_id or f"sync_{alias}",
+                "device_type": entry["msg"].device,
+                "device_model": entry["msg"].device_model,
+                "port": entry["msg"].port,
+                "ip": entry["ip"],
+            }
+        return None
+
     def _cleanup_stale(self):
         """Remove peers not seen recently."""
         now = time.time()
-        stale = [a for a, t in self._peers.items()
-                 if now - t > self._peer_timeout]
+        stale = [a for a, v in self._peers.items()
+                 if now - v["ts"] > self._peer_timeout]
         for alias in stale:
             del self._peers[alias]
             self.peer_lost.emit(alias)

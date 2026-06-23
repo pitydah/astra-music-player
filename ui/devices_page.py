@@ -255,7 +255,15 @@ class DevicesPage(QWidget):
                 d["ip"] = ip
                 self._show_discovered()
                 return
-        self._discovered.append({"alias": alias, "ip": ip})
+        # Get device_id from discovery
+        device_id = f"sync_{alias}"
+        if self._sync_mgr:
+            info = self._sync_mgr.get_peer_info(alias)
+            if info:
+                device_id = info["device_id"]
+        self._discovered.append({
+            "alias": alias, "ip": ip, "device_id": device_id,
+        })
         self._show_discovered()
 
     def _on_peer_lost(self, alias: str):
@@ -271,13 +279,18 @@ class DevicesPage(QWidget):
                 return
 
     def _on_pair(self, alias: str, ip: str):
-        if self._controller:
-            did = f"sync_{alias}"
-            self._controller.pair_device(did, alias, host=ip)
-            self._discovered = [d for d in self._discovered
-                               if d.get("alias") != alias]
-            self._show_discovered()
-            self._show_paired()
+        if not self._controller:
+            return
+        device_id = f"sync_{alias}"
+        if self._sync_mgr:
+            info = self._sync_mgr.get_peer_info(alias)
+            if info:
+                device_id = info["device_id"]
+        self._controller.pair_device(device_id, alias, host=ip)
+        self._discovered = [d for d in self._discovered
+                           if d.get("alias") != alias]
+        self._show_discovered()
+        self._show_paired()
 
     def _on_unpair(self, device_id: str):
         if self._controller:

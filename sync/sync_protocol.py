@@ -113,6 +113,7 @@ class RegisterRequest:
     device: str = "android"
     device_model: str = ""
     port: int = 0
+    client_device_id: str = ""
 
     @classmethod
     def from_json(cls, s: str) -> "RegisterRequest":
@@ -124,7 +125,8 @@ class RegisterRequest:
 @dataclass
 class RegisterResponse:
     session_token: str
-    device_id: str
+    server_device_id: str
+    client_device_id: str
     library_size: int
     version: str = "1.0"
 
@@ -145,12 +147,13 @@ ANNOUNCE_INTERVAL = 5.0  # seconds between announcements
 
 @dataclass
 class AnnounceMessage:
-    type: str = "announce"     # announce | response | goodbye
+    type: str = "announce"
     alias: str = ""
     device: str = "desktop"
     port: int = SYNC_PORT
     version: str = "1.0"
     device_model: str = ""
+    device_id: str = ""
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
