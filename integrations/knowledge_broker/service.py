@@ -368,7 +368,7 @@ class KnowledgeBrokerService:
             "source": "musicbrainz",
             "data": wrap_for_llm({
                 "title": recording.title, "artist_name": recording.artist_name,
-                "recording_mbid": recording_mbid, "length_ms": recording.length_ms,
+                "recording_mbid": rec_mbid, "length_ms": recording.length_ms,
                 "isrc": recording.isrc, "source": "musicbrainz",
             }),
         }

@@ -1,17 +1,22 @@
-"""AI Assistant controller — bridges UI panel with AIAssistantService (Fase 2)."""
+"""AI Assistant controller — bridges UI panel with AIAssistantService (Fase 5, stabilized)."""
 
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, QTimer
 
 from core.settings_manager import (
     get_bool, get_str, get_int,
 )
 
 logger = logging.getLogger("michi.ai_assistant.controller")
+
+_PLAYBACK_TOOLS = frozenset({
+    "add_tracks_to_queue", "play_track", "create_playlist_from_draft",
+})
 
 
 class AiAssistantController(QObject):
@@ -21,15 +26,19 @@ class AiAssistantController(QObject):
 
     def __init__(self, db: Any, worker_manager: Any = None,
                  playback: Any = None,
+                 safe_mode: bool = False,
                  parent: QObject | None = None):
         super().__init__(parent)
         self._db = db
         self._worker_mgr = worker_manager
         self._playback = playback
+        self._safe_mode = safe_mode
         self._service = None
         self._pending = False
 
     def is_enabled(self) -> bool:
+        if self._safe_mode or os.environ.get("MICHI_SAFE_MODE") == "1":
+            return False
         return get_bool("ai_assistant/enabled")
 
     def model(self) -> str:
@@ -63,6 +72,8 @@ class AiAssistantController(QObject):
         return self._service
 
     def check_health(self) -> bool:
+        if not self.is_enabled():
+            return False
         try:
             svc = self._get_service()
             return svc.ollama_available
@@ -74,6 +85,16 @@ class AiAssistantController(QObject):
             return
         if not text.strip():
             return
+        if not self.is_enabled():
+            self.response_received.emit({
+                "reply": (
+                    "Michi Assistant esta desactivado. "
+                    "Activalo en Configuracion para usar la IA local."
+                ),
+                "pending": None,
+            })
+            return
+
         self._pending = True
         self.state_changed.emit("thinking")
 
@@ -114,7 +135,13 @@ class AiAssistantController(QObject):
         })
 
     def confirm_action(self, action_id: str):
-        if self._worker_mgr is not None:
+        svc = self._get_service()
+        pending = svc._pending.get(action_id) if hasattr(svc, '_pending') else None
+        tool_name = pending.tool_name if pending else ""
+
+        if tool_name in _PLAYBACK_TOOLS:
+            QTimer.singleShot(0, lambda: self._confirm_on_main(action_id))
+        elif self._worker_mgr is not None:
             self._worker_mgr.run_task(
                 "ai_assistant_confirm",
                 self._do_confirm,
@@ -128,6 +155,13 @@ class AiAssistantController(QObject):
                 self._on_response(result)
             except Exception as e:
                 self._on_error(str(e))
+
+    def _confirm_on_main(self, action_id: str):
+        try:
+            result = self._do_confirm(action_id)
+            self._on_response(result)
+        except Exception as e:
+            self._on_error(str(e))
 
     def _do_confirm(self, action_id: str) -> dict:
         svc = self._get_service()

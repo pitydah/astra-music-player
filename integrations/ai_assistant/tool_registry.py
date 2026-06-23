@@ -45,11 +45,25 @@ class ToolRegistry:
             return ToolResult(name=name, success=False, error=str(e))
 
     def execute_direct(self, name: str, db: Any, **kwargs) -> ToolResult:
-        """Execute a REVERSIBLE tool (after user confirmed). No permission gate."""
+        """Execute a REVERSIBLE or READ_ONLY tool after user confirmation.
+        Blocks SENSITIVE and FORBIDDEN tools. No anonymous execution."""
         if name not in self._tools:
             return ToolResult(
                 name=name, success=False,
                 error=f"Herramienta desconocida: {name}",
+            )
+        level = TOOL_PERMISSIONS.get(name)
+        if level is None:
+            return ToolResult(
+                name=name, success=False,
+                error=f"Herramienta sin permiso definido: {name}",
+                permission_denied=True,
+            )
+        if level in (PermissionLevel.SENSITIVE, PermissionLevel.FORBIDDEN):
+            return ToolResult(
+                name=name, success=False,
+                error=f"Herramienta bloqueada: {name} (nivel {level.name}).",
+                permission_denied=True,
             )
         try:
             return self._call_tool(name, db, **kwargs)

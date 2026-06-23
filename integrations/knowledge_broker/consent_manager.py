@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from core.settings_manager import (
@@ -15,6 +16,7 @@ logger = logging.getLogger("michi.knowledge_broker.consent")
 
 class ConsentManager:
     def __init__(self):
+        self._safe_mode = os.environ.get("MICHI_SAFE_MODE") == "1"
         self._enabled: bool = self._read_bool("knowledge_broker/enabled", False)
         self._offline_strict: bool = self._read_bool("knowledge_broker/offline_strict", True)
         self._cache_only: bool = self._read_bool("knowledge_broker/cache_only", True)
@@ -22,6 +24,11 @@ class ConsentManager:
         self._allow_ca: bool = self._read_bool("knowledge_broker/allow_coverart", False)
         self._allow_wd: bool = self._read_bool("knowledge_broker/allow_wikidata", False)
         self._allow_wp: bool = self._read_bool("knowledge_broker/allow_wikipedia", False)
+
+        if self._safe_mode:
+            self._enabled = False
+            self._offline_strict = True
+            self._cache_only = True
         self._auto_refresh: bool = self._read_bool("knowledge_broker/auto_refresh", False)
         self._refresh_days: int = get_int("knowledge_broker/refresh_interval_days") or 30
         self._wiki_lang: str = get_str("knowledge_broker/wiki_language") or "es"

@@ -128,7 +128,7 @@ def _write_tags_for_track(filepath: str, changes: list) -> bool:
         if tags is None:
             return False
         for change in changes:
-            if change.accepted and change.suggested_value:
+            if change.suggested_value:
                 tags.set_field(change.field, change.suggested_value)
         return write_tags(tags)
     except Exception as e:

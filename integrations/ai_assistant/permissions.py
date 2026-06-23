@@ -31,7 +31,7 @@ TOOL_PERMISSIONS: dict[str, PermissionLevel] = {
     "suggest_metadata_for_track":    PermissionLevel.READ_ONLY,
     "suggest_metadata_for_album":    PermissionLevel.READ_ONLY,
     "suggest_metadata_for_artist":   PermissionLevel.READ_ONLY,
-    "create_metadata_review":        PermissionLevel.REVERSIBLE,
+    "create_metadata_review":        PermissionLevel.READ_ONLY,
     "apply_metadata_review":         PermissionLevel.REVERSIBLE,
     "reject_metadata_review":        PermissionLevel.REVERSIBLE,
     "undo_metadata_review":          PermissionLevel.REVERSIBLE,

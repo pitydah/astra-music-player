@@ -18,6 +18,8 @@ SAFE_KEYS = frozenset({
 FORBIDDEN_KEYS = frozenset({
     "filepath", "filename", "directory", "server_url",
     "token", "password", "secret", "local_ip", "api_key",
+    "path", "file", "uri", "url",
+    "access_token", "refresh_token", "bearer", "secret_key",
 })
 
 _IP_PATTERN = re.compile(

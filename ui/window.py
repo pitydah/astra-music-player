@@ -1517,7 +1517,9 @@ class MainWindow(QMainWindow):
             self._assistant_panel = AiAssistantPanel()
             self._assistant_ctrl = AiAssistantController(
                 db=self._db, worker_manager=self._workers,
-                playback=self._playback, parent=self,
+                playback=self._playback,
+                safe_mode=self._safe_mode,
+                parent=self,
             )
             self._assistant_panel.send_requested.connect(
                 self._assistant_ctrl.send_message,
@@ -1537,9 +1539,9 @@ class MainWindow(QMainWindow):
             self._assistant_panel.action_cancelled.connect(
                 self._assistant_ctrl.cancel_action,
             )
-            available = self._assistant_ctrl.check_health()
+            available = self._assistant_ctrl.check_health() if self._assistant_ctrl.is_enabled() else False
             self._assistant_panel.set_ollama_status(
-                available, self._assistant_ctrl.model(),
+                available, self._assistant_ctrl.model() if self._assistant_ctrl.is_enabled() else "",
             )
         if not self._views.widget("assistant"):
             self._views.register("assistant", self._assistant_panel)

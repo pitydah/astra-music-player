@@ -17,7 +17,7 @@ from integrations.ai_assistant.ollama_client import (
     ModelNotFound,
     OllamaTimeout,
 )
-from integrations.ai_assistant.privacy_filter import sanitize_text
+from integrations.ai_assistant.privacy_filter import sanitize_text, sanitize_for_prompt
 from integrations.ai_assistant.prompts import SYSTEM_PROMPT
 from integrations.ai_assistant.tool_registry import ToolRegistry
 from integrations.ai_assistant.tools.library_tools import (
@@ -109,6 +109,7 @@ class AIAssistantService:
         self._action_log = ActionLog(enabled=action_log_enabled)
         self._drafts: dict[str, list] = {}
         self._last_tool_result: ToolResult | None = None
+        self._last_metadata_review_id = ""
         self._register_tools()
 
     def _register_tools(self):
@@ -178,6 +179,10 @@ class AIAssistantService:
                 self._last_tool_result = tool_result
                 if tool_name == "draft_playlist":
                     self._store_draft(tool_result)
+                if tool_name == "create_metadata_review" and tool_result.data:
+                    rid = tool_result.data.get("review_id", "") if isinstance(tool_result.data, dict) else ""
+                    if rid:
+                        self._last_metadata_review_id = rid
             elif tool_result.permission_denied and self._allow_reversible:
                 pending = self._create_pending_for(tool_name, tool_args, tool_result, text)
                 return {"reply": pending.description or pending.title, "pending": pending}
@@ -340,7 +345,8 @@ class AIAssistantService:
     def _call_ollama(self, tool_result: ToolResult | None,
                      query_text: str) -> str:
         if tool_result and tool_result.success:
-            tool_data = json.dumps(tool_result.data, ensure_ascii=False,
+            safe_data = sanitize_for_prompt(tool_result.data) if isinstance(tool_result.data, (dict, list)) else tool_result.data
+            tool_data = json.dumps(safe_data, ensure_ascii=False,
                                    default=str)
             user_context = (
                 f"Consulta del usuario: {query_text}\n\n"
@@ -452,6 +458,8 @@ class AIAssistantService:
             r"\b(aplica\s+(los\s+)?cambios\s+(de\s+)?(metadata|metadatos|tags))\b",
             t,
         ):
+            if self._last_metadata_review_id:
+                return ("apply_metadata_review", {"review_id": self._last_metadata_review_id, "accepted_fields": {}}, text)
             return ("apply_metadata_review", {"review_id": "", "accepted_fields": {}}, text)
 
         if re.search(
