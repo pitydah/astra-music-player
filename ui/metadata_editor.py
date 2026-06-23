@@ -26,29 +26,29 @@ from metadata.artwork_utils import (
 # ═══════════════════════════════════════════════════════════
 # Style tokens
 # ═══════════════════════════════════════════════════════════
-_BG = "#090B11"
-_PANEL = "rgba(255,255,255,0.035)"
-_HOVER = "rgba(255,255,255,0.075)"
-_SELECTED = "rgba(255,255,255,0.115)"
-_BORDER = "rgba(255,255,255,0.08)"
-_TEXT = "#FFFFFF"
-_TEXT2 = "rgba(255,255,255,0.78)"
-_TEXT3 = "rgba(255,255,255,0.62)"
-_TEXT_DIM = "rgba(255,255,255,0.34)"
+_BG        = "#090B11"
+_PANEL     = "rgba(255,255,255,0.030)"
+_HOVER     = "rgba(255,255,255,0.065)"
+_SELECTED  = "rgba(255,255,255,0.105)"
+_BORDER    = "rgba(255,255,255,0.06)"
+_TEXT      = "rgba(255,255,255,0.96)"
+_TEXT2     = "rgba(255,255,255,0.72)"
+_TEXT3     = "rgba(255,255,255,0.56)"
+_TEXT_DIM  = "rgba(255,255,255,0.42)"
 
 
 _BTN_CSS = f"""
     QPushButton {{
-        background: rgba(255,255,255,0.060); color: {_TEXT};
-        border: 1px solid rgba(255,255,255,0.095); border-radius: 12px;
+        background: rgba(255,255,255,0.045); color: {_TEXT};
+        border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
         padding: 8px 13px; font-size: 12.5px; font-weight: 600;
     }}
     QPushButton:hover {{
-        background: rgba(255,255,255,0.095);
-        border: 1px solid rgba(255,255,255,0.15);
+        background: rgba(255,255,255,0.085);
+        border: 1px solid rgba(255,255,255,0.14);
     }}
-    QPushButton:pressed {{ background: rgba(255,255,255,0.125); }}
-    QPushButton:disabled {{ color: {_TEXT_DIM}; background: rgba(255,255,255,0.025); }}
+    QPushButton:pressed {{ background: rgba(255,255,255,0.11); }}
+    QPushButton:disabled {{ color: {_TEXT_DIM}; background: rgba(255,255,255,0.020); }}
 """
 
 _FIELD_CSS = f"""
@@ -130,17 +130,17 @@ class MetadataEditorWidget(QWidget):
         header.setStyleSheet(
             "QFrame#metadataHero {"
             "  background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "    stop:0 rgba(255,255,255,0.075),"
-            "    stop:0.55 rgba(255,255,255,0.040),"
-            "    stop:1 rgba(255,255,255,0.025));"
-            "  border: 1px solid rgba(255,255,255,0.085);"
+            "    stop:0 rgba(255,255,255,0.090),"
+            "    stop:0.55 rgba(255,255,255,0.050),"
+            "    stop:1 rgba(255,255,255,0.030));"
+            "  border: 1px solid rgba(255,255,255,0.10);"
             "  border-radius: 22px; }")
         header.setContentsMargins(24, 20, 24, 20)
         header.setLayout(header_row)
 
         # ── Splitter (3 panels) ──
         self._splitter = QSplitter(Qt.Horizontal)
-        self._splitter.setStyleSheet("QSplitter::handle { background: rgba(255,255,255,0.045); width: 1px; }")
+        self._splitter.setStyleSheet("QSplitter::handle { background: rgba(255,255,255,0.06); width: 2px; }")
 
         self._left_panel = self._build_left_panel()
         self._center_panel = self._build_center_panel()

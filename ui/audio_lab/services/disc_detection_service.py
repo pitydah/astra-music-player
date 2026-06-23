@@ -1,10 +1,11 @@
-"""Disc detection service — real optical drive and audio CD detection via cdparanoia."""
+"""Disc detection service — real optical drive + ISO image support via udisksctl."""
 
 from __future__ import annotations
 
 import logging
 import os
 import re
+import subprocess
 
 logger = logging.getLogger("michi.audio_lab.disc_detection")
 
@@ -15,6 +16,7 @@ _CDROM_PATHS = [
     "/dev/sr0", "/dev/sr1", "/dev/sr2",
     "/dev/cdrom", "/dev/cdrw", "/dev/cdrecorder",
 ]
+_LOOP_LINE_RE = re.compile(r"Mapped file .+ as (/dev/loop\d+)\.")
 
 
 class DiscDetectionService:
@@ -22,6 +24,9 @@ class DiscDetectionService:
         self._drives: list[str] = []
         self._current_drive: str = ""
         self._toc: dict = {"tracks": 0, "duration_seconds": 0, "track_list": []}
+        self._loop_device: str = ""
+        self._iso_path: str = ""
+        self._is_iso_mode: bool = False
 
     def detect_drives(self) -> list[str]:
         self._drives = [p for p in _CDROM_PATHS if os.path.exists(p)]
@@ -115,3 +120,48 @@ class DiscDetectionService:
             }
             return True
         return False
+
+    # ── ISO image support ──
+
+    def mount_iso(self, filepath: str) -> str:
+        self.unmount_iso()
+        if not os.path.isfile(filepath):
+            return ""
+        try:
+            result = subprocess.run(
+                ["udisksctl", "loop-setup", "-f", filepath],
+                capture_output=True, text=True, timeout=20,
+            )
+            output = result.stdout.strip()
+            m = _LOOP_LINE_RE.search(output)
+            if m:
+                self._loop_device = m.group(1)
+                self._iso_path = filepath
+                self._is_iso_mode = True
+                self._current_drive = self._loop_device
+                return self._loop_device
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+            logger.warning("ISO mount failed: %s", e)
+        return ""
+
+    def unmount_iso(self):
+        if self._loop_device and os.path.exists(self._loop_device):
+            try:
+                subprocess.run(
+                    ["udisksctl", "loop-delete", "-b", self._loop_device],
+                    capture_output=True, timeout=10,
+                )
+            except Exception as e:
+                logger.debug("ISO unmount failed: %s", e)
+        self._loop_device = ""
+        self._iso_path = ""
+
+    @property
+    def is_iso_mode(self) -> bool:
+        return self._is_iso_mode
+
+    @property
+    def current_source_name(self) -> str:
+        if self._is_iso_mode:
+            return os.path.basename(self._iso_path)
+        return self._current_drive

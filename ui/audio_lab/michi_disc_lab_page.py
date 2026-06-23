@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -28,6 +30,7 @@ class MichiDiscLabPage(QWidget):
         self._encoder = EncoderService(self)
         self._current_job_id: str = ""
         self._destination: str = ""
+        self._iso_mode: bool = False
         self._build_ui()
         self._wire_signals()
         self._update_diagnostics()
@@ -102,6 +105,19 @@ class MichiDiscLabPage(QWidget):
         self._analyze_disc_btn.setEnabled(False)
         self._analyze_disc_btn.clicked.connect(self._on_analyze_disc)
         btn_row.addWidget(self._analyze_disc_btn)
+
+        self._iso_toggle_btn = QPushButton("Usar ISO")
+        self._iso_toggle_btn.setObjectName("isoToggleBtn")
+        self._iso_toggle_btn.setCursor(Qt.PointingHandCursor)
+        self._iso_toggle_btn.clicked.connect(self._on_toggle_iso)
+        btn_row.addWidget(self._iso_toggle_btn)
+
+        self._iso_select_btn = QPushButton("Seleccionar ISO")
+        self._iso_select_btn.setObjectName("isoSelectBtn")
+        self._iso_select_btn.setCursor(Qt.PointingHandCursor)
+        self._iso_select_btn.setVisible(False)
+        self._iso_select_btn.clicked.connect(self._on_select_iso)
+        btn_row.addWidget(self._iso_select_btn)
 
         btn_row.addStretch()
         p_layout.addLayout(btn_row)
@@ -220,6 +236,9 @@ class MichiDiscLabPage(QWidget):
         self._diag_text.setText("\n".join(lines))
 
     def _on_scan_drive(self):
+        if self._iso_mode:
+            self._on_select_iso()
+            return
         drives = self._detection.detect_drives()
         if drives:
             self._current_drive = drives[0]
@@ -233,26 +252,66 @@ class MichiDiscLabPage(QWidget):
             self._scan_drive_btn.setText("Reintentar")
             self._analyze_disc_btn.setEnabled(False)
 
+    def _on_toggle_iso(self):
+        self._iso_mode = not self._iso_mode
+        if self._iso_mode:
+            self._detection.unmount_iso()
+            self._iso_toggle_btn.setText("Usar unidad")
+            self._scan_drive_btn.setVisible(False)
+            self._iso_select_btn.setVisible(True)
+            self._drive_status.setText("Selecciona un archivo ISO de CD de audio.")
+            self._analyze_disc_btn.setEnabled(False)
+        else:
+            self._iso_mode = False
+            self._iso_toggle_btn.setText("Usar ISO")
+            self._scan_drive_btn.setVisible(True)
+            self._iso_select_btn.setVisible(False)
+            self._drive_status.setText("Esperando disco de musica...")
+            self._analyze_disc_btn.setEnabled(False)
+
+    def _on_select_iso(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Seleccionar imagen ISO", "",
+            "Imagenes ISO (*.iso);;Imagenes de disco (*.iso *.bin *.cue);;Todos los archivos (*)",
+        )
+        if not path:
+            return
+        loop = self._detection.mount_iso(path)
+        if loop:
+            self._current_drive = loop
+            self._iso_select_btn.setText(os.path.basename(path))
+            self._drive_status.setText(f"ISO montado: {os.path.basename(path)} → {loop}")
+            self._analyze_disc_btn.setEnabled(True)
+        else:
+            self._drive_status.setText(
+                "No se pudo montar el ISO. Verifica que udisksctl este instalado."
+            )
+
     def _on_analyze_disc(self):
         drive = getattr(self, '_current_drive', '') or self._detection.get_default_drive()
         if not drive:
-            self._drive_status.setText("No hay unidad optica seleccionada.")
+            self._drive_status.setText("No hay unidad o ISO seleccionado.")
             return
 
         has_cd = self._detection.detect_audio_cd(drive)
         if not has_cd:
-            self._drive_status.setText(
-                f"No se detecto un CD de audio en {drive}. "
-                "Inserta un disco de musica y reintenta."
-            )
+            if self._iso_mode:
+                self._drive_status.setText("No se pudo leer la tabla de contenido del ISO.")
+            else:
+                self._drive_status.setText(
+                    f"No se detecto un CD de audio en {drive}. "
+                    "Inserta un disco de musica y reintenta."
+                )
             self._import_btn.setEnabled(False)
             self._populate_tracks([])
             return
 
         toc = self._detection.get_disc_toc(drive)
+        src = self._detection.current_source_name
         self._drive_status.setText(
-            f"CD de audio detectado: {toc.get('tracks', 0)} pistas, "
+            f"Disco detectado: {toc.get('tracks', 0)} pistas, "
             f"{self._fmt_duration(toc.get('duration_seconds', 0))}"
+            + (f" ({src})" if src else "")
         )
         self._import_btn.setEnabled(True)
         self._populate_tracks(toc.get("track_list", []))
@@ -354,19 +413,19 @@ class MichiDiscLabPage(QWidget):
                 font-weight: 700;
             }
             QLabel#discLabSubtitle {
-                color: rgba(255,255,255,0.58);
+                color: rgba(255,255,255,0.56);
                 font-size: 13px;
                 margin-bottom: 4px;
             }
             QFrame#discLabDrivePanel, QFrame#discLabTrackPanel,
             QFrame#discLabSettingsPanel, QFrame#discLabProgressPanel,
             QFrame#discLabDiagPanel {
-                background: rgba(255,255,255,0.020);
-                border: 1px solid rgba(255,255,255,0.04);
+                background: rgba(255,255,255,0.030);
+                border: 1px solid rgba(255,255,255,0.06);
                 border-radius: 12px;
             }
             QLabel#driveStatus {
-                color: rgba(143,183,255,0.70);
+                color: rgba(143,183,255,0.72);
                 font-size: 14px;
             }
             QTableWidget#discLabTable {
@@ -379,7 +438,7 @@ class MichiDiscLabPage(QWidget):
                 padding: 4px 8px;
             }
             QHeaderView::section {
-                background: rgba(255,255,255,0.025);
+                background: rgba(255,255,255,0.035);
                 color: rgba(255,255,255,0.62);
                 font-size: 11px;
                 font-weight: 600;
@@ -392,23 +451,46 @@ class MichiDiscLabPage(QWidget):
                 font-weight: 600;
             }
             QLabel#diagText {
-                color: rgba(255,255,255,0.38);
+                color: rgba(255,255,255,0.48);
                 font-size: 11px;
             }
             QLabel#discLabProgressLabel {
                 color: rgba(255,255,255,0.52);
                 font-size: 11px;
             }
-            QComboBox {
+            QProgressBar#discLabProgress {
                 background: rgba(255,255,255,0.04);
                 border: 1px solid rgba(255,255,255,0.06);
                 border-radius: 8px;
+                height: 8px;
+                text-align: center;
+                color: transparent;
+            }
+            QProgressBar#discLabProgress::chunk {
+                background: rgba(143,183,255,0.22);
+                border-radius: 6px;
+            }
+            QComboBox {
+                background: rgba(255,255,255,0.045);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 8px;
                 padding: 6px 10px;
-                color: rgba(255,255,255,0.78);
+                color: rgba(255,255,255,0.82);
                 font-size: 12px;
             }
+            QComboBox:hover {
+                border: 1px solid rgba(255,255,255,0.12);
+            }
+            QComboBox QAbstractItemView {
+                background: #10131A;
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 8px;
+                selection-background-color: rgba(143,183,255,0.14);
+                color: rgba(255,255,255,0.78);
+            }
         """)
-        for btn_name in ("scanDriveBtn", "analyzeDiscBtn", "destBtn"):
+        for btn_name in ("scanDriveBtn", "analyzeDiscBtn", "destBtn",
+                         "isoToggleBtn", "isoSelectBtn"):
             btn = self.findChild(QPushButton, btn_name)
             if btn:
                 btn.setStyleSheet(glass_button_qss("ghost"))
