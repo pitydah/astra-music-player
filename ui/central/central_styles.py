@@ -2,7 +2,8 @@
 
 from ui.central.central_tokens import (
     SURFACE_GLASS, SURFACE_GLASS_HOVER, SURFACE_POPUP,
-    BORDER_SUBTLE, ACCENT_BLUE, ACCENT_FAINT, ACCENT_SURFACE, ACCENT_SELECTION,
+    BORDER_SUBTLE, BORDER_FOCUS,
+    ACCENT_BLUE, ACCENT_FAINT, ACCENT_SURFACE, ACCENT_SELECTION,
     TEXT_PRIMARY, TEXT_NORMAL, TEXT_SECONDARY, TEXT_DISABLED,
     BADGE_LOCAL_BG, BADGE_LOCAL_TEXT, BADGE_REMOTE_BG, BADGE_REMOTE_TEXT,
     BADGE_ACTIVE_BG, BADGE_ACTIVE_TEXT,
@@ -576,5 +577,32 @@ def combo_dropdown_qss() -> str:
             selection-background-color: {ACCENT_SELECTION};
             color: {TEXT_NORMAL};
             outline: none;
+        }}
+    """
+
+
+def tab_bar_qss() -> str:
+    """Unified premium tab bar styling — dark glass, accent selected."""
+    return f"""
+        QTabWidget::pane {{
+            border: none;
+            background: transparent;
+        }}
+        QTabBar::tab {{
+            background: rgba(255,255,255,0.02);
+            border: 1px solid {BORDER_CARD};
+            border-radius: 8px;
+            padding: 8px 20px;
+            color: {TEXT_SECONDARY};
+            font-size: 13px;
+            margin-right: 4px;
+        }}
+        QTabBar::tab:hover {{
+            color: {TEXT_NORMAL};
+        }}
+        QTabBar::tab:selected {{
+            background: {ACCENT_SELECTION};
+            border: 1px solid {BORDER_FOCUS};
+            color: {TEXT_PRIMARY};
         }}
     """

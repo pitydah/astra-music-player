@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QFrame, QTabWidget, QPushButton,
 )
 
-from ui.central.central_styles import glass_card_qss, glass_button_qss
+from ui.central.central_styles import glass_card_qss, glass_button_qss, tab_bar_qss
 
 
 class LibraryHubPage(QWidget):
@@ -66,6 +66,7 @@ class LibraryHubPage(QWidget):
 
         self._tabs = QTabWidget()
         self._tabs.setObjectName("libraryHubTabs")
+        self._tabs.setStyleSheet(tab_bar_qss())
 
         tabs_data = [
             ("canciones", "Canciones", "library",             "Toda tu música local en una tabla con búsqueda y filtros."),

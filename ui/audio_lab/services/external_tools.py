@@ -9,7 +9,7 @@ _TOOLS_TO_CHECK = [
     ("whipper", False, "Modo Preciso", "sudo pacman -S whipper"),
     ("cdparanoia", False, "Modo Seguro", "sudo pacman -S cdparanoia"),
     ("udisksctl", False, "Montaje de ISO", "sudo pacman -S udisks2"),
-    ("7z", False, "Extraccion de ISO (alternativo)", "sudo pacman -S p7zip"),
+    ("7z", False, "Extracción de ISO (alternativo)", "sudo pacman -S p7zip"),
     ("ffmpeg", False, "Conversion de formatos", "sudo pacman -S ffmpeg"),
     ("flac", False, "Codificacion FLAC", "sudo pacman -S flac"),
     ("lame", False, "Codificacion MP3", "sudo pacman -S lame"),

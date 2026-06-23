@@ -97,7 +97,7 @@ class LibraryDoctorPanel(QWidget):
     def show_results(self, scan: dict, repair_plan: dict):
         self._status.setText(
             f"{repair_plan.get('total_issues', 0)} problemas detectados. "
-            f"{repair_plan.get('fixable', 0)} se pueden corregir automaticamente."
+            f"{repair_plan.get('fixable', 0)} se pueden corregir automáticamente."
         )
 
         while self._content_layout.count() > 1:
@@ -121,7 +121,7 @@ class LibraryDoctorPanel(QWidget):
             self._content_layout.insertWidget(max(0, idx), card)
 
         if repair_plan.get("suggestions"):
-            sep = QLabel("Sugerencias de reparacion")
+            sep = QLabel("Sugerencias de reparación")
             sep.setStyleSheet("color: rgba(255,255,255,0.42); font-size: 11px; font-weight: 600; padding-top: 8px;")
             idx = self._content_layout.count() - 1
             self._content_layout.insertWidget(max(0, idx), sep)

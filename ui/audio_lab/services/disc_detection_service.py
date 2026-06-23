@@ -1,4 +1,4 @@
-"""Disc detection service — real óptical drive + ISO image support via udisksctl."""
+"""Disc detection service — real optical drive + ISO image support via udisksctl."""
 
 from __future__ import annotations
 

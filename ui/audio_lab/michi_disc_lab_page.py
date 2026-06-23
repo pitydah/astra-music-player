@@ -441,7 +441,7 @@ class MichiDiscLabPage(QWidget):
             QFrame#discLabSettingsPanel, QFrame#discLabProgressPanel,
             QFrame#discLabDiagPanel {
                 background: rgba(255,255,255,0.030);
-                border: 1px solid rgba(255,255,255,0.06);
+                border: 1px solid rgba(255,255,255,0.035);
                 border-radius: 12px;
             }
             QLabel#driveStatus {
@@ -480,7 +480,7 @@ class MichiDiscLabPage(QWidget):
             }
             QProgressBar#discLabProgress {
                 background: rgba(255,255,255,0.04);
-                border: 1px solid rgba(255,255,255,0.06);
+                border: 1px solid rgba(255,255,255,0.035);
                 border-radius: 8px;
                 height: 8px;
                 text-align: center;

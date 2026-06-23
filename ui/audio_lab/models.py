@@ -127,7 +127,7 @@ RIP_PROFILES: list[RipProfile] = [
 # ── Extraction modes ──
 
 EXTRACTION_MODES: list[tuple[str, str, str]] = [
-    ("fast", "Rapido", "Para discos nuevos o en buen estado."),
+    ("fast", "Rápido", "Para discos nuevos o en buen estado."),
     ("safe", "Seguro", "Verifica errores básicos durante la extracción."),
-    ("accurate", "Preciso", "Modo avanzado para colecciónes importantes o discos dañados."),
+    ("accurate", "Preciso", "Modo avanzado para colecciones importantes o discos dañados."),
 ]

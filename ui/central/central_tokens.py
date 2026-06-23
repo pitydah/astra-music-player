@@ -67,3 +67,13 @@ BORDER_SEPARATOR        = "rgba(143,183,255,0.08)"
 TEXT_CARD_TITLE         = "rgba(255,255,255,0.88)"
 TEXT_CARD_DESC          = "rgba(255,255,255,0.56)"
 TEXT_PLACEHOLDER        = "rgba(255,255,255,0.42)"
+
+# ── Status colors (semantic) ──
+STATUS_INFO_BG          = "rgba(143,183,255,0.08)"
+STATUS_INFO_TEXT        = "rgba(143,183,255,0.60)"
+STATUS_WARNING_BG       = "rgba(200,180,100,0.08)"
+STATUS_WARNING_TEXT     = "rgba(200,180,100,0.60)"
+STATUS_SUCCESS_BG       = "rgba(100,220,140,0.08)"
+STATUS_SUCCESS_TEXT     = "rgba(100,220,140,0.60)"
+STATUS_ERROR_BG         = "rgba(255,100,100,0.08)"
+STATUS_ERROR_TEXT       = "rgba(255,100,100,0.55)"
