@@ -159,8 +159,25 @@ class LibraryDB:
             updated_at REAL DEFAULT (strftime('%s','now'))
         )""")
 
+        # Library roots table (canonical, with auto-increment id)
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS library_roots (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            path          TEXT UNIQUE NOT NULL,
+            enabled       INTEGER DEFAULT 1,
+            last_scan     REAL,
+            file_count    INTEGER DEFAULT 0,
+            added_count   INTEGER DEFAULT 0,
+            updated_count INTEGER DEFAULT 0,
+            skipped_count INTEGER DEFAULT 0,
+            missing_count INTEGER DEFAULT 0,
+            created_at    REAL DEFAULT (strftime('%s','now')),
+            updated_at    REAL
+        )""")
+
         self._conn.commit()
         self._run_migrations()
+        self._migrate_scan_roots_to_library_roots()
+        self._populate_track_uids()
 
     def _run_migrations(self):
         existing = {r[0] for r in self._conn.execute("PRAGMA table_info(media_items)").fetchall()}
@@ -168,22 +185,29 @@ class LibraryDB:
                               ("track_number", "INTEGER"), ("composer", "TEXT"),
                               ("albumartist", "TEXT"), ("disc_number", "INTEGER"),
                               ("disc_total", "INTEGER"), ("track_total", "INTEGER"),
-                               ("mb_track_id", "TEXT"), ("mb_album_id", "TEXT"),
-                               ("mb_albumartist_id", "TEXT DEFAULT ''"),
-                               ("cover_hash", "TEXT"), ("rating", "INTEGER DEFAULT 0"),
+                              ("mb_track_id", "TEXT"), ("mb_album_id", "TEXT"),
+                              ("mb_albumartist_id", "TEXT DEFAULT ''"),
+                              ("cover_hash", "TEXT"), ("rating", "INTEGER DEFAULT 0"),
                               ("play_count", "INTEGER DEFAULT 0"), ("skip_count", "INTEGER DEFAULT 0"),
                               ("last_played", "REAL"), ("bpm", "INTEGER"),
-                               ("replaygain_track", "REAL"), ("replaygain_album", "REAL"),
-                                ("bit_depth", "INTEGER DEFAULT 0"),
-                                ("mb_track_id", "TEXT DEFAULT ''"),
-                                ("bpm", "INTEGER DEFAULT 0"),
-                                ("isrc", "TEXT DEFAULT ''"), ("label", "TEXT DEFAULT ''"),
-                                ("conductor", "TEXT DEFAULT ''"), ("compilation", "INTEGER DEFAULT 0"),
-                                ("media_type", "TEXT DEFAULT ''"), ("encoder", "TEXT DEFAULT ''"),
-                                ("copyright", "TEXT DEFAULT ''"), ("originaldate", "TEXT DEFAULT ''"),
-                                ("remixer", "TEXT DEFAULT ''"), ("grouping", "TEXT DEFAULT ''"),
-                                ("mood", "TEXT DEFAULT ''"), ("replaygain_track_peak", "REAL"),
-                                ("content_hash", "TEXT DEFAULT ''")]:
+                              ("replaygain_track", "REAL"), ("replaygain_album", "REAL"),
+                              ("bit_depth", "INTEGER DEFAULT 0"),
+                              ("isrc", "TEXT DEFAULT ''"), ("label", "TEXT DEFAULT ''"),
+                              ("conductor", "TEXT DEFAULT ''"), ("compilation", "INTEGER DEFAULT 0"),
+                              ("media_type", "TEXT DEFAULT ''"), ("encoder", "TEXT DEFAULT ''"),
+                              ("copyright", "TEXT DEFAULT ''"), ("originaldate", "TEXT DEFAULT ''"),
+                              ("remixer", "TEXT DEFAULT ''"), ("grouping", "TEXT DEFAULT ''"),
+                              ("mood", "TEXT DEFAULT ''"), ("replaygain_track_peak", "REAL"),
+                              ("content_hash", "TEXT DEFAULT ''"),
+                              ("track_uid", "TEXT DEFAULT ''"),
+                              ("file_hash", "TEXT DEFAULT ''"),
+                              ("metadata_hash", "TEXT DEFAULT ''"),
+                              ("created_at", "REAL DEFAULT (strftime('%s','now'))"),
+                              ("updated_at", "REAL"),
+                              ("deleted_at", "REAL"),
+                              ("last_scanned", "REAL"),
+                              ("scan_status", "TEXT DEFAULT 'ok'"),
+                              ("scan_error", "TEXT DEFAULT ''")]:
             if col not in existing:
                 with contextlib.suppress(sqlite3.OperationalError):
                     self._conn.execute(f"ALTER TABLE media_items ADD COLUMN {col} {col_def}")
@@ -212,6 +236,73 @@ class LibraryDB:
             if col not in dt_existing:
                 with contextlib.suppress(sqlite3.OperationalError):
                     self._conn.execute(f"ALTER TABLE detected_tracks ADD COLUMN {col} {col_def}")
+
+        # Scan roots — add new columns
+        sr_existing = {r[0] for r in self._conn.execute("PRAGMA table_info(scan_roots)").fetchall()}
+        for col, col_def in [("created_at", "REAL DEFAULT (strftime('%s','now'))"),
+                              ("updated_at", "REAL")]:
+            if col not in sr_existing:
+                with contextlib.suppress(sqlite3.OperationalError):
+                    self._conn.execute(f"ALTER TABLE scan_roots ADD COLUMN {col} {col_def}")
+
+        self._conn.commit()
+
+    def _populate_track_uids(self):
+        """Populate track_uid for existing rows where it was not computed."""
+        cursor = self._conn.execute(
+            "SELECT id, filepath, artist, album, title, duration, "
+            "mb_track_id, mb_album_id "
+            "FROM media_items WHERE track_uid = '' OR track_uid IS NULL")
+        rows = cursor.fetchall()
+        if not rows:
+            return
+        updates = []
+        for rid, fp, artist, album, title, duration, mb_track, _mb_album in rows:
+            uid = self._compute_track_uid(
+                fp, artist, album, title, duration, mb_track)
+            updates.append((uid, rid))
+        self._conn.executemany(
+            "UPDATE media_items SET track_uid=? WHERE id=?", updates)
+        self._conn.commit()
+        logger.info("Populated track_uid for %d records", len(updates))
+
+    @staticmethod
+    def _compute_track_uid(filepath: str, artist: str | None,
+                           album: str | None, title: str | None,
+                           duration: float, mb_track_id: str | None) -> str:
+        """Compute a stable track UID with fallback priority:
+        1. MusicBrainz Track ID (mb:<uuid>)
+        2. File path hash (fp:<sha256_hex16>)
+        """
+        import hashlib
+        if mb_track_id and mb_track_id.strip():
+            return f"mb:{mb_track_id.strip()}"
+        fp_hash = hashlib.sha256(filepath.encode()).hexdigest()[:16]
+        return f"fp:{fp_hash}"
+
+    def _migrate_scan_roots_to_library_roots(self):
+        """Copy data from legacy scan_roots to library_roots (idempotent)."""
+        try:
+            existing = {r[0] for r in self._conn.execute(
+                "SELECT path FROM library_roots").fetchall()}
+        except sqlite3.OperationalError:
+            return
+        rows = self._conn.execute(
+            "SELECT path, enabled, last_scan_started, last_scan_finished, "
+            "file_count, added_count, updated_count, skipped_count, missing_count "
+            "FROM scan_roots").fetchall()
+        for (path, enabled, _started, finished,
+             file_count, added, updated, skipped, missing) in rows:
+            if path in existing:
+                continue
+            self._conn.execute(
+                "INSERT OR IGNORE INTO library_roots "
+                "(path, enabled, last_scan, file_count, added_count, "
+                "updated_count, skipped_count, missing_count, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (path, enabled, finished, file_count, added,
+                 updated, skipped, missing, finished))
+        self._conn.commit()
 
     def _init_fts(self):
         """Create FTS5 full-text search index on media_items (if available)."""
@@ -405,7 +496,7 @@ class LibraryDB:
             raise e
 
     def update_scan_root(self, path: str, **kwargs):
-        """Update scan root statistics."""
+        """Update scan root statistics (legacy scan_roots + canonical library_roots)."""
         cols = ["path", "enabled", "last_scan_started", "last_scan_finished",
                 "file_count", "added_count", "updated_count",
                 "skipped_count", "missing_count"]
@@ -415,6 +506,21 @@ class LibraryDB:
         self._conn.execute(
             f"INSERT OR REPLACE INTO scan_roots ({','.join(cols)}) "
             f"VALUES ({','.join(['?']*len(cols))})", vals)
+        # Mirror to library_roots
+        lcols = ["path", "enabled", "last_scan", "file_count",
+                 "added_count", "updated_count", "skipped_count",
+                 "missing_count", "updated_at"]
+        lvals = [path, kwargs.get("enabled", 1),
+                 kwargs.get("last_scan_finished", 0),
+                 kwargs.get("file_count", 0),
+                 kwargs.get("added_count", 0),
+                 kwargs.get("updated_count", 0),
+                 kwargs.get("skipped_count", 0),
+                 kwargs.get("missing_count", 0),
+                 kwargs.get("last_scan_finished", 0)]
+        self._conn.execute(
+            f"INSERT OR REPLACE INTO library_roots ({','.join(lcols)}) "
+            f"VALUES ({','.join(['?']*len(lcols))})", lvals)
         self._conn.commit()
 
     def remove_file(self, filepath: str):
