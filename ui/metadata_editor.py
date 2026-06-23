@@ -1074,30 +1074,55 @@ class MetadataEditorWidget(QWidget):
         suggestions = []
         try:
             if self._tags:
-                tags = self._tags[0]
-                artist = getattr(tags, 'artist', '') or ''
-                title = getattr(tags, 'title', '') or ''
-                album = getattr(tags, 'album', '') or ''
-                genre = getattr(tags, 'genre', '') or ''
+                for i, tags in enumerate(self._tags):
+                    artist = getattr(tags, 'artist', '') or ''
+                    title = getattr(tags, 'title', '') or ''
+                    album = getattr(tags, 'album', '') or ''
+                    genre = getattr(tags, 'genre', '') or ''
 
-                if title:
-                    track = type('Track', (), {
-                        'title': title, 'artist': artist,
-                        'album': album, 'genre': genre,
-                        'track_number': getattr(tags, 'tracknumber', '') or '',
-                        'duration': getattr(tags, 'duration', 0) or 0,
-                    })()
-                    suggestions.extend(self._st_service.suggest_for_track(track))
-                if album:
-                    suggestions.extend(self._st_service.suggest_for_album(artist, album))
-                if artist:
-                    norm = self._st_service.normalize_artist_name(artist)
-                    if norm.confidence > 0:
-                        suggestions.append(norm)
-                if genre:
-                    genre_sug = self._st_service.suggest_genre(tags)
-                    if genre_sug.confidence > 0:
-                        suggestions.append(genre_sug)
+                    if artist is None:
+                        artist = ""
+                    if title is None:
+                        title = ""
+                    if album is None:
+                        album = ""
+
+                    if title or artist:
+                        base = "track"
+                        if i == 0 and len(self._tags) > 1:
+                            base = "selection"
+
+                        if title:
+                            track = type('Track', (), {
+                                'title': title, 'artist': artist,
+                                'album': album, 'genre': genre,
+                                'track_number': getattr(tags, 'tracknumber', '') or '',
+                                'duration': getattr(tags, 'duration', 0) or 0,
+                            })()
+                            for sug in self._st_service.suggest_for_track(track):
+                                sug.target_index = i
+                                sug.scope = base
+                                suggestions.append(sug)
+
+                        if album and i == 0:
+                            for sug in self._st_service.suggest_for_album(artist, album):
+                                sug.target_index = None
+                                sug.scope = "album"
+                                suggestions.append(sug)
+
+                        if artist and i == 0:
+                            norm = self._st_service.normalize_artist_name(artist)
+                            if norm.confidence > 0:
+                                norm.target_index = i
+                                norm.scope = base
+                                suggestions.append(norm)
+
+                        if genre and i == 0 and self._tags:
+                            genre_sug = self._st_service.suggest_genre(tags)
+                            if genre_sug.confidence > 0:
+                                genre_sug.target_index = i
+                                genre_sug.scope = base
+                                suggestions.append(genre_sug)
         except Exception:
             import logging
             logging.getLogger("michi").warning("Smart tagging failed", exc_info=True)
@@ -1118,9 +1143,25 @@ class MetadataEditorWidget(QWidget):
             tag_field = field_map.get(field, field)
             if not tag_field:
                 continue
-            for tags in self._tags:
-                with contextlib.suppress(Exception):
-                    tags.set_field(tag_field, value)
+
+            if sug.target_index is not None and sug.scope == "track":
+                if sug.target_index < len(self._tags):
+                    with contextlib.suppress(Exception):
+                        self._tags[sug.target_index].set_field(tag_field, value)
+            elif sug.scope == "album":
+                for tags in self._tags:
+                    with contextlib.suppress(Exception):
+                        tags.set_field(tag_field, value)
+            elif sug.scope == "selection":
+                for i, tags in enumerate(self._tags):
+                    if i == sug.target_index or sug.target_index is None:
+                        with contextlib.suppress(Exception):
+                            tags.set_field(tag_field, value)
+            else:
+                for tags in self._tags:
+                    with contextlib.suppress(Exception):
+                        tags.set_field(tag_field, value)
+
         if hasattr(self, '_rebuild_after_load'):
             self._rebuild_after_load()
         self._tools_tabs.setVisible(False)

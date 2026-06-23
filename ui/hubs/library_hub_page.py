@@ -34,7 +34,7 @@ class LibraryHubPage(QWidget):
         header_layout.addWidget(title)
 
         subtitle = QLabel(
-            "Musica local, archivos disponibles y estadisticas de tu coleccion."
+            "Musica local, archivos disponibles y estadísticas de tu colección."
         )
         subtitle.setObjectName("libraryHubSubtitle")
         subtitle.setWordWrap(True)
@@ -68,10 +68,10 @@ class LibraryHubPage(QWidget):
         self._tabs.setObjectName("libraryHubTabs")
 
         tabs_data = [
-            ("canciones", "Canciones", "library", "Toda tu musica local en una tabla con busqueda y filtros."),
+            ("canciones", "Canciones", "library", "Toda tu música local en una tabla con busqueda y filtros."),
             ("albums", "Albumes", "albums", "Caratulas y navegacion visual por album."),
-            ("artists", "Artistas", "artists", "Explora tu biblioteca por artista y sus albumes."),
-            ("genres", "Generos", "genres", "Atlas de estilos y familias musicales."),
+            ("artists", "Artistas", "artists", "Explora tu biblioteca por artista y sus álbumes."),
+            ("genres", "Generos", "genres", "Atlas de estilos y familias músicales."),
             ("folders", "Carpetas", "folders", "Explorador de archivos por carpeta en tu disco."),
         ]
 
@@ -125,9 +125,9 @@ class LibraryHubPage(QWidget):
         elif key == "artists":
             sc_label = QLabel(f"{stats.get('total_artists', 0):,} artistas")
         elif key == "albums":
-            sc_label = QLabel(f"{stats.get('total_albums', 0):,} albumes")
+            sc_label = QLabel(f"{stats.get('total_albums', 0):,} álbumes")
         else:
-            sc_label = QLabel("Explora tu coleccion")
+            sc_label = QLabel("Explora tu colección")
         sc_label.setStyleSheet(
             "QLabel { color: rgba(143,183,255,0.78); font-size: 14px; font-weight: 600; "
             "background: transparent; border: none; }"

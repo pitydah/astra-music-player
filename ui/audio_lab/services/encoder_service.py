@@ -16,6 +16,7 @@ class EncoderService(QObject):
 
     def __init__(self, parent: QObject | None = None):
         super().__init__(parent)
+        self._processes: list[QProcess] = []
 
     def check_available_encoders(self) -> dict[str, bool]:
         import shutil
@@ -33,6 +34,7 @@ class EncoderService(QObject):
             return
 
         proc = QProcess(self)
+        self._processes.append(proc)
         proc.finished.connect(
             lambda ec, es, ip=input_path, op=output_path:
             self._on_flac_done(ec, es, ip, op)
@@ -48,6 +50,7 @@ class EncoderService(QObject):
             return
 
         proc = QProcess(self)
+        self._processes.append(proc)
         proc.finished.connect(
             lambda ec, es, ip=input_path, op=output_path:
             self._on_encode_done(ec, es, ip, op)
@@ -62,6 +65,7 @@ class EncoderService(QObject):
             return
 
         proc = QProcess(self)
+        self._processes.append(proc)
         proc.finished.connect(
             lambda ec, es, ip=input_path, op=output_path:
             self._on_encode_done(ec, es, ip, op)
@@ -76,6 +80,7 @@ class EncoderService(QObject):
             return
 
         proc = QProcess(self)
+        self._processes.append(proc)
         proc.finished.connect(
             lambda ec, es, ip=input_path, op=output_path:
             self._on_encode_done(ec, es, ip, op)
@@ -97,6 +102,7 @@ class EncoderService(QObject):
 
     def _on_flac_done(self, exit_code: int, _exit_status,
                       input_path: str, output_path: str):
+        self._cleanup_process(self.sender())
         if exit_code == 0:
             self.encode_finished.emit(input_path, output_path)
         else:
@@ -104,7 +110,12 @@ class EncoderService(QObject):
 
     def _on_encode_done(self, exit_code: int, _exit_status,
                         input_path: str, output_path: str):
+        self._cleanup_process(self.sender())
         if exit_code == 0:
             self.encode_finished.emit(input_path, output_path)
         else:
             self.encode_error.emit(input_path, f"Encoding failed (exit {exit_code})")
+
+    def _cleanup_process(self, proc):
+        if proc in self._processes:
+            self._processes.remove(proc)

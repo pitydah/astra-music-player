@@ -14,6 +14,7 @@ class RipProfile:
     outputs: list[str] = field(default_factory=list)
     recommended: bool = False
     description: str = ""
+    available: bool = True
 
 
 @dataclass
@@ -61,6 +62,8 @@ class TagSuggestion:
     confidence: float = 0.0
     source: str = ""
     apply: bool = False
+    target_index: int | None = None
+    scope: str = "track"
 
 
 @dataclass
@@ -90,29 +93,34 @@ class ExternalToolStatus:
 
 RIP_PROFILES: list[RipProfile] = [
     RipProfile(
-        name="FLAC Hi-Fi", fmt="flac", lossless=True, recommended=True,
-        description="Audio sin perdida. Recomendado para archivado de calidad.",
+        name="WAV sin compresión", fmt="wav", lossless=True,
+        description="Audio PCM sin comprimir. Máxima compatibilidad.",
     ),
     RipProfile(
-        name="WAV sin compresion", fmt="wav", lossless=True,
-        description="Audio PCM sin comprimir. Maxima compatibilidad.",
+        name="FLAC Hi-Fi", fmt="flac", lossless=True, recommended=True,
+        description="Audio sin pérdida. Recomendado para archivado de calidad.",
+        available=False,
     ),
     RipProfile(
         name="ALAC", fmt="alac", lossless=True,
         description="Apple Lossless. Compatible con dispositivos Apple.",
+        available=False,
     ),
     RipProfile(
         name="MP3 320 kbps", fmt="mp3", bitrate=320,
-        description="Compresion con perdida. Compatible con todos los dispositivos.",
+        description="Compresión con pérdida. Compatible con todos los dispositivos.",
+        available=False,
     ),
     RipProfile(
         name="Opus eficiente", fmt="opus", bitrate=192,
         description="Codec moderno de alta eficiencia a baja tasa de bits.",
+        available=False,
     ),
     RipProfile(
         name="FLAC + MP3", fmt="flac", lossless=True,
         outputs=["flac", "mp3"],
-        description="Master FLAC + copia MP3 portatil.",
+        description="Master FLAC + copia MP3 portátil.",
+        available=False,
     ),
 ]
 
@@ -120,6 +128,6 @@ RIP_PROFILES: list[RipProfile] = [
 
 EXTRACTION_MODES: list[tuple[str, str, str]] = [
     ("fast", "Rapido", "Para discos nuevos o en buen estado."),
-    ("safe", "Seguro", "Verifica errores basicos durante la extraccion."),
-    ("accurate", "Preciso", "Modo avanzado para colecciones importantes o discos dañados."),
+    ("safe", "Seguro", "Verifica errores básicos durante la extracción."),
+    ("accurate", "Preciso", "Modo avanzado para colecciónes importantes o discos dañados."),
 ]

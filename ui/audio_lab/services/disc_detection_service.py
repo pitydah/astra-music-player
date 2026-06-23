@@ -1,4 +1,4 @@
-"""Disc detection service — real optical drive + ISO image support via udisksctl."""
+"""Disc detection service — real óptical drive + ISO image support via udisksctl."""
 
 from __future__ import annotations
 
@@ -81,13 +81,20 @@ class DiscDetectionService:
                 ["cdparanoia", "-d", drive, "-Q"],
                 capture_output=True, text=True, timeout=15,
             )
-            output = result.stdout
+            output = (result.stdout or "") + "\n" + (result.stderr or "")
             if not output:
                 return False
             if "No medium found" in output or "Unable to open" in output:
                 return False
             return self._parse_toc(output)
-        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        except FileNotFoundError:
+            logger.debug("cdparanoia not installed — TOC reading unavailable")
+            return False
+        except subprocess.TimeoutExpired:
+            logger.debug("cdparanoia TOC read timed out")
+            return False
+        except Exception as e:
+            logger.debug("cdparanoia TOC read failed: %s", e)
             return False
 
     def _parse_toc(self, output: str) -> bool:

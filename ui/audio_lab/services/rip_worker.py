@@ -55,10 +55,14 @@ class RipWorker(QObject):
         self.track_started.emit(job_id, track_num, self._total_tracks)
 
     def rip_all_tracks(self, job_id: str, drive: str, track_list: list[dict],
-                       output_dir: str):
+                       output_dir: str, extraction_mode: str = "fast",
+                       stop_on_error: bool = False):
         self._job_id = job_id
         self._total_tracks = len(track_list)
         self._track_outputs = {}
+        self._extraction_mode = extraction_mode
+        self._stop_on_error = stop_on_error
+        self._error_count = 0
 
         for track in track_list:
             tnum = track.get("number", 0)
@@ -70,7 +74,8 @@ class RipWorker(QObject):
     def _rip_next(self, job_id: str, drive: str, track_list: list[dict],
                   output_dir: str, idx: int):
         if idx >= len(track_list):
-            self.finished.emit(job_id, {"status": "completed", "tracks_ripped": len(track_list)})
+            status = "completed_with_errors" if self._error_count > 0 else "completed"
+            self.finished.emit(job_id, {"status": status, "tracks_ripped": len(track_list) - self._error_count, "errors": self._error_count})
             return
 
         track = track_list[idx]
@@ -78,7 +83,12 @@ class RipWorker(QObject):
         out_path = self._track_outputs.get(tnum, os.path.join(output_dir, f"track_{tnum:02d}.wav"))
 
         self._current_track = tnum
-        args = ["-d", drive, "--stderr-progress", str(tnum), out_path]
+        args = ["-d", drive, "--stderr-progress"]
+        if self._extraction_mode == "safe":
+            args.append("--never-skip=1")
+        elif self._extraction_mode == "accurate":
+            pass  # whipper not available yet
+        args.extend([str(tnum), out_path])
 
         self._process = QProcess(self)
         self._process.setProcessChannelMode(QProcess.MergedChannels)
@@ -101,6 +111,14 @@ class RipWorker(QObject):
                        output_dir: str, idx: int, drive: str):
         out_path = self._track_outputs.get(self._current_track, "")
         self.track_finished.emit(job_id, self._current_track, out_path)
+
+        if exit_code != 0:
+            self._error_count += 1
+            self.progress_changed.emit(job_id, self._current_track, (idx + 1) / self._total_tracks if self._total_tracks else 1, "error")
+            if self._stop_on_error:
+                status = "completed_with_errors" if self._error_count > 0 else "completed"
+                self.finished.emit(job_id, {"status": status, "tracks_ripped": self._total_tracks - self._error_count, "errors": self._error_count})
+                return
 
         status = "completed" if exit_code == 0 else "error"
         progress = 0.0

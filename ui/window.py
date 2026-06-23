@@ -209,7 +209,6 @@ NAV_ROUTES = {
     "assistant": "_show_assistant",
     "metadata_review": "_show_metadata_review",
     "audio_lab": "_show_audio_lab",
-    "metadata_studio": "_show_metadata_editor",
     "michi_disc_lab": "_show_michi_disc_lab",
     "home": "_show_home_page",
     "library_hub": "_show_library_hub_page",

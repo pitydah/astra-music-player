@@ -57,7 +57,7 @@ class MichiDiscLabPage(QWidget):
 
         subtitle = QLabel(
             "Importacion Hi-Fi, ripeo seguro y conversion inteligente "
-            "de discos de musica."
+            "de discos de música."
         )
         subtitle.setObjectName("discLabSubtitle")
         subtitle.setWordWrap(True)
@@ -88,12 +88,12 @@ class MichiDiscLabPage(QWidget):
         p_layout.setContentsMargins(16, 12, 16, 12)
         p_layout.setSpacing(8)
 
-        self._drive_status = QLabel("Esperando disco de musica...")
+        self._drive_status = QLabel("Esperando disco de música...")
         self._drive_status.setObjectName("driveStatus")
         p_layout.addWidget(self._drive_status)
 
         btn_row = QHBoxLayout()
-        self._scan_drive_btn = QPushButton("Buscar unidad optica")
+        self._scan_drive_btn = QPushButton("Buscar unidad óptica")
         self._scan_drive_btn.setObjectName("scanDriveBtn")
         self._scan_drive_btn.setCursor(Qt.PointingHandCursor)
         self._scan_drive_btn.clicked.connect(self._on_scan_drive)
@@ -155,8 +155,9 @@ class MichiDiscLabPage(QWidget):
 
         self._profile_combo = QComboBox()
         for p in RIP_PROFILES:
-            self._profile_combo.addItem(p.name)
-        p_layout.addWidget(self._profile_combo)
+            label = p.name if p.available else f"{p.name} (próximamente)"
+            self._profile_combo.addItem(label)
+        self._profile_combo.setCurrentIndex(0)
 
         mode_label = QLabel("Modo:")
         mode_label.setStyleSheet("color: rgba(255,255,255,0.62); font-size: 12px;")
@@ -185,6 +186,13 @@ class MichiDiscLabPage(QWidget):
         self._import_btn.setEnabled(False)
         self._import_btn.clicked.connect(self._on_import_disc)
         p_layout.addWidget(self._import_btn)
+
+        self._cancel_btn = QPushButton("Cancelar")
+        self._cancel_btn.setObjectName("cancelRipBtn")
+        self._cancel_btn.setCursor(Qt.PointingHandCursor)
+        self._cancel_btn.setVisible(False)
+        self._cancel_btn.clicked.connect(self._on_cancel_rip)
+        p_layout.addWidget(self._cancel_btn)
 
         return panel
 
@@ -246,7 +254,7 @@ class MichiDiscLabPage(QWidget):
             self._analyze_disc_btn.setEnabled(True)
         else:
             self._drive_status.setText(
-                "No se detectaron unidades opticas. "
+                "No se detectaron unidades ópticas. "
                 "Conecta una unidad de CD/DVD/Blu-ray."
             )
             self._scan_drive_btn.setText("Reintentar")
@@ -266,7 +274,7 @@ class MichiDiscLabPage(QWidget):
             self._iso_toggle_btn.setText("Usar ISO")
             self._scan_drive_btn.setVisible(True)
             self._iso_select_btn.setVisible(False)
-            self._drive_status.setText("Esperando disco de musica...")
+            self._drive_status.setText("Esperando disco de música...")
             self._analyze_disc_btn.setEnabled(False)
 
     def _on_select_iso(self):
@@ -300,7 +308,7 @@ class MichiDiscLabPage(QWidget):
             else:
                 self._drive_status.setText(
                     f"No se detecto un CD de audio en {drive}. "
-                    "Inserta un disco de musica y reintenta."
+                    "Inserta un disco de música y reintenta."
                 )
             self._import_btn.setEnabled(False)
             self._populate_tracks([])
@@ -345,12 +353,21 @@ class MichiDiscLabPage(QWidget):
         self._current_job_id = job.id
 
         self._import_btn.setEnabled(False)
+        self._cancel_btn.setVisible(True)
         self._progress.setVisible(True)
         self._progress_label.setVisible(True)
         self._progress.setValue(0)
         self._progress_label.setText("Iniciando ripeo...")
 
         self._rip_manager.start_job(job.id)
+
+    def _on_cancel_rip(self):
+        if self._current_job_id:
+            self._rip_manager.cancel_job(self._current_job_id)
+        self._progress_label.setText("Cancelado")
+        self._import_btn.setEnabled(True)
+        self._cancel_btn.setVisible(False)
+        self._current_job_id = ""
 
     def _on_select_destination(self):
         folder = QFileDialog.getExistingDirectory(
@@ -379,15 +396,18 @@ class MichiDiscLabPage(QWidget):
 
     def _on_job_finished(self, job_id: str, result: dict):
         self._progress.setValue(100)
+        status = result.get("status", "completed")
         self._progress_label.setText(
-            f"Ripeo completado: {result.get('tracks_ripped', 0)} pistas"
+            f"Ripeo {status}: {result.get('tracks_ripped', 0)} pistas"
         )
         self._import_btn.setEnabled(True)
+        self._cancel_btn.setVisible(False)
         self._current_job_id = ""
 
     def _on_rip_error(self, job_id: str, error: str):
         self._progress_label.setText(f"Error: {error}")
         self._import_btn.setEnabled(True)
+        self._cancel_btn.setVisible(False)
 
     @staticmethod
     def _fmt_duration(seconds: float) -> str:
@@ -490,7 +510,7 @@ class MichiDiscLabPage(QWidget):
             }
         """)
         for btn_name in ("scanDriveBtn", "analyzeDiscBtn", "destBtn",
-                         "isoToggleBtn", "isoSelectBtn"):
+                         "isoToggleBtn", "isoSelectBtn", "cancelRipBtn"):
             btn = self.findChild(QPushButton, btn_name)
             if btn:
                 btn.setStyleSheet(glass_button_qss("ghost"))

@@ -75,7 +75,9 @@ class RipJobManager(QObject):
         )
 
         job.status = "running"
-        worker.rip_all_tracks(job_id, job.drive, toc["track_list"], job.destination)
+        worker.rip_all_tracks(job_id, job.drive, toc["track_list"], job.destination,
+                             extraction_mode=job.extraction_mode,
+                             stop_on_error=(job.extraction_mode != "fast"))
 
     def cancel_job(self, job_id: str):
         worker = self._workers.get(job_id)

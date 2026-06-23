@@ -36,7 +36,7 @@ class LibraryDoctorPanel(QWidget):
 
         self._status = QLabel(
             "Analiza tu biblioteca en busca de metadata faltante, artistas duplicados, "
-            "albumes partidos y mas."
+            "álbumes partidos y mas."
         )
         self._status.setObjectName("doctorStatus")
         self._status.setWordWrap(True)

@@ -115,10 +115,7 @@ class LibraryDoctor:
                 continue
             key = f"{artist.lower()}|{album.lower()}"
             if key not in albums:
-                has_cover = False
-                cover_path = getattr(item, "cover_path", None) if hasattr(item, "cover_path") else None
-                if cover_path:
-                    has_cover = True
+                has_cover = self._check_album_has_cover(artist, album)
                 albums[key] = {
                     "artist": artist, "album": album,
                     "has_cover": has_cover, "track_count": 0,
@@ -136,6 +133,21 @@ class LibraryDoctor:
 
         missing.sort(key=lambda x: x["track_count"], reverse=True)
         return missing[:100]
+
+    def _check_album_has_cover(self, artist: str, album: str) -> bool:
+        try:
+            table_check = self._db._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='album_art_cache'"
+            ).fetchone()
+            if not table_check:
+                return False
+            row = self._db._conn.execute(
+                "SELECT id FROM album_art_cache WHERE artist_name=? AND album_title=? LIMIT 1",
+                (artist, album),
+            ).fetchone()
+            return row is not None
+        except Exception:
+            return False
 
     def detect_possible_duplicates(self) -> list[dict]:
         items = self._db.get_all() if hasattr(self._db, "get_all") else []

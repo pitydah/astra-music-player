@@ -42,7 +42,7 @@ class AudioLabPage(QWidget):
 
         subtitle = QLabel(
             "Herramientas avanzadas para importar, corregir, "
-            "enriquecer y preservar tu coleccion musical."
+            "enriquecer y preservar tu colección músical."
         )
         subtitle.setObjectName("audioLabSubtitle")
         subtitle.setWordWrap(True)
@@ -53,7 +53,7 @@ class AudioLabPage(QWidget):
 
         metadata_card = self._build_card(
             "metadata_editor", "Metadata Studio",
-            "Edita metadatos, caratulas, artistas, albumes y organiza "
+            "Edita metadatos, carátulas, artistas, álbumes y organiza "
             "tu biblioteca con asistencia inteligente.",
             "Abrir Metadata Studio",
         )
@@ -61,8 +61,8 @@ class AudioLabPage(QWidget):
 
         disc_card = self._build_card(
             "michi_disc_lab", "Michi Disc Lab",
-            "Importa CDs de musica a FLAC, WAV, ALAC, MP3, Opus u otros "
-            "formatos, con extraccion segura y metadatos automaticos.",
+            "Importa CDs de música a FLAC, WAV, ALAC, MP3, Opus u otros "
+            "formatos, con extracción segura y metadatos automáticos.",
             "Abrir Michi Disc Lab",
         )
         cards_layout.addWidget(disc_card, 1)
@@ -123,7 +123,7 @@ class AudioLabPage(QWidget):
                 font-size: 13px;
             }
         """)
-        for key in ("metadata_studio", "michi_disc_lab"):
+        for key in ("metadata_editor", "michi_disc_lab"):
             card = self.findChild(QFrame, f"audioLabCard_{key}")
             if card:
                 card.setStyleSheet(glass_card_qss(f"audioLabCard_{key}"))
