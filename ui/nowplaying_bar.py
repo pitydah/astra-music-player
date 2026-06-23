@@ -10,61 +10,6 @@ from PySide6.QtWidgets import (
 
 from ui.icons import get_icon
 
-SEEK_STYLESHEET = """
-QSlider#seekSlider::groove:horizontal,
-QSlider#volumeSlider::groove:horizontal {
-    height: 4px;
-    background: #303642;
-    border-radius: 2px;
-}
-QSlider#seekSlider::sub-page:horizontal,
-QSlider#volumeSlider::sub-page:horizontal {
-    background: qlineargradient(
-        x1:0, y1:0, x2:1, y2:0,
-        stop:0 #FF7A00,
-        stop:0.35 #FF4A2D,
-        stop:0.68 #F21B5B,
-        stop:1 #9F0C80
-    );
-    border-radius: 2px;
-}
-QSlider#seekSlider::add-page:horizontal,
-QSlider#volumeSlider::add-page:horizontal {
-    background: #303642;
-    border-radius: 2px;
-}
-QSlider#seekSlider::handle:horizontal,
-QSlider#volumeSlider::handle:horizontal {
-    width: 11px;
-    height: 11px;
-    margin: -4px 0;
-    border-radius: 6px;
-    background: #F92141;
-    border: 2px solid #F5F5F7;
-}
-QSlider#seekSlider::handle:horizontal:hover,
-QSlider#volumeSlider::handle:horizontal:hover {
-    background: #FF4A2D;
-}
-QSlider#seekSlider::handle:horizontal:pressed,
-QSlider#volumeSlider::handle:horizontal:pressed {
-    background: #F21B5B;
-}
-QSlider#seekSlider:disabled::groove:horizontal,
-QSlider#volumeSlider:disabled::groove:horizontal {
-    background: #2A2D34;
-}
-QSlider#seekSlider:disabled::sub-page:horizontal,
-QSlider#volumeSlider:disabled::sub-page:horizontal {
-    background: #525866;
-}
-QSlider#seekSlider:disabled::handle:horizontal,
-QSlider#volumeSlider:disabled::handle:horizontal {
-    background: #525866;
-    border: 2px solid #747986;
-}
-"""
-
 
 def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None) -> QPushButton:
     from ui.icons import get_qicon
@@ -372,17 +317,20 @@ class NowPlayingBar(QWidget):
 
         # Seek row
         seek_row = QHBoxLayout()
-        seek_row.setSpacing(6)
+        seek_row.setSpacing(8)
         seek_row.setContentsMargins(0, 0, 0, 0)
 
         self._time_lbl = QLabel("0:00")
         self._time_lbl.setStyleSheet(
             "color: rgba(255,255,255,0.86); font-size: 10px; font-weight: 600;")
-        self._time_lbl.setFixedWidth(32)
+        self._time_lbl.setFixedWidth(36)
+        self._time_lbl.setAlignment(Qt.AlignCenter)
 
         self._seek = PremiumSlider(Qt.Horizontal)
         self._seek.setObjectName("seekSlider")
         self._seek.setRange(0, 1000)
+        self._seek.setEnabled(False)
+        self._seek.set_show_thumb_when_disabled(False)
         self._seek.setMinimumWidth(150)
         self._seek.setFixedHeight(28)
         self._seek.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -394,7 +342,8 @@ class NowPlayingBar(QWidget):
         self._dur_lbl = QLabel("0:00")
         self._dur_lbl.setStyleSheet(
             "color: rgba(255,255,255,0.86); font-size: 10px; font-weight: 600;")
-        self._dur_lbl.setFixedWidth(32)
+        self._dur_lbl.setFixedWidth(36)
+        self._dur_lbl.setAlignment(Qt.AlignCenter)
 
         seek_row.addWidget(self._time_lbl)
         seek_row.addWidget(self._seek)
@@ -460,7 +409,7 @@ class NowPlayingBar(QWidget):
         self._vol.setObjectName("volumeSlider")
         self._vol.setRange(0, 100)
         self._vol.setValue(70)
-        self._vol.setFixedWidth(80)
+        self._vol.setFixedWidth(86)
         self._vol.setFixedHeight(28)
         self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
 
@@ -486,13 +435,13 @@ class NowPlayingBar(QWidget):
         # Row 0 — controls row
         right_controls = QHBoxLayout()
         right_controls.setContentsMargins(0, 0, 0, 0)
-        right_controls.setSpacing(8)
+        right_controls.setSpacing(10)
         right_controls.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         right_controls.addStretch()
         right_controls.addWidget(self._vol_btn)
         right_controls.addWidget(self._vol)
-        right_controls.addSpacing(6)
+        right_controls.addSpacing(4)
         right_controls.addWidget(self._eq_btn)
         right_controls.addWidget(self._transmit_btn)
 
@@ -581,6 +530,7 @@ class NowPlayingBar(QWidget):
                 self._cover_pixmap = rounded
                 self._cover.setIcon(QIcon(rounded))
                 self.cover_loaded.emit(pix)
+                self._apply_elide()
                 return
         self._cover.setIcon(QIcon(_placeholder_cover_pixmap(64, 13)))
         self.cover_loaded.emit(None)
@@ -601,6 +551,9 @@ class NowPlayingBar(QWidget):
         if self._duration <= 0:
             self._time_lbl.setText("0:00")
             self._seek.setValue(0)
+            self._seek.setEnabled(False)
+        else:
+            self._seek.setEnabled(True)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -609,10 +562,9 @@ class NowPlayingBar(QWidget):
     def _apply_elide(self):
         """Apply text elision to prevent overflow."""
         w = self.width()
-        # Available width: bar minus left card (~300px) minus right controls (~220px)
         left_card_w = 300
-        if hasattr(self, '_cover_btn'):
-            left_card_w = self._cover_btn.width() + 120
+        if hasattr(self, '_cover'):
+            left_card_w = self._cover.width() + 120
         avail = max(60, w - left_card_w - 240)
         fm = self._title_lbl.fontMetrics()
         self._title_lbl.setText(
@@ -643,7 +595,7 @@ class NowPlayingBar(QWidget):
         if text:
             self._quality_badge.set_text(f" {text} ")
         else:
-            self._quality_badge.set_text(" LOCAL ")
+            self._quality_badge.set_text("")
         self._refresh_source_badge()
 
     def set_quality_info(self, label: str, category: str = "unknown",
@@ -787,27 +739,32 @@ class PremiumSlider(QSlider):
         super().__init__(orientation, parent)
         self._hovered = False
         self._pressed = False
+        self._show_thumb_disabled = True
         self.setMouseTracking(True)
 
-    # ── QPainter paintEvent ──
+    def set_show_thumb_when_disabled(self, show: bool):
+        self._show_thumb_disabled = show
+        self.update()
 
-    def paintEvent(self, _event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
-
+    def _slider_geometry(self):
         w = float(self.width())
         h = float(self.height())
-
         track_h = 4.0
         track_r = track_h / 2.0
         thumb_d = 12.0
         thumb_r = thumb_d / 2.0
         margin = thumb_r + 1.0
-
         track_x = margin
         track_w = max(1.0, w - margin * 2)
         track_y = (h - track_h) / 2.0
         track_rect = QRectF(track_x, track_y, track_w, track_h)
+        return track_rect, track_x, track_w, track_y, track_h, track_r, thumb_d, thumb_r, margin
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        track_rect, track_x, track_w, track_y, track_h, track_r, thumb_d, thumb_r, margin = self._slider_geometry()
 
         mn = self.minimum()
         mx = self.maximum()
@@ -824,10 +781,13 @@ class PremiumSlider(QSlider):
             painter.setBrush(QColor("#2A2D34"))
         painter.drawRoundedRect(track_rect, track_r, track_r)
 
-        # Active progress
+        # Active gradient — full track width, then clip to progress
         if progress_w > 0 and self.isEnabled():
             progress_rect = QRectF(track_x, track_y, progress_w, track_h)
-            gradient = QLinearGradient(progress_rect.left(), 0, progress_rect.right(), 0)
+            gradient = QLinearGradient(
+                track_rect.left(), track_rect.center().y(),
+                track_rect.right(), track_rect.center().y(),
+            )
             gradient.setColorAt(0.0, QColor("#FF7A00"))
             gradient.setColorAt(0.35, QColor("#FF4A2D"))
             gradient.setColorAt(0.68, QColor("#F21B5B"))
@@ -844,34 +804,42 @@ class PremiumSlider(QSlider):
             painter.setPen(Qt.NoPen)
             painter.drawRoundedRect(progress_rect, track_r, track_r)
 
-        # Capsule border
+        # Capsule border — subtle
         painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(QColor(255, 255, 255, 20), 1.0))
+        painter.setPen(QPen(QColor(255, 255, 255, 16), 1.0))
         painter.drawRoundedRect(track_rect, track_r, track_r)
 
         # Thumb
-        thumb_x = track_x + progress_w
-        thumb_y = h / 2.0
-        thumb_rect = QRectF(thumb_x - thumb_r, thumb_y - thumb_r, thumb_d, thumb_d)
+        show_thumb = self.isEnabled() or self._show_thumb_disabled
+        if show_thumb:
+            thumb_x = track_x + progress_w
+            thumb_y = float(self.height()) / 2.0
+            thumb_rect = QRectF(thumb_x - thumb_r, thumb_y - thumb_r, thumb_d, thumb_d)
 
-        if not self.isEnabled():
-            fill = QColor("#525866")
-            bd = QColor("#747986")
-        elif self._pressed:
-            fill = QColor("#F21B5B")
-            bd = QColor("#F5F5F7")
-        elif self._hovered:
-            fill = QColor("#FF4A2D")
-            bd = QColor("#F5F5F7")
-        else:
-            fill = QColor("#F92141")
-            bd = QColor("#F5F5F7")
+            if not self.isEnabled():
+                fill = QColor("#525866")
+                bd = QColor("#747986")
+            elif self._pressed:
+                fill = QColor("#F21B5B")
+                bd = QColor("#F5F5F7")
+            elif self._hovered:
+                fill = QColor("#FF4A2D")
+                bd = QColor("#F5F5F7")
+            else:
+                fill = QColor("#F92141")
+                bd = QColor("#F5F5F7")
 
-        painter.setPen(QPen(bd, 2.0))
-        painter.setBrush(fill)
-        painter.drawEllipse(thumb_rect)
+            painter.setPen(QPen(bd, 2.0))
+            painter.setBrush(fill)
+            painter.drawEllipse(thumb_rect)
 
         painter.end()
+
+    def _value_from_x(self, x: float) -> int:
+        _, track_x, track_w, *_ = self._slider_geometry()
+        ratio = (x - track_x) / max(1.0, track_w)
+        ratio = max(0.0, min(1.0, ratio))
+        return self.minimum() + int(ratio * (self.maximum() - self.minimum()))
 
     # ── Interaction ──
 
@@ -888,24 +856,34 @@ class PremiumSlider(QSlider):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton and self.orientation() == Qt.Horizontal:
             self._pressed = True
-            x = event.position().x() if hasattr(event, "position") else event.x()
-            w = float(self.width())
-            thumb_r = 7.0
-            margin = thumb_r + 1.0
-            track_x = margin
-            track_w = max(1.0, w - margin * 2)
-            ratio = (x - track_x) / track_w
-            ratio = max(0.0, min(1.0, ratio))
-            value = self.minimum() + int(ratio * (self.maximum() - self.minimum()))
+            self.setSliderDown(True)
+            value = self._value_from_x(
+                event.position().x() if hasattr(event, "position") else event.x()
+            )
             self.setValue(value)
             self.seek_clicked.emit(value)
             event.accept()
             return
         super().mousePressEvent(event)
 
+    def mouseMoveEvent(self, event):
+        if self._pressed and self.orientation() == Qt.Horizontal:
+            value = self._value_from_x(
+                event.position().x() if hasattr(event, "position") else event.x()
+            )
+            self.setValue(value)
+            self.sliderMoved.emit(value)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
     def mouseReleaseEvent(self, event):
-        self._pressed = False
-        self.update()
+        if self._pressed:
+            self._pressed = False
+            self.setSliderDown(False)
+            self.update()
+            event.accept()
+            return
         super().mouseReleaseEvent(event)
 
 
