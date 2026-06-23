@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QFrame, QScrollArea, QPushButton, QProgressBar,
 )
 
@@ -70,6 +70,41 @@ class ConnectionsHubPage(QWidget):
                 "border-radius: 12px; }"
             )
             content_layout.addWidget(server_card)
+
+        devices = self._get_devices()
+        if devices:
+            dev_card = QFrame()
+            dev_card.setObjectName("connectionsCard_devices")
+            dc_layout = QVBoxLayout(dev_card)
+            dc_layout.setContentsMargins(20, 16, 20, 16)
+            dc_layout.setSpacing(8)
+
+            dev_title = QLabel(f"Dispositivos ({len(devices)})")
+            dev_title.setStyleSheet("QLabel { color: rgba(255,255,255,0.72); font-size: 13px; font-weight: 600; }")
+            dc_layout.addWidget(dev_title)
+
+            dev_row = QHBoxLayout()
+            dev_row.setSpacing(8)
+            for d in devices:
+                dname = d.get("name", d.get("mount", "Dispositivo"))
+                dmount = d.get("mount", "")
+                chip = QPushButton(f"{dname} ({dmount})")
+                chip.setCursor(Qt.PointingHandCursor)
+                chip.setStyleSheet(
+                    "QPushButton { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); "
+                    "border-radius: 8px; padding: 6px 12px; color: rgba(143,183,255,0.62); font-size: 11px; }"
+                    "QPushButton:hover { background: rgba(143,183,255,0.08); border: 1px solid rgba(143,183,255,0.12); }"
+                )
+                chip.clicked.connect(lambda checked=None, m=dmount: self._navigate(f"dev:{m}"))
+                dev_row.addWidget(chip)
+            dev_row.addStretch()
+            dc_layout.addLayout(dev_row)
+
+            dev_card.setStyleSheet(
+                "QFrame { background: rgba(255,255,255,0.020); border: 1px solid rgba(255,255,255,0.04); "
+                "border-radius: 12px; }"
+            )
+            content_layout.addWidget(dev_card)
 
         discover_card = QFrame()
         discover_card.setObjectName("connectionsCard_discover")
@@ -182,6 +217,14 @@ class ConnectionsHubPage(QWidget):
         except Exception:
             pass
         return []
+
+    @staticmethod
+    def _get_devices() -> list:
+        try:
+            from library.library_db import get_mounted_devices
+            return get_mounted_devices()
+        except Exception:
+            return []
 
     def _build_card(self, key: str, title: str, description: str) -> QFrame:
         card = QFrame()

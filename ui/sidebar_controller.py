@@ -28,5 +28,6 @@ class SidebarController(QObject):
         self._sidebar.add_item("hub", "connections_hub", "Conexiones", "sidebar_servers")
         self._sidebar.add_item("hub", "audio_lab", "Audio Lab", "sidebar_mix")
         self._sidebar.add_item("hub", "settings_hub", "Configuracion", "warm_settings")
+        self._sidebar.add_item("hub", "home_audio", "Home Audio", "home_audio")
 
         self._sidebar.set_active("home")
