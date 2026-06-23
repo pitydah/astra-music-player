@@ -760,6 +760,10 @@ class MainWindow(QMainWindow):
         self._sync_mgr.client_connected.connect(
             lambda d: (self._toast_svc.show(f"Dispositivo conectado: {d}", "info")
                        if self._toast_svc else None))
+        self._sync_mgr.peer_found.connect(
+            lambda a, ip: self._rebuild_sidebar())
+        self._sync_mgr.peer_lost.connect(
+            lambda a: self._rebuild_sidebar())
         return self._sync_mgr
 
     def _toggle_sync(self):
@@ -1375,7 +1379,12 @@ class MainWindow(QMainWindow):
     # ── Sidebar ──
 
     def _rebuild_sidebar(self):
-        self._sidebar_controller.rebuild(load_servers())
+        sync_peers = []
+        if self._sync_manager and self._sync_manager.is_active():
+            import contextlib
+            with contextlib.suppress(Exception):
+                sync_peers = self._sync_manager.get_all_peers()
+        self._sidebar_controller.rebuild(load_servers(), sync_peers)
 
         # Sidebar shadow
         from PySide6.QtWidgets import QGraphicsDropShadowEffect
@@ -1408,6 +1417,9 @@ class MainWindow(QMainWindow):
             return
         if key and key.startswith("srv:"):
             self._show_server(key)
+            return
+        if key and key.startswith("dev:sync:"):
+            self._show_devices_page(key)
             return
         if key and key.startswith("dev:"):
             self._show_device(key)

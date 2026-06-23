@@ -175,6 +175,14 @@ class DiscoveryServer(QObject):
             del self._peers[alias]
             self.peer_lost.emit(alias)
 
+    def get_all_peers(self) -> list[dict]:
+        peers = []
+        for alias in sorted(self._peers.keys()):
+            info = self.get_peer_info(alias)
+            if info:
+                peers.append(info)
+        return peers
+
     @property
     def peers(self) -> list[str]:
         return sorted(self._peers.keys())

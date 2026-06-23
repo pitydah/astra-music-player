@@ -84,6 +84,10 @@ class SyncManager(QObject):
         """Return stored announce info for a discovered peer."""
         return self._discovery.get_peer_info(alias)
 
+    def get_all_peers(self) -> list[dict]:
+        """Return list of all discovered peers with their info."""
+        return self._discovery.get_all_peers()
+
     def _load_alias(self) -> str:
         path = os.path.expanduser("~/.local/share/michi-music-player/sync_alias")
         if os.path.exists(path):

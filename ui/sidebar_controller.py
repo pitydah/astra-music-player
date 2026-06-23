@@ -17,7 +17,7 @@ class SidebarController(QObject):
     def _on_item_click(self, key: str):
         self.navigation_requested.emit(key)
 
-    def rebuild(self, servers: list):
+    def rebuild(self, servers: list, sync_peers: list | None = None):
         self._sidebar._clear()
 
         # ── Hubs principales ──
@@ -38,6 +38,20 @@ class SidebarController(QObject):
         self._sidebar.add_section("dev", "Dispositivos", "sidebar_devices")
         self._sidebar.add_item("dev", "devices_page", "Michi Sync Suite",
                                 "sidebar_devices")
+
+        # Sync peers (discovered on network)
+        if sync_peers:
+            for peer in sync_peers:
+                device_id = peer.get("device_id", "")
+                alias = peer.get("alias", "Dispositivo")
+                device_type = peer.get("device_type", "")
+                label = alias
+                if device_type:
+                    label = f"{alias} · {device_type}"
+                key = f"dev:sync:{device_id}" if device_id else f"dev:sync:{alias}"
+                self._sidebar.add_item("dev", key, label, "sidebar_devices")
+
+        # Mounted filesystem devices
         for d in get_mounted_devices():
             self._sidebar.add_item("dev", f"dev:{d['mount']}", d['name'],
                                     "sidebar_devices")
