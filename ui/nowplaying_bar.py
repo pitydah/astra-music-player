@@ -1,7 +1,7 @@
 """NowPlayingBar — bottom bar with cover, info, seek, controls, volume."""
 
 
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import Qt, Signal, QSize, QRectF
 from PySide6.QtGui import QIcon, QPixmap, QColor, QPainter, QPainterPath, QLinearGradient, QRadialGradient, QPen
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
@@ -380,13 +380,12 @@ class NowPlayingBar(QWidget):
             "color: rgba(255,255,255,0.86); font-size: 10px; font-weight: 600;")
         self._time_lbl.setFixedWidth(32)
 
-        self._seek = ClickableSlider(Qt.Horizontal)
+        self._seek = PremiumSlider(Qt.Horizontal)
         self._seek.setObjectName("seekSlider")
         self._seek.setRange(0, 1000)
         self._seek.setMinimumWidth(150)
         self._seek.setFixedHeight(28)
         self._seek.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self._seek.setStyleSheet(SEEK_STYLESHEET)
         self._seek.sliderPressed.connect(lambda: setattr(self, '_seeking', True))
         self._seek.sliderReleased.connect(self._on_seek_end)
         self._seek.sliderMoved.connect(self._on_seek_drag)
@@ -457,13 +456,12 @@ class NowPlayingBar(QWidget):
         # Widgets
         self._vol_btn = _make_btn("warm_vol_high", 22, 38)
 
-        self._vol = ClickableSlider(Qt.Horizontal)
+        self._vol = PremiumSlider(Qt.Horizontal)
         self._vol.setObjectName("volumeSlider")
         self._vol.setRange(0, 100)
         self._vol.setValue(70)
         self._vol.setFixedWidth(80)
         self._vol.setFixedHeight(28)
-        self._vol.setStyleSheet(SEEK_STYLESHEET)
         self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
 
         self._eq_btn = _make_btn("warm_eq", 26, 44)
@@ -592,13 +590,16 @@ class NowPlayingBar(QWidget):
     def set_position(self, seconds: float):
         if self._seeking or self._duration <= 0:
             return
-        self._time_lbl.setText(_fmt(seconds))
-        self._seek.setValue(int(seconds / self._duration * 1000))
+        safe_seconds = max(0.0, min(float(seconds), self._duration))
+        self._time_lbl.setText(_fmt(safe_seconds))
+        value = int((safe_seconds / self._duration) * 1000)
+        self._seek.setValue(max(0, min(1000, value)))
 
     def set_duration(self, seconds: float):
-        self._duration = seconds
-        self._dur_lbl.setText(_fmt(seconds))
+        self._duration = max(0.0, float(seconds or 0))
+        self._dur_lbl.setText(_fmt(self._duration))
         if self._duration <= 0:
+            self._time_lbl.setText("0:00")
             self._seek.setValue(0)
 
     def resizeEvent(self, event):
@@ -778,20 +779,134 @@ class NowPlayingBar(QWidget):
         event.ignore()
 
 
-class ClickableSlider(QSlider):
-    """Slider that jumps to clicked position instantly."""
+class PremiumSlider(QSlider):
+    """Premium horizontal slider painted via QPainter — clean capsule + circular thumb."""
     seek_clicked = Signal(int)
+
+    def __init__(self, orientation=Qt.Horizontal, parent=None):
+        super().__init__(orientation, parent)
+        self._hovered = False
+        self._pressed = False
+        self.setMouseTracking(True)
+
+    # ── QPainter paintEvent ──
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        w = float(self.width())
+        h = float(self.height())
+
+        track_h = 4.0
+        track_r = track_h / 2.0
+        thumb_d = 12.0
+        thumb_r = thumb_d / 2.0
+        margin = thumb_r + 1.0
+
+        track_x = margin
+        track_w = max(1.0, w - margin * 2)
+        track_y = (h - track_h) / 2.0
+        track_rect = QRectF(track_x, track_y, track_w, track_h)
+
+        mn = self.minimum()
+        mx = self.maximum()
+        val = self.value()
+        ratio = (val - mn) / max(1, (mx - mn))
+        ratio = max(0.0, min(1.0, ratio))
+        progress_w = track_w * ratio
+
+        # Inactive track
+        painter.setPen(Qt.NoPen)
+        if self.isEnabled():
+            painter.setBrush(QColor("#303642"))
+        else:
+            painter.setBrush(QColor("#2A2D34"))
+        painter.drawRoundedRect(track_rect, track_r, track_r)
+
+        # Active progress
+        if progress_w > 0 and self.isEnabled():
+            progress_rect = QRectF(track_x, track_y, progress_w, track_h)
+            gradient = QLinearGradient(progress_rect.left(), 0, progress_rect.right(), 0)
+            gradient.setColorAt(0.0, QColor("#FF7A00"))
+            gradient.setColorAt(0.35, QColor("#FF4A2D"))
+            gradient.setColorAt(0.68, QColor("#F21B5B"))
+            gradient.setColorAt(1.0, QColor("#9F0C80"))
+            painter.setBrush(gradient)
+            painter.setPen(Qt.NoPen)
+            if ratio >= 0.98:
+                painter.drawRoundedRect(track_rect, track_r, track_r)
+            else:
+                painter.drawRoundedRect(progress_rect, track_r, track_r)
+        elif progress_w > 0:
+            progress_rect = QRectF(track_x, track_y, progress_w, track_h)
+            painter.setBrush(QColor("#525866"))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(progress_rect, track_r, track_r)
+
+        # Capsule border
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(QPen(QColor(255, 255, 255, 20), 1.0))
+        painter.drawRoundedRect(track_rect, track_r, track_r)
+
+        # Thumb
+        thumb_x = track_x + progress_w
+        thumb_y = h / 2.0
+        thumb_rect = QRectF(thumb_x - thumb_r, thumb_y - thumb_r, thumb_d, thumb_d)
+
+        if not self.isEnabled():
+            fill = QColor("#525866")
+            bd = QColor("#747986")
+        elif self._pressed:
+            fill = QColor("#F21B5B")
+            bd = QColor("#F5F5F7")
+        elif self._hovered:
+            fill = QColor("#FF4A2D")
+            bd = QColor("#F5F5F7")
+        else:
+            fill = QColor("#F92141")
+            bd = QColor("#F5F5F7")
+
+        painter.setPen(QPen(bd, 2.0))
+        painter.setBrush(fill)
+        painter.drawEllipse(thumb_rect)
+
+        painter.end()
+
+    # ── Interaction ──
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.update()
+        super().leaveEvent(event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton and self.orientation() == Qt.Horizontal:
+            self._pressed = True
             x = event.position().x() if hasattr(event, "position") else event.x()
-            ratio = max(0.0, min(1.0, x / max(1, self.width())))
+            w = float(self.width())
+            thumb_r = 7.0
+            margin = thumb_r + 1.0
+            track_x = margin
+            track_w = max(1.0, w - margin * 2)
+            ratio = (x - track_x) / track_w
+            ratio = max(0.0, min(1.0, ratio))
             value = self.minimum() + int(ratio * (self.maximum() - self.minimum()))
             self.setValue(value)
             self.seek_clicked.emit(value)
             event.accept()
             return
         super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._pressed = False
+        self.update()
+        super().mouseReleaseEvent(event)
 
 
 def _fmt(t: float) -> str:
