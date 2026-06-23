@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel,
-    QFrame, QScrollArea, QPushButton,
+    QFrame, QScrollArea, QPushButton, QProgressBar,
 )
 
 from ui.central.central_styles import glass_card_qss, glass_button_qss
@@ -54,11 +54,14 @@ class ConnectionsHubPage(QWidget):
             sc_layout.setContentsMargins(20, 16, 20, 16)
             sc_layout.setSpacing(8)
 
+            srv_title = QLabel(f"Servidores guardados ({len(servers)})")
+            srv_title.setStyleSheet("QLabel { color: rgba(255,255,255,0.72); font-size: 13px; font-weight: 600; }")
+            sc_layout.addWidget(srv_title)
+
             for srv in servers:
-                srv_label = QLabel(f"{srv.get('name', 'Servidor')} ({srv.get('stype', 'navidrome')})")
+                srv_label = QLabel(f"  {srv.get('name', 'Servidor')} — {srv.get('stype', 'navidrome')} ({srv.get('url', '')})")
                 srv_label.setStyleSheet(
-                    "QLabel { color: rgba(143,183,255,0.72); font-size: 13px; "
-                    "background: transparent; border: none; }"
+                    "QLabel { color: rgba(143,183,255,0.62); font-size: 12px; }"
                 )
                 sc_layout.addWidget(srv_label)
 
@@ -67,6 +70,40 @@ class ConnectionsHubPage(QWidget):
                 "border-radius: 12px; }"
             )
             content_layout.addWidget(server_card)
+
+        discover_card = QFrame()
+        discover_card.setObjectName("connectionsCard_discover")
+        dc_layout = QVBoxLayout(discover_card)
+        dc_layout.setContentsMargins(20, 16, 20, 16)
+        dc_layout.setSpacing(8)
+
+        dc_title = QLabel("Buscar servidores en la red")
+        dc_title.setStyleSheet("QLabel { color: rgba(255,255,255,0.78); font-size: 13px; font-weight: 600; }")
+        dc_layout.addWidget(dc_title)
+
+        btn_row = QVBoxLayout()
+        self._scan_btn = QPushButton("Escanear red local")
+        self._scan_btn.setCursor(Qt.PointingHandCursor)
+        self._scan_btn.clicked.connect(self._on_scan_network)
+        btn_row.addWidget(self._scan_btn)
+
+        self._scan_progress = QProgressBar()
+        self._scan_progress.setRange(0, 0)
+        self._scan_progress.setVisible(False)
+        btn_row.addWidget(self._scan_progress)
+
+        self._scan_results = QLabel("")
+        self._scan_results.setWordWrap(True)
+        self._scan_results.setStyleSheet("QLabel { color: rgba(143,183,255,0.52); font-size: 11px; }")
+        self._scan_results.setVisible(False)
+        btn_row.addWidget(self._scan_results)
+
+        dc_layout.addLayout(btn_row)
+        discover_card.setStyleSheet(
+            "QFrame { background: rgba(255,255,255,0.020); border: 1px solid rgba(255,255,255,0.04); "
+            "border-radius: 12px; }"
+        )
+        content_layout.addWidget(discover_card)
 
         actions = [
             ("add_server", "Añadir servidor musical",
@@ -85,6 +122,36 @@ class ConnectionsHubPage(QWidget):
         layout.addWidget(scroll)
 
         self._apply_qss()
+
+    def _on_scan_network(self):
+        self._scan_btn.setEnabled(False)
+        self._scan_progress.setVisible(True)
+        self._scan_results.setVisible(True)
+        self._scan_results.setText("Escaneando red local...")
+
+        class ScanWorker(QThread):
+            finished = Signal(list)
+            def run(self):
+                from integrations.connections.discovery_manager import DiscoveryManager
+                mgr = DiscoveryManager(timeout=0.5)
+                results = mgr.scan_known_ports()
+                classified = [mgr.build_discovered_server(r) for r in results]
+                self.finished.emit(classified)
+
+        self._worker = ScanWorker(self)
+        self._worker.finished.connect(self._on_scan_done)
+        self._worker.start()
+
+    def _on_scan_done(self, results: list):
+        self._scan_btn.setEnabled(True)
+        self._scan_progress.setVisible(False)
+        if not results:
+            self._scan_results.setText("No se encontraron servidores en la red local.")
+        else:
+            lines = ["Servidores detectados:"]
+            for s in results[:10]:
+                lines.append(f"  {s.server_type}: {s.host}:{s.port} ({s.discovered_by})")
+            self._scan_results.setText("\n".join(lines))
 
     def _get_servers(self) -> list:
         try:
