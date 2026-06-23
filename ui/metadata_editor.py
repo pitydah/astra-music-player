@@ -117,6 +117,7 @@ class MetadataEditorWidget(QWidget):
             ("Renombrar", self._show_rename_dialog),
             ("Deshacer", self._revert_all),
             ("Guardar", self._save_all),
+            ("Smart Tag", self._toggle_smart_tagging),
         ]:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
@@ -156,6 +157,34 @@ class MetadataEditorWidget(QWidget):
         main.setSpacing(16)
         main.addWidget(header)
         main.addWidget(self._splitter)
+
+        # ── Smart Tagging + Library Doctor tools ──
+        from ui.audio_lab.smart_tagging_panel import SmartTaggingPanel
+        from ui.audio_lab.library_doctor_panel import LibraryDoctorPanel
+        from ui.audio_lab.services.smart_tagging_service import SmartTaggingService
+        self._st_service = SmartTaggingService()
+        self._st_panel = SmartTaggingPanel()
+        self._st_panel.suggestions_accepted.connect(self._on_st_suggestions_accepted)
+        self._doctor_panel = LibraryDoctorPanel()
+        self._doctor_panel.scan_requested.connect(self._on_scan_library)
+        self._tools_tabs = QTabWidget()
+        self._tools_tabs.setObjectName("metadataEditorTools")
+        self._tools_tabs.addTab(self._st_panel, "Smart Tagging")
+        self._tools_tabs.addTab(self._doctor_panel, "Library Doctor")
+        self._tools_tabs.setVisible(False)
+        self._tools_tabs.setStyleSheet("""
+            QTabWidget#metadataEditorTools::pane { border: none; background: transparent; }
+            QTabBar::tab {
+                background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);
+                border-radius: 8px; padding: 6px 16px; color: rgba(255,255,255,0.52);
+                font-size: 12px; margin-right: 4px;
+            }
+            QTabBar::tab:selected {
+                background: rgba(143,183,255,0.08); border: 1px solid rgba(143,183,255,0.12);
+                color: rgba(143,183,255,0.85);
+            }
+        """)
+        main.addWidget(self._tools_tabs)
 
         self._rebuild_navigator()
         self._show_empty_dashboard()
@@ -1024,7 +1053,91 @@ class MetadataEditorWidget(QWidget):
             elif os.path.isdir(p):
                 for root, _, fnames in os.walk(p):
                     for fn in fnames:
-                        if os.path.splitext(fn)[1].lower() in AUDIO_EXTS:
+                         if os.path.splitext(fn)[1].lower() in AUDIO_EXTS:
                             paths.append(os.path.join(root, fn))
         if paths:
             self.load_files(paths)
+
+    # ═══════════════════════════════════════════════════════
+    # Smart Tagging + Library Doctor
+    # ═══════════════════════════════════════════════════════
+
+    def _toggle_smart_tagging(self):
+        visible = not self._tools_tabs.isVisible()
+        self._tools_tabs.setVisible(visible)
+        if visible and self._tags:
+            self._tools_tabs.setCurrentIndex(0)
+            self._st_panel.set_loading(True)
+            self._run_smart_tagging()
+
+    def _run_smart_tagging(self):
+        suggestions = []
+        try:
+            if self._tags:
+                tags = self._tags[0]
+                artist = getattr(tags, 'artist', '') or ''
+                title = getattr(tags, 'title', '') or ''
+                album = getattr(tags, 'album', '') or ''
+                genre = getattr(tags, 'genre', '') or ''
+
+                if title:
+                    track = type('Track', (), {
+                        'title': title, 'artist': artist,
+                        'album': album, 'genre': genre,
+                        'track_number': getattr(tags, 'tracknumber', '') or '',
+                        'duration': getattr(tags, 'duration', 0) or 0,
+                    })()
+                    suggestions.extend(self._st_service.suggest_for_track(track))
+                if album:
+                    suggestions.extend(self._st_service.suggest_for_album(artist, album))
+                if artist:
+                    norm = self._st_service.normalize_artist_name(artist)
+                    if norm.confidence > 0:
+                        suggestions.append(norm)
+                if genre:
+                    genre_sug = self._st_service.suggest_genre(tags)
+                    if genre_sug.confidence > 0:
+                        suggestions.append(genre_sug)
+        except Exception:
+            import logging
+            logging.getLogger("michi").warning("Smart tagging failed", exc_info=True)
+
+        self._st_panel.set_loading(False)
+        self._st_panel.set_suggestions(suggestions)
+
+    def _on_st_suggestions_accepted(self, suggestions):
+        import contextlib
+        if not self._tags:
+            return
+        for sug in suggestions:
+            if not sug.apply or not sug.suggested:
+                continue
+            field = sug.field
+            value = sug.suggested
+            field_map = {"album": "album", "year": "date", "mb_album_id": "musicbrainz_albumid", "cover_url": ""}
+            tag_field = field_map.get(field, field)
+            if not tag_field:
+                continue
+            for tags in self._tags:
+                with contextlib.suppress(Exception):
+                    tags.set_field(tag_field, value)
+        if hasattr(self, '_rebuild_after_load'):
+            self._rebuild_after_load()
+        self._tools_tabs.setVisible(False)
+
+    def _on_scan_library(self):
+        self._doctor_panel.set_loading(True)
+        try:
+            from ui.audio_lab.services.library_doctor import LibraryDoctor
+            from library.library_db import LibraryDB
+            db = LibraryDB()
+            doctor = LibraryDoctor(db)
+            scan = doctor.scan_all()
+            repair = doctor.generate_repair_plan()
+        except Exception:
+            import logging
+            logging.getLogger("michi").warning("Library Doctor failed", exc_info=True)
+            scan = {}
+            repair = {"total_issues": 0, "fixable": 0, "suggestions": []}
+        self._doctor_panel.set_loading(False)
+        self._doctor_panel.show_results(scan, repair)

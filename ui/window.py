@@ -138,10 +138,6 @@ SECTION_CONFIG = {
                         "subtitle": "Importa, corrige y enriquece tu coleccion",
                         "icon": "sidebar_mix", "views": [],
                         "search": False, "default": None},
-    "metadata_studio": {"title": "Metadata Studio",
-                        "subtitle": "Editor de metadatos y organizacion",
-                        "icon": "metadata_editor", "views": [],
-                        "search": False, "default": None},
     "michi_disc_lab": {"title": "Michi Disc Lab",
                        "subtitle": "Importacion Hi-Fi y ripeo seguro de CDs",
                        "icon": "sidebar_mix", "views": [],
@@ -189,7 +185,7 @@ NAV_ROUTES = {
     "assistant": "_show_assistant",
     "metadata_review": "_show_metadata_review",
     "audio_lab": "_show_audio_lab",
-    "metadata_studio": "_show_metadata_studio",
+    "metadata_studio": "_show_metadata_editor",
     "michi_disc_lab": "_show_michi_disc_lab",
 }
 
@@ -287,7 +283,6 @@ class MainWindow(QMainWindow):
         self._metadata_review_ctrl = None
         self._album_repo = None
         self._audio_lab_page = None
-        self._metadata_studio_page = None
         self._michi_disc_lab_page = None
 
     def _init_core(self):
@@ -1610,14 +1605,6 @@ class MainWindow(QMainWindow):
             self._views.register("audio_lab", self._audio_lab_page)
         self._fade_content("audio_lab")
 
-    def _show_metadata_studio(self, key=None):
-        if self._metadata_studio_page is None:
-            from ui.audio_lab.metadata_studio_page import MetadataStudioPage
-            self._metadata_studio_page = MetadataStudioPage(self._metadata_editor)
-        if not self._views.widget("metadata_studio"):
-            self._views.register("metadata_studio", self._metadata_studio_page)
-        self._fade_content("metadata_studio")
-
     def _show_michi_disc_lab(self, key=None):
         if self._michi_disc_lab_page is None:
             from ui.audio_lab.michi_disc_lab_page import MichiDiscLabPage
@@ -1988,7 +1975,6 @@ class MainWindow(QMainWindow):
             "assistant": "",
             "metadata_review": "",
             "audio_lab": "",
-            "metadata_studio": "",
             "michi_disc_lab": "",
         }
         self._search.setPlaceholderText(searchers.get(section_key, "Buscar..."))

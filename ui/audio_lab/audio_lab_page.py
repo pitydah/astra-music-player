@@ -52,7 +52,7 @@ class AudioLabPage(QWidget):
         cards_layout.setSpacing(20)
 
         metadata_card = self._build_card(
-            "metadata_studio", "Metadata Studio",
+            "metadata_editor", "Metadata Studio",
             "Edita metadatos, caratulas, artistas, albumes y organiza "
             "tu biblioteca con asistencia inteligente.",
             "Abrir Metadata Studio",
