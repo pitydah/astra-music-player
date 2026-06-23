@@ -12,11 +12,35 @@ from ui.central.central_styles import glass_card_qss, glass_button_qss
 
 
 class HomePage(QWidget):
-    def __init__(self, db=None, parent: QWidget | None = None):
+    def __init__(self, db=None, playback=None, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("homePage")
         self._db = db
+        self._playback = playback
         self._build_ui()
+
+    def _get_home_stats(self) -> dict:
+        stats = {"total_songs": 0, "total_artists": 0, "total_albums": 0}
+        try:
+            if self._db and hasattr(self._db, "get_stats"):
+                st = self._db.get_stats()
+                stats["total_songs"] = st.get("total", 0)
+            if self._db and hasattr(self._db, "get_all"):
+                items = self._db.get_all() or []
+                artists = set()
+                albums = set()
+                for item in items:
+                    a = str(getattr(item, "artist", "") or "").strip().lower()
+                    al = str(getattr(item, "album", "") or "").strip().lower()
+                    if a:
+                        artists.add(a)
+                    if al:
+                        albums.add(al)
+                stats["total_artists"] = len(artists)
+                stats["total_albums"] = len(albums)
+        except Exception:
+            pass
+        return stats
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -38,8 +62,10 @@ class HomePage(QWidget):
         title.setObjectName("homeTitle")
         content_layout.addWidget(title)
 
+        stats = self._get_home_stats()
         subtitle = QLabel(
-            "Tu musica, tus dispositivos y tus servidores en un solo lugar."
+            f"Tu musica, tus dispositivos y tus servidores en un solo lugar. "
+            f"{stats.get('total_songs', 0):,} canciones en tu biblioteca."
         )
         subtitle.setObjectName("homeSubtitle")
         subtitle.setWordWrap(True)

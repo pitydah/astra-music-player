@@ -1,4 +1,4 @@
-"""PlaybackHubPage — current queue, history, favorites, radio, and lyrics."""
+"""PlaybackHubPage — real queue, history, favorites, radio, lyrics."""
 
 from __future__ import annotations
 
@@ -12,9 +12,11 @@ from ui.central.central_styles import glass_card_qss, glass_button_qss
 
 
 class PlaybackHubPage(QWidget):
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, db=None, playback=None, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("playbackHubPage")
+        self._db = db
+        self._playback = playback
         self._build_ui()
 
     def _build_ui(self):
@@ -37,15 +39,17 @@ class PlaybackHubPage(QWidget):
         title.setObjectName("playbackHubTitle")
         content_layout.addWidget(title)
 
+        stats = self._get_stats()
         subtitle = QLabel(
-            "Cola actual, historial de reproduccion, favoritos, radio y letras."
+            f"Cola actual, historial, favoritos ({stats.get('fav_count', 0)}), "
+            f"radio y letras."
         )
         subtitle.setObjectName("playbackHubSubtitle")
         subtitle.setWordWrap(True)
         content_layout.addWidget(subtitle)
 
         actions = [
-            ("favs", "Favoritos", "Canciones marcadas como favoritas en tu coleccion."),
+            ("favs", "Favoritos", f"{stats.get('fav_count', 0)} canciones marcadas como favoritas."),
             ("recent", "Historial", "Canciones reproducidas recientemente."),
             ("radio", "Radio / Flow", "Emisoras de radio por URL y estaciones guardadas."),
         ]
@@ -60,6 +64,16 @@ class PlaybackHubPage(QWidget):
         layout.addWidget(scroll)
 
         self._apply_qss()
+
+    def _get_stats(self) -> dict:
+        stats = {"fav_count": 0}
+        try:
+            if self._db and hasattr(self._db, "get_favorites"):
+                favs = self._db.get_favorites() or []
+                stats["fav_count"] = len(favs)
+        except Exception:
+            pass
+        return stats
 
     def _build_card(self, key: str, title: str, description: str) -> QFrame:
         card = QFrame()

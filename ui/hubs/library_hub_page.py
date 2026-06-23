@@ -1,4 +1,4 @@
-"""LibraryHubPage — music library hub with tabs for songs, albums, artists, genres, folders."""
+"""LibraryHubPage — music library hub with real data and navigation to existing views."""
 
 from __future__ import annotations
 
@@ -12,9 +12,10 @@ from ui.central.central_styles import glass_card_qss, glass_button_qss
 
 
 class LibraryHubPage(QWidget):
-    def __init__(self, window=None, parent: QWidget | None = None):
+    def __init__(self, db=None, window=None, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("libraryHubPage")
+        self._db = db
         self._win = window
         self._build_ui()
 
@@ -32,7 +33,9 @@ class LibraryHubPage(QWidget):
         title.setObjectName("libraryHubTitle")
         header_layout.addWidget(title)
 
-        subtitle = QLabel("Musica local, servidores remotos y archivos disponibles offline.")
+        subtitle = QLabel(
+            "Musica local, archivos disponibles y estadisticas de tu coleccion."
+        )
         subtitle.setObjectName("libraryHubSubtitle")
         subtitle.setWordWrap(True)
         header_layout.addWidget(subtitle)
@@ -43,26 +46,76 @@ class LibraryHubPage(QWidget):
         self._tabs.setObjectName("libraryHubTabs")
 
         tabs_data = [
-            ("canciones", "Canciones", "Toda tu musica local en una tabla"),
-            ("albums", "Albumes", "Caratulas y navegacion visual"),
-            ("artists", "Artistas", "Explora por artista y album"),
-            ("genres", "Generos", "Atlas de estilos musicales"),
-            ("folders", "Carpetas", "Explorador musical local"),
+            ("canciones", "Canciones", "library", "Toda tu musica local en una tabla con busqueda y filtros."),
+            ("albums", "Albumes", "albums", "Caratulas y navegacion visual por album."),
+            ("artists", "Artistas", "artists", "Explora tu biblioteca por artista y sus albumes."),
+            ("genres", "Generos", "genres", "Atlas de estilos y familias musicales."),
+            ("folders", "Carpetas", "folders", "Explorador de archivos por carpeta en tu disco."),
         ]
 
-        for key, label, desc in tabs_data:
-            tab = self._build_tab_placeholder(key, label, desc)
+        stats = self._get_stats()
+        for key, label, nav_key, desc in tabs_data:
+            tab = self._build_tab(key, label, nav_key, desc, stats)
             self._tabs.addTab(tab, label)
 
         layout.addWidget(self._tabs, 1)
 
         self._apply_qss()
 
-    def _build_tab_placeholder(self, key: str, label: str, desc: str) -> QWidget:
+    def _get_stats(self) -> dict:
+        stats = {"total_songs": 0, "total_artists": 0, "total_albums": 0}
+        try:
+            if self._db and hasattr(self._db, "get_stats"):
+                st = self._db.get_stats()
+                stats["total_songs"] = st.get("total", 0)
+            if self._db and hasattr(self._db, "get_all"):
+                items = self._db.get_all() or []
+                artists = set()
+                albums = set()
+                for item in items:
+                    a = str(getattr(item, "artist", "") or "").strip().lower()
+                    al = str(getattr(item, "album", "") or "").strip().lower()
+                    if a:
+                        artists.add(a)
+                    if al:
+                        albums.add(al)
+                stats["total_artists"] = len(artists)
+                stats["total_albums"] = len(albums)
+        except Exception:
+            pass
+        return stats
+
+    def _build_tab(self, key: str, label: str, nav_key: str,
+                   desc: str, stats: dict) -> QWidget:
         w = QWidget()
         w_layout = QVBoxLayout(w)
         w_layout.setContentsMargins(20, 20, 20, 20)
-        w_layout.setSpacing(12)
+        w_layout.setSpacing(16)
+
+        stats_card = QFrame()
+        stats_card.setObjectName(f"libStats_{key}")
+        sc_layout = QVBoxLayout(stats_card)
+        sc_layout.setContentsMargins(20, 16, 20, 16)
+        sc_layout.setSpacing(8)
+
+        if key == "canciones":
+            sc_label = QLabel(f"{stats.get('total_songs', 0):,} canciones en tu biblioteca")
+        elif key == "artists":
+            sc_label = QLabel(f"{stats.get('total_artists', 0):,} artistas")
+        elif key == "albums":
+            sc_label = QLabel(f"{stats.get('total_albums', 0):,} albumes")
+        else:
+            sc_label = QLabel("Explora tu coleccion")
+        sc_label.setStyleSheet(
+            "QLabel { color: rgba(143,183,255,0.78); font-size: 14px; font-weight: 600; "
+            "background: transparent; border: none; }"
+        )
+        sc_layout.addWidget(sc_label)
+        stats_card.setStyleSheet(
+            "QFrame { background: rgba(143,183,255,0.04); border: 1px solid rgba(143,183,255,0.08); "
+            "border-radius: 12px; }"
+        )
+        w_layout.addWidget(stats_card)
 
         card = QFrame()
         card.setObjectName(f"libTabCard_{key}")
@@ -80,14 +133,14 @@ class LibraryHubPage(QWidget):
         c_desc = QLabel(desc)
         c_desc.setWordWrap(True)
         c_desc.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.52); font-size: 12px; "
+            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px; "
             "background: transparent; border: none; }"
         )
         c_layout.addWidget(c_desc)
 
         btn = QPushButton(f"Abrir {label}")
         btn.setCursor(Qt.PointingHandCursor)
-        btn.clicked.connect(lambda checked=None, k=key: self._navigate(k))
+        btn.clicked.connect(lambda checked=None, k=nav_key: self._navigate(k))
         c_layout.addWidget(btn)
 
         card.setStyleSheet(glass_card_qss(f"libTabCard_{key}"))
@@ -98,7 +151,7 @@ class LibraryHubPage(QWidget):
         return w
 
     def _navigate(self, target: str):
-        w = self.window()
+        w = self._win or self.window()
         if w and hasattr(w, '_on_sidebar_navigate'):
             w._on_sidebar_navigate(target)
 

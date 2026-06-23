@@ -1652,7 +1652,7 @@ class MainWindow(QMainWindow):
     def _show_home_page(self, key=None):
         if self._home_page is None:
             from ui.hubs.home_page import HomePage
-            self._home_page = HomePage(db=self._db)
+            self._home_page = HomePage(db=self._db, playback=self._playback)
         if not self._views.widget("home"):
             self._views.register("home", self._home_page)
         self._fade_content("home")
@@ -1660,7 +1660,9 @@ class MainWindow(QMainWindow):
     def _show_library_hub_page(self, key=None):
         if self._library_hub_page is None:
             from ui.hubs.library_hub_page import LibraryHubPage
-            self._library_hub_page = LibraryHubPage(window=self)
+            self._library_hub_page = LibraryHubPage(db=self._db, window=self)
+        if not self._views.widget("library_hub"):
+            self._views.register("library_hub", self._library_hub_page)
         if not self._views.widget("library_hub"):
             self._views.register("library_hub", self._library_hub_page)
         self._fade_content("library_hub")
@@ -1676,7 +1678,7 @@ class MainWindow(QMainWindow):
     def _show_playback_hub_page(self, key=None):
         if self._playback_hub_page is None:
             from ui.hubs.playback_hub_page import PlaybackHubPage
-            self._playback_hub_page = PlaybackHubPage()
+            self._playback_hub_page = PlaybackHubPage(db=self._db, playback=self._playback)
         if not self._views.widget("playback_hub"):
             self._views.register("playback_hub", self._playback_hub_page)
         self._fade_content("playback_hub")
