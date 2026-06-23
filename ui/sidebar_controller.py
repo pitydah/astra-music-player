@@ -2,6 +2,7 @@
 
 from PySide6.QtCore import QObject, Signal
 
+from library.library_db import get_mounted_devices
 
 
 class SidebarController(QObject):
@@ -26,8 +27,15 @@ class SidebarController(QObject):
         self._sidebar.add_item("hub", "mix_hub", "Mix", "sidebar_mix")
         self._sidebar.add_item("hub", "playback_hub", "Reproduccion", "warm_play")
         self._sidebar.add_item("hub", "connections_hub", "Conexiones", "sidebar_servers")
+        self._sidebar.add_item("hub", "radio", "Radio", "sidebar_radio")
         self._sidebar.add_item("hub", "audio_lab", "Audio Lab", "sidebar_mix")
         self._sidebar.add_item("hub", "settings_hub", "Configuracion", "warm_settings")
         self._sidebar.add_item("hub", "home_audio", "Home Audio", "home_audio")
+
+        # ── Dispositivos ──
+        self._sidebar.add_section("dev", "Dispositivos", "sidebar_devices")
+        for d in get_mounted_devices():
+            self._sidebar.add_item("dev", f"dev:{d['mount']}", d['name'],
+                                    "sidebar_devices")
 
         self._sidebar.set_active("home")
