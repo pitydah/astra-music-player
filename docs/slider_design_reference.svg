@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="360" viewBox="0 0 1600 360">
+  <defs>
+    <!-- Playback slider active gradient -->
+    <linearGradient id="playbackActive" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#FF7A00"/>
+      <stop offset="35%"  stop-color="#FF4A2D"/>
+      <stop offset="68%"  stop-color="#F21B5B"/>
+      <stop offset="100%" stop-color="#9F0C80"/>
+    </linearGradient>
+
+    <!-- Volume slider active gradient (same as playback) -->
+    <linearGradient id="volumeActive" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#FF7A00"/>
+      <stop offset="35%"  stop-color="#FF4A2D"/>
+      <stop offset="68%"  stop-color="#F21B5B"/>
+      <stop offset="100%" stop-color="#9F0C80"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="360" fill="#050608"/>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- Slider 1: Playback Progress                              -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Total width: 1300px, centered. X from 150 to 1450 -->
+  <!-- Track height: 5px, Y center at 145 -->
+
+  <!-- Inactive track (full width) -->
+  <rect x="150" y="142.5" width="1300" height="5" rx="2.5" ry="2.5" fill="#303642"/>
+
+  <!-- Active progress: 42% of 1300 = 546px -->
+  <rect x="150" y="142.5" width="546" height="5" rx="2.5" ry="2.5" fill="url(#playbackActive)"/>
+
+  <!-- Thumb at end of active: X = 150 + 546 = 696, Y = 145 -->
+  <!-- 12px diameter circle -->
+  <circle cx="696" cy="145" r="6" fill="#F92141" stroke="#F5F5F7" stroke-width="2"/>
+
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- Slider 2: Volume                                         -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Total width: 240px, centered. X from 680 to 920 -->
+  <!-- Track height: 5px, Y center at 245 -->
+
+  <!-- Inactive track (full width) -->
+  <rect x="680" y="242.5" width="240" height="5" rx="2.5" ry="2.5" fill="#303642"/>
+
+  <!-- Active volume: 55% of 240 = 132px -->
+  <rect x="680" y="242.5" width="132" height="5" rx="2.5" ry="2.5" fill="url(#volumeActive)"/>
+
+  <!-- Thumb at end of active: X = 680 + 132 = 812, Y = 245 -->
+  <!-- 12px diameter circle -->
+  <circle cx="812" cy="245" r="6" fill="#F92141" stroke="#F5F5F7" stroke-width="2"/>
+
+</svg>
