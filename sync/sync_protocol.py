@@ -176,8 +176,18 @@ class AnnounceMessage:
 #  Helpers
 # ═══════════════════════════════════════
 
-def make_track_id(filepath: str) -> str:
-    """Generate stable ID from file path."""
+def make_track_id(filepath: str, track_uid: str = "") -> str:
+    """Generate stable track identity for sync manifests.
+
+    Priority:
+      1. MusicBrainz Track ID from DB (mb:<uuid>) → strip prefix, use UUID
+      2. File-path hash from DB (fp:<sha256_hex16>) → strip prefix, use hash
+      3. Fallback: SHA-256 of filepath, first 16 hex chars
+    """
+    if track_uid and track_uid.startswith("mb:"):
+        return track_uid[3:]
+    if track_uid and track_uid.startswith("fp:"):
+        return track_uid[3:]
     return hashlib.sha256(filepath.encode()).hexdigest()[:16]
 
 

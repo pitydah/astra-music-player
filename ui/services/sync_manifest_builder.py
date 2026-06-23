@@ -75,7 +75,8 @@ class SyncManifestBuilder:
             if not fp or not os.path.isfile(fp):
                 continue
 
-            track_key = make_track_id(fp)
+            tuid = getattr(item, "track_uid", "") if hasattr(item, "track_uid") else ""
+            track_key = make_track_id(fp, tuid)
             size = os.path.getsize(fp)
             title = str(getattr(item, "title", "") or "")
             artist = str(getattr(item, "artist", "") or "")

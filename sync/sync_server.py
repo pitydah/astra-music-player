@@ -115,8 +115,9 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
                 cover_hash = ""
                 if item.album:
                     cover_hash = hashlib.md5(item.album.encode()).hexdigest()
+                tuid = getattr(item, "track_uid", "") if hasattr(item, "track_uid") else ""
                 td = TrackDto(
-                    id=make_track_id(item.filepath),
+                    id=make_track_id(item.filepath, tuid),
                     title=item.title or item.filename,
                     artist=item.artist, album=item.album,
                     duration=int(item.duration), size=item.size,
@@ -233,8 +234,9 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             items = srv._db.search_advanced(query) if hasattr(srv._db, 'search_advanced') else []
             results = []
             for item in items[:50]:
+                tuid = getattr(item, "track_uid", "") if hasattr(item, "track_uid") else ""
                 results.append({
-                    "id": make_track_id(item.filepath),
+                    "id": make_track_id(item.filepath, tuid),
                     "title": item.title or item.filename,
                     "artist": item.artist, "album": item.album,
                     "duration": int(item.duration),
@@ -348,14 +350,16 @@ class SyncServer(QObject):
         self._manifest_provider = provider
 
     def _build_index(self):
-        """Build track_id → filepath lookup."""
+        """Build track_id → filepath lookup (prefers track_uid when available)."""
         if not self._db:
             return
         items = self._db.get_all()
-        self._track_index = {
-            make_track_id(item.filepath): item.filepath
-            for item in items
-        }
+        self._track_index = {}
+        for item in items:
+            fp = item.filepath
+            tuid = getattr(item, "track_uid", "") if hasattr(item, "track_uid") else ""
+            tid = make_track_id(fp, tuid)
+            self._track_index[tid] = fp
 
     def _resolve_track(self, track_id: str) -> str | None:
         if track_id not in self._track_index:
