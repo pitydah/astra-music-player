@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 logger = logging.getLogger("michi.sync.registry")
 
@@ -25,6 +25,10 @@ class PairedDevice:
     last_sync: str = ""
     preferred_profile: str = "original"
     paired_at: str = ""
+    device_model: str = ""
+    client_version: str = ""
+    last_ip: str = ""
+    capabilities: list = field(default_factory=list)
 
 
 class DeviceRegistry:
@@ -51,12 +55,14 @@ class DeviceRegistry:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     def register(self, device_id: str, name: str, host: str = "",
-                 port: int = 53318, device_type: str = "android") -> bool:
+                 port: int = 53318, device_type: str = "android",
+                 device_model: str = "", client_version: str = "") -> bool:
         if device_id in self._devices:
             return False
         d = PairedDevice(
             device_id=device_id, name=name, device_type=device_type,
             host=host, port=port,
+            device_model=device_model, client_version=client_version,
             paired_at=time.strftime("%Y-%m-%dT%H:%M:%S"),
         )
         self._devices[device_id] = d

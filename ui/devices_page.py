@@ -282,11 +282,23 @@ class DevicesPage(QWidget):
         if not self._controller:
             return
         device_id = f"sync_{alias}"
+        device_model = ""
+        device_type = "android"
         if self._sync_mgr:
             info = self._sync_mgr.get_peer_info(alias)
             if info:
-                device_id = info["device_id"]
-        self._controller.pair_device(device_id, alias, host=ip)
+                device_id = info.get("device_id", device_id)
+                device_model = info.get("device_model", "")
+                device_type = info.get("device_type", "android")
+        if device_id == f"sync_{alias}":
+            self._subtitle.setText(
+                "Este dispositivo no entrega ID persistente; "
+                "el emparejamiento puede no ser estable."
+            )
+        self._controller.pair_device(
+            device_id, alias, host=ip,
+            device_type=device_type, device_model=device_model,
+        )
         self._discovered = [d for d in self._discovered
                            if d.get("alias") != alias]
         self._show_discovered()

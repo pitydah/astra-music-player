@@ -70,6 +70,7 @@ class DiscoveryServer(QObject):
             return
 
         last_announce = 0.0
+        last_cleanup = 0.0
 
         while self._running:
             now = time.time()
@@ -78,6 +79,11 @@ class DiscoveryServer(QObject):
             if now - last_announce >= ANNOUNCE_INTERVAL:
                 self._announce()
                 last_announce = now
+
+            # Cleanup stale peers
+            if now - last_cleanup >= self._peer_timeout:
+                self._cleanup_stale()
+                last_cleanup = now
 
             # Listen for peers
             try:

@@ -55,6 +55,11 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
 
     def _check_token(self) -> str | None:
         """Check Authorization header. Returns device_alias or None."""
+        session = self._check_token_session()
+        return session.device_alias if session else None
+
+    def _check_token_session(self) -> "SessionToken | None":
+        """Check Authorization header. Returns full SessionToken or None."""
         auth = self.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
             return None
@@ -65,7 +70,7 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
         session = srv._sessions.get(token)
         if session is None or session.is_expired():
             return None
-        return session.device_alias
+        return session
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -82,7 +87,8 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "version": "1.0"})
 
         elif path == "/api/sync/manifest":
-            if not self._check_token():
+            session = self._check_token_session()
+            if not session:
                 return self._send_error("Unauthorized", 401)
             if srv is None or srv._manifest_provider is None:
                 return self._send_error("Manifest service not available", 503)
@@ -91,6 +97,8 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             device_id = (qs.get("device_id") or [""])[0]
             if not device_id:
                 return self._send_error("Missing device_id parameter", 400)
+            if session.client_device_id and device_id != session.client_device_id:
+                return self._send_error("Forbidden: token does not match device_id", 403)
             manifest = srv._manifest_provider(device_id)
             if manifest is None:
                 return self._send_error("No manifest for this device", 404)
@@ -264,9 +272,14 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
                 req = RegisterRequest.from_json(body)
             except Exception:
                 return self._send_error("Invalid request")
-            token = SessionToken.generate(req.alias)
             client_id = req.client_device_id or f"{req.alias}_{req.device_model or req.device}"
             server_id = make_device_id()
+            token = SessionToken.generate(
+                device_alias=req.alias,
+                client_device_id=client_id,
+                device_type=req.device,
+                device_model=req.device_model,
+            )
             if srv:
                 srv._sessions[token.token] = token
                 library_size = srv._db.get_stats()["total"] if srv._db else 0

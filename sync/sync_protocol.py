@@ -37,15 +37,22 @@ class SessionToken:
     token: str
     created: float = field(default_factory=time.time)
     device_alias: str = ""
+    client_device_id: str = ""
+    device_type: str = ""
+    device_model: str = ""
 
     def is_expired(self, max_age: float = 3600.0) -> bool:
         return (time.time() - self.created) > max_age
 
     @staticmethod
-    def generate(device_alias: str = "") -> "SessionToken":
+    def generate(device_alias: str = "", client_device_id: str = "",
+                 device_type: str = "", device_model: str = "") -> "SessionToken":
         return SessionToken(
             token=secrets.token_hex(32),
             device_alias=device_alias,
+            client_device_id=client_device_id,
+            device_type=device_type,
+            device_model=device_model,
         )
 
 
