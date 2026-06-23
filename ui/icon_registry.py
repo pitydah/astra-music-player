@@ -121,6 +121,10 @@ ICON_REGISTRY: dict[str, IconSpec] = {
         key="metadata_editor", path="icons/sidebar/metadata.svg",
         family="sidebar", symbolic=True, render_mode="native_color",
         description="Editor de metadatos"),
+    "audio_lab": IconSpec(
+        key="audio_lab", path="icons/sidebar_clean/sidebar_mix_24.png",
+        family="sidebar", symbolic=True,
+        description="Audio Lab"),
 
     # ── NowPlaying actions ──
     "warm_play": IconSpec(
