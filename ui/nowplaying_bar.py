@@ -183,6 +183,7 @@ class NowPlayingBar(QWidget):
         self._transmitting = False
         self._transmit_device_name = ""
         self._replaygain = ""
+        self._has_track = False
         self.setObjectName("nowplayingBar")
         self.setFixedHeight(116)
 
@@ -215,13 +216,20 @@ class NowPlayingBar(QWidget):
         left_widget.setFixedHeight(86)
         left_widget.setStyleSheet("""
             QWidget#nowPlayingInfoCard {
-                background: rgba(255,255,255,0.04);
-                border: 1px solid rgba(255,255,255,0.05);
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(255,255,255,0.055),
+                    stop:1 rgba(255,255,255,0.028)
+                );
+                border: 1px solid rgba(255,255,255,0.055);
                 border-radius: 16px;
             }
+            QWidget#nowPlayingInfoCard:hover {
+                border: 1px solid rgba(255,255,255,0.080);
+            }
         """)
-        left_widget.setCursor(Qt.PointingHandCursor)
-        left_widget.setToolTip("Click: detalles del tema · Doble click: vista expandida")
+        left_widget.setCursor(Qt.ArrowCursor)
+        left_widget.setToolTip("Sin pista cargada")
         left_widget.mousePressEvent = self._on_info_card_clicked
         left_widget.mouseDoubleClickEvent = self._on_info_card_double_clicked
 
@@ -252,7 +260,8 @@ class NowPlayingBar(QWidget):
                 margin: 0px;
             }
             QPushButton#coverButton:hover {
-                border: 1px solid rgba(255,255,255,0.22);
+                border: 1px solid rgba(255,255,255,0.20);
+                background: rgba(255,255,255,0.10);
             }
         """)
         self._cover.clicked.connect(self.cover_preview_requested.emit)
@@ -507,6 +516,7 @@ class NowPlayingBar(QWidget):
         self._raw_title = title or "Sin reproducción"
         self._raw_artist = artist or "Añade música"
         self._raw_meta = "Michi Music Player"
+        self._has_track = bool(title and title != "Sin reproducción")
 
         if " · " in self._raw_artist:
             parts = self._raw_artist.split(" · ")
@@ -517,6 +527,7 @@ class NowPlayingBar(QWidget):
         self._title_lbl.setText(self._raw_title)
         self._artist_lbl.setText(self._raw_artist)
         self._meta_lbl.setText(self._raw_meta)
+        self._update_info_card_state()
 
         if cover_path:
             pix = QPixmap(cover_path)
@@ -556,10 +567,13 @@ class NowPlayingBar(QWidget):
 
     def _apply_elide(self):
         """Apply text elision to prevent overflow in the info card."""
-        left_w = 270
-        if hasattr(self, '_info_card'):
-            left_w = self._info_card.width()
-        avail = max(60, left_w - 50)
+        if not hasattr(self, '_info_card'):
+            return
+        card_w = self._info_card.width()
+        cover_w = 64
+        margins = 12 + 14
+        spacing = 14
+        avail = max(90, card_w - margins - cover_w - spacing)
         fm = self._title_lbl.fontMetrics()
         self._title_lbl.setText(
             fm.elidedText(self._raw_title, Qt.ElideRight, avail))
@@ -602,8 +616,19 @@ class NowPlayingBar(QWidget):
             self.set_volume(0)
             self.volume_changed.emit(0)
 
+    def _update_info_card_state(self):
+        if self._has_track:
+            self._info_card.setCursor(Qt.PointingHandCursor)
+            self._info_card.setToolTip(
+                "Click: detalles del tema · Doble click: vista expandida")
+            self._cover.setToolTip("Ver carátula")
+        else:
+            self._info_card.setCursor(Qt.ArrowCursor)
+            self._info_card.setToolTip("Sin pista cargada")
+            self._cover.setToolTip("")
+
     def reset_visual_state(self):
-        """Complete visual reset — no track loaded."""
+        self._has_track = False
         self._raw_title = ""
         self._raw_artist = ""
         self._raw_meta = ""
@@ -623,6 +648,7 @@ class NowPlayingBar(QWidget):
         self._seeking = False
         self._shuffle = False
         self._repeat = "none"
+        self._update_info_card_state()
 
         self._cover.setIcon(QIcon(_placeholder_cover_pixmap(64, 13)))
         self._play_btn.setIcon(QIcon(get_icon("warm_play")))
@@ -761,6 +787,9 @@ class NowPlayingBar(QWidget):
 
 
     def _on_info_card_clicked(self, event):
+        if not self._has_track:
+            event.ignore()
+            return
         if event.button() == Qt.LeftButton:
             self.track_details_requested.emit()
             event.accept()
@@ -768,6 +797,9 @@ class NowPlayingBar(QWidget):
         event.ignore()
 
     def _on_info_card_double_clicked(self, event):
+        if not self._has_track:
+            event.ignore()
+            return
         if event.button() == Qt.LeftButton:
             self.expanded_requested.emit()
             event.accept()
