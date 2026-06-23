@@ -511,6 +511,40 @@ class LibraryDB:
             "SELECT DISTINCT directory FROM media_items ORDER BY directory").fetchall()
         return [r[0] for r in rows]
 
+    # ── Partial metadata updates (for AI-assisted metadata review) ──
+
+    _EDITABLE_FIELDS = frozenset({
+        "title", "artist", "album", "albumartist", "year", "date", "genre",
+        "track_number", "track_total", "disc_number", "disc_total",
+        "composer", "bpm", "isrc", "label", "conductor",
+        "mb_track_id", "mb_album_id", "mb_albumartist_id",
+        "grouping", "mood", "copyright", "originaldate", "remixer", "media_type",
+    })
+
+    def update_media_item_field(self, media_id: int, field: str, value: str) -> bool:
+        if field not in self._EDITABLE_FIELDS:
+            return False
+        if not media_id:
+            return False
+        try:
+            self._conn.execute(
+                f"UPDATE media_items SET {field}=? WHERE id=?",
+                (value, media_id),
+            )
+            self._conn.commit()
+            return True
+        except Exception:
+            return False
+
+    def get_media_item_by_id(self, media_id: int):
+        row = self._conn.execute(
+            "SELECT * FROM media_items WHERE id=?", (media_id,)
+        ).fetchone()
+        if row:
+            from library.media_item import MediaItem
+            return MediaItem.from_row(row)
+        return None
+
     def get_stats(self) -> dict:
         total = self._conn.execute("SELECT COUNT(*) FROM media_items").fetchone()[0]
         audio = self._conn.execute(
@@ -599,6 +633,14 @@ class LibraryDB:
     def update_play_history(self, track_id: str, device: str = "desktop"):
         self._conn.execute(
             "INSERT INTO play_history (track_id, device) VALUES (?,?)", (track_id, device))
+        self._conn.commit()
+
+    def increment_play_count(self, filepath: str):
+        self._conn.execute(
+            "UPDATE media_items SET play_count = play_count + 1, "
+            "last_played = ? WHERE filepath = ?",
+            (__import__("time").time(), filepath),
+        )
         self._conn.commit()
 
     def toggle_favorite(self, track_id: str, device: str = "desktop") -> bool:

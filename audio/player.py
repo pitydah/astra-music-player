@@ -330,6 +330,7 @@ class GStreamerEngine(QObject):
             if self._db and not filepath_or_url.startswith(("http://", "https://", "icy://")):
                 from sync.sync_protocol import make_track_id
                 self._db.update_play_history(make_track_id(filepath_or_url))
+                self._db.increment_play_count(filepath_or_url)
 
         except Exception as e:
             logging.getLogger("michi.player").exception("Playback failed: %s", filepath_or_url)

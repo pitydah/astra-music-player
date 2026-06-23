@@ -123,6 +123,13 @@ SECTION_CONFIG = {
                     "subtitle": "Audio multiroom, parlantes y Home Assistant",
                     "icon": "home_audio", "views": [],
                     "search": False, "default": None},
+    "new_playlist": {"title": "Nueva playlist", "subtitle": "Crear una playlist vacia",
+                     "icon": "sidebar_add", "views": [],
+                     "search": False, "default": None},
+    "assistant":  {"title": "Asistente",
+                    "subtitle": "IA local para explorar tu biblioteca",
+                    "icon": "sidebar_mix", "views": [],
+                    "search": False, "default": None},
 }
 
 
@@ -163,6 +170,7 @@ NAV_ROUTES = {
     "metadata_editor": "_show_metadata_editor",
     "favs": "_show_favs", "recent": "_show_recent",
     "new_playlist": "_show_new_playlist", "add_server": "_show_add_server",
+    "assistant": "_show_assistant",
 }
 
 
@@ -251,6 +259,8 @@ class MainWindow(QMainWindow):
         self._audio_output_ctrl = None
         self._playback_ctrl = None
         self._tray_ctrl = None
+        self._assistant_panel = None
+        self._assistant_ctrl = None
 
     def _init_core(self):
         """DB, player engine, playback service, model, search — must not fail."""
@@ -1490,6 +1500,54 @@ class MainWindow(QMainWindow):
         self._home_audio_view.refresh_if_needed()
         self._fade_content("home_audio")
 
+    def _show_assistant(self, key=None):
+        self._configure_header_for_section("assistant")
+        if self._assistant_panel is None:
+            from ui.ai_assistant_panel import AiAssistantPanel
+            from ui.controllers.ai_assistant_controller import AiAssistantController
+            self._assistant_panel = AiAssistantPanel()
+            self._assistant_ctrl = AiAssistantController(
+                db=self._db, worker_manager=self._workers,
+                playback=self._playback, parent=self,
+            )
+            self._assistant_panel.send_requested.connect(
+                self._assistant_ctrl.send_message,
+            )
+            self._assistant_ctrl.state_changed.connect(
+                self._on_assistant_state,
+            )
+            self._assistant_ctrl.response_received.connect(
+                self._on_assistant_response,
+            )
+            self._assistant_ctrl.navigate_to.connect(
+                self._on_sidebar_navigate,
+            )
+            self._assistant_panel.action_confirmed.connect(
+                self._assistant_ctrl.confirm_action,
+            )
+            self._assistant_panel.action_cancelled.connect(
+                self._assistant_ctrl.cancel_action,
+            )
+            available = self._assistant_ctrl.check_health()
+            self._assistant_panel.set_ollama_status(
+                available, self._assistant_ctrl.model(),
+            )
+        if not self._views.widget("assistant"):
+            self._views.register("assistant", self._assistant_panel)
+        self._fade_content("assistant")
+
+    def _on_assistant_state(self, state: str):
+        self._assistant_panel.set_thinking(state == "thinking")
+
+    def _on_assistant_response(self, response):
+        if isinstance(response, dict):
+            self._assistant_panel.add_response(response)
+            data = response.get("data") if isinstance(response, dict) else None
+            if data and isinstance(data, dict) and data.get("_navigate"):
+                self._on_sidebar_navigate(data["_navigate"])
+        else:
+            self._assistant_panel.add_message_r(str(response))
+
     def _show_new_playlist(self, key):
         self._create_playlist()
 
@@ -1849,6 +1907,7 @@ class MainWindow(QMainWindow):
             "recent": "Buscar recientes...", "mix_unplayed": "Buscar canciones...",
             "discover": "", "identifier": "", "metadata_editor": "",
             "home_audio": "",
+            "assistant": "",
         }
         self._search.setPlaceholderText(searchers.get(section_key, "Buscar..."))
         self._search.setVisible(search)
