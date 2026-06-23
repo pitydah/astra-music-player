@@ -1,29 +1,110 @@
-"""Encoder service — audio format conversion. STUB."""
+"""Encoder service — real audio encoding via flac/lame/ffmpeg QProcess."""
 
 from __future__ import annotations
 
+import logging
+import os
 
-class EncoderService:
+from PySide6.QtCore import QObject, Signal, QProcess
+
+logger = logging.getLogger("michi.audio_lab.encoder")
+
+
+class EncoderService(QObject):
+    encode_finished = Signal(str, str)
+    encode_error = Signal(str, str)
+
+    def __init__(self, parent: QObject | None = None):
+        super().__init__(parent)
+
     def check_available_encoders(self) -> dict[str, bool]:
-        from ui.audio_lab.services.external_tools import tool_available
+        import shutil
         return {
-            "flac": tool_available("flac"),
-            "lame": tool_available("lame"),
-            "opus": tool_available("opusenc"),
-            "ffmpeg": tool_available("ffmpeg"),
+            "flac": shutil.which("flac") is not None,
+            "lame": shutil.which("lame") is not None,
+            "opus": shutil.which("opusenc") is not None,
+            "ffmpeg": shutil.which("ffmpeg") is not None,
         }
 
-    def encode_to_flac(self, input_path: str, output_path: str):
-        pass
+    def encode_to_flac(self, input_path: str, output_path: str,
+                       compression: int = 8):
+        if not os.path.exists(input_path):
+            self.encode_error.emit(input_path, "Archivo de entrada no encontrado.")
+            return
+
+        proc = QProcess(self)
+        proc.finished.connect(
+            lambda ec, es, ip=input_path, op=output_path:
+            self._on_flac_done(ec, es, ip, op)
+        )
+        proc.start("flac", [
+            "--best" if compression >= 8 else f"-{compression}",
+            "-o", output_path, input_path,
+        ])
 
     def encode_to_mp3(self, input_path: str, output_path: str, bitrate: int = 320):
-        pass
+        if not os.path.exists(input_path):
+            self.encode_error.emit(input_path, "Archivo de entrada no encontrado.")
+            return
+
+        proc = QProcess(self)
+        proc.finished.connect(
+            lambda ec, es, ip=input_path, op=output_path:
+            self._on_encode_done(ec, es, ip, op)
+        )
+        proc.start("lame", [
+            "-b", str(bitrate), "--quiet", input_path, output_path,
+        ])
 
     def encode_to_opus(self, input_path: str, output_path: str, bitrate: int = 192):
-        pass
+        if not os.path.exists(input_path):
+            self.encode_error.emit(input_path, "Archivo de entrada no encontrado.")
+            return
+
+        proc = QProcess(self)
+        proc.finished.connect(
+            lambda ec, es, ip=input_path, op=output_path:
+            self._on_encode_done(ec, es, ip, op)
+        )
+        proc.start("opusenc", [
+            "--bitrate", str(bitrate), "--quiet", input_path, output_path,
+        ])
 
     def encode_to_alac(self, input_path: str, output_path: str):
-        pass
+        if not os.path.exists(input_path):
+            self.encode_error.emit(input_path, "Archivo de entrada no encontrado.")
+            return
 
-    def encode_multiple_outputs(self, input_path: str, outputs: list[str]):
-        pass
+        proc = QProcess(self)
+        proc.finished.connect(
+            lambda ec, es, ip=input_path, op=output_path:
+            self._on_encode_done(ec, es, ip, op)
+        )
+        proc.start("ffmpeg", [
+            "-y", "-i", input_path, "-acodec", "alac", output_path,
+        ])
+
+    def encode_multiple_outputs(self, input_path: str, outputs: list[str],
+                                output_dir: str):
+        base = os.path.splitext(os.path.basename(input_path))[0]
+        for fmt in outputs:
+            ext = fmt if fmt != "flac" else "flac"
+            out_path = os.path.join(output_dir, f"{base}.{ext}")
+            if fmt == "flac":
+                self.encode_to_flac(input_path, out_path)
+            elif fmt == "mp3":
+                self.encode_to_mp3(input_path, out_path, 320)
+
+    def _on_flac_done(self, exit_code: int, _exit_status,
+                      input_path: str, output_path: str):
+        if exit_code == 0:
+            self.encode_finished.emit(input_path, output_path)
+        else:
+            self.encode_error.emit(input_path, f"FLAC encoding failed (exit {exit_code})")
+
+    def _on_encode_done(self, exit_code: int, _exit_status,
+                        input_path: str, output_path: str):
+        if exit_code == 0:
+            self.encode_finished.emit(input_path, output_path)
+        else:
+            self.encode_error.emit(input_path, f"Encoding failed (exit {exit_code})")

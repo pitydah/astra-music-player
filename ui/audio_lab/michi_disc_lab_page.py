@@ -1,4 +1,4 @@
-"""MichiDiscLabPage — CD ripping, encoding, and import interface. STUB."""
+"""MichiDiscLabPage — CD ripping, encoding, and import interface with real cdparanoia."""
 
 from __future__ import annotations
 
@@ -6,12 +6,15 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QComboBox, QTableWidget,
-    QHeaderView, QProgressBar,
+    QTableWidgetItem, QHeaderView, QProgressBar,
     QScrollArea, QFileDialog,
 )
 
 from ui.audio_lab.models import RIP_PROFILES, EXTRACTION_MODES
 from ui.audio_lab.services.external_tools import check_all_tools
+from ui.audio_lab.services.disc_detection_service import DiscDetectionService
+from ui.audio_lab.services.rip_job_manager import RipJobManager
+from ui.audio_lab.services.encoder_service import EncoderService
 from ui.central.central_styles import glass_button_qss
 
 
@@ -20,7 +23,13 @@ class MichiDiscLabPage(QWidget):
         super().__init__(parent)
         self.setObjectName("michiDiscLabPage")
         self._tools = check_all_tools()
+        self._detection = DiscDetectionService()
+        self._rip_manager = RipJobManager(self)
+        self._encoder = EncoderService(self)
+        self._current_job_id: str = ""
+        self._destination: str = ""
         self._build_ui()
+        self._wire_signals()
         self._update_diagnostics()
 
     def _build_ui(self):
@@ -60,8 +69,14 @@ class MichiDiscLabPage(QWidget):
 
         scroll.setWidget(content)
         layout.addWidget(scroll)
-
         self._apply_qss()
+
+    def _wire_signals(self):
+        self._rip_manager.track_started.connect(self._on_track_started)
+        self._rip_manager.track_finished.connect(self._on_track_finished)
+        self._rip_manager.progress_changed.connect(self._on_progress)
+        self._rip_manager.job_finished.connect(self._on_job_finished)
+        self._rip_manager.error_occurred.connect(self._on_rip_error)
 
     def _build_drive_panel(self) -> QFrame:
         panel = QFrame()
@@ -85,6 +100,7 @@ class MichiDiscLabPage(QWidget):
         self._analyze_disc_btn.setObjectName("analyzeDiscBtn")
         self._analyze_disc_btn.setCursor(Qt.PointingHandCursor)
         self._analyze_disc_btn.setEnabled(False)
+        self._analyze_disc_btn.clicked.connect(self._on_analyze_disc)
         btn_row.addWidget(self._analyze_disc_btn)
 
         btn_row.addStretch()
@@ -151,6 +167,7 @@ class MichiDiscLabPage(QWidget):
         self._import_btn.setObjectName("importBtn")
         self._import_btn.setCursor(Qt.PointingHandCursor)
         self._import_btn.setEnabled(False)
+        self._import_btn.clicked.connect(self._on_import_disc)
         p_layout.addWidget(self._import_btn)
 
         return panel
@@ -203,18 +220,121 @@ class MichiDiscLabPage(QWidget):
         self._diag_text.setText("\n".join(lines))
 
     def _on_scan_drive(self):
+        drives = self._detection.detect_drives()
+        if drives:
+            self._current_drive = drives[0]
+            self._drive_status.setText(f"Unidad detectada: {self._current_drive}")
+            self._analyze_disc_btn.setEnabled(True)
+        else:
+            self._drive_status.setText(
+                "No se detectaron unidades opticas. "
+                "Conecta una unidad de CD/DVD/Blu-ray."
+            )
+            self._scan_drive_btn.setText("Reintentar")
+            self._analyze_disc_btn.setEnabled(False)
+
+    def _on_analyze_disc(self):
+        drive = getattr(self, '_current_drive', '') or self._detection.get_default_drive()
+        if not drive:
+            self._drive_status.setText("No hay unidad optica seleccionada.")
+            return
+
+        has_cd = self._detection.detect_audio_cd(drive)
+        if not has_cd:
+            self._drive_status.setText(
+                f"No se detecto un CD de audio en {drive}. "
+                "Inserta un disco de musica y reintenta."
+            )
+            self._import_btn.setEnabled(False)
+            self._populate_tracks([])
+            return
+
+        toc = self._detection.get_disc_toc(drive)
         self._drive_status.setText(
-            "No se detectaron unidades opticas. "
-            "Conecta una unidad de CD/DVD/Blu-ray."
+            f"CD de audio detectado: {toc.get('tracks', 0)} pistas, "
+            f"{self._fmt_duration(toc.get('duration_seconds', 0))}"
         )
-        self._scan_drive_btn.setText("Reintentar")
+        self._import_btn.setEnabled(True)
+        self._populate_tracks(toc.get("track_list", []))
+
+    def _populate_tracks(self, track_list: list[dict]):
+        self._track_table.setRowCount(len(track_list))
+        for i, track in enumerate(track_list):
+            self._track_table.setItem(i, 0, QTableWidgetItem(str(track.get("number", i + 1))))
+            self._track_table.setItem(i, 1, QTableWidgetItem(f"Pista {track.get('number', i + 1)}"))
+            self._track_table.setItem(i, 2, QTableWidgetItem("Desconocido"))
+            dur = track.get("duration", 0)
+            m = int(dur // 60)
+            s = int(dur % 60)
+            self._track_table.setItem(i, 3, QTableWidgetItem(f"{m}:{s:02d}"))
+            self._track_table.setItem(i, 4, QTableWidgetItem("Pendiente"))
+
+    def _on_import_disc(self):
+        drive = getattr(self, '_current_drive', '') or self._detection.get_default_drive()
+        if not self._destination:
+            self._drive_status.setText("Selecciona una carpeta de destino primero.")
+            return
+
+        profile_name = self._profile_combo.currentText()
+        mode_value = self._mode_combo.currentData() or "fast"
+
+        job = self._rip_manager.create_job(
+            drive=drive, profile=profile_name,
+            destination=self._destination,
+            extraction_mode=mode_value,
+        )
+        self._current_job_id = job.id
+
+        self._import_btn.setEnabled(False)
+        self._progress.setVisible(True)
+        self._progress_label.setVisible(True)
+        self._progress.setValue(0)
+        self._progress_label.setText("Iniciando ripeo...")
+
+        self._rip_manager.start_job(job.id)
 
     def _on_select_destination(self):
         folder = QFileDialog.getExistingDirectory(
             self, "Seleccionar carpeta de destino",
         )
         if folder:
+            self._destination = folder
             self._dest_btn.setText(folder)
+
+    def _on_track_started(self, job_id: str, track_num: int, total: int):
+        self._progress_label.setText(f"Ripeando pista {track_num} de {total}...")
+        if 0 < track_num <= self._track_table.rowCount():
+            self._track_table.setItem(track_num - 1, 4, QTableWidgetItem("Ripeando..."))
+
+    def _on_track_finished(self, job_id: str, track_num: int, output_path: str):
+        if 0 < track_num <= self._track_table.rowCount():
+            self._track_table.setItem(track_num - 1, 4, QTableWidgetItem("Completado"))
+        self._progress_label.setText(f"Pista {track_num} completada.")
+
+    def _on_progress(self, job_id: str, track_num: int, progress: float, status: str):
+        self._progress.setValue(int(progress * 100))
+        if status == "error":
+            self._progress_label.setText(f"Error en pista {track_num}")
+        elif status == "completed":
+            pass
+
+    def _on_job_finished(self, job_id: str, result: dict):
+        self._progress.setValue(100)
+        self._progress_label.setText(
+            f"Ripeo completado: {result.get('tracks_ripped', 0)} pistas"
+        )
+        self._import_btn.setEnabled(True)
+        self._current_job_id = ""
+
+    def _on_rip_error(self, job_id: str, error: str):
+        self._progress_label.setText(f"Error: {error}")
+        self._import_btn.setEnabled(True)
+
+    @staticmethod
+    def _fmt_duration(seconds: float) -> str:
+        m = int(seconds // 60)
+        s = int(seconds % 60)
+        return f"{m}:{s:02d}"
 
     def _apply_qss(self):
         self.setStyleSheet("""
