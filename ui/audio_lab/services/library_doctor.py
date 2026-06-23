@@ -214,14 +214,14 @@ class LibraryDoctor:
             suggestions.append({
                 "category": "split_albums",
                 "count": issues["split_albums"],
-                "action": "Albumes partidos detectados. Corrige el campo 'album' en Metadata Studio.",
+                "action": "Álbumes partidos detectados. Corrige el campo 'album' en Metadata Studio.",
                 "severity": "low",
             })
         if issues["missing_artwork"]:
             suggestions.append({
                 "category": "missing_artwork",
                 "count": issues["missing_artwork"],
-                "action": "Albumes sin caratula. Usa Smart Tagging para descargar covers.",
+                "action": "Álbumes sin carátula. Usa Smart Tagging para descargar covers.",
                 "severity": "low",
             })
         if issues["possible_duplicates"]:

@@ -22,7 +22,7 @@ from ui.central.central_styles import (
     count_badge_qss, tool_button_qss, menu_qss as _cs_menu_qss,
     table_qss, scrollbar_qss, section_icon_box_qss,
     section_title_qss, section_subtitle_qss, header_qss,
-    table_header_qss,
+    table_header_qss, dialog_qss,
 )
 
 from ui.icons import get_icon, get_pixmap, get_qicon, app_icon
@@ -2682,7 +2682,7 @@ class MainWindow(QMainWindow):
         dlg = QDialog(self)
         dlg.setWindowTitle("Carátula")
         dlg.setFixedSize(460, 460)
-        dlg.setStyleSheet("QDialog { background: rgba(9,11,17,0.97); border-radius: 18px; }")
+        dlg.setStyleSheet(dialog_qss())
         from PySide6.QtWidgets import QVBoxLayout, QLabel
         layout = QVBoxLayout(dlg)
         layout.setContentsMargins(20, 20, 20, 20)

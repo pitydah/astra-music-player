@@ -318,7 +318,7 @@ class AudioPage(_Page):
         self._rg_mode = SettingsCombo(
             ["track", "album"], sm.get("audio/replaygain_mode"))
         self._spectrum = SettingsSwitch(sm.get("audio/spectrum_enabled"))
-        card_dsp.add_row(SettingsRow("Gapless", "Reproduccion sin pausas",
+        card_dsp.add_row(SettingsRow("Gapless", "Reproducción sin pausas",
                                       self._gapless))
         card_dsp.add_row(SettingsRow("ReplayGain", "Normalizar volumen",
                                       self._rg))

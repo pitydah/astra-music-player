@@ -1,7 +1,14 @@
 """Central area QSS styles — dark glass premium, single visual system."""
 
 from ui.central.central_tokens import (
-    SURFACE_GLASS, SURFACE_GLASS_HOVER, BORDER_SUBTLE, ACCENT_BLUE, ACCENT_FAINT, ACCENT_SURFACE, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_DISABLED,
+    SURFACE_GLASS, SURFACE_GLASS_HOVER, SURFACE_POPUP,
+    BORDER_SUBTLE,
+    ACCENT_BLUE, ACCENT_FAINT, ACCENT_SURFACE, ACCENT_SELECTION,
+    TEXT_PRIMARY, TEXT_NORMAL, TEXT_SECONDARY, TEXT_DISABLED,
+    BADGE_LOCAL_BG, BADGE_LOCAL_TEXT, BADGE_REMOTE_BG, BADGE_REMOTE_TEXT,
+    BADGE_ACTIVE_BG, BADGE_ACTIVE_TEXT,
+    BADGE_ERROR_BG, BADGE_ERROR_TEXT,
+    BADGE_EXPERIMENTAL_BG, BADGE_EXPERIMENTAL_TEXT,
 )
 
 # ── Legacy aliases (for existing code that references old names) ──
@@ -481,4 +488,82 @@ def transparent_scrollbar_qss() -> str:
         QScrollBar::sub-line:vertical {
             height: 0;
         }
+    """
+
+
+def skeleton_qss(name: str) -> str:
+    """Glass skeleton loading card. Use with QFrame#{name}."""
+    return f"""
+        QFrame#{name} {{
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.02);
+            border-radius: 12px;
+        }}
+    """
+
+
+def tooltip_qss() -> str:
+    """Global tooltip with glass popup styling."""
+    return f"""
+        QToolTip {{
+            background: {SURFACE_POPUP};
+            border: 1px solid rgba(143,183,255,0.12);
+            border-radius: 8px;
+            padding: 6px 10px;
+            color: {TEXT_NORMAL};
+            font-size: 11px;
+        }}
+    """
+
+
+def badge_qss(kind: str) -> str:
+    """Reusable badge chip. Kind: local|remote|active|disconnected|error|experimental."""
+    badges = {
+        "local":        (BADGE_LOCAL_BG, BADGE_LOCAL_TEXT),
+        "remote":       (BADGE_REMOTE_BG, BADGE_REMOTE_TEXT),
+        "active":       (BADGE_ACTIVE_BG, BADGE_ACTIVE_TEXT),
+        "disconnected": ("rgba(255,255,255,0.06)", "rgba(255,255,255,0.42)"),
+        "error":        (BADGE_ERROR_BG, BADGE_ERROR_TEXT),
+        "experimental": (BADGE_EXPERIMENTAL_BG, BADGE_EXPERIMENTAL_TEXT),
+    }
+    bg, text = badges.get(kind, ("rgba(255,255,255,0.04)", "rgba(255,255,255,0.54)"))
+    return f"""
+        QLabel {{
+            background: {bg};
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 3px 10px;
+            color: {text};
+            font-size: 10px;
+            font-weight: 500;
+        }}
+    """
+
+
+def dialog_qss() -> str:
+    """Unified glass dialog style."""
+    return f"""
+        QDialog {{
+            background: {SURFACE_POPUP};
+            border: 1px solid rgba(143,183,255,0.12);
+            border-radius: 18px;
+        }}
+        QDialog QLabel {{
+            background: transparent;
+            border: none;
+        }}
+    """
+
+
+def combo_dropdown_qss() -> str:
+    """Unified QComboBox dropdown style — same as menus."""
+    return f"""
+        QComboBox QAbstractItemView {{
+            background: {SURFACE_POPUP};
+            border: 1px solid {BORDER_SUBTLE};
+            border-radius: 8px;
+            selection-background-color: {ACCENT_SELECTION};
+            color: {TEXT_NORMAL};
+            outline: none;
+        }}
     """

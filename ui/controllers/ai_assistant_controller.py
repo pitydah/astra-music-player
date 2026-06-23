@@ -89,7 +89,7 @@ class AiAssistantController(QObject):
             self.response_received.emit({
                 "reply": (
                     "Michi Assistant esta desactivado. "
-                    "Activalo en Configuracion para usar la IA local."
+                    "Actívalo en Configuración para usar la IA local."
                 ),
                 "pending": None,
             })

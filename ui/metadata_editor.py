@@ -27,7 +27,7 @@ from metadata.artwork_utils import (
 # Style tokens
 # ═══════════════════════════════════════════════════════════
 _BG        = "#090B11"
-_PANEL     = "rgba(255,255,255,0.030)"
+_PANEL     = "rgba(255,255,255,0.040)"
 _HOVER     = "rgba(255,255,255,0.065)"
 _SELECTED  = "rgba(255,255,255,0.105)"
 _BORDER    = "rgba(255,255,255,0.06)"
