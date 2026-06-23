@@ -11,76 +11,59 @@ from PySide6.QtWidgets import (
 from ui.icons import get_icon
 
 SEEK_STYLESHEET = """
-QSlider::groove:horizontal {
-    height: 6px;
-    border-radius: 3px;
+QSlider#seekSlider::groove:horizontal,
+QSlider#volumeSlider::groove:horizontal {
+    height: 5px;
     background: #3B3F47;
+    border-radius: 3px;
 }
-QSlider::sub-page:horizontal {
-    height: 6px;
+QSlider#seekSlider::sub-page:horizontal,
+QSlider#volumeSlider::sub-page:horizontal {
+    height: 5px;
     border-radius: 3px;
     background: qlineargradient(
         x1:0, y1:0, x2:1, y2:0,
-        stop:0 #8FB7FF,
-        stop:0.38 rgba(143,183,255,0.80),
-        stop:0.72 rgba(143,183,255,0.70),
-        stop:1 rgba(143,183,255,0.50)
+        stop:0 #FF7A00,
+        stop:0.35 #FF3B30,
+        stop:0.65 #F21B5B,
+        stop:1 #9F0C80
     );
 }
-QSlider::add-page:horizontal {
-    height: 6px;
+QSlider#seekSlider::add-page:horizontal,
+QSlider#volumeSlider::add-page:horizontal {
+    height: 5px;
     border-radius: 3px;
     background: #3B3F47;
 }
-QSlider::handle:horizontal {
-    width: 16px;
-    height: 16px;
-    margin: -5px 0;
-    border-radius: 8px;
-    border: 3px solid #FFFFFF;
-    background: qlineargradient(
-        x1:0, y1:0, x2:1, y2:1,
-        stop:0 #8FB7FF,
-        stop:0.5 rgba(143,183,255,0.80),
-        stop:1 rgba(143,183,255,0.60)
-    );
-}
-"""
-
-VOLUME_STYLESHEET = """
-QSlider::groove:horizontal {
-    height: 4px;
-    border-radius: 2px;
-    background: #3B3F47;
-}
-QSlider::sub-page:horizontal {
-    height: 4px;
-    border-radius: 2px;
-    background: qlineargradient(
-        x1:0, y1:0, x2:1, y2:0,
-        stop:0 #8FB7FF,
-        stop:0.38 rgba(143,183,255,0.80),
-        stop:0.72 rgba(143,183,255,0.70),
-        stop:1 rgba(143,183,255,0.50)
-    );
-}
-QSlider::add-page:horizontal {
-    height: 4px;
-    border-radius: 2px;
-    background: #3B3F47;
-}
-QSlider::handle:horizontal {
-    width: 14px;
-    height: 14px;
-    margin: -5px 0;
+QSlider#seekSlider::handle:horizontal,
+QSlider#volumeSlider::handle:horizontal {
+    width: 13px;
+    height: 13px;
+    margin: -4px 0;
     border-radius: 7px;
-    border: 2px solid #FFFFFF;
-    background: qlineargradient(
-        x1:0, y1:0, x2:1, y2:1,
-        stop:0 #8FB7FF,
-        stop:0.5 rgba(143,183,255,0.80),
-        stop:1 rgba(143,183,255,0.60)
-    );
+    background: #F92141;
+    border: 2px solid #F5F5F7;
+}
+QSlider#seekSlider::handle:horizontal:hover,
+QSlider#volumeSlider::handle:horizontal:hover {
+    background: #FF3B30;
+}
+QSlider#seekSlider::handle:horizontal:pressed,
+QSlider#volumeSlider::handle:horizontal:pressed {
+    background: #F21B5B;
+}
+QSlider#seekSlider:disabled::groove:horizontal,
+QSlider#volumeSlider:disabled::groove:horizontal {
+    background: #2A2D34;
+}
+QSlider#seekSlider:disabled::sub-page:horizontal,
+QSlider#volumeSlider:disabled::sub-page:horizontal {
+    background: #525866;
+}
+QSlider#seekSlider:disabled::handle:horizontal,
+QSlider#volumeSlider:disabled::handle:horizontal {
+    background: #525866;
+    border: 2px solid #747986;
 }
 """
 
@@ -120,14 +103,14 @@ def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None) ->
             border: none;
         }
         QPushButton:hover {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.06);
         }
         QPushButton:pressed {
-            background: rgba(255,255,255,0.095);
+            background: rgba(255,255,255,0.04);
         }
         QPushButton[active="true"] {
-            background: rgba(255,255,255,0.10);
+            background: rgba(255,255,255,0.14);
             border: 1px solid rgba(255,255,255,0.06);
         }
     """)
@@ -265,15 +248,11 @@ class NowPlayingBar(QWidget):
         from ui.theme import is_dark_mode
         self._dark_mode = is_dark_mode()
         if self._dark_mode:
-            self._bg_rgba = (
-                "qlineargradient(x1:0, y1:0, x2:1, y2:1,"
-                " stop:0 rgba(10,12,18,0.88),"
-                " stop:0.55 rgba(7,9,14,0.88),"
-                " stop:1 rgba(14,10,16,0.88))")
-            self._text_color = "rgba(255,255,255,0.98)"
-            self._text_sec = "rgba(245,245,247,0.74)"
+            self._bg_rgba = "#050608"
+            self._text_color = "#F4F4F5"
+            self._text_sec = "#A1A1AA"
             self._accent = "#ffffff"
-            self._border = "rgba(255,255,255,0.08)"
+            self._border = "rgba(255,255,255,0.07)"
             self._shadow_alpha = 110
         else:
             self._bg_rgba = "rgba(245, 245, 247, 220)"
@@ -300,13 +279,8 @@ class NowPlayingBar(QWidget):
         left_widget.setFixedHeight(86)
         left_widget.setStyleSheet("""
             QWidget#nowPlayingInfoCard {
-                background: qlineargradient(
-                    x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(64,68,80,0.92),
-                    stop:0.55 rgba(45,49,60,0.92),
-                    stop:1 rgba(20,22,30,0.95)
-                );
-                border: 1px solid rgba(255,255,255,0.06);
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.05);
                 border-radius: 16px;
             }
         """)
@@ -361,7 +335,7 @@ class NowPlayingBar(QWidget):
         self._title_lbl.setStyleSheet(
             "QLabel#nowPlayingTitle {"
             "  font-size: 14px; font-weight: 700;"
-            "  color: #FFFFFF;"
+            "  color: #F4F4F5;"
             "  background: transparent; border: none;"
             "}")
         text_layout.addWidget(self._title_lbl)
@@ -371,7 +345,7 @@ class NowPlayingBar(QWidget):
         self._artist_lbl.setStyleSheet(
             "QLabel#nowPlayingArtist {"
             "  font-size: 12px; font-weight: 500;"
-            "  color: rgba(255,255,255,0.92);"
+            "  color: #A1A1AA;"
             "  background: transparent; border: none;"
             "}")
         text_layout.addWidget(self._artist_lbl)
@@ -381,7 +355,7 @@ class NowPlayingBar(QWidget):
         self._meta_lbl.setStyleSheet(
             "QLabel#nowPlayingMeta {"
             "  font-size: 10.5px; font-weight: 500;"
-            "  color: rgba(255,255,255,0.76);"
+            "  color: #71717A;"
             "  background: transparent; border: none;"
             "}")
         text_layout.addWidget(self._meta_lbl)
@@ -409,6 +383,7 @@ class NowPlayingBar(QWidget):
         self._time_lbl.setFixedWidth(32)
 
         self._seek = ClickableSlider(Qt.Horizontal)
+        self._seek.setObjectName("seekSlider")
         self._seek.setRange(0, 1000)
         self._seek.setMinimumWidth(150)
         self._seek.setFixedHeight(28)
@@ -485,11 +460,12 @@ class NowPlayingBar(QWidget):
         self._vol_btn = _make_btn("warm_vol_high", 22, 38)
 
         self._vol = ClickableSlider(Qt.Horizontal)
+        self._vol.setObjectName("volumeSlider")
         self._vol.setRange(0, 100)
         self._vol.setValue(70)
         self._vol.setFixedWidth(80)
         self._vol.setFixedHeight(28)
-        self._vol.setStyleSheet(VOLUME_STYLESHEET)
+        self._vol.setStyleSheet(SEEK_STYLESHEET)
         self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
 
         self._eq_btn = _make_btn("warm_eq", 26, 44)
@@ -542,6 +518,7 @@ class NowPlayingBar(QWidget):
                 background: {self._bg_rgba};
                 border-radius: 18px;
                 border: 1px solid {self._border};
+                border-top: 1px solid rgba(255,255,255,0.07);
             }}
         """)
         shadow = QGraphicsDropShadowEffect(self)
