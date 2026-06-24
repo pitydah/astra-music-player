@@ -3,16 +3,16 @@ import os
 
 from PySide6.QtCore import (
     Qt, QTimer, QPropertyAnimation, QEasingCurve, QVariantAnimation,
-    Property, Signal, QRectF, QPointF,
+    Property, Signal, QPointF,
 )
 from PySide6.QtGui import (
-    QPainter, QColor, QPen, QLinearGradient, QRadialGradient, QPixmap,
+    QPainter, QColor, QPen, QRadialGradient, QPixmap,
     QTransform, QFont, QPainterPath,
 )
 from PySide6.QtWidgets import (
-    QGraphicsView, QGraphicsScene, QGraphicsObject,
+    QGraphicsView, QGraphicsScene,
     QGraphicsTextItem, QGraphicsOpacityEffect, QGraphicsProxyWidget,
-    QSlider,
+    QGraphicsPixmapItem, QSlider,
 )
 
 from library.album_art import CoverFlowItem
@@ -119,83 +119,54 @@ def _make_placeholder(w: int, h: int) -> QPixmap:
     return pix
 
 
-class CoverItem(QGraphicsObject):
+class CoverPixmapItem(QGraphicsPixmapItem):
+    """Lightweight item — delegates painting to OpenGL. No reflections, just the cover."""
     def __init__(self, pixmap: QPixmap | None, index: int,
                  width: int = 260, height: int = 260):
         super().__init__()
         self._index = index
         self._w = width
         self._h = height
-        self._ref_h = int(height * 0.40)
-        self._darken_alpha = 0
-        self._is_center = False
         self._cover_requested = False
         self._cover_failed = False
         self._fade_alpha = 1.0
+        self._real_pixmap = None
 
         if pixmap is None or pixmap.isNull():
-            self._pixmap = _make_placeholder(width, height)
-            self._placeholder = self._pixmap
+            placeholder = _make_placeholder(width, height)
+            self.setPixmap(placeholder)
+            self._placeholder = placeholder
             self._cover_loaded = False
         else:
-            self._placeholder = QPixmap()
-            self._pixmap = pixmap.scaled(
+            self._real_pixmap = pixmap.scaled(
                 width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.setPixmap(self._real_pixmap)
+            self._placeholder = None
             self._cover_loaded = True
 
-        self._cached = None
+        self._apply_rounded_clip()
 
-    def _ensure_cached(self):
-        if self._cached is None:
-            self._cached = self._generate_reflection()
-
-    def _generate_reflection(self) -> QPixmap:
-        total_h = self._h + self._ref_h
-        cached = QPixmap(self._w, total_h)
-        cached.fill(Qt.transparent)
-        p = QPainter(cached)
-        p.setRenderHint(QPainter.Antialiasing)
-        p.setRenderHint(QPainter.SmoothPixmapTransform)
-
-        radius = 14.0
+    def _apply_rounded_clip(self):
         path = QPainterPath()
-        path.addRoundedRect(0, 0, self._w, self._h, radius, radius)
+        path.addRoundedRect(0, 0, self._w, self._h, 14, 14)
+        self.setClipPath(path)
 
-        p.save()
-        p.setClipPath(path)
-        p.drawPixmap(0, 0, self._pixmap)
-        p.restore()
-        p.setPen(QPen(QColor(255, 255, 255, 22), 1.0))
-        p.drawPath(path)
+    @property
+    def needs_cover(self) -> bool:
+        return not self._cover_loaded and not self._cover_requested and not self._cover_failed
 
-        # reflection
-        p.save()
-        p.translate(0, self._h + self._ref_h)
-        p.scale(1, -1)
-        p.setOpacity(0.12)
-        p.setClipPath(path)
-        p.drawPixmap(0, 0, self._pixmap)
-        p.restore()
-
-        grad = QLinearGradient(0, self._h, 0, total_h)
-        grad.setColorAt(0.0, QColor(0, 0, 0, 0))
-        grad.setColorAt(0.08, QColor(13, 13, 20, 80))
-        grad.setColorAt(0.25, QColor(13, 13, 20, 185))
-        grad.setColorAt(0.55, QColor(13, 13, 20, 255))
-        grad.setColorAt(1.0, QColor(13, 13, 20, 255))
-        p.setCompositionMode(QPainter.CompositionMode_SourceOver)
-        p.fillRect(0, self._h, self._w, self._ref_h, grad)
-        p.end()
-        return cached
+    def mark_cover_requested(self):
+        self._cover_requested = True
 
     def set_real_cover(self, pixmap: QPixmap):
         if pixmap is None or pixmap.isNull():
             self._cover_failed = True
             return
-        self._real_cover = pixmap.scaled(
+        self._real_pixmap = pixmap.scaled(
             self._w, self._h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self._cover_loaded = True
         self._cover_requested = False
+
         self._fade_alpha = 0.0
         anim = QVariantAnimation()
         anim.setDuration(300)
@@ -208,148 +179,13 @@ class CoverItem(QGraphicsObject):
 
     def _on_fade_step(self, value: float):
         self._fade_alpha = value
-        self.update()
+        self.setOpacity(value)
 
     def _on_fade_done(self):
-        self._pixmap = self._real_cover
-        self._fade_alpha = 1.0
-        self._placeholder = QPixmap()
-        self._cached = self._generate_reflection()
-        self.update()
-
-    @property
-    def needs_cover(self) -> bool:
-        return not self._cover_loaded and not self._cover_requested and not self._cover_failed
-
-    def mark_cover_requested(self):
-        self._cover_requested = True
-
-    def _apply_state(self, state, w, h):
-        self._is_center = state.is_center
-        self._darken_alpha = state.darken_alpha
-        self.setOpacity(state.opacity)
-        self.setZValue(state.z)
-
-        transform = QTransform()
-        if abs(state.rotation_y) > 0.0:
-            # Pivot from inner edge (coverflowjs pattern)
-            if state.rotation_y < 0:
-                # Left tile: pivot at right edge
-                pivot_x, pivot_y = w, h / 2
-            else:
-                # Right tile: pivot at left edge
-                pivot_x, pivot_y = 0, h / 2
-            transform.translate(pivot_x, pivot_y)
-            transform.rotate(state.rotation_y, Qt.YAxis)
-            transform.translate(-pivot_x, -pivot_y)
-        transform.translate(state.x - w / 2, state.y - h / 2)
-        transform.scale(state.scale, state.scale)
-        self.setTransform(transform)
-
-    def boundingRect(self) -> QRectF:
-        return QRectF(0, 0, self._w, self._h + self._ref_h)
-
-    def paint(self, painter: QPainter, option, widget):
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform)
-        self._ensure_cached()
-        painter.drawPixmap(0, 0, self._cached)
-
-        if self._is_center:
-            painter.save()
-            shadow = QRadialGradient(self._w / 2, self._h, self._w * 0.55)
-            shadow.setColorAt(0.0, QColor(0, 0, 0, 55))
-            shadow.setColorAt(1.0, QColor(0, 0, 0, 0))
-            painter.setBrush(shadow)
-            painter.setPen(Qt.NoPen)
-            painter.drawEllipse(QPointF(self._w / 2, self._h), self._w * 0.45, 10)
-            painter.restore()
-
-            painter.save()
-            painter.setPen(QPen(QColor(255, 255, 255, 80), 1.3))
-            path = QPainterPath()
-            path.addRoundedRect(0.6, 0.6, self._w - 1.2, self._h - 1.2, 14, 14)
-            painter.drawPath(path)
-            painter.restore()
-
-        if hasattr(self, '_real_cover') and self._fade_alpha < 1.0:
-            painter.save()
-            painter.setOpacity(self._fade_alpha)
-            painter.drawPixmap(0, 0, self._real_cover)
-            painter.restore()
-
-        if self._darken_alpha > 0:
-            painter.save()
-            gray = max(40, 255 - int(self._darken_alpha * 1.6))
-            painter.setCompositionMode(QPainter.CompositionMode_Multiply)
-            painter.fillRect(0, 0, self._w, self._h + self._ref_h,
-                             QColor(gray, gray, gray))
-            painter.restore()
-
-    def update_transform(self, current_offset: float, view_width: float,
-                         view_height: float, velocity: float = 0.0,
-                         geometry: dict | None = None):
-        dist = self._index - current_offset
-        ad = abs(dist)
-        side = -1.0 if dist < 0 else 1.0
-        geo = geometry or {}
-
-        max_rot = geo.get("max_rot", 60.0)
-        near_gap = self._w * geo.get("near_gap_factor", 0.72)
-        side_gap = self._w * geo.get("side_gap_factor", 0.32)
-        far_gap = self._w * geo.get("far_gap_factor", 0.18)
-        center_scale = geo.get("center_scale", 1.04)
-        side_scale = geo.get("side_scale", 0.82)
-        far_scale = geo.get("far_scale", 0.66)
-        center_y_off = geo.get("center_y_offset", -38)
-
-        # smooth factors
-        center_t = 1.0 - _smoothstep(0.0, 1.0, ad)
-        far_t = _smoothstep(1.8, 6.0, ad)
-
-        # rotation
-        rot_raw = max_rot * _ease_out_cubic(min(ad, 1.6) / 1.6)
-        if ad < 0.10:
-            rot_raw = 0.0
-        rot = side * rot_raw
-
-        # position
-        center_x = view_width / 2.0
-        if ad < 1.0:
-            x = center_x + side * near_gap * _smoothstep(0.0, 1.0, ad)
-        else:
-            x = center_x + side * (near_gap + side_gap * (ad - 1.0) + far_gap * max(0.0, ad - 3.0))
-
-        center_y = view_height / 2.0 + center_y_off
-        y = center_y + (1.0 - center_t) * 16.0 + far_t * 12.0
-
-        # scale
-        scale = center_scale * center_t + side_scale * (1.0 - center_t) * (1.0 - far_t) + far_scale * far_t
-        v_zoom = min(0.07, abs(velocity) * 0.5)
-        scale = max(0.58, scale - v_zoom)
-
-        # z-value and visual state
-        self._is_center = ad < 0.42
-        self._darken_alpha = int(_clamp(ad * 33, 0, 120))
-        if self._is_center:
-            self._darken_alpha = 0
-        self.setZValue(2000 - int(ad * 22))
-
-        # opacity fade for far items
-        opacity = 1.0 - min(0.55, ad * 0.07)
-        if ad > 9:
-            opacity = 0.0
-        self.setOpacity(max(0.0, opacity))
-
-        # build transform
-        transform = QTransform()
-        if abs(rot) > 0.0:
-            transform.translate(self._w / 2, self._h / 2)
-            transform.rotate(rot, Qt.YAxis)
-            transform.translate(-self._w / 2, -self._h / 2)
-        transform.translate(x - self._w / 2, y - self._h / 2)
-        transform.scale(scale, scale)
-        self.setTransform(transform)
+        self.setPixmap(self._real_pixmap)
+        self.setOpacity(1.0)
+        self._placeholder = None
+        self._apply_rounded_clip()
 
 
 class CoverFlowWidget(QGraphicsView):
@@ -375,9 +211,18 @@ class CoverFlowWidget(QGraphicsView):
         if self._use_opengl:
             try:
                 self.setViewport(QOpenGLWidget())
+                self.setViewportUpdateMode(QGraphicsView.MinimalViewportUpdate)
+                self.setCacheMode(QGraphicsView.CacheBackground)
+                self._scene = QGraphicsScene(self)
+                self._scene.setItemIndexMethod(QGraphicsScene.NoIndex)
             except Exception:
                 self._use_opengl = False
-        self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
+
+        if not self._use_opengl:
+            self.setViewportUpdateMode(QGraphicsView.MinimalViewportUpdate)
+            self.setCacheMode(QGraphicsView.CacheBackground)
+            self._scene = QGraphicsScene(self)
+        self.setScene(self._scene)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setRenderHint(QPainter.Antialiasing)
@@ -387,9 +232,6 @@ class CoverFlowWidget(QGraphicsView):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setCursor(Qt.OpenHandCursor)
 
-        self._scene = QGraphicsScene(self)
-        self.setScene(self._scene)
-
         self._geometry = {
             "max_rot": 60.0, "center_scale": 1.04, "side_scale": 0.82,
             "far_scale": 0.66, "near_gap_factor": 0.72, "side_gap_factor": 0.32,
@@ -397,7 +239,7 @@ class CoverFlowWidget(QGraphicsView):
         }
 
         self._items: list[CoverFlowItem] = []
-        self._cover_items: list[CoverItem] = []
+        self._cover_items: list[CoverPixmapItem] = []
         self._current = 0.0
         self._velocity = 0.0
         self._dragging = False
@@ -579,7 +421,7 @@ class CoverFlowWidget(QGraphicsView):
         self._create_overlay_items()
 
         for i, item in enumerate(items):
-            ci = CoverItem(item.pixmap, i, self._cover_w, self._cover_h)
+            ci = CoverPixmapItem(item.pixmap, i, self._cover_w, self._cover_h)
             self._scene.addItem(ci)
             self._cover_items.append(ci)
 
@@ -651,8 +493,6 @@ class CoverFlowWidget(QGraphicsView):
             ci.setVisible(True)
             if self._render_mode == "safe_2d":
                 state["rot"] = 0.0
-            if self._render_mode == "no_reflection":
-                ci._ref_h = 0
             apply_layout_state(ci, state, self._cover_w, self._cover_h)
 
             if ci.needs_cover:
@@ -856,14 +696,15 @@ class CoverFlowWidget(QGraphicsView):
         ci = self.current_index()
         if 0 <= ci < len(self._cover_items):
             center = self._cover_items[ci]
-            if center._cached and not center._cached.isNull():
-                w = center._cached.width()
-                h = center._cached.height()
+            px = center.pixmap()
+            if px and not px.isNull():
+                w = px.width()
+                h = px.height()
                 scale = max(rect.width() / w, rect.height() / h) * 1.6
                 x = (rect.width() - w * scale) / 2
                 y = (rect.height() - h * scale) / 2 - rect.height() * 0.05
                 painter.setOpacity(0.18)
-                painter.drawPixmap(x, y, w * scale, h * scale, center._cached)
+                painter.drawPixmap(x, y, w * scale, h * scale, px)
 
         # Darken layer
         painter.setOpacity(1.0)
@@ -906,7 +747,7 @@ class CoverFlowWidget(QGraphicsView):
         self._clear_scene_preserve_slider()
         self._create_overlay_items()
         for i, item in enumerate(self._items):
-            ci = CoverItem(item.pixmap, i, self._cover_w, self._cover_h)
+            ci = CoverPixmapItem(item.pixmap, i, self._cover_w, self._cover_h)
             self._scene.addItem(ci)
             self._cover_items.append(ci)
         self._current = max(0, min(len(self._items) - 1, saved))
@@ -1008,7 +849,7 @@ class CoverFlowWidget(QGraphicsView):
         if not self._drag_moved:
             # Click on a side cover — navigate to it
             item = self.itemAt(event.position().toPoint())
-            if isinstance(item, CoverItem) and hasattr(item, '_index'):
+            if isinstance(item, CoverPixmapItem) and hasattr(item, '_index'):
                 if item._index != self.current_index():
                     self.scroll_to(item._index)
                 else:
