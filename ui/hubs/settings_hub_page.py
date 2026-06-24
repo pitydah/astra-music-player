@@ -8,7 +8,11 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QPushButton,
 )
 
-from ui.central.central_styles import glass_card_qss, glass_button_qss
+from ui.central.central_styles import (
+    glass_card_qss, glass_button_qss,
+    card_title_qss, card_desc_qss,
+    page_title_qss, page_subtitle_qss,
+)
 
 
 class SettingsHubPage(QWidget):
@@ -94,7 +98,8 @@ class SettingsHubPage(QWidget):
             w._show_preferences(target)
 
     def _apply_qss(self):
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            page_title_qss() + page_subtitle_qss() + """
             QWidget#settingsHubPage { background: #090B11; }
             QScrollArea#settingsHubScroll { background: transparent; border: none; }
             QWidget#settingsHubContent { background: transparent; }
@@ -104,11 +109,12 @@ class SettingsHubPage(QWidget):
         for key in ("general", "appearance", "library", "playback", "audio", "connections", "advanced"):
             card = self.findChild(QFrame, f"settingsCard_{key}")
             if card:
-                for lbl in card.findChildren(QLabel):
-                    if "font-size" not in (lbl.styleSheet() or ""):
-                        lbl.setStyleSheet(
-                            "QLabel { color: rgba(255,255,255,0.62); font-size: 12px; "
-                            "background: transparent; border: none; }"
-                        )
-                for btn in card.findChildren(QPushButton):
-                    btn.setStyleSheet(glass_button_qss("primary"))
+                card.setStyleSheet(glass_card_qss(f"settingsCard_{key}"))
+            for lbl in (card.findChildren(QLabel) if card else []):
+                name = lbl.objectName()
+                if "Title" in name:
+                    lbl.setStyleSheet(card_title_qss())
+                elif "Desc" in name:
+                    lbl.setStyleSheet(card_desc_qss())
+            for btn in (card.findChildren(QPushButton) if card else []):
+                btn.setStyleSheet(glass_button_qss("secondary"))

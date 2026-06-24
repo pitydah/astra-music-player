@@ -1,16 +1,20 @@
 """Central area QSS styles — dark glass premium, single visual system."""
 
 from ui.central.central_tokens import (
-    SURFACE_GLASS, SURFACE_GLASS_HOVER, SURFACE_POPUP,
-    BORDER_SUBTLE, BORDER_FOCUS,
-    ACCENT_BLUE, ACCENT_FAINT, ACCENT_SURFACE, ACCENT_SELECTION,
+    SURFACE_GLASS, SURFACE_GLASS_HOVER, SURFACE_POPUP, SURFACE_INPUT,
+    BORDER_SUBTLE, BORDER_FOCUS, ACCENT_BLUE, ACCENT_FAINT, ACCENT_SURFACE, ACCENT_SELECTION,
     TEXT_PRIMARY, TEXT_NORMAL, TEXT_SECONDARY, TEXT_DISABLED,
     BADGE_LOCAL_BG, BADGE_LOCAL_TEXT, BADGE_REMOTE_BG, BADGE_REMOTE_TEXT,
     BADGE_ACTIVE_BG, BADGE_ACTIVE_TEXT,
+    BADGE_DISCONNECTED_BG, BADGE_DISCONNECTED_TEXT,
     BADGE_ERROR_BG, BADGE_ERROR_TEXT,
     BADGE_EXPERIMENTAL_BG, BADGE_EXPERIMENTAL_TEXT,
     SURFACE_CARD, SURFACE_CARD_HOVER, SURFACE_CARD_ELEVATED,
     SURFACE_CARD_ACCENT, BORDER_CARD, BORDER_CARD_ACCENT, BORDER_CARD_ELEVATED,
+    STATUS_INFO_BG, STATUS_INFO_TEXT,
+    STATUS_WARNING_BG, STATUS_WARNING_TEXT,
+    STATUS_SUCCESS_BG, STATUS_SUCCESS_TEXT,
+    STATUS_ERROR_BG, STATUS_ERROR_TEXT,
 )
 
 # ── Legacy aliases (for existing code that references old names) ──
@@ -426,9 +430,9 @@ def clean_table_qss() -> str:
 
 
 def glass_button_qss(kind: str = "secondary") -> str:
-    """Unified glass button: primary | secondary | ghost."""
-    if kind == "primary":
-        return """
+    """Unified glass button: primary | secondary | ghost | accent | danger | disabled."""
+    qss_map = {
+        "primary": """
             QPushButton {
                 background: rgba(143,183,255,0.16);
                 border: 1px solid rgba(143,183,255,0.18);
@@ -442,9 +446,49 @@ def glass_button_qss(kind: str = "secondary") -> str:
                 background: rgba(143,183,255,0.24);
                 border: 1px solid rgba(143,183,255,0.28);
             }
-        """
-    elif kind == "ghost":
-        return """
+        """,
+        "accent": """
+            QPushButton {
+                background: rgba(143,183,255,0.10);
+                border: 1px solid rgba(143,183,255,0.14);
+                border-radius: 12px;
+                padding: 8px 18px;
+                color: rgba(143,183,255,0.90);
+                font-size: 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: rgba(143,183,255,0.18);
+                border: 1px solid rgba(143,183,255,0.24);
+            }
+        """,
+        "danger": """
+            QPushButton {
+                background: rgba(255,100,100,0.10);
+                border: 1px solid rgba(255,100,100,0.14);
+                border-radius: 12px;
+                padding: 8px 18px;
+                color: rgba(255,100,100,0.85);
+                font-size: 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: rgba(255,100,100,0.18);
+                border: 1px solid rgba(255,100,100,0.24);
+            }
+        """,
+        "disabled": """
+            QPushButton {
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.025);
+                border-radius: 12px;
+                padding: 8px 18px;
+                color: rgba(255,255,255,0.32);
+                font-size: 12px;
+                font-weight: 500;
+            }
+        """,
+        "ghost": """
             QPushButton {
                 background: transparent;
                 border: 1px solid rgba(255,255,255,0.04);
@@ -459,24 +503,27 @@ def glass_button_qss(kind: str = "secondary") -> str:
                 border: 1px solid rgba(255,255,255,0.06);
                 color: rgba(255,255,255,0.78);
             }
-        """
-    else:  # secondary
-        return """
-            QPushButton {
-                background: rgba(255,255,255,0.05);
-                border: 1px solid rgba(255,255,255,0.04);
-                border-radius: 12px;
-                padding: 8px 18px;
-                color: rgba(255,255,255,0.78);
-                font-size: 12px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background: rgba(255,255,255,0.08);
-                border: 1px solid rgba(255,255,255,0.05);
-                color: rgba(255,255,255,0.92);
-            }
-        """
+        """,
+    }
+    if kind in qss_map:
+        return qss_map[kind]
+    # secondary (default)
+    return """
+        QPushButton {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 12px;
+            padding: 8px 18px;
+            color: rgba(255,255,255,0.78);
+            font-size: 12px;
+            font-weight: 600;
+        }
+        QPushButton:hover {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.92);
+        }
+    """
 
 
 def transparent_scrollbar_qss() -> str:
@@ -529,14 +576,17 @@ def tooltip_qss() -> str:
 
 
 def badge_qss(kind: str) -> str:
-    """Reusable badge chip. Kind: local|remote|active|disconnected|error|experimental."""
+    """Reusable badge chip. Kind: local|remote|active|disconnected|error|experimental|success|warning."""
     badges = {
         "local":        (BADGE_LOCAL_BG, BADGE_LOCAL_TEXT),
         "remote":       (BADGE_REMOTE_BG, BADGE_REMOTE_TEXT),
         "active":       (BADGE_ACTIVE_BG, BADGE_ACTIVE_TEXT),
-        "disconnected": ("rgba(255,255,255,0.06)", "rgba(255,255,255,0.42)"),
+        "disconnected": (BADGE_DISCONNECTED_BG, BADGE_DISCONNECTED_TEXT),
         "error":        (BADGE_ERROR_BG, BADGE_ERROR_TEXT),
         "experimental": (BADGE_EXPERIMENTAL_BG, BADGE_EXPERIMENTAL_TEXT),
+        "success":      (STATUS_SUCCESS_BG, STATUS_SUCCESS_TEXT),
+        "warning":      (STATUS_WARNING_BG, STATUS_WARNING_TEXT),
+        "info":         (STATUS_INFO_BG, STATUS_INFO_TEXT),
     }
     bg, text = badges.get(kind, ("rgba(255,255,255,0.04)", "rgba(255,255,255,0.54)"))
     return f"""
@@ -661,8 +711,80 @@ def glass_chip_button_qss() -> str:
         "  color: rgba(255,255,255,0.62);"
         "  font-size: 10px;"
         "}"
-        "QPushButton:hover {"
-        "  background: rgba(143,183,255,0.08);"
-        "  border: 1px solid rgba(143,183,255,0.12);"
-        "}"
+    "QPushButton:hover {"
+    "  background: rgba(143,183,255,0.08);"
+    "  border: 1px solid rgba(143,183,255,0.12);"
+    "}"
+)
+
+
+def page_title_qss() -> str:
+    """Page title — 22px bold, high contrast."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.92); font-size: 22px; "
+        "font-weight: 700; background: transparent; border: none; }"
     )
+
+
+def page_subtitle_qss() -> str:
+    """Page subtitle — 13px, muted."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.56); font-size: 13px; "
+        "font-weight: 400; background: transparent; border: none; }"
+    )
+
+
+def card_meta_qss() -> str:
+    """Card metadata — 11px, dim."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.44); font-size: 11px; "
+        "font-weight: 400; background: transparent; border: none; }"
+    )
+
+
+def muted_label_qss() -> str:
+    """Secondary label — 12px, muted."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.48); font-size: 12px; "
+        "font-weight: 400; background: transparent; border: none; }"
+    )
+
+
+def field_input_qss() -> str:
+    """Form input field — dark glass with accent focus."""
+    return f"""
+        QLineEdit, QSpinBox {{
+            background: {SURFACE_INPUT};
+            border: 1px solid {BORDER_CARD};
+            border-radius: 8px;
+            padding: 6px 10px;
+            color: {TEXT_NORMAL};
+            font-size: 12px;
+        }}
+        QLineEdit:focus, QSpinBox:focus {{
+            border: 1px solid {BORDER_FOCUS};
+        }}
+    """
+
+
+def status_card_qss(status: str) -> str:
+    """Status-tinted card variant. status: info|warning|success|error."""
+    colors = {
+        "info": (STATUS_INFO_BG, STATUS_INFO_TEXT),
+        "warning": (STATUS_WARNING_BG, STATUS_WARNING_TEXT),
+        "success": (STATUS_SUCCESS_BG, STATUS_SUCCESS_TEXT),
+        "error": (STATUS_ERROR_BG, STATUS_ERROR_TEXT),
+    }
+    bg, text = colors.get(status, (SURFACE_CARD, TEXT_SECONDARY))
+    return f"""
+        QFrame {{
+            background: {bg};
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 12px;
+        }}
+        QFrame QLabel {{
+            background: transparent;
+            border: none;
+            color: {text};
+        }}
+    """

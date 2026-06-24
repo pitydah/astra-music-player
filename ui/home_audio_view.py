@@ -130,7 +130,7 @@ class HomeAudioView(QWidget):
             ("resumen", "Resumen"),
             ("dispositivos", "Dispositivos"),
             ("grupos", "Grupos"),
-            ("diagnóstico", "Diagnostico"),
+            ("diagnóstico", "Diagnóstico"),
             ("receptores", "Receptores"),
         ]
         for key, label in self._tab_keys:
@@ -257,7 +257,7 @@ class HomeAudioView(QWidget):
         ha_level = "success" if self._ha_connected else "error"
         mr_state = "Activo" if self._multiroom_active else "Inactivo"
         mr_level = "success" if self._multiroom_active else "warning"
-        snap_state = "En ejecucion" if self._snapserver_running else "Detenido"
+        snap_state = "En ejecución" if self._snapserver_running else "Detenido"
         snap_level = "success" if self._snapserver_running else "error"
         dev_count = str(len(self._devices))
         dev_level = "success" if self._devices else "neutral"
@@ -761,8 +761,8 @@ class StatusPill(QFrame):
         self.setObjectName("statusPill")
         color = _STATUS_COLORS.get(level, _STATUS_COLORS["neutral"])
         self.setStyleSheet(
-            "QFrame#statusPill { background: rgba(255,255,255,0.03);"
-            "  border: 1px solid rgba(255,255,255,0.02);"
+            "QFrame#statusPill { background: rgba(255,255,255,0.04);"
+            "  border: 1px solid rgba(255,255,255,0.04);"
             "  border-radius: 10px; padding: 5px 10px; }"
             "QFrame#statusPill QLabel { background: transparent; }")
         lay = QHBoxLayout(self)
@@ -886,9 +886,9 @@ class _GlassCard(QFrame):
         obj_name = name or "glassCard"
         self.setObjectName(obj_name)
         self.setStyleSheet(
-            f"QFrame#{obj_name} {{ background: rgba(255,255,255,0.025);"
+            f"QFrame#{obj_name} {{ background: rgba(255,255,255,0.035);"
             f"  border-radius: 14px;"
-            f"  border: 1px solid rgba(255,255,255,0.020); }}"
+            f"  border: 1px solid rgba(255,255,255,0.035); }}"
             f"QFrame#{obj_name} QLabel {{ background: transparent; }}")
 
 
@@ -913,8 +913,8 @@ class _DeviceTile(QFrame):
         self.setObjectName("deviceTile")
         self._device = device
         self.setStyleSheet(
-            "QFrame#deviceTile { background: rgba(255,255,255,0.030);"
-            "  border-radius: 14px; border: 1px solid rgba(255,255,255,0.025); }"
+            "QFrame#deviceTile { background: rgba(255,255,255,0.035);"
+            "  border-radius: 14px; border: 1px solid rgba(255,255,255,0.035); }"
             "QFrame#deviceTile:hover { background: rgba(255,255,255,0.050);"
             "  border: 1px solid rgba(143,183,255,0.10); }"
             "QFrame#deviceTile QLabel { background: transparent; }")

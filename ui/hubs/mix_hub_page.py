@@ -8,7 +8,11 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QPushButton,
 )
 
-from ui.central.central_styles import glass_card_qss, glass_button_qss
+from ui.central.central_styles import (
+    glass_card_qss, glass_button_qss,
+    card_title_qss, card_desc_qss,
+    page_title_qss, page_subtitle_qss,
+)
 
 
 class MixHubPage(QWidget):
@@ -79,7 +83,7 @@ class MixHubPage(QWidget):
 
         playlist_card = self._build_card(
             "playlists", "Playlists y listas inteligentes",
-            "Organiza, mezcla e importa tus listas de reproduccion. "
+            "Organiza, mezcla e importa tus listas de reproducción. "
             "Combina fuentes locales y remotas.",
             "Gestionar playlists",
             "playlist_hub",
@@ -130,22 +134,23 @@ class MixHubPage(QWidget):
         return build_default_scopes(sources)
 
     def _apply_qss(self):
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            page_title_qss() + page_subtitle_qss() + """
             QWidget#mixHubPage { background: #090B11; }
             QScrollArea#mixHubScroll { background: transparent; border: none; }
             QWidget#mixHubContent { background: transparent; }
             QLabel#mixHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
             QLabel#mixHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
         """)
-        for key in ("discover", "recommend", "playlists"):
+        for key, act in [("discover", "secondary"), ("recommend", "accent"), ("playlists", "secondary")]:
             card = self.findChild(QFrame, f"mixCard_{key}")
             if card:
                 card.setStyleSheet(glass_card_qss(f"mixCard_{key}"))
             for lbl in (card.findChildren(QLabel) if card else []):
-                if "font-size" not in (lbl.styleSheet() or ""):
-                    lbl.setStyleSheet(
-                        "QLabel { color: rgba(255,255,255,0.62); font-size: 12px; "
-                        "background: transparent; border: none; }"
-                    )
+                name = lbl.objectName()
+                if "Title" in name:
+                    lbl.setStyleSheet(card_title_qss())
+                elif "Desc" in name:
+                    lbl.setStyleSheet(card_desc_qss())
             for btn in (card.findChildren(QPushButton) if card else []):
-                btn.setStyleSheet(glass_button_qss("primary"))
+                btn.setStyleSheet(glass_button_qss(act))

@@ -8,7 +8,11 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QPushButton, QProgressBar,
 )
 
-from ui.central.central_styles import glass_card_qss, glass_button_qss, glass_chip_button_qss, glass_progress_qss
+from ui.central.central_styles import (
+    glass_card_qss, glass_button_qss, glass_chip_button_qss, glass_progress_qss,
+    card_title_qss, card_desc_qss, card_meta_qss,
+    page_title_qss, page_subtitle_qss,
+)
 
 
 class ConnectionsHubPage(QWidget):
@@ -254,21 +258,25 @@ class ConnectionsHubPage(QWidget):
             w._on_sidebar_navigate(target)
 
     def _apply_qss(self):
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            page_title_qss() + page_subtitle_qss() + """
             QWidget#connectionsHubPage { background: #090B11; }
             QScrollArea#connectionsHubScroll { background: transparent; border: none; }
             QWidget#connectionsHubContent { background: transparent; }
             QLabel#connectionsHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
             QLabel#connectionsHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
         """)
-        for key in ("add_server", "home_audio"):
+        for key, act in [("add_server", "secondary"), ("home_audio", "accent")]:
             card = self.findChild(QFrame, f"connectionsCard_{key}")
             if card:
-                for lbl in card.findChildren(QLabel):
-                    if "font-size" not in (lbl.styleSheet() or ""):
-                        lbl.setStyleSheet(
-                            "QLabel { color: rgba(255,255,255,0.62); font-size: 12px; "
-                            "background: transparent; border: none; }"
-                        )
-                for btn in card.findChildren(QPushButton):
-                    btn.setStyleSheet(glass_button_qss("primary"))
+                card.setStyleSheet(glass_card_qss(f"connectionsCard_{key}", "elevated"))
+            for lbl in (card.findChildren(QLabel) if card else []):
+                name = lbl.objectName()
+                if "Title" in name:
+                    lbl.setStyleSheet(card_title_qss())
+                elif "Desc" in name:
+                    lbl.setStyleSheet(card_desc_qss())
+                elif "Meta" in name:
+                    lbl.setStyleSheet(card_meta_qss())
+            for btn in (card.findChildren(QPushButton) if card else []):
+                btn.setStyleSheet(glass_button_qss(act))
