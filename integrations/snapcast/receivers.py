@@ -101,7 +101,7 @@ color:rgba(255,255,255,0.72);">
 sudo nano /etc/default/snapclient
 
 # Agregar:
-SNAPCLIENT_OPTS="-h IP_DE_ASTRA"
+SNAPCLIENT_OPTS="-h IP_DE_MICHI"
 
 sudo systemctl restart snapclient</pre>
 
@@ -183,17 +183,17 @@ Ejecuta un receptor Snapclient en cualquier maquina con Docker.
 color:rgba(255,255,255,0.72);">
 FROM alpine:3.20
 RUN apk add --no-cache snapcast avahi
-ENTRYPOINT ["snapclient", "-h", "IP_DE_ASTRA"]</pre>
+ENTRYPOINT ["snapclient", "-h", "IP_DE_MICHI"]</pre>
 
 <h4 style="color:#34C759;">2. Construir y ejecutar</h4>
 <pre style="background:rgba(255,255,255,0.04); padding:10px; border-radius:6px;
 color:rgba(255,255,255,0.72);">
-docker build -t astra-snapclient .
+docker build -t michi-snapclient .
 docker run -d \\
   --name snapclient-living \\
   --net host \\
   --device /dev/snd \\
-  astra-snapclient</pre>
+  michi-snapclient</pre>
 
 <h4 style="color:#34C759;">3. Multiples receptores</h4>
 <pre style="background:rgba(255,255,255,0.04); padding:10px; border-radius:6px;
@@ -201,7 +201,7 @@ color:rgba(255,255,255,0.72);">
 # Reemplaza --name y el puerto/identidad por cada sala:
 docker run -d --name snapclient-bedroom \\
   --net host --device /dev/snd \\
-  astra-snapclient</pre>
+  michi-snapclient</pre>
 
 <h4 style="color:#34C759;">4. Verificar</h4>
 <p style="color:rgba(255,255,255,0.62);">
