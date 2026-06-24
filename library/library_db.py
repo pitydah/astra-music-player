@@ -69,7 +69,9 @@ class LibraryDB:
         )""")
         self._conn.execute("""CREATE TABLE IF NOT EXISTS playlist_items (
             playlist_id INTEGER NOT NULL REFERENCES playlists(id),
-            filepath    TEXT NOT NULL
+            filepath    TEXT NOT NULL,
+            track_id    INTEGER REFERENCES media_items(id),
+            position    INTEGER DEFAULT 0
         )""")
         self._conn.execute("""CREATE TABLE IF NOT EXISTS queue_state (
             id INTEGER PRIMARY KEY,
@@ -237,6 +239,22 @@ class LibraryDB:
             if col not in dt_existing:
                 with contextlib.suppress(sqlite3.OperationalError):
                     self._conn.execute(f"ALTER TABLE detected_tracks ADD COLUMN {col} {col_def}")
+
+        # Playlist items — add track_id and position
+        pi_existing = {r[0] for r in self._conn.execute("PRAGMA table_info(playlist_items)").fetchall()}
+        for col, col_def in [("track_id", "INTEGER REFERENCES media_items(id)"),
+                              ("position", "INTEGER DEFAULT 0")]:
+            if col not in pi_existing:
+                with contextlib.suppress(sqlite3.OperationalError):
+                    self._conn.execute(f"ALTER TABLE playlist_items ADD COLUMN {col} {col_def}")
+
+        # Populate track_id for existing playlist items
+        with contextlib.suppress(sqlite3.OperationalError):
+            self._conn.execute("""
+                UPDATE playlist_items SET track_id = (
+                    SELECT m.id FROM media_items m WHERE m.filepath = playlist_items.filepath
+                ) WHERE track_id IS NULL
+            """)
 
         # Scan roots — add new columns
         sr_existing = {r[0] for r in self._conn.execute("PRAGMA table_info(scan_roots)").fetchall()}
@@ -591,8 +609,10 @@ class LibraryDB:
         for rid in rids:
             self._conn.execute("DELETE FROM media_items WHERE id=?", (rid,))
         self._conn.execute(
-            "DELETE FROM playlist_items WHERE filepath NOT IN "
-            "(SELECT filepath FROM media_items)")
+            "DELETE FROM playlist_items WHERE track_id NOT IN "
+            "(SELECT id FROM media_items) "
+            "AND (filepath IS NULL OR filepath NOT IN "
+            "(SELECT filepath FROM media_items))")
         self._conn.execute(
             "DELETE FROM favorites WHERE track_id NOT IN "
             "(SELECT filepath FROM media_items)")
@@ -751,19 +771,39 @@ class LibraryDB:
                 f"UPDATE playlists SET {', '.join(updates)} WHERE id = ?", params)
             self._conn.commit()
 
-    def add_to_playlist(self, pid: int, filepath: str):
+    def add_to_playlist(self, pid: int, filepath: str = "", track_id: int | None = None):
+        """Add a track to a playlist. Accepts filepath (legacy) and/or track_id.
+
+        If only filepath is given, track_id is resolved automatically from the DB.
+        Stores both filepath (for legacy compat) and track_id (canonical reference).
+        """
+        tid = track_id
+        if tid is None and filepath:
+            row = self._conn.execute(
+                "SELECT id FROM media_items WHERE filepath=?", (filepath,)).fetchone()
+            tid = row[0] if row else None
         self._conn.execute(
-            "INSERT OR IGNORE INTO playlist_items (playlist_id, filepath) VALUES (?,?)",
-            (pid, filepath))
+            "INSERT OR IGNORE INTO playlist_items (playlist_id, filepath, track_id) "
+            "VALUES (?,?,?)",
+            (pid, filepath or "", tid))
         self._conn.commit()
 
     def get_playlist_items(self, pid: int) -> list[MediaItem]:
         rows = self._conn.execute(
             "SELECT m.* FROM media_items m "
-            "JOIN playlist_items p ON m.filepath = p.filepath "
-            "WHERE p.playlist_id = ? ORDER BY m.title",
+            "JOIN playlist_items p ON (p.track_id = m.id OR p.filepath = m.filepath) "
+            "WHERE p.playlist_id = ? ORDER BY p.position, m.title",
             (pid,)).fetchall()
         return [MediaItem.from_row(r) for r in rows]
+
+    def get_playlist_track_ids(self, pid: int) -> list[int]:
+        """Return canonical track IDs for a playlist (uses track_id when available)."""
+        rows = self._conn.execute(
+            "SELECT COALESCE(p.track_id, m.id) FROM playlist_items p "
+            "LEFT JOIN media_items m ON m.filepath = p.filepath "
+            "WHERE p.playlist_id = ? ORDER BY p.position, m.title",
+            (pid,)).fetchall()
+        return [r[0] for r in rows if r[0] is not None]
 
     # Extracted to library/history_store.py — favorites, play history, detected tracks
     def save_queue(self, filepaths: list[str], current_index: int):
