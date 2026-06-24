@@ -90,11 +90,16 @@ class MetadataEditorWidget(QWidget):
 
         icons_path = Path(__file__).parent.parent / "icons/sidebar/metadata.svg"
         if icons_path.exists():
+            from ui.icons import get_pixmap
             icon_lbl = QLabel()
-            icon_pix = QPixmap(str(icons_path))
+            icon_pix = get_pixmap("metadata", size=40)
             if not icon_pix.isNull():
-                icon_pix = icon_pix.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 icon_lbl.setPixmap(icon_pix)
+            else:
+                icon_pix = QPixmap(str(icons_path))
+                if not icon_pix.isNull():
+                    icon_pix = icon_pix.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    icon_lbl.setPixmap(icon_pix)
             icon_lbl.setFixedSize(40, 40)
             icon_lbl.setStyleSheet("background: transparent; border: none;")
             header_row.addWidget(icon_lbl)
@@ -172,18 +177,8 @@ class MetadataEditorWidget(QWidget):
         self._tools_tabs.addTab(self._st_panel, "Smart Tagging")
         self._tools_tabs.addTab(self._doctor_panel, "Library Doctor")
         self._tools_tabs.setVisible(False)
-        self._tools_tabs.setStyleSheet("""
-            QTabWidget#metadataEditorTools::pane { border: none; background: transparent; }
-            QTabBar::tab {
-                background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);
-                border-radius: 8px; padding: 6px 16px; color: rgba(255,255,255,0.52);
-                font-size: 12px; margin-right: 4px;
-            }
-            QTabBar::tab:selected {
-                background: rgba(143,183,255,0.08); border: 1px solid rgba(143,183,255,0.12);
-                color: rgba(143,183,255,0.85);
-            }
-        """)
+        from ui.central.central_styles import tab_bar_qss
+        self._tools_tabs.setStyleSheet(tab_bar_qss())
         main.addWidget(self._tools_tabs)
 
         self._rebuild_navigator()

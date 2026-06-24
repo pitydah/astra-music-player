@@ -165,8 +165,6 @@ class DevicesPage(QWidget):
     def _build_content_selector(self, cl):
         row = QHBoxLayout()
         row.setSpacing(8)
-        row.addWidget(QLabel("Sincronizar:").styleSheet(
-            "QLabel { color: rgba(255,255,255,0.52); font-size: 12px; }"))
         sel_label = QLabel("Sincronizar:")
         sel_label.setStyleSheet("QLabel { color: rgba(255,255,255,0.52); font-size: 12px; }")
         row.addWidget(sel_label)

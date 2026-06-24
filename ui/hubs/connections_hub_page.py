@@ -121,6 +121,7 @@ class ConnectionsHubPage(QWidget):
         btn_row = QVBoxLayout()
         self._scan_btn = QPushButton("Escanear red local")
         self._scan_btn.setCursor(Qt.PointingHandCursor)
+        self._scan_btn.setStyleSheet(glass_button_qss("secondary"))
         self._scan_btn.clicked.connect(self._on_scan_network)
         btn_row.addWidget(self._scan_btn)
 
@@ -138,6 +139,7 @@ class ConnectionsHubPage(QWidget):
 
         self._connect_btn = QPushButton("Conectar servidor detectado")
         self._connect_btn.setCursor(Qt.PointingHandCursor)
+        self._connect_btn.setStyleSheet(glass_button_qss("primary"))
         self._connect_btn.setVisible(False)
         self._connect_btn.clicked.connect(self._on_connect_discovered)
         btn_row.addWidget(self._connect_btn)

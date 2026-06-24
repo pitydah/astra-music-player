@@ -38,7 +38,7 @@ class SmartTaggingPanel(QWidget):
         h_layout.addWidget(self._title)
 
         self._status_label = QLabel(
-            "Busca metadata en MusicBrainz para completar y normalizar tus tags."
+            "Busca metadatos en MusicBrainz para completar y normalizar tus tags."
         )
         self._status_label.setObjectName("smartTaggingStatus")
         self._status_label.setWordWrap(True)
@@ -182,7 +182,7 @@ class SmartTaggingPanel(QWidget):
         )
         info.addWidget(field_label)
 
-        change_text = f"'{sug.current or '(vacio)'}' → '{sug.suggested}'"
+        change_text = f"'{sug.current or '(vacío)'}' → '{sug.suggested}'"
         change_label = QLabel(change_text)
         change_label.setStyleSheet("QLabel { color: rgba(255,255,255,0.72); font-size: 12px; }")
         change_label.setWordWrap(True)
@@ -218,4 +218,4 @@ class SmartTaggingPanel(QWidget):
         self._accept_all_btn.setEnabled(not loading)
         self._reject_all_btn.setEnabled(not loading)
         if loading:
-            self._status_label.setText("Buscando metadata en MusicBrainz...")
+            self._status_label.setText("Buscando metadatos en MusicBrainz...")

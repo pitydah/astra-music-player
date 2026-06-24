@@ -69,16 +69,16 @@ class LibraryHubPage(QWidget):
         self._tabs.setStyleSheet(tab_bar_qss())
 
         tabs_data = [
-            ("canciones", "Canciones", "library",             "Toda tu música local en una tabla con búsqueda y filtros."),
-            ("albums", "Álbumes", "albums", "Carátulas y navegación visual por álbum."),
-            ("artists", "Artistas", "artists", "Explora tu biblioteca por artista y sus álbumes."),
-            ("genres", "Géneros", "genres", "Atlas de estilos y familias musicales."),
-            ("folders", "Carpetas", "folders", "Explorador de archivos por carpeta en tu disco."),
+            ("canciones", "Canciones", "library",             "Toda tu música local en una tabla con búsqueda y filtros.", "primary"),
+            ("albums", "Álbumes", "albums", "Carátulas y navegación visual por álbum.", "secondary"),
+            ("artists", "Artistas", "artists", "Explora tu biblioteca por artista y sus álbumes.", "secondary"),
+            ("genres", "Géneros", "genres", "Atlas de estilos y familias musicales.", "secondary"),
+            ("folders", "Carpetas", "folders", "Explorador de archivos por carpeta en tu disco.", "secondary"),
         ]
 
         stats = self._get_stats()
-        for key, label, nav_key, desc in tabs_data:
-            tab = self._build_tab(key, label, nav_key, desc, stats)
+        for key, label, nav_key, desc, btn_kind in tabs_data:
+            tab = self._build_tab(key, label, nav_key, desc, stats, btn_kind)
             self._tabs.addTab(tab, label)
 
         layout.addWidget(self._tabs, 1)
@@ -109,7 +109,7 @@ class LibraryHubPage(QWidget):
         return stats
 
     def _build_tab(self, key: str, label: str, nav_key: str,
-                   desc: str, stats: dict) -> QWidget:
+                   desc: str, stats: dict, btn_kind: str = "primary") -> QWidget:
         w = QWidget()
         w_layout = QVBoxLayout(w)
         w_layout.setContentsMargins(20, 20, 20, 20)
@@ -167,7 +167,7 @@ class LibraryHubPage(QWidget):
         c_layout.addWidget(btn)
 
         card.setStyleSheet(glass_card_qss(f"libTabCard_{key}", "elevated"))
-        btn.setStyleSheet(glass_button_qss("primary"))
+        btn.setStyleSheet(glass_button_qss(btn_kind))
 
         w_layout.addWidget(card)
         w_layout.addStretch()

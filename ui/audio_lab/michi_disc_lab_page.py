@@ -56,7 +56,7 @@ class MichiDiscLabPage(QWidget):
         content_layout.addWidget(title)
 
         subtitle = QLabel(
-            "Importación Hi-Fi, ripeo seguro y conversion inteligente "
+            "Importación Hi-Fi, ripeo seguro y conversión inteligente "
             "de discos de música."
         )
         subtitle.setObjectName("discLabSubtitle")
@@ -134,7 +134,7 @@ class MichiDiscLabPage(QWidget):
         self._track_table.setObjectName("discLabTable")
         self._track_table.setColumnCount(5)
         self._track_table.setHorizontalHeaderLabels(
-            ["#", "Titulo", "Artista", "Duracion", "Estado"]
+            ["#", "Título", "Artista", "Duración", "Estado"]
         )
         self._track_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self._track_table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -222,7 +222,7 @@ class MichiDiscLabPage(QWidget):
         p_layout = QVBoxLayout(panel)
         p_layout.setContentsMargins(16, 8, 16, 12)
 
-        diag_title = QLabel("Diagnostico de herramientas externas")
+        diag_title = QLabel("Diagnóstico de herramientas externas")
         diag_title.setObjectName("diagTitle")
         p_layout.addWidget(diag_title)
 
@@ -280,7 +280,7 @@ class MichiDiscLabPage(QWidget):
     def _on_select_iso(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Seleccionar imagen ISO", "",
-            "Imagenes ISO (*.iso);;Imagenes de disco (*.iso *.bin *.cue);;Todos los archivos (*)",
+            "Imágenes ISO (*.iso);;Imágenes de disco (*.iso *.bin *.cue);;Todos los archivos (*)",
         )
         if not path:
             return
@@ -292,7 +292,7 @@ class MichiDiscLabPage(QWidget):
             self._analyze_disc_btn.setEnabled(True)
         else:
             self._drive_status.setText(
-                "No se pudo montar el ISO. Verifica que udisksctl este instalado."
+                "No se pudo montar el ISO. Verifica que udisksctl esté instalado."
             )
 
     def _on_analyze_disc(self):
@@ -307,7 +307,7 @@ class MichiDiscLabPage(QWidget):
                 self._drive_status.setText("No se pudo leer la tabla de contenido del ISO.")
             else:
                 self._drive_status.setText(
-                    f"No se detecto un CD de audio en {drive}. "
+                    f"No se detectó un CD de audio en {drive}. "
                     "Inserta un disco de música y reintenta."
                 )
             self._import_btn.setEnabled(False)

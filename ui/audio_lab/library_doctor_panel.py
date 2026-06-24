@@ -35,8 +35,8 @@ class LibraryDoctorPanel(QWidget):
         h_layout.addWidget(title)
 
         self._status = QLabel(
-            "Analiza tu biblioteca en busca de metadata faltante, artistas duplicados, "
-            "álbumes partidos y mas."
+            "Analiza tu biblioteca en busca de metadatos faltantes, artistas duplicados, "
+            "álbumes partidos y más."
         )
         self._status.setObjectName("doctorStatus")
         self._status.setWordWrap(True)
@@ -97,7 +97,7 @@ class LibraryDoctorPanel(QWidget):
 
     def show_results(self, scan: dict, repair_plan: dict):
         self._status.setText(
-            f"{repair_plan.get('total_issues', 0)} problemás detectados. "
+            f"{repair_plan.get('total_issues', 0)} problemas detectados. "
             f"{repair_plan.get('fixable', 0)} se pueden corregir automáticamente."
         )
 
