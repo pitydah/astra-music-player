@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import (
     Qt, QTimer, QPropertyAnimation, QEasingCurve, QVariantAnimation,
-    Property, Signal, QRectF, QPointF,
+    Property, Signal, QRectF, QPointF, QElapsedTimer,
 )
 from PySide6.QtGui import (
     QPainter, QColor, QPen, QLinearGradient, QRadialGradient, QPixmap,
@@ -166,6 +166,9 @@ def _make_placeholder(w: int, h: int) -> QPixmap:
 
 
 class CoverItem(QGraphicsObject):
+    # Paint profiling (only when MICHI_COVERFLOW_DEBUG=1)
+    _paint_total_ns = 0
+    _paint_count = 0
     def __init__(self, pixmap: QPixmap | None, index: int,
                  width: int = 260, height: int = 260):
         super().__init__()
@@ -275,6 +278,7 @@ class CoverItem(QGraphicsObject):
         self._darken_alpha = state.darken_alpha
         self.setOpacity(state.opacity)
         self.setZValue(state.z)
+        self._last_state = state  # saved for diagnostic dump
 
         transform = QTransform()
         if abs(state.rotation_y) > 0.0:
@@ -296,6 +300,10 @@ class CoverItem(QGraphicsObject):
         return QRectF(0, 0, self._w, self._h + self._ref_h)
 
     def paint(self, painter: QPainter, option, widget):
+        if _DEBUG:
+            _t0 = QElapsedTimer()
+            _t0.start()
+
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
         self._ensure_cached()
@@ -329,8 +337,19 @@ class CoverItem(QGraphicsObject):
             gray = max(40, 255 - int(self._darken_alpha * 1.6))
             painter.setCompositionMode(QPainter.CompositionMode_Multiply)
             painter.fillRect(0, 0, self._w, self._h + self._ref_h,
-                             QColor(gray, gray, gray))
+                              QColor(gray, gray, gray))
             painter.restore()
+
+        if _DEBUG:
+            CoverItem._paint_total_ns += _t0.nsecsElapsed()
+            CoverItem._paint_count += 1
+            if CoverItem._paint_count >= 60:
+                import logging
+                avg = CoverItem._paint_total_ns / CoverItem._paint_count / 1e6
+                logging.getLogger("michi.coverflow").debug(
+                    f"Paint avg: {avg:.2f}ms over {CoverItem._paint_count} items")
+                CoverItem._paint_total_ns = 0
+                CoverItem._paint_count = 0
 
     def update_transform(self, current_offset: float, view_width: float,
                          view_height: float, velocity: float = 0.0,
@@ -433,6 +452,14 @@ class CoverFlowWidget(QGraphicsView):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setCursor(Qt.OpenHandCursor)
 
+        if _DEBUG:
+            import logging
+            log = logging.getLogger("michi.coverflow")
+            log.info("CoverFlow mode=%s OpenGL=%s viewport=%s",
+                     self._render_mode,
+                     "sí" if self._use_opengl else "no",
+                     type(self.viewport()).__name__)
+
         self._scene = QGraphicsScene(self)
         self.setScene(self._scene)
 
@@ -481,8 +508,19 @@ class CoverFlowWidget(QGraphicsView):
         self._snap_anim.finished.connect(self._on_snap_finished)
         self._snapping = False
 
+        # Diagnostic state (activated by MICHI_COVERFLOW_DEBUG=1)
+        self._fps_timer = QElapsedTimer()
+        self._fps_frames = 0
+        self._fps_current = 0.0
+        self._fps_min = 999.0
+        self._diag_visible = 0
+
         self._create_overlay_items()
         self._create_slider()
+
+        if _DEBUG:
+            from PySide6.QtGui import QShortcut, QKeySequence
+            QShortcut(QKeySequence("F12"), self, activated=self._dump_diagnostic)
 
     # ── Current pos property ──
 
@@ -674,6 +712,18 @@ class CoverFlowWidget(QGraphicsView):
     # ── Layout ──
 
     def _update_layout(self):
+        if _DEBUG:
+            if not self._fps_timer.isValid():
+                self._fps_timer.start()
+            self._fps_frames += 1
+            elapsed = self._fps_timer.elapsed()
+            if elapsed >= 1000:
+                self._fps_current = self._fps_frames * 1000.0 / elapsed
+                if self._fps_current < self._fps_min and self._fps_frames > 5:
+                    self._fps_min = self._fps_current
+                self._fps_timer.restart()
+                self._fps_frames = 0
+
         if not self._cover_items:
             vw = self.viewport().width()
             vh = self.viewport().height()
@@ -690,6 +740,7 @@ class CoverFlowWidget(QGraphicsView):
         vh = self.viewport().height()
         self._empty_msg.setVisible(False)
 
+        self._diag_visible = 0
         for ci in self._cover_items:
             state = self._layout_engine.item_state(
                 ci._index, self._current, self._cover_w, self._cover_h,
@@ -698,6 +749,7 @@ class CoverFlowWidget(QGraphicsView):
                 ci.setVisible(False)
                 continue
             ci.setVisible(True)
+            self._diag_visible += 1
             if self._render_mode == "safe_2d":
                 state.rotation_y = 0.0
             if self._render_mode == "no_reflection":
@@ -746,16 +798,63 @@ class CoverFlowWidget(QGraphicsView):
         return 10
 
     def _show_debug_overlay(self, vw: int, vh: int, idx: int):
+        fps_str = f"FPS={self._fps_current:.0f}" if self._fps_current > 0 else "FPS=..."
         lines = [
             f"CoverFlow {self._render_mode} | {len(self._items)} items",
-            f"idx {idx} offset={self._current:.2f} v={self._velocity:.4f}",
-            f"GL={'on' if self._use_opengl else 'off'} {vw}x{vh}",
+            f"idx {idx} offset={self._current:.2f} v={self._velocity:.4f} | {fps_str}",
+            f"GL={'on' if self._use_opengl else 'off'} {vw}x{vh} visible={self._diag_visible}/{len(self._cover_items)}",
             f"cover {self._cover_w}x{self._cover_h}",
         ]
         text = " | ".join(lines)
         self._meta_text.setPlainText(self._meta_text.toPlainText())
         self._position_text.setPlainText(
             f"{self._position_text.toPlainText()}\n{text}")
+
+    def _dump_diagnostic(self):
+        """Write coverflow_diagnostic.txt when F12 is pressed (debug mode only)."""
+        import json
+        import logging
+        import time as _time
+        log = logging.getLogger("michi.coverflow")
+        report = {
+            "timestamp": _time.strftime("%Y-%m-%d %H:%M:%S"),
+            "fps_current": round(self._fps_current, 1),
+            "fps_min": round(self._fps_min, 1) if self._fps_min < 999 else "N/A",
+            "paint_avg_ms": round(
+                CoverItem._paint_total_ns / max(CoverItem._paint_count, 1) / 1e6, 2),
+            "items_visible": self._diag_visible,
+            "items_total": len(self._cover_items),
+            "opengl": self._use_opengl,
+            "viewport": f"{self.viewport().width()}x{self.viewport().height()}",
+            "mode": self._render_mode,
+            "cover_size": f"{self._cover_w}x{self._cover_h}",
+            "params": {
+                "max_rot": self._layout_engine.max_rot,
+                "center_scale": self._layout_engine.center_scale,
+                "side_scale": self._layout_engine.side_scale,
+                "far_scale": self._layout_engine.far_scale,
+                "near_gap": self._layout_engine.near_gap_factor,
+                "side_gap": self._layout_engine.side_gap_factor,
+                "far_gap": self._layout_engine.far_gap_factor,
+                "center_y": self._layout_engine.center_y_offset,
+            },
+            "coordinates": {},
+        }
+        for ci in self._cover_items:
+            state = getattr(ci, '_last_state', None)
+            if state and state.visible:
+                dist = abs(ci._index - self._current)
+                report["coordinates"][f"item_{ci._index}"] = {
+                    "dist": round(dist, 1),
+                    "x": round(state.x, 1), "y": round(state.y, 1),
+                    "rot": round(state.rotation_y, 1),
+                    "scale": round(state.scale, 3),
+                    "z": state.z,
+                }
+        path = "/tmp/coverflow_diagnostic.txt"
+        with open(path, "w") as f:
+            json.dump(report, f, indent=2)
+        log.info("Diagnóstico escrito en %s", path)
 
     def _update_center_text(self, idx: int):
         if not self._items or idx < 0 or idx >= len(self._items):
