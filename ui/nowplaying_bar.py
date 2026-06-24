@@ -23,7 +23,7 @@ def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None,
         "warm_vol_high": 22, "warm_vol_medium": 22,
         "warm_vol_low": 22, "warm_mute": 22,
         "warm_eq": 24, "warm_transmit": 24,
-        "warm_audio_source": 22, "warm_mini_player": 22,
+        "warm_audio_source": 20, "warm_mini_player": 20,
     }
     visual_size = _ICON_CALIBRATION.get(icon_name, icon_size)
 
@@ -383,13 +383,13 @@ class NowPlayingBar(QWidget):
         self._time_lbl.setFixedWidth(36)
         self._time_lbl.setAlignment(Qt.AlignCenter)
 
-        self._seek = PremiumSlider(Qt.Horizontal)
+        self._seek = PremiumSlider(Qt.Horizontal, variant="seek")
         self._seek.setObjectName("seekSlider")
         self._seek.setRange(0, 1000)
         self._seek.setEnabled(False)
         self._seek.set_show_thumb_when_disabled(False)
         self._seek.setMinimumWidth(150)
-        self._seek.setFixedHeight(28)
+        self._seek.setFixedHeight(32)
         self._seek.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._seek.sliderPressed.connect(lambda: setattr(self, '_seeking', True))
         self._seek.sliderReleased.connect(self._on_seek_end)
@@ -489,12 +489,12 @@ class NowPlayingBar(QWidget):
         self._vol_level_before_mute = 70
         self._vol_muted = False
 
-        self._vol = PremiumSlider(Qt.Horizontal)
+        self._vol = PremiumSlider(Qt.Horizontal, variant="volume")
         self._vol.setObjectName("volumeSlider")
         self._vol.setRange(0, 100)
         self._vol.setValue(70)
-        self._vol.setFixedWidth(90)
-        self._vol.setFixedHeight(28)
+        self._vol.setFixedWidth(96)
+        self._vol.setFixedHeight(32)
         self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
 
         self._eq_btn = _make_btn("warm_eq", 24, 40, role="utility")
@@ -1024,10 +1024,17 @@ class CoverButton(QPushButton):
 
 class PremiumSlider(QSlider):
     """Premium horizontal slider painted via QPainter — clean capsule + circular thumb."""
+
+    _METRICS = {
+        "seek":   {"track_h": 8.0, "thumb_d": 16.0, "height": 32},
+        "volume": {"track_h": 8.0, "thumb_d": 15.0, "height": 32},
+    }
+
     seek_clicked = Signal(int)
 
-    def __init__(self, orientation=Qt.Horizontal, parent=None):
+    def __init__(self, orientation=Qt.Horizontal, parent=None, variant: str = "seek"):
         super().__init__(orientation, parent)
+        self._variant = variant
         self._hovered = False
         self._pressed = False
         self._show_thumb_disabled = True
@@ -1040,11 +1047,12 @@ class PremiumSlider(QSlider):
     def _slider_geometry(self):
         w = float(self.width())
         h = float(self.height())
-        track_h = 4.0
+        m = self._METRICS.get(self._variant, self._METRICS["seek"])
+        track_h = m["track_h"]
+        thumb_d = m["thumb_d"]
         track_r = track_h / 2.0
-        thumb_d = 12.0
         thumb_r = thumb_d / 2.0
-        margin = thumb_r + 1.0
+        margin = max(thumb_r + 1.0, track_r + 1.0)
         track_x = margin
         track_w = max(1.0, w - margin * 2)
         track_y = (h - track_h) / 2.0
@@ -1055,7 +1063,8 @@ class PremiumSlider(QSlider):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
 
-        track_rect, track_x, track_w, track_y, track_h, track_r, thumb_d, thumb_r, margin = self._slider_geometry()
+        geo = self._slider_geometry()
+        track_rect, track_x, track_w, track_y, track_h, track_r, thumb_d, thumb_r, margin = geo
 
         mn = self.minimum()
         mx = self.maximum()
@@ -1064,17 +1073,28 @@ class PremiumSlider(QSlider):
         ratio = max(0.0, min(1.0, ratio))
         progress_w = track_w * ratio
 
-        # Inactive track
-        painter.setPen(Qt.NoPen)
+        # 1. Inactive track — depth gradient for pill look
+        base = QLinearGradient(track_rect.left(), track_rect.top(),
+                               track_rect.left(), track_rect.bottom())
         if self.isEnabled():
-            painter.setBrush(QColor("#303642"))
+            base.setColorAt(0.0, QColor("#303642"))
+            base.setColorAt(1.0, QColor("#222730"))
         else:
-            painter.setBrush(QColor("#2A2D34"))
+            base.setColorAt(0.0, QColor("#282B33"))
+            base.setColorAt(1.0, QColor("#1E2128"))
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(base)
         painter.drawRoundedRect(track_rect, track_r, track_r)
 
-        # Active gradient — full track width, then clip to progress
-        if progress_w > 0 and self.isEnabled():
-            progress_rect = QRectF(track_x, track_y, progress_w, track_h)
+        # 2. Clip path — pill shape
+        track_path = QPainterPath()
+        track_path.addRoundedRect(track_rect, track_r, track_r)
+
+        # 3. Progress fill clipped inside the pill
+        if progress_w > 1.0 and self.isEnabled():
+            painter.save()
+            painter.setClipPath(track_path)
+
             gradient = QLinearGradient(
                 track_rect.left(), track_rect.center().y(),
                 track_rect.right(), track_rect.center().y(),
@@ -1083,24 +1103,29 @@ class PremiumSlider(QSlider):
             gradient.setColorAt(0.35, QColor("#FF4A2D"))
             gradient.setColorAt(0.68, QColor("#F21B5B"))
             gradient.setColorAt(1.0, QColor("#9F0C80"))
-            painter.setBrush(gradient)
-            painter.setPen(Qt.NoPen)
-            if ratio >= 0.98:
-                painter.drawRoundedRect(track_rect, track_r, track_r)
-            else:
-                painter.drawRoundedRect(progress_rect, track_r, track_r)
-        elif progress_w > 0:
-            progress_rect = QRectF(track_x, track_y, progress_w, track_h)
-            painter.setBrush(QColor("#525866"))
-            painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(progress_rect, track_r, track_r)
 
-        # Capsule border — subtle
+            progress_rect = QRectF(track_rect.left(), track_rect.top(),
+                                   progress_w, track_rect.height())
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(gradient)
+            painter.drawRect(progress_rect)
+            painter.restore()
+        elif progress_w > 1.0:
+            painter.save()
+            painter.setClipPath(track_path)
+            progress_rect = QRectF(track_rect.left(), track_rect.top(),
+                                   progress_w, track_rect.height())
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor("#525866"))
+            painter.drawRect(progress_rect)
+            painter.restore()
+
+        # 4. Pill border
         painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(QColor(255, 255, 255, 14), 1.0))
+        painter.setPen(QPen(QColor(255, 255, 255, 12), 1.0))
         painter.drawRoundedRect(track_rect, track_r, track_r)
 
-        # Thumb
+        # 5. Thumb
         show_thumb = self.isEnabled() or self._show_thumb_disabled
         if show_thumb:
             thumb_x = track_x + progress_w
