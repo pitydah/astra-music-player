@@ -148,6 +148,76 @@ class AiAssistantPanel(QWidget):
         if self._empty_state and not self._empty_state.isHidden():
             self._empty_state.hide()
 
+    def _apply_qss(self):
+        self.setStyleSheet(self._build_panel_qss())
+
+    def _on_send(self):
+        text = self._input.text().strip()
+        if not text:
+            return
+        self._input.clear()
+        self._hide_empty_state()
+        self.add_message("user", text)
+        self.send_requested.emit(text)
+
+    def add_message(self, role: str, content: str, pending: dict | None = None):
+        bubble = _ChatBubble(role, content, self._chat_container)
+        idx = self._chat_layout.count() - 1
+        self._chat_layout.insertWidget(max(0, idx), bubble)
+        if pending:
+            card = _PendingActionCard(pending, self._chat_container)
+            card.confirmed.connect(self.action_confirmed.emit)
+            card.cancelled.connect(self.action_cancelled.emit)
+            self._chat_layout.insertWidget(self._chat_layout.count() - 1, card)
+        self._scroll_to_bottom()
+
+    def add_message_r(self, content: str):
+        self.add_message("assistant", content)
+
+    def add_response(self, response: dict):
+        reply = response.get("reply", "")
+        if reply:
+            self.add_message("assistant", reply)
+        pending = response.get("pending")
+        if pending:
+            card = _PendingActionCard(pending, self._chat_container)
+            card.confirmed.connect(
+                lambda aid=pending.get("action_id", ""): self.action_confirmed.emit(aid))
+            card.cancelled.connect(
+                lambda aid=pending.get("action_id", ""): self.action_cancelled.emit(aid))
+            self._chat_layout.insertWidget(self._chat_layout.count() - 1, card)
+            self._scroll_to_bottom()
+
+    def set_thinking(self, thinking: bool):
+        if thinking:
+            self._send_btn.setEnabled(False)
+            self._input.setEnabled(False)
+            self._send_btn.setText("Pensando...")
+        else:
+            self._send_btn.setEnabled(True)
+            self._input.setEnabled(True)
+            self._send_btn.setText("Enviar")
+            self._input.setFocus()
+
+    def set_ollama_status(self, available: bool, model: str = ""):
+        if available:
+            self._privacy_badge.setText(
+                f"{_PRIVACY_NOTICE} — {model} conectado")
+        else:
+            self._privacy_badge.setText(
+                f"{_PRIVACY_NOTICE} — Ollama no disponible")
+
+    def clear_messages(self):
+        while self._chat_layout.count() > 1:
+            item = self._chat_layout.takeAt(0)
+            if item and item.widget():
+                item.widget().deleteLater()
+        self._messages.clear()
+
+    def _scroll_to_bottom(self):
+        sb = self._scroll.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
     @staticmethod
     def _build_panel_qss() -> str:
         return (
