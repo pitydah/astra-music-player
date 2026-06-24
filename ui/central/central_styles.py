@@ -666,3 +666,37 @@ def glass_chip_button_qss() -> str:
         "  border: 1px solid rgba(143,183,255,0.12);"
         "}"
     )
+
+
+# ── Page-level helpers ──
+
+def page_title_qss() -> str:
+    """Page title — 22px bold, high contrast."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.92); font-size: 22px; "
+        "font-weight: 700; background: transparent; border: none; }"
+    )
+
+
+def page_subtitle_qss() -> str:
+    """Page subtitle — 13px, muted."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.56); font-size: 13px; "
+        "font-weight: 400; background: transparent; border: none; }"
+    )
+
+
+def card_meta_qss() -> str:
+    """Card metadata — 11px, dim."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.44); font-size: 11px; "
+        "font-weight: 400; background: transparent; border: none; }"
+    )
+
+
+def muted_label_qss() -> str:
+    """Secondary label — 12px, muted."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.48); font-size: 12px; "
+        "font-weight: 400; background: transparent; border: none; }"
+    )
