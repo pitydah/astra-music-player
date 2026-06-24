@@ -88,15 +88,35 @@ class Indexer(QObject):
                 # Change detection
                 if self._is_unchanged(fp):
                     self._state.skipped_count += 1
+                    self._db._touch_last_scanned(fp)
                     self._emit_progress(i)
                     continue
+
+                # Is this a new file or an update?
+                sig = self._db.get_file_signature(fp)
+                is_new = sig is None
 
                 # Extract metadata + build record
                 try:
                     record = self._build_record(fp)
                     if record is not None:
+                        stat = os.stat(fp)
+                        record["updated_at"] = stat.st_mtime
+                        record["last_scanned"] = time.time()
+                        record["scan_status"] = "ok" if is_new else "updated"
+
+                        # Compute track_uid for new/updated records
+                        tuid = self._db._compute_track_uid(
+                            fp, record.get("artist"), record.get("album"),
+                            record.get("title"), record.get("duration", 0),
+                            record.get("mb_track_id"))
+                        record["track_uid"] = tuid
+
                         batch_writer.add(record)
-                        self._state.added_count += 1
+                        if is_new:
+                            self._state.added_count += 1
+                        else:
+                            self._state.updated_count += 1
                     else:
                         self._state.skipped_count += 1
                 except Exception as e:
@@ -346,4 +366,4 @@ class Indexer(QObject):
         state = self._state
         if not state.cancelled:
             state.finish(ScanPhase.DONE)
-        self.finished.emit(state.added_count)
+        self.finished.emit(state.added_count + state.updated_count)

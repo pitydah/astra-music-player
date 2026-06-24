@@ -12,6 +12,11 @@ BATCH_COLUMNS = [
     "disc_number", "disc_total", "composer",
     "mb_track_id", "mb_album_id", "mb_albumartist_id",
     "bit_depth", "bpm", "replaygain_track", "replaygain_album",
+    "replaygain_track_peak",
+    "isrc", "label", "conductor", "compilation", "media_type",
+    "encoder", "copyright", "originaldate", "remixer", "grouping", "mood",
+    "content_hash", "track_uid",
+    "updated_at", "last_scanned", "scan_status",
 ]
 
 NUMERIC_DEFAULTS = frozenset({
@@ -20,10 +25,12 @@ NUMERIC_DEFAULTS = frozenset({
     "disc_number", "disc_total",
     "bit_depth", "bpm",
     "replaygain_track", "replaygain_album",
+    "compilation",
 })
 
 FLOAT_DEFAULTS = frozenset({
     "mtime", "duration", "replaygain_track", "replaygain_album",
+    "updated_at", "last_scanned",
 })
 
 

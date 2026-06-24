@@ -7,6 +7,7 @@ Features:
     - Device detection
 """
 import os
+import time
 import sqlite3
 import logging
 import contextlib
@@ -439,7 +440,8 @@ class LibraryDB:
     def get_file_signature(self, filepath: str) -> tuple | None:
         """Return (size, mtime, content_hash) for a filepath, or None if not in DB."""
         row = self._conn.execute(
-            "SELECT size, mtime, COALESCE(content_hash,'') FROM media_items WHERE filepath=?",
+            "SELECT size, mtime, COALESCE(content_hash,'') FROM media_items "
+            "WHERE filepath=? AND deleted_at IS NULL",
             (filepath,)).fetchone()
         return (row[0], row[1], row[2]) if row else None
 
@@ -526,29 +528,67 @@ class LibraryDB:
     def remove_file(self, filepath: str):
         self._conn.execute("DELETE FROM media_items WHERE filepath=?", (filepath,))
         self._conn.commit()
-
     def remove_missing(self) -> int:
-        rows = self._conn.execute("SELECT id, filepath FROM media_items").fetchall()
-        missing = [rid for rid, fp in rows if not os.path.exists(fp)]
+        """Soft-delete: mark files that disappeared from disk as deleted.
+
+        Only checks files under active scan roots — not the entire library.
+        Rows with deleted_at set are excluded from get_all(), search, etc.
+        """
+        roots = {r[0] for r in self._conn.execute(
+            "SELECT path FROM scan_roots WHERE enabled=1").fetchall()}
+        if not roots:
+            return 0
+        rows = self._conn.execute(
+            "SELECT id, filepath FROM media_items "
+            "WHERE deleted_at IS NULL").fetchall()
+        missing = [rid for rid, fp in rows
+                   if not os.path.exists(fp)
+                   and any(fp.startswith(r) for r in roots)]
+        now = time.time()
         for rid in missing:
-            self._conn.execute("DELETE FROM media_items WHERE id=?", (rid,))
+            self._conn.execute(
+                "UPDATE media_items SET deleted_at=?, scan_status='missing' WHERE id=?",
+                (now, rid))
         self._conn.commit()
         return len(missing)
 
+
     def cleanup_missing(self) -> int:
-        """Fast cleanup: check known directories for missing files, rebuild if needed."""
+        """Soft-delete missing files, scoped to known directories."""
         dirs = self.get_directories()
         if not dirs:
             return 0
         all_rows = self._conn.execute(
-            "SELECT id, filepath FROM media_items").fetchall()
+            "SELECT id, filepath FROM media_items WHERE deleted_at IS NULL").fetchall()
         missing_ids = []
         for rid, fp in all_rows:
             if not os.path.isfile(fp):
                 missing_ids.append(rid)
         if not missing_ids:
             return 0
+        now = time.time()
         for rid in missing_ids:
+            self._conn.execute(
+                "UPDATE media_items SET deleted_at=?, scan_status='missing' WHERE id=?",
+                (now, rid))
+        self._conn.commit()
+
+        # Rebuild FTS5 after soft-deletes
+        from library.search_index import SearchIndex
+        idx = SearchIndex(self._conn)
+        if idx.fts_exists:
+            with contextlib.suppress(Exception):
+                idx.rebuild_fts()
+        return len(missing_ids)
+
+    def purge_deleted(self) -> int:
+        """Permanently remove soft-deleted tracks (user-requested cleanup)."""
+        rows = self._conn.execute(
+            "SELECT id FROM media_items WHERE deleted_at IS NOT NULL").fetchall()
+        rids = [r[0] for r in rows]
+        if not rids:
+            return 0
+        for rid in rids:
             self._conn.execute("DELETE FROM media_items WHERE id=?", (rid,))
         self._conn.execute(
             "DELETE FROM playlist_items WHERE filepath NOT IN "
@@ -560,14 +600,20 @@ class LibraryDB:
             "DELETE FROM play_history WHERE track_id NOT IN "
             "(SELECT filepath FROM media_items)")
         self._conn.commit()
-
-        # Rebuild FTS5 after deletions
+        # Rebuild FTS5 after purge
         from library.search_index import SearchIndex
         idx = SearchIndex(self._conn)
         if idx.fts_exists:
             with contextlib.suppress(Exception):
                 idx.rebuild_fts()
-        return len(missing_ids)
+        return len(rids)
+
+    def _touch_last_scanned(self, filepath: str):
+        """Update last_scanned for a file that was verified unchanged."""
+        self._conn.execute(
+            "UPDATE media_items SET last_scanned=?, scan_status='ok' WHERE filepath=?",
+            (time.time(), filepath))
+        self._conn.commit()
 
     def get_all(self, kind: str | None = None, search: str | None = None,
                  group_by: str = "") -> list[MediaItem]:
@@ -583,7 +629,7 @@ class LibraryDB:
             "replaygain_track_peak, play_count, last_played, rating "
             "FROM media_items")
         params = []
-        conditions = []
+        conditions = ["deleted_at IS NULL"]
         if kind:
             conditions.append("kind = ?")
             params.append(kind)
