@@ -1,8 +1,9 @@
-"""Metadata extraction — GStreamer discoverer + Mutagen full tags."""
+"""Metadata extraction — GStreamer discoverer + Mutagen fallback + filename inference."""
 import os
 import logging
 import contextlib
 import threading
+from pathlib import Path
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -18,16 +19,12 @@ AUDIO_EXTS = frozenset({
 })
 ALL_EXTS = AUDIO_EXTS
 
+log = logging.getLogger("michi.extractor")
 
 _thread_local = threading.local()
 
 
 def _get_discoverer():
-    """Return a thread-local GStreamer discoverer instance.
-
-    GstPbutils.Discoverer is not thread-safe — each worker thread
-    must have its own instance to avoid crashes during concurrent scans.
-    """
     d = getattr(_thread_local, "discoverer", None)
     if d is None:
         d = GstPbutils.Discoverer.new(5 * Gst.SECOND)
@@ -35,62 +32,163 @@ def _get_discoverer():
     return d
 
 
+def _safe_uri(filepath: str) -> str:
+    """Build a file:// URI that works with spaces, accents, and special chars."""
+    try:
+        from gi.repository import GLib
+        abspath = os.path.abspath(filepath)
+        return GLib.filename_to_uri(abspath, None)
+    except (ImportError, Exception):
+        return Path(filepath).resolve().as_uri()
+
+
+def _infer_from_filename(filepath: str) -> dict:
+    """Infer artist and title from filename patterns like 'Artist - Title.ext'."""
+    stem = Path(filepath).stem
+    if " - " in stem:
+        artist, title = stem.split(" - ", 1)
+        return {"artist": artist.strip(), "title": title.strip()}
+    return {"title": stem, "artist": ""}
+
+
+def _mutagen_basic(filepath: str) -> dict:
+    """Extract basic metadata (title, artist, album, duration, etc.) via mutagen."""
+    info = {"title": "", "artist": "", "album": "", "albumartist": "",
+            "date": "", "tracknumber": 0, "trackcount": 0,
+            "duration": 0.0, "sample_rate": 0, "channels": 0, "bitrate": 0}
+    try:
+        from mutagen import File as MutagenFile
+        mf = MutagenFile(filepath)
+        if mf is None:
+            return info
+        if mf.tags and hasattr(mf.tags, 'get'):
+            def _get(*keys):
+                for k in keys:
+                    v = mf.tags.get(k)
+                    if v:
+                        return str(v[0]) if isinstance(v, list) else str(v)
+                return ""
+            info["title"] = _get("title", "TIT2", "\xa9nam")
+            info["artist"] = _get("artist", "TPE1", "\xa9ART")
+            info["album"] = _get("album", "TALB", "\xa9alb")
+            info["albumartist"] = _get(
+                "albumartist", "ALBUMARTIST", "TPE2", "aART", "\u00a9ART")
+            date_val = _get("date", "TDRC", "TYER", "\u00a9day")
+            if date_val:
+                info["date"] = date_val[:4] if len(date_val) >= 4 else date_val
+            tn = _get("tracknumber", "TRCK")
+            if tn:
+                info["tracknumber"] = int(tn.split("/")[0]) if tn.split("/")[0].isdigit() else 0
+                if "/" in tn:
+                    parts = tn.split("/")
+                    info["trackcount"] = int(parts[1]) if parts[1].isdigit() else 0
+        if hasattr(mf, 'info') and mf.info:
+            if getattr(mf.info, 'length', 0):
+                info["duration"] = float(mf.info.length)
+            info["sample_rate"] = getattr(mf.info, 'sample_rate', 0) or 0
+            info["channels"] = getattr(mf.info, 'channels', 0) or 0
+            info["bitrate"] = getattr(mf.info, 'bitrate', 0) or 0
+    except Exception as e:
+        log.debug("Mutagen basic extraction failed for %s: %s", filepath, e)
+    return info
+
+
+def _merge_into(target: dict, source: dict, fields: list[str]):
+    """Copy non-empty/zero values from source into target for given fields."""
+    for f in fields:
+        sv = source.get(f)
+        if sv is None:
+            continue
+        tv = target.get(f)
+        if f in ("duration", "sample_rate", "channels", "bitrate",
+                 "tracknumber", "trackcount"):
+            if (tv or 0) <= 0 and (sv or 0) > 0:
+                target[f] = sv
+        elif f in ("date",):
+            if not tv and sv:
+                target[f] = sv
+        else:
+            if not tv and sv:
+                target[f] = sv
+
+
 def extract_metadata(filepath: str) -> dict:
-    """Extract duration, sample_rate, channels, bitrate, tags via GStreamer.
-    Uses cached Discoverer instance for performance across scan iterations.
-    Called from worker threads (Indexer QThread), not UI thread."""
+    """Extract duration, sample_rate, channels, bitrate, tags via GStreamer + Mutagen.
+
+    Falls back to mutagen for basic fields GStreamer misses, then to
+    filename inference for artist/title.
+    """
     info = {"duration": 0.0, "channels": 0, "sample_rate": 0,
             "bitrate": 0, "title": "", "artist": "", "album": "",
             "albumartist": "", "date": "", "tracknumber": 0,
             "trackcount": 0}
+
+    gst_failed = False
     try:
-        uri = "file://" + os.path.abspath(filepath)
+        uri = _safe_uri(filepath)
         discoverer = _get_discoverer()
         disc = discoverer.discover_uri(uri)
         if disc is None:
-            return info
+            gst_failed = True
+        else:
+            dur = disc.get_duration()
+            if dur > 0:
+                info["duration"] = dur / 1e9
 
-        dur = disc.get_duration()
-        if dur > 0:
-            info["duration"] = dur / 1e9
+            tags = disc.get_tags()
+            if tags:
+                ok, v = tags.get_string(Gst.TAG_TITLE)
+                if ok:
+                    info["title"] = v
+                ok, v = tags.get_string(Gst.TAG_ARTIST)
+                if ok:
+                    info["artist"] = v
+                ok, v = tags.get_string(Gst.TAG_ALBUM)
+                if ok:
+                    info["album"] = v
+                ok, v = tags.get_string(Gst.TAG_ALBUM_ARTIST)
+                if ok:
+                    info["albumartist"] = v
+                ok, v = tags.get_string(Gst.TAG_DATE)
+                if ok:
+                    info["date"] = v
+                ok, v = tags.get_uint(Gst.TAG_TRACK_NUMBER)
+                if ok:
+                    info["tracknumber"] = v
+                ok, v = tags.get_uint(Gst.TAG_TRACK_COUNT)
+                if ok:
+                    info["trackcount"] = v
 
-        tags = disc.get_tags()
-        if tags:
-            ok, v = tags.get_string(Gst.TAG_TITLE)
-            if ok:
-                info["title"] = v
-            ok, v = tags.get_string(Gst.TAG_ARTIST)
-            if ok:
-                info["artist"] = v
-            ok, v = tags.get_string(Gst.TAG_ALBUM)
-            if ok:
-                info["album"] = v
-            ok, v = tags.get_string(Gst.TAG_ALBUM_ARTIST)
-            if ok:
-                info["albumartist"] = v
-            ok, v = tags.get_string(Gst.TAG_DATE)
-            if ok:
-                info["date"] = v
-            ok, v = tags.get_uint(Gst.TAG_TRACK_NUMBER)
-            if ok:
-                info["tracknumber"] = v
-            ok, v = tags.get_uint(Gst.TAG_TRACK_COUNT)
-            if ok:
-                info["trackcount"] = v
-
-        streams = disc.get_audio_streams()
-        if streams:
-            s = streams[0]
-            info["sample_rate"] = s.get_sample_rate() or 0
-            info["channels"] = s.get_channels() or 0
-            info["bitrate"] = s.get_bitrate() or 0
+            streams = disc.get_audio_streams()
+            if streams:
+                s = streams[0]
+                info["sample_rate"] = s.get_sample_rate() or 0
+                info["channels"] = s.get_channels() or 0
+                info["bitrate"] = s.get_bitrate() or 0
     except Exception as e:
-        logging.getLogger("michi").debug(f"Metadata extraction failed for {filepath}: {e}")
+        gst_failed = True
+        log.debug("GStreamer metadata failed for %s: %s", filepath, e)
+
+    # Mutagen fallback for fields GStreamer missed
+    if gst_failed or not info["title"] or not info["artist"] or info["duration"] <= 0:
+        mg = _mutagen_basic(filepath)
+        _merge_into(info, mg, ["title", "artist", "album", "albumartist",
+                                "date", "tracknumber", "trackcount",
+                                "duration", "sample_rate", "channels", "bitrate"])
+
+    # Filename inference as last resort
+    if not info["title"] or not info["artist"]:
+        inferred = _infer_from_filename(filepath)
+        if not info["title"] and inferred.get("title"):
+            info["title"] = inferred["title"]
+        if not info["artist"] and inferred.get("artist"):
+            info["artist"] = inferred["artist"]
+
     return info
 
 
 def extract_metadata_full(filepath: str) -> dict:
-    """Extract full metadata: year, genre, composer, ISRC, label, conductor, etc. via mutagen."""
+    """Extract full metadata: year, genre, composer, ISRC, etc. via mutagen."""
     info = {"year": 0, "genre": "", "track_number": 0, "composer": "",
             "cover_mime": "", "cover_data": b"", "albumartist": "",
             "disc_number": 0, "disc_total": 0, "track_total": 0,
@@ -124,9 +222,9 @@ def extract_metadata_full(filepath: str) -> dict:
                 if genre_val and genre_val.startswith("(") and ")" in genre_val:
                     genre_val = genre_val.split(")", 1)[-1].strip()
             except Exception:
-                logging.getLogger("michi").debug("Genre parsing failed, using raw value")
+                pass
             info["genre"] = genre_val
-            year_val = get_tag(mf.tags, "date", "year", "TYER", "©day", "TDRC")
+            year_val = get_tag(mf.tags, "date", "year", "TYER", "\u00a9day", "TDRC")
             try:
                 info["year"] = int(year_val[:4]) if year_val else 0
             except Exception:
@@ -181,13 +279,16 @@ def extract_metadata_full(filepath: str) -> dict:
             info["remixer"] = get_tag(mf.tags, "TPE4", "REMIXER")
             info["grouping"] = get_tag(mf.tags, "TIT1", "GRP1", "GROUPING")
             info["mood"] = get_tag(mf.tags, "TMOO", "MOOD")
-            # Bit depth — try GStreamer first, then mutagen
             if hasattr(mf, 'info') and hasattr(mf.info, 'bits_per_sample'):
                 info["bit_depth"] = mf.info.bits_per_sample
             elif hasattr(mf, 'info') and mf.info is not None:
                 bps = getattr(mf.info, 'bits_per_sample', 0)
                 if bps:
                     info["bit_depth"] = bps
+            # Mutagen basic fallback for title/artist/album if missing
+            _merge_into(info, _mutagen_basic(filepath),
+                        ["title", "artist", "album", "albumartist", "date",
+                         "duration", "sample_rate", "channels", "bitrate"])
         for tag_type in mf or []:
             if tag_type and (b'APIC' in str(tag_type).encode() or 'APIC' in str(tag_type)):
                 try:
@@ -196,7 +297,7 @@ def extract_metadata_full(filepath: str) -> dict:
                         info["cover_mime"] = cover.mime if hasattr(cover, 'mime') else "image/jpeg"
                         info["cover_data"] = cover.data if hasattr(cover, 'data') else b""
                 except Exception:
-                    logging.getLogger("michi").debug("Cover art APIC extraction failed")
+                    pass
                 break
         if not info["cover_data"]:
             for key in (b'APIC:', 'APIC:'):
@@ -207,7 +308,7 @@ def extract_metadata_full(filepath: str) -> dict:
                         info["cover_data"] = getattr(val, 'data', b'')
                         break
                 except Exception:
-                    logging.getLogger("michi").debug("Cover art key extraction failed")
+                    pass
         if not info["cover_data"] and hasattr(mf, 'pictures'):
             pics = getattr(mf, 'pictures', [])
             if pics:
@@ -216,7 +317,7 @@ def extract_metadata_full(filepath: str) -> dict:
                     info["cover_mime"] = getattr(p, 'mime', 'image/jpeg')
                     info["cover_data"] = getattr(p, 'data', b'')
                 except Exception:
-                    logging.getLogger("michi").debug("Cover art picture extraction failed")
+                    pass
     except Exception as e:
-        logging.getLogger("michi").debug(f"Full metadata extraction failed for {filepath}: {e}")
+        log.debug("Full metadata extraction failed for %s: %s", filepath, e)
     return info
