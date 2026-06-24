@@ -90,7 +90,7 @@ class DevicesPage(QWidget):
         self._manifest_viewer = QLabel("Sin manifiesto generado.")
         self._manifest_viewer.setWordWrap(True)
         self._manifest_viewer.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.52); font-size: 11px; "
+            "QLabel { color: rgba(255,255,255,0.64); font-size: 11px; "
             "font-family: monospace; }")
         cl.addWidget(self._manifest_viewer)
 
@@ -144,7 +144,7 @@ class DevicesPage(QWidget):
         row1 = QHBoxLayout()
         self._status_label = QLabel("Sync: inactivo")
         self._status_label.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.52); font-size: 12px; }")
+            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px; }")
         row1.addWidget(self._status_label)
         row1.addStretch()
 
@@ -223,7 +223,7 @@ class DevicesPage(QWidget):
         devices = self._controller.paired_devices
         if not devices:
             empty = QLabel("Sin dispositivos emparejados.")
-            empty.setStyleSheet("QLabel { color: rgba(255,255,255,0.38); font-size: 12px; padding: 8px; }")
+            empty.setStyleSheet("QLabel { color: rgba(255,255,255,0.54); font-size: 12px; padding: 8px; }")
             self._paired_layout.addWidget(empty)
             return
         for d in devices:
@@ -237,7 +237,7 @@ class DevicesPage(QWidget):
                 w.deleteLater()
         if not self._discovered:
             empty = QLabel("No hay dispositivos en la red local.")
-            empty.setStyleSheet("QLabel { color: rgba(255,255,255,0.38); font-size: 12px; padding: 8px; }")
+            empty.setStyleSheet("QLabel { color: rgba(255,255,255,0.54); font-size: 12px; padding: 8px; }")
             self._discovered_layout.addWidget(empty)
             return
         for d in self._discovered:

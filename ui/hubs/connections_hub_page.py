@@ -40,7 +40,7 @@ class ConnectionsHubPage(QWidget):
 
         servers = self._get_servers()
         subtitle = QLabel(
-            f"Servidores musicales, Home Audio, dispositivos y diagnóstico de red. "
+            f"Servidores musicales, dispositivos y diagnóstico de red. "
             f"{len(servers)} servidores configurados."
         )
         subtitle.setObjectName("connectionsHubSubtitle")
@@ -148,8 +148,6 @@ class ConnectionsHubPage(QWidget):
         actions = [
             ("add_server", "Añadir servidor musical",
              "Conecta Navidrome, Jellyfin o Subsonic para acceder a tu música remota."),
-            ("home_audio", "Home Audio",
-             "Audio multiroom, parlantes Snapcast y Home Assistant."),
         ]
 
         for key, label, desc in actions:
@@ -261,7 +259,7 @@ class ConnectionsHubPage(QWidget):
             QLabel#connectionsHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
             QLabel#connectionsHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
         """)
-        for key in ("add_server", "home_audio"):
+        for key in ("add_server",):
             card = self.findChild(QFrame, f"connectionsCard_{key}")
             if card:
                 for lbl in card.findChildren(QLabel):

@@ -87,11 +87,11 @@ class AiAssistantPanel(QWidget):
             "  background: transparent;"
             "}"
             "QLabel#assistantPrivacyBadge {"
-            "  color: rgba(255,255,255,0.42);"
-            "  font-size: 10px;"
+            "  color: rgba(255,255,255,0.48);"
+            "  font-size: 11px;"
             "  padding: 6px 16px;"
             "  background: rgba(143,183,255,0.04);"
-            "  border-top: 1px solid rgba(255,255,255,0.03);"
+            "  border-top: 1px solid rgba(255,255,255,0.04);"
             "}"
             "QLineEdit#assistantInput {"
             "  background: rgba(255,255,255,0.035);"
@@ -235,8 +235,8 @@ class _ChatBubble(QFrame):
             "  max-width: 520px;"
             "}"
             "QLabel#bubbleAssistant {"
-            "  background: rgba(255,255,255,0.030);"
-            "  border: 1px solid rgba(255,255,255,0.04);"
+            "  background: rgba(255,255,255,0.040);"
+            "  border: 1px solid rgba(255,255,255,0.05);"
             "  border-radius: 14px;"
             "  padding: 10px 16px;"
             "  color: rgba(255,255,255,0.84);"
@@ -259,7 +259,7 @@ class _PendingActionCard(QFrame):
         layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(8)
 
-        title = QLabel(pending.get("title", "Accion pendiente"))
+        title = QLabel(pending.get("title", "Acción pendiente"))
         title.setObjectName("pendingTitle")
         title.setStyleSheet(
             "QLabel#pendingTitle {"
