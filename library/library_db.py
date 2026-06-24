@@ -675,6 +675,23 @@ class LibraryDB:
         ).fetchall()
         return [{"track_id": r[0], "played_at": r[1]} for r in rows]
 
+    def get_media_item_by_track_id(self, track_id: str):
+        """Resolve a track_id (SHA-256 hex hash or filepath) to a MediaItem."""
+        row = self._conn.execute(
+            "SELECT id, filepath, filename, directory, ext, kind, "
+            "size, mtime, duration, channels, sample_rate, bitrate, "
+            "title, artist, album, year, genre, track_number, composer, "
+            "albumartist, disc_number, disc_total, track_total, "
+            "mb_track_id, mb_album_id, mb_albumartist_id, "
+            "bit_depth, bpm, isrc, label, conductor, compilation, "
+            "media_type, encoder, copyright, originaldate, remixer, "
+            "grouping, mood, replaygain_track, replaygain_album, "
+            "replaygain_track_peak, play_count, last_played, rating, "
+            "created_at, updated_at, last_scanned, track_uid "
+            "FROM media_items WHERE deleted_at IS NULL AND (filepath = ? OR track_uid = ?) LIMIT 1",
+            (track_id, track_id)).fetchone()
+        return MediaItem.from_row(row) if row else None
+
     # ── Detected Tracks ──
 
     def add_detected_track(

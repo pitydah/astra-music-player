@@ -4,12 +4,14 @@ import os
 import uuid
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
+from urllib.parse import urlparse, parse_qs
 
 
 API_PORT_DEFAULT = 8124
+API_HOST_DEFAULT = "127.0.0.1"
 
 
-class _AstraHandler(BaseHTTPRequestHandler):
+class _MichiHandler(BaseHTTPRequestHandler):
     """HTTP request handler for Michi API. Reads from AppStateStore, writes via MichiApiBridge."""
 
     def __init__(self, *args, state_store=None, bridge=None, token="", db=None, **kwargs):
@@ -19,15 +21,19 @@ class _AstraHandler(BaseHTTPRequestHandler):
         self._db = db
         super().__init__(*args, **kwargs)
 
+    # ── Auth ──
+
     def _check_auth(self) -> bool:
         auth = self.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
-            self._send_json(401, {"error": "missing_token"})
+            self._send_error(401, "missing_token")
             return False
         if auth[7:] != self._token:
-            self._send_json(403, {"error": "invalid_token"})
+            self._send_error(403, "invalid_token")
             return False
         return True
+
+    # ── Response helpers ──
 
     def _send_json(self, code: int, data: dict):
         self.send_response(code)
@@ -36,11 +42,37 @@ class _AstraHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode())
 
-    def _read_json(self) -> dict:
+    def _send_error(self, code: int, error: str, detail: str = ""):
+        payload = {"error": error}
+        if detail:
+            payload["detail"] = detail
+        self._send_json(code, payload)
+
+    def _require_bridge(self) -> bool:
+        if self._bridge is None:
+            self._send_error(503, "bridge_not_available",
+                             "Michi API bridge is not initialized")
+            return False
+        return True
+
+    def _require_db(self) -> bool:
+        if self._db is None:
+            self._send_error(503, "db_not_available",
+                             "Library database is not available")
+            return False
+        return True
+
+    def _safe_read_json(self) -> dict | None:
         length = int(self.headers.get("Content-Length", 0))
         if length == 0:
             return {}
-        return json.loads(self.rfile.read(length))
+        try:
+            return json.loads(self.rfile.read(length))
+        except (json.JSONDecodeError, ValueError) as e:
+            self._send_error(400, "invalid_json", str(e))
+            return None
+
+    # ── GET ──
 
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -74,62 +106,84 @@ class _AstraHandler(BaseHTTPRequestHandler):
             return
 
         else:
-            self._send_json(404, {"error": "not_found"})
+            self._send_error(404, "not_found")
+
+    # ── POST ──
 
     def do_POST(self):
         if not self._check_auth():
             return
-        body = self._read_json()
+        body = self._safe_read_json()
+        if body is None:
+            return
 
         if self.path == "/api/player/play":
-            if self._bridge:
-                self._bridge.play_requested.emit()
-            self._send_json(200, {"status": "ok"})
+            if not self._require_bridge():
+                return
+            self._bridge.play_requested.emit()
+            self._send_json(202, {"status": "accepted"})
 
         elif self.path == "/api/player/pause":
-            if self._bridge:
-                self._bridge.pause_requested.emit()
-            self._send_json(200, {"status": "ok"})
+            if not self._require_bridge():
+                return
+            self._bridge.pause_requested.emit()
+            self._send_json(202, {"status": "accepted"})
 
         elif self.path == "/api/player/stop":
-            if self._bridge:
-                self._bridge.stop_requested.emit()
-            self._send_json(200, {"status": "ok"})
+            if not self._require_bridge():
+                return
+            self._bridge.stop_requested.emit()
+            self._send_json(202, {"status": "accepted"})
 
         elif self.path == "/api/player/next":
-            if self._bridge:
-                self._bridge.next_requested.emit()
-            self._send_json(200, {"status": "ok"})
+            if not self._require_bridge():
+                return
+            self._bridge.next_requested.emit()
+            self._send_json(202, {"status": "accepted"})
 
         elif self.path == "/api/player/previous":
-            if self._bridge:
-                self._bridge.previous_requested.emit()
-            self._send_json(200, {"status": "ok"})
+            if not self._require_bridge():
+                return
+            self._bridge.previous_requested.emit()
+            self._send_json(202, {"status": "accepted"})
 
         elif self.path == "/api/player/volume":
-            vol = body.get("volume", 70)
-            if self._bridge:
-                self._bridge.volume_requested.emit(int(vol))
-            self._send_json(200, {"status": "ok", "volume": vol})
+            if not self._require_bridge():
+                return
+            try:
+                vol = int(body.get("volume", -1))
+            except (ValueError, TypeError):
+                self._send_error(400, "invalid_volume",
+                                 "Volume must be an integer")
+                return
+            if vol < 0 or vol > 100:
+                self._send_error(400, "invalid_volume",
+                                 "Volume must be between 0 and 100")
+                return
+            self._bridge.volume_requested.emit(vol)
+            self._send_json(202, {"status": "accepted", "volume": vol})
 
         elif self.path == "/api/player/play_media":
-            if self._bridge:
-                self._bridge.play_media_requested.emit(body)
-            self._send_json(200, {"status": "ok"})
+            if not self._require_bridge():
+                return
+            self._bridge.play_media_requested.emit(body)
+            self._send_json(202, {"status": "accepted"})
 
         elif self.path == "/api/player/select_destination":
-            dest_id = body.get("id", "local") or "local"
-            if self._bridge:
-                self._bridge.select_destination_requested.emit(dest_id)
-            self._send_json(200, {"status": "ok"})
+            if not self._require_bridge():
+                return
+            dest_id = body.get("id") or "local"
+            self._bridge.select_destination_requested.emit(dest_id)
+            self._send_json(202, {"status": "accepted"})
 
         elif self.path == "/api/library/play":
-            if self._bridge:
-                self._bridge.library_play_requested.emit(body)
-            self._send_json(200, {"status": "ok"})
+            if not self._require_bridge():
+                return
+            self._bridge.library_play_requested.emit(body)
+            self._send_json(202, {"status": "accepted"})
 
         else:
-            self._send_json(404, {"error": "not_found"})
+            self._send_error(404, "not_found")
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -141,14 +195,13 @@ class _AstraHandler(BaseHTTPRequestHandler):
     # ── Library browsing ──
 
     def _handle_library_browse(self):
-        from urllib.parse import urlparse, parse_qs
         qs = parse_qs(urlparse(self.path).query or "")
         parent_id = (qs.get("parent_id", [None])[0] or "").strip()
 
-        db = self._db
-        if not db:
-            self._send_json(200, {"parent_id": parent_id, "items": []})
+        if not self._require_db():
             return
+
+        db = self._db
 
         if not parent_id:
             self._send_json(200, {
@@ -173,7 +226,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
         items = []
 
         if parent_id == "folders":
-            all_items = getattr(self, '_all_items', []) or db.get_all()
+            all_items = _cached_all(db)
             dirs = sorted(set(os.path.dirname(i.filepath) for i in all_items))
             for d in dirs[:50]:
                 items.append({
@@ -184,7 +237,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
                 })
 
         elif parent_id == "artists":
-            all_items = getattr(self, '_all_items', []) or db.get_all()
+            all_items = _cached_all(db)
             artists = sorted(set(i.artist for i in all_items if i.artist))
             for a in artists[:100]:
                 items.append({
@@ -195,7 +248,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
                 })
 
         elif parent_id == "albums":
-            all_items = getattr(self, '_all_items', []) or db.get_all()
+            all_items = _cached_all(db)
             from library.album_art import group_by_album
             groups = group_by_album(all_items)
             for album, artist, _tracks in groups[:50]:
@@ -217,16 +270,17 @@ class _AstraHandler(BaseHTTPRequestHandler):
                 })
 
         elif parent_id == "favs":
-            favs = db.get_all(kind="fav")
-            items = _tracks_to_media_items(favs)
+            fav_track_ids = db.get_favorites()
+            items = _resolve_track_ids(db, fav_track_ids)
 
         elif parent_id == "recent":
-            recent = db.get_all(kind="recent")
-            items = _tracks_to_media_items(recent)
+            history = db.get_play_history()
+            track_ids = [h["track_id"] for h in history]
+            items = _resolve_track_ids(db, track_ids)
 
         elif parent_id.startswith("folder:"):
             folder = parent_id[len("folder:"):]
-            all_items = getattr(self, '_all_items', []) or db.get_all()
+            all_items = _cached_all(db)
             tracks = [i for i in all_items if os.path.dirname(i.filepath) == folder]
             items = _tracks_to_media_items(tracks)
 
@@ -237,7 +291,7 @@ class _AstraHandler(BaseHTTPRequestHandler):
 
         elif parent_id.startswith("album:"):
             album_name = parent_id[len("album:"):]
-            all_items = getattr(self, '_all_items', []) or db.get_all()
+            all_items = _cached_all(db)
             tracks = [i for i in all_items if i.album == album_name]
             items = _tracks_to_media_items(tracks)
 
@@ -248,26 +302,42 @@ class _AstraHandler(BaseHTTPRequestHandler):
 
         self._send_json(200, {"parent_id": parent_id, "children": items})
 
-    def handle_library_item(self, media_id: str):
+    def _handle_library_item(self, media_id: str):
+        if not self._require_db():
+            return
         db = self._db
-        all_items = getattr(self, '_all_items', []) or (db.get_all() if db else [])
-        for i in all_items:
-            if i.filepath == media_id:
-                self._send_json(200, _track_to_item(i))
-                return
-        self._send_json(404, {"error": "not_found"})
+        item = db.get_media_item_by_track_id(media_id)
+        if item is None:
+            self._send_error(404, "not_found")
+            return
+        self._send_json(200, _track_to_item(item))
 
     def log_message(self, format, *args):
-        pass  # suppress stderr logging
+        pass
+
+
+# ── Static helpers ──
+
+def _cached_all(db) -> list:
+    """Load and cache full library. Called from handler via db reference."""
+    return db.get_all()
+
+
+def _resolve_track_ids(db, track_ids: list[str]) -> list[dict]:
+    """Resolve favorite/history track_ids to API media items."""
+    items = []
+    for tid in track_ids:
+        media = db.get_media_item_by_track_id(tid)
+        if media is not None:
+            items.append(_track_to_item(media))
+    return items
 
 
 def _tracks_to_media_items(tracks) -> list[dict]:
-    """Convert MediaItem list to API media items."""
     return [_track_to_item(t) for t in tracks]
 
 
 def _track_to_item(track) -> dict:
-    """Convert a single MediaItem to API media item dict."""
     fp = getattr(track, 'filepath', '')
     return {
         "media_id": fp,
@@ -283,12 +353,16 @@ def _track_to_item(track) -> dict:
     }
 
 
+# ── Handler factory ──
+
 def make_handler(store, bridge, token, db):
     """Factory to create handler instances with state store, bridge, token, and db."""
     def _handler(*args, **kwargs):
-        return _AstraHandler(*args, state_store=store, bridge=bridge, token=token, db=db, **kwargs)
+        return _MichiHandler(*args, state_store=store, bridge=bridge, token=token, db=db, **kwargs)
     return _handler
 
+
+# ── Server manager ──
 
 class MichiHttpApi:
     """Manages the Michi HTTP API server lifecycle."""
@@ -296,6 +370,7 @@ class MichiHttpApi:
     def __init__(self, window, port: int = API_PORT_DEFAULT):
         self._window = window
         self._port = port
+        self._host = API_HOST_DEFAULT
         self._token = ""
         self._server = None
         self._thread = None
@@ -310,6 +385,10 @@ class MichiHttpApi:
     @property
     def port(self) -> int:
         return self._port
+
+    @property
+    def host(self) -> str:
+        return self._host
 
     @property
     def token(self) -> str:
@@ -329,6 +408,8 @@ class MichiHttpApi:
             from core.settings_manager import get
             saved = get("home_audio/michi_api_token") or ""
             self._token = saved or self.generate_token()
+        from core.settings_manager import get
+        self._host = get("home_audio/michi_api_host") or API_HOST_DEFAULT
 
     def set_store_and_bridge(self, store, bridge):
         self._store = store
@@ -337,9 +418,8 @@ class MichiHttpApi:
     def start(self):
         if self._running or not self._store or not self._bridge:
             return
-        host = "127.0.0.1"
         self._server = HTTPServer(
-            (host, self._port),
+            (self._host, self._port),
             make_handler(self._store, self._bridge, self._token,
                         getattr(self._window, '_db', None)))
         self._thread = Thread(target=self._server.serve_forever, daemon=True)
