@@ -52,9 +52,23 @@ class DevicesPage(QWidget):
         cl.setContentsMargins(40, 32, 40, 32)
         cl.setSpacing(20)
 
+        # Icon + title row
+        from ui.icons import get_pixmap
+        icon_row = QHBoxLayout()
+        icon_row.setSpacing(12)
+        icon_lbl = QLabel()
+        pix = get_pixmap("michi_sync", size=40)
+        if pix and not pix.isNull():
+            icon_lbl.setPixmap(pix)
+        icon_lbl.setFixedSize(40, 40)
+        icon_lbl.setStyleSheet("background: transparent; border: none;")
+        icon_row.addWidget(icon_lbl)
+
         title = QLabel("Michi Sync Suite")
         title.setObjectName("devicesTitle")
-        cl.addWidget(title)
+        icon_row.addWidget(title)
+        icon_row.addStretch()
+        cl.addLayout(icon_row)
 
         self._subtitle = QLabel("Sincroniza tu música con tus dispositivos.")
         self._subtitle.setObjectName("devicesSubtitle")

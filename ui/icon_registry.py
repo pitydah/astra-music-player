@@ -98,6 +98,10 @@ ICON_REGISTRY: dict[str, IconSpec] = {
         key="sidebar_devices", path="icons/sidebar_devices.svg",
         family="sidebar", symbolic=True, render_mode="symbolic_tint",
         description="Dispositivos"),
+    "michi_sync": IconSpec(
+        key="michi_sync", path="icons/michi_sync.svg",
+        family="sidebar", render_mode="native_color",
+        description="Michi Sync Suite"),
     "sidebar_artist": IconSpec(
         key="sidebar_artist", path="icons/sidebar_artist.svg",
         family="sidebar", symbolic=True, allow_background=False,

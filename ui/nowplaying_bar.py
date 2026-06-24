@@ -23,7 +23,7 @@ def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None,
         "warm_vol_high": 22, "warm_vol_medium": 22,
         "warm_vol_low": 22, "warm_mute": 22,
         "warm_eq": 24, "warm_transmit": 24,
-        "warm_audio_source": 20, "warm_mini_player": 20,
+        "warm_audio_source": 22, "warm_mini_player": 22,
     }
     visual_size = _ICON_CALIBRATION.get(icon_name, icon_size)
 
@@ -446,11 +446,11 @@ class NowPlayingBar(QWidget):
             }
         """)
 
-        self._audio_output_btn = _make_btn("warm_audio_source", 22, 40, role="utility")
+        self._audio_output_btn = _make_btn("warm_audio_source", 22, 44, role="utility")
         self._audio_output_btn.setToolTip("Seleccionar salida de audio")
         self._audio_output_btn.clicked.connect(self.audio_output_clicked.emit)
 
-        self._mini_player_btn = _make_btn("warm_mini_player", 22, 40, role="utility")
+        self._mini_player_btn = _make_btn("warm_mini_player", 22, 44, role="utility")
         self._mini_player_btn.setToolTip("Abrir mini reproductor")
         self._mini_player_btn.clicked.connect(self.mini_player_clicked.emit)
 
