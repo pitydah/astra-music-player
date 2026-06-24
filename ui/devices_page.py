@@ -196,7 +196,7 @@ class DevicesPage(QWidget):
         self._update_manifest_viewer()
 
     def _update_server_card(self):
-        active = self._sync_mgr and self._sync_mgr.is_active()
+        active = self._sync_mgr and self._sync_mgr.is_active
         paired = len(self._controller.paired_devices) if self._controller else 0
         url = f"http://<ip>:{53318 if active else 0}"
 

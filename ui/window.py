@@ -1381,7 +1381,7 @@ class MainWindow(QMainWindow):
     def _rebuild_sidebar(self):
         sync_peers = []
         sync_mgr = self._ensure_sync_manager()
-        if sync_mgr and sync_mgr.is_active():
+        if sync_mgr and sync_mgr.is_active:
             import contextlib
             with contextlib.suppress(Exception):
                 sync_peers = sync_mgr.get_all_peers()
