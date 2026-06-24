@@ -13,7 +13,7 @@ class MPRISController:
         """Initialize MPRIS if DBus is available. Never raises."""
         try:
             from adapters.mpris import MPRISAdapter
-            self._adapter = MPRISAdapter(self._win)
+            self._adapter = MPRISAdapter(self._win, window=self._win)
             self._adapter.player.set_engine(self._win._ctx.player)
         except Exception:
             logging.getLogger("michi").debug("MPRIS integration not available (no dbus)")

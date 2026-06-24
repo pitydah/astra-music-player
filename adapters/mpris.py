@@ -5,6 +5,7 @@ Implements org.mpris.MediaPlayer2 and Player interfaces using dbus-python.
 
 import dbus
 import dbus.service
+import contextlib
 from dbus.mainloop.glib import DBusGMainLoop
 
 from PySide6.QtCore import QObject
@@ -22,16 +23,36 @@ class MPRISObject(dbus.service.Object):
         self._engine: PlayerEngine | None = None
         self._metadata = {}
         self._volume = 0.7
+        self._window = None
+
+    def set_window(self, window: QObject | None):
+        """Store a reference to the main window for Raise/Quit."""
+        self._window = window
 
     # ── org.mpris.MediaPlayer2 interface ──
 
     @dbus.service.method(dbus_interface="org.mpris.MediaPlayer2")
     def Raise(self):
-        pass
+        win = self._window
+        if win is None:
+            return
+        with contextlib.suppress(Exception):
+            win.show()
+        with contextlib.suppress(Exception):
+            win.raise_()
+        with contextlib.suppress(Exception):
+            win.activateWindow()
 
     @dbus.service.method(dbus_interface="org.mpris.MediaPlayer2")
     def Quit(self):
-        pass
+        win = self._window
+        if win is not None and hasattr(win, "close"):
+            with contextlib.suppress(Exception):
+                win.close()
+                return
+        with contextlib.suppress(Exception):
+            from PySide6.QtWidgets import QApplication
+            QApplication.quit()
 
     # ── org.mpris.MediaPlayer2.Player interface ──
 
@@ -192,12 +213,17 @@ class MPRISObject(dbus.service.Object):
 class MPRISAdapter(QObject):
     """Registers MPRIS on the session bus."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, window=None):
         super().__init__(parent)
         DBusGMainLoop(set_as_default=True)
         bus = dbus.SessionBus()
         bus_name = dbus.service.BusName(SERVICE_NAME, bus)
         self._object = MPRISObject(bus_name, OBJECT_PATH)
+        if window is not None:
+            self._object.set_window(window)
+
+    def set_window(self, window: QObject):
+        self._object.set_window(window)
 
     @property
     def player(self) -> MPRISObject:

@@ -13,6 +13,7 @@ class PlayerService(QObject):
     error_occurred = Signal(str)
     queue_changed = Signal(list)        # list[dict]
     finished = Signal()
+    volume_changed = Signal(int)        # volume level 0-100
 
     def __init__(self, engine: GStreamerEngine, parent=None):
         super().__init__(parent)
@@ -103,6 +104,7 @@ class PlayerService(QObject):
 
     def set_volume(self, vol: int):
         self._engine.set_volume(vol)
+        self.volume_changed.emit(vol)
 
     # ── Queue ──
 

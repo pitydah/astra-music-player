@@ -41,3 +41,15 @@ class TestPlayerService:
     def test_set_spectrum_enabled(self, service):
         service.set_spectrum_enabled(True)
         service._engine.set_spectrum_enabled.assert_called_once_with(True)
+
+    def test_set_volume_emits_signal(self, service):
+        spy = MagicMock()
+        service.volume_changed.connect(spy)
+        service.set_volume(42)
+        service._engine.set_volume.assert_called_once_with(42)
+        spy.assert_called_once_with(42)
+
+    def test_volume_changed_signal_exists(self, service):
+        from PySide6.QtCore import Signal
+        assert hasattr(service, 'volume_changed')
+        assert isinstance(service.volume_changed, Signal)
