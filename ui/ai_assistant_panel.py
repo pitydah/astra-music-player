@@ -1,4 +1,4 @@
-"""AI Assistant chat panel — premium, privacy-focused, with pending action cards."""
+"""AI Assistant chat panel — premium, privacy-focused, with suggested actions panel."""
 
 from __future__ import annotations
 
@@ -8,17 +8,50 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QFrame, QSizePolicy,
 )
 
-_PRIVACY_NOTICE = (
-    "IA local · Datos protegidos · Sin rutas sensibles"
-)
+_PRIVACY_NOTICE = "IA local · Datos protegidos · Sin rutas sensibles"
 
-_PLACEHOLDER = "Pregunta algo sobre tu biblioteca musical..."
+_PLACEHOLDER = "Pregunta a Michi Assistant..."
 
 _EXAMPLE_CHIPS = [
     "Recomiéndame algo para escuchar",
     "Busca álbumes sin carátula",
     "Crea una playlist tranquila",
     "Revisa metadatos pendientes",
+]
+
+# Keyword → suggested actions (navigate via window._on_sidebar_navigate)
+_SUGGESTION_RULES: list[tuple[list[str], list[dict]]] = [
+    (["metadata", "tags", "carátula", "álbum", "artista", "metadato", "cover", "portada"], [
+        {"title": "Abrir Metadata Editor", "desc": "Edita y normaliza etiquetas de tus archivos.",
+         "target": "metadata_editor", "kind": "metadata"},
+        {"title": "Revisar metadatos pendientes", "desc": "Busca archivos con información incompleta.",
+         "target": "audio_lab", "kind": "diagnóstico"},
+    ]),
+    (["sync", "sincronizar", "android", "dispositivo", "michi sync", "manifiesto"], [
+        {"title": "Abrir Michi Sync", "desc": "Prepara un manifiesto para sincronizar con Android.",
+         "target": "devices_page", "kind": "sync"},
+    ]),
+    (["biblioteca", "problemas", "duplicados", "reparar", "library", "doctor"],
+        [
+        {"title": "Abrir Library Doctor", "desc": "Analiza tu colección en busca de errores.",
+         "target": "audio_lab", "kind": "diagnóstico"},
+    ]),
+    (["servidor", "navidrome", "jellyfin", "subsonic", "conexiones", "remoto"],
+        [
+        {"title": "Abrir Conexiones", "desc": "Configura servidores de música remotos.",
+         "target": "connections_hub", "kind": "conexión"},
+    ]),
+    (["playlist", "recomienda", "mix", "similar", "descubrir", "género"],
+        [
+        {"title": "Abrir Mix", "desc": "Explora recomendaciones y mezclas inteligentes.",
+         "target": "mix_hub", "kind": "recomendación"},
+        {"title": "Abrir Playlist", "desc": "Crea y administra listas de reproducción.",
+         "target": "playlist_hub", "kind": "playlist"},
+    ]),
+    (["radio", "streaming", "emisora", "flow"], [
+        {"title": "Abrir Radio", "desc": "Escucha emisoras y streaming en vivo.",
+         "target": "radio", "kind": "recomendación"},
+    ]),
 ]
 
 
@@ -31,9 +64,10 @@ class AiAssistantPanel(QWidget):
         super().__init__(parent)
         self.setObjectName("aiAssistantPanel")
         self._messages: list[dict[str, str]] = []
-        self._ollama_available = False
         self._build_ui()
         self._apply_qss()
+
+    # ── UI build ──
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -44,26 +78,37 @@ class AiAssistantPanel(QWidget):
         header = QFrame()
         header.setObjectName("assistantHeader")
         hl = QVBoxLayout(header)
-        hl.setContentsMargins(20, 16, 20, 12)
+        hl.setContentsMargins(24, 16, 24, 12)
         hl.setSpacing(4)
 
         hrow = QHBoxLayout()
-        h_title = QLabel("Michi Assistant")
-        h_title.setObjectName("assistantHeaderTitle")
-        hrow.addWidget(h_title)
+        ht = QLabel("Michi Assistant")
+        ht.setObjectName("assistantHeaderTitle")
+        hrow.addWidget(ht)
         hrow.addStretch()
         self._status_badge = QLabel("Ollama no disponible")
         self._status_badge.setObjectName("assistantStatusBadge")
         hrow.addWidget(self._status_badge)
         hl.addLayout(hrow)
 
-        h_sub = QLabel("IA local para explorar, organizar y mejorar tu biblioteca.")
-        h_sub.setWordWrap(True)
-        h_sub.setObjectName("assistantHeaderSubtitle")
-        hl.addWidget(h_sub)
+        hs = QLabel("IA local para explorar, organizar y mejorar tu biblioteca.")
+        hs.setWordWrap(True)
+        hs.setObjectName("assistantHeaderSubtitle")
+        hl.addWidget(hs)
         layout.addWidget(header)
 
-        # ── Chat area ──
+        # ── Body: chat (left) + suggestions panel (right) ──
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(12)
+
+        # Chat area
+        chat_wrapper = QFrame()
+        chat_wrapper.setObjectName("assistantChatCard")
+        cvl = QVBoxLayout(chat_wrapper)
+        cvl.setContentsMargins(0, 0, 0, 0)
+        cvl.setSpacing(0)
+
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -73,23 +118,16 @@ class AiAssistantPanel(QWidget):
         self._chat_container.setObjectName("assistantChatContainer")
         self._chat_layout = QVBoxLayout(self._chat_container)
         self._chat_layout.setContentsMargins(16, 12, 16, 12)
-        self._chat_layout.setSpacing(10)
+        self._chat_layout.setSpacing(12)
 
         self._empty_state = self._build_empty_state()
         self._chat_layout.addWidget(self._empty_state)
         self._chat_layout.addStretch()
 
         self._scroll.setWidget(self._chat_container)
-        layout.addWidget(self._scroll, 1)
+        cvl.addWidget(self._scroll, 1)
 
-        # ── Privacy badge ──
-        self._privacy_badge = QLabel(_PRIVACY_NOTICE)
-        self._privacy_badge.setObjectName("assistantPrivacyBadge")
-        self._privacy_badge.setWordWrap(True)
-        self._privacy_badge.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self._privacy_badge)
-
-        # ── Input ──
+        # Input
         input_row = QHBoxLayout()
         input_row.setContentsMargins(12, 8, 12, 12)
         input_row.setSpacing(8)
@@ -97,6 +135,7 @@ class AiAssistantPanel(QWidget):
         self._input = QLineEdit()
         self._input.setObjectName("assistantInput")
         self._input.setPlaceholderText(_PLACEHOLDER)
+        self._input.setMinimumHeight(42)
         self._input.returnPressed.connect(self._on_send)
         input_row.addWidget(self._input, 1)
 
@@ -106,7 +145,23 @@ class AiAssistantPanel(QWidget):
         self._send_btn.clicked.connect(self._on_send)
         input_row.addWidget(self._send_btn)
 
-        layout.addLayout(input_row)
+        cvl.addLayout(input_row)
+        body.addWidget(chat_wrapper, 3)
+
+        # Right panel — suggested actions
+        self._suggestions_panel = self._build_suggestions_panel()
+        body.addWidget(self._suggestions_panel, 1)
+
+        layout.addLayout(body, 1)
+
+        # ── Privacy badge ──
+        self._privacy_badge = QLabel(_PRIVACY_NOTICE)
+        self._privacy_badge.setObjectName("assistantPrivacyBadge")
+        self._privacy_badge.setWordWrap(True)
+        self._privacy_badge.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self._privacy_badge)
+
+    # ── Empty state ──
 
     def _build_empty_state(self) -> QWidget:
         w = QWidget()
@@ -121,7 +176,7 @@ class AiAssistantPanel(QWidget):
         et.setAlignment(Qt.AlignCenter)
         vl.addWidget(et)
 
-        ed = QLabel("Podés pedir recomendaciones, revisar metadatos o explorar tu biblioteca.")
+        ed = QLabel("Puedes pedir recomendaciones, revisar metadatos, crear playlists o explorar tu biblioteca local.")
         ed.setObjectName("assistantEmptyDesc")
         ed.setAlignment(Qt.AlignCenter)
         ed.setWordWrap(True)
@@ -148,6 +203,133 @@ class AiAssistantPanel(QWidget):
         if self._empty_state and not self._empty_state.isHidden():
             self._empty_state.hide()
 
+    # ── Suggestions panel ──
+
+    def _build_suggestions_panel(self) -> QFrame:
+        panel = QFrame()
+        panel.setObjectName("assistantSuggestionsPanel")
+        pl = QVBoxLayout(panel)
+        pl.setContentsMargins(16, 14, 16, 14)
+        pl.setSpacing(8)
+
+        st = QLabel("Acciones sugeridas")
+        st.setObjectName("assistantSuggTitle")
+        pl.addWidget(st)
+
+        sd = QLabel("Atajos contextuales generados por Michi Assistant.")
+        sd.setWordWrap(True)
+        sd.setObjectName("assistantSuggDesc")
+        pl.addWidget(sd)
+
+        self._sugg_empty = QLabel(
+            "Las acciones aparecerán cuando Michi detecte algo útil en la conversación.")
+        self._sugg_empty.setWordWrap(True)
+        self._sugg_empty.setObjectName("assistantSuggEmpty")
+        pl.addWidget(self._sugg_empty)
+
+        self._sugg_scroll = QScrollArea()
+        self._sugg_scroll.setWidgetResizable(True)
+        self._sugg_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._sugg_scroll.setObjectName("assistantSuggScroll")
+        self._sugg_container = QWidget()
+        self._sugg_container.setObjectName("assistantSuggContainer")
+        self._sugg_layout = QVBoxLayout(self._sugg_container)
+        self._sugg_layout.setContentsMargins(0, 0, 0, 0)
+        self._sugg_layout.setSpacing(8)
+        self._sugg_layout.addStretch()
+        self._sugg_scroll.setWidget(self._sugg_container)
+        pl.addWidget(self._sugg_scroll, 1)
+
+        return panel
+
+    def _update_suggestions(self, text: str):
+        """Refresh the suggestions panel based on keyword matching in text."""
+        # Clear existing suggestions
+        while self._sugg_layout.count() > 1:
+            item = self._sugg_layout.takeAt(0)
+            if item and item.widget():
+                item.widget().deleteLater()
+
+        text_lower = text.lower() if text else ""
+        matched = []
+        seen = set()
+        for keywords, actions in _SUGGESTION_RULES:
+            for kw in keywords:
+                if kw in text_lower:
+                    for a in actions:
+                        k = a["title"]
+                        if k not in seen:
+                            seen.add(k)
+                            matched.append(a)
+                    break
+
+        if matched:
+            self._sugg_empty.hide()
+            for a in matched:
+                card = self._build_action_card(a)
+                self._sugg_layout.insertWidget(self._sugg_layout.count() - 1, card)
+        else:
+            self._sugg_empty.show()
+
+    def _build_action_card(self, action: dict) -> QFrame:
+        card = QFrame()
+        card.setObjectName(f"suggAction_{action['title'].replace(' ','_')}")
+        vl = QVBoxLayout(card)
+        vl.setContentsMargins(12, 10, 12, 10)
+        vl.setSpacing(4)
+
+        top = QHBoxLayout()
+        t = QLabel(action["title"])
+        t.setObjectName("suggActionTitle")
+        t.setWordWrap(True)
+        top.addWidget(t, 1)
+        kind = action.get("kind", "")
+        if kind:
+            badge = QLabel(kind.capitalize())
+            badge.setObjectName("suggActionBadge")
+            top.addWidget(badge)
+        vl.addLayout(top)
+
+        d = QLabel(action.get("desc", ""))
+        d.setWordWrap(True)
+        d.setObjectName("suggActionDesc")
+        vl.addWidget(d)
+
+        target = action.get("target", "")
+        if target:
+            btn = QPushButton("Abrir")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setObjectName("suggActionBtn")
+            btn.clicked.connect(lambda c=None, t=target: self._navigate_safe(t))
+            vl.addWidget(btn)
+
+        card.setStyleSheet(
+            "QFrame { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04);"
+            "  border-radius: 10px; }"
+            "QLabel#suggActionTitle { color: rgba(255,255,255,0.84); font-size: 12px;"
+            "  font-weight: 600; background: transparent; }"
+            "QLabel#suggActionDesc { color: rgba(255,255,255,0.52); font-size: 11px;"
+            "  background: transparent; }"
+            "QLabel#suggActionBadge { color: rgba(143,183,255,0.60); font-size: 9px;"
+            "  font-weight: 600; background: rgba(143,183,255,0.08);"
+            "  border-radius: 6px; padding: 1px 6px; }"
+            "QPushButton#suggActionBtn { background: rgba(143,183,255,0.10);"
+            "  border: 1px solid rgba(143,183,255,0.14); border-radius: 8px;"
+            "  padding: 4px 14px; color: rgba(143,183,255,0.85); font-size: 11px; font-weight: 600; }"
+            "QPushButton#suggActionBtn:hover { background: rgba(143,183,255,0.18); }")
+        return card
+
+    def _navigate_safe(self, target: str):
+        """Navigate to a section if the window supports it."""
+        w = self.window()
+        if w and hasattr(w, '_on_sidebar_navigate'):
+            w._on_sidebar_navigate(target)
+        else:
+            self._input.setText(f"Abrir {target}")
+            self._input.setFocus()
+
+    # ── Send / messages ──
+
     def _apply_qss(self):
         self.setStyleSheet(self._build_panel_qss())
 
@@ -158,6 +340,7 @@ class AiAssistantPanel(QWidget):
         self._input.clear()
         self._hide_empty_state()
         self.add_message("user", text)
+        self._update_suggestions(text)
         self.send_requested.emit(text)
 
     def add_message(self, role: str, content: str, pending: dict | None = None):
@@ -201,11 +384,19 @@ class AiAssistantPanel(QWidget):
 
     def set_ollama_status(self, available: bool, model: str = ""):
         if available:
-            self._privacy_badge.setText(
-                f"{_PRIVACY_NOTICE} — {model} conectado")
+            self._status_badge.setText(
+                f"Ollama conectado · {model}" if model else "Ollama conectado")
+            self._status_badge.setStyleSheet(
+                "QLabel { color: rgba(100,220,140,0.65); font-size: 11px; font-weight: 500;"
+                "  background: rgba(100,220,140,0.08); border: 1px solid rgba(100,220,140,0.10);"
+                "  border-radius: 8px; padding: 3px 10px; }")
         else:
-            self._privacy_badge.setText(
-                f"{_PRIVACY_NOTICE} — Ollama no disponible")
+            self._status_badge.setText("Ollama no disponible")
+            self._status_badge.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.54); font-size: 11px; font-weight: 500;"
+                "  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.04);"
+                "  border-radius: 8px; padding: 3px 10px; }")
+        self._privacy_badge.setText(_PRIVACY_NOTICE)
 
     def clear_messages(self):
         while self._chat_layout.count() > 1:
@@ -218,85 +409,57 @@ class AiAssistantPanel(QWidget):
         sb = self._scroll.verticalScrollBar()
         sb.setValue(sb.maximum())
 
+    # ── Panel QSS ──
+
     @staticmethod
     def _build_panel_qss() -> str:
         return (
-            "QWidget#aiAssistantPanel {"
-            "  background: #090B11;"
-            "}"
-            "QFrame#assistantHeader {"
-            "  background: rgba(255,255,255,0.025);"
-            "  border-bottom: 1px solid rgba(255,255,255,0.04);"
-            "}"
-            "QLabel#assistantHeaderTitle {"
-            "  color: rgba(255,255,255,0.92); font-size: 18px; font-weight: 700; background: transparent;"
-            "}"
-            "QLabel#assistantHeaderSubtitle {"
-            "  color: rgba(255,255,255,0.56); font-size: 12px; background: transparent;"
-            "}"
-            "QLabel#assistantStatusBadge {"
-            "  color: rgba(255,255,255,0.54); font-size: 11px; font-weight: 500;"
-            "  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.04);"
-            "  border-radius: 8px; padding: 3px 10px;"
-            "}"
-            "QLabel#assistantEmptyTitle {"
-            "  color: rgba(255,255,255,0.56); font-size: 17px; font-weight: 600; background: transparent;"
-            "}"
-            "QLabel#assistantEmptyDesc {"
-            "  color: rgba(255,255,255,0.42); font-size: 13px; background: transparent; max-width: 400px;"
-            "}"
-            "QPushButton#assistantChip {"
-            "  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.04);"
-            "  border-radius: 10px; padding: 6px 14px; color: rgba(255,255,255,0.62);"
-            "  font-size: 11px; font-weight: 500;"
-            "}"
-            "QPushButton#assistantChip:hover {"
-            "  background: rgba(143,183,255,0.08); border: 1px solid rgba(143,183,255,0.12);"
-            "  color: rgba(255,255,255,0.84);"
-            "}"
-            "QScrollArea#assistantChatScroll {"
-            "  background: transparent;"
-            "  border: none;"
-            "}"
-            "QWidget#assistantChatContainer {"
-            "  background: transparent;"
-            "}"
-            "QLabel#assistantPrivacyBadge {"
-            "  color: rgba(255,255,255,0.48);"
-            "  font-size: 11px;"
-            "  padding: 6px 16px;"
-            "  background: rgba(143,183,255,0.04);"
-            "  border-top: 1px solid rgba(255,255,255,0.04);"
-            "}"
-            "QLineEdit#assistantInput {"
-            "  background: rgba(255,255,255,0.04);"
-            "  border: 1px solid rgba(255,255,255,0.05);"
-            "  border-radius: 12px;"
-            "  padding: 10px 14px;"
-            "  color: rgba(255,255,255,0.92);"
-            "  font-size: 13px;"
-            "}"
-            "QLineEdit#assistantInput:focus {"
-            "  border: 1px solid rgba(143,183,255,0.18);"
-            "  background: rgba(255,255,255,0.05);"
-            "}"
-            "QPushButton#assistantSendBtn {"
-            "  background: rgba(143,183,255,0.12);"
-            "  border: 1px solid rgba(143,183,255,0.14);"
-            "  border-radius: 12px;"
-            "  padding: 10px 20px;"
-            "  color: rgba(255,255,255,0.92);"
-            "  font-size: 13px;"
-            "  font-weight: 600;"
-            "}"
-            "QPushButton#assistantSendBtn:hover {"
-            "  background: rgba(143,183,255,0.20);"
-            "  border: 1px solid rgba(143,183,255,0.22);"
-            "}"
-            "QPushButton#assistantSendBtn:pressed {"
-            "  background: rgba(143,183,255,0.08);"
-            "}"
+            "QWidget#aiAssistantPanel { background: #090B11; }"
+            "QFrame#assistantHeader { background: rgba(255,255,255,0.025);"
+            "  border-bottom: 1px solid rgba(255,255,255,0.04); }"
+            "QLabel#assistantHeaderTitle { color: rgba(255,255,255,0.92); font-size: 18px;"
+            "  font-weight: 700; background: transparent; }"
+            "QLabel#assistantHeaderSubtitle { color: rgba(255,255,255,0.56); font-size: 12px;"
+            "  background: transparent; }"
+            "QLabel#assistantEmptyTitle { color: rgba(255,255,255,0.56); font-size: 17px;"
+            "  font-weight: 600; background: transparent; }"
+            "QLabel#assistantEmptyDesc { color: rgba(255,255,255,0.42); font-size: 13px;"
+            "  background: transparent; max-width: 400px; }"
+            "QPushButton#assistantChip { background: rgba(255,255,255,0.04);"
+            "  border: 1px solid rgba(255,255,255,0.04); border-radius: 10px;"
+            "  padding: 6px 14px; color: rgba(255,255,255,0.62); font-size: 11px; font-weight: 500; }"
+            "QPushButton#assistantChip:hover { background: rgba(143,183,255,0.08);"
+            "  border: 1px solid rgba(143,183,255,0.12); color: rgba(255,255,255,0.84); }"
+            "QScrollArea#assistantChatScroll { background: transparent; border: none; }"
+            "QWidget#assistantChatContainer { background: transparent; }"
+            "QLabel#assistantPrivacyBadge { color: rgba(255,255,255,0.48); font-size: 11px;"
+            "  padding: 6px 16px; background: rgba(143,183,255,0.04);"
+            "  border-top: 1px solid rgba(255,255,255,0.04); }"
+            "QLineEdit#assistantInput { background: rgba(255,255,255,0.04);"
+            "  border: 1px solid rgba(255,255,255,0.05); border-radius: 12px;"
+            "  padding: 10px 14px; color: rgba(255,255,255,0.92); font-size: 13px; }"
+            "QLineEdit#assistantInput:focus { border: 1px solid rgba(143,183,255,0.18);"
+            "  background: rgba(255,255,255,0.05); }"
+            "QPushButton#assistantSendBtn { background: rgba(143,183,255,0.12);"
+            "  border: 1px solid rgba(143,183,255,0.14); border-radius: 12px;"
+            "  padding: 10px 20px; color: rgba(255,255,255,0.92); font-size: 13px; font-weight: 600; }"
+            "QPushButton#assistantSendBtn:hover { background: rgba(143,183,255,0.20);"
+            "  border: 1px solid rgba(143,183,255,0.22); }"
+            "QPushButton#assistantSendBtn:pressed { background: rgba(143,183,255,0.08); }"
+            "QFrame#assistantChatCard { background: rgba(255,255,255,0.025);"
+            "  border: 1px solid rgba(255,255,255,0.035); border-radius: 18px; }"
+            "QFrame#assistantSuggestionsPanel { background: rgba(255,255,255,0.020);"
+            "  border: 1px solid rgba(255,255,255,0.030); border-radius: 18px; }"
+            "QLabel#assistantSuggTitle { color: rgba(255,255,255,0.72); font-size: 14px;"
+            "  font-weight: 600; background: transparent; }"
+            "QLabel#assistantSuggDesc { color: rgba(255,255,255,0.46); font-size: 11px;"
+            "  background: transparent; }"
+            "QLabel#assistantSuggEmpty { color: rgba(255,255,255,0.38); font-size: 12px;"
+            "  background: transparent; }"
+            "QScrollArea#assistantSuggScroll { background: transparent; border: none; }"
+            "QWidget#assistantSuggContainer { background: transparent; }"
         )
+
 
 class _ChatBubble(QFrame):
     def __init__(self, role: str, content: str, parent: QWidget):
@@ -334,8 +497,8 @@ class _ChatBubble(QFrame):
             "  max-width: 520px;"
             "}"
             "QLabel#bubbleAssistant {"
-            "  background: rgba(255,255,255,0.030);"
-            "  border: 1px solid rgba(255,255,255,0.04);"
+            "  background: rgba(255,255,255,0.040);"
+            "  border: 1px solid rgba(255,255,255,0.05);"
             "  border-radius: 14px;"
             "  padding: 10px 16px;"
             "  color: rgba(255,255,255,0.84);"
@@ -362,11 +525,7 @@ class _PendingActionCard(QFrame):
         title.setObjectName("pendingTitle")
         title.setStyleSheet(
             "QLabel#pendingTitle {"
-            "  color: rgba(255,255,255,0.92);"
-            "  font-size: 14px;"
-            "  font-weight: 600;"
-            "}"
-        )
+            "  color: rgba(255,255,255,0.92); font-size: 14px; font-weight: 600; }")
         layout.addWidget(title)
 
         desc = pending.get("description", "")
@@ -374,12 +533,15 @@ class _PendingActionCard(QFrame):
             desc_label = QLabel(desc)
             desc_label.setWordWrap(True)
             desc_label.setStyleSheet(
-                "QLabel {"
-                "  color: rgba(255,255,255,0.62);"
-                "  font-size: 12px;"
-                "}"
-            )
+                "QLabel { color: rgba(255,255,255,0.62); font-size: 12px; }")
             layout.addWidget(desc_label)
+
+        badge = QLabel("Requiere confirmación")
+        badge.setObjectName("pendingBadge")
+        badge.setStyleSheet(
+            "QLabel { color: rgba(180,150,255,0.60); font-size: 10px; font-weight: 500;"
+            "  background: rgba(180,150,255,0.08); border-radius: 6px; padding: 2px 8px; }")
+        layout.addWidget(badge)
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
@@ -402,31 +564,17 @@ class _PendingActionCard(QFrame):
             "QFrame#pendingActionCard {"
             "  background: rgba(143,183,255,0.04);"
             "  border: 1px solid rgba(143,183,255,0.10);"
-            "  border-radius: 14px;"
-            "}"
+            "  border-radius: 14px; }"
             "QPushButton#pendingConfirmBtn {"
             "  background: rgba(143,183,255,0.14);"
             "  border: 1px solid rgba(143,183,255,0.16);"
-            "  border-radius: 10px;"
-            "  padding: 8px 18px;"
-            "  color: rgba(255,255,255,0.94);"
-            "  font-size: 12px;"
-            "  font-weight: 600;"
-            "}"
-            "QPushButton#pendingConfirmBtn:hover {"
-            "  background: rgba(143,183,255,0.22);"
-            "}"
+            "  border-radius: 10px; padding: 8px 18px;"
+            "  color: rgba(255,255,255,0.94); font-size: 12px; font-weight: 600; }"
+            "QPushButton#pendingConfirmBtn:hover { background: rgba(143,183,255,0.22); }"
             "QPushButton#pendingCancelBtn {"
             "  background: rgba(255,255,255,0.03);"
             "  border: 1px solid rgba(255,255,255,0.05);"
-            "  border-radius: 10px;"
-            "  padding: 8px 18px;"
-            "  color: rgba(255,255,255,0.58);"
-            "  font-size: 12px;"
-            "  font-weight: 500;"
-            "}"
-            "QPushButton#pendingCancelBtn:hover {"
-            "  background: rgba(255,255,255,0.06);"
-            "  color: rgba(255,255,255,0.78);"
-            "}"
-        )
+            "  border-radius: 10px; padding: 8px 18px;"
+            "  color: rgba(255,255,255,0.58); font-size: 12px; font-weight: 500; }"
+            "QPushButton#pendingCancelBtn:hover { background: rgba(255,255,255,0.06);"
+            "  color: rgba(255,255,255,0.78); }")
