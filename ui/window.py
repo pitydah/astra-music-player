@@ -3,7 +3,7 @@
 import os
 import random
 import logging
-from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QPixmap, QColor, QDragEnterEvent, QDropEvent, QPainter, QLinearGradient, QImage
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabel,
@@ -522,9 +522,6 @@ class MainWindow(QMainWindow):
                 f"{removed} archivos eliminados de la biblioteca (ya no existen)",
                 "info")
 
-        # Auto-scan default music folder on startup (deferred until event loop is active)
-        QTimer.singleShot(200, self._auto_scan_music_folder)
-
         if (hasattr(self, '_artist_enrich') and self._artist_enrich
                 and hasattr(self._artist_repo, 'groups')):
             from core.settings_manager import get_bool
@@ -533,14 +530,6 @@ class MainWindow(QMainWindow):
                     self._artist_repo.groups, limit=20)
 
         self._setup_tray()
-
-    def _auto_scan_music_folder(self):
-        from core.settings_manager import get
-        music_folder = get("general/music_folder")
-        if os.path.isdir(music_folder):
-            from core.file_actions import FileActions
-            fa = FileActions(self)
-            fa.scan_path(music_folder)
 
     # ── Safe init helper ──
 
