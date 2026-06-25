@@ -1101,6 +1101,41 @@ class MainWindow(QMainWindow):
         self._albums_stack.addWidget(self._album_list_table)
         self._albums_stack.setCurrentIndex(0)
 
+        # Generic tracks table for playlists/favs/recent (separate from Canciones table)
+        self._generic_tracks_table = QTableView()
+        self._generic_tracks_table.setShowGrid(False)
+        self._generic_tracks_table.setAlternatingRowColors(True)
+        self._generic_tracks_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._generic_tracks_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._generic_tracks_table.setFrameShape(QFrame.NoFrame)
+        self._generic_tracks_table.horizontalHeader().setStretchLastSection(True)
+        self._generic_tracks_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self._generic_tracks_table.verticalHeader().setVisible(False)
+        self._generic_tracks_table.verticalHeader().setDefaultSectionSize(30)
+        self._generic_tracks_table.setSortingEnabled(True)
+        self._generic_tracks_table.setStyleSheet(table_qss() + scrollbar_qss())
+
+        # Build artists stacked widget: grid + detail inside Artistas tab
+        self._artists_stack = QStackedWidget()
+        self._artists_stack.setObjectName("artistsStack")
+        self._artists_stack.setStyleSheet("background: transparent; border: none;")
+        self._artists_stack.addWidget(self._artist_grid)
+        self._artists_stack.addWidget(self._artist_detail)
+        self._artists_stack.setCurrentIndex(0)
+
+        # Build artists stacked widget: grid + detail inside Artistas tab
+        self._artists_stack = QStackedWidget()
+        self._artists_stack.setObjectName("artistsStack")
+        self._artists_stack.setStyleSheet("background: transparent; border: none;")
+        self._artists_stack.addWidget(self._artist_grid)
+        self._artists_stack.addWidget(self._artist_detail)
+        self._artists_stack.setCurrentIndex(0)
+
+        # Build genres stacked widget: grid + detail inside Géneros tab
+        self._genres_stack = QStackedWidget()
+        self._genres_stack.setObjectName("genresStack")
+        self._genres_stack.setStyleSheet("background: transparent; border: none;")
+
         self._discover = DiscoverDashboard()
         self._discover.navigate_requested.connect(
             self._on_sidebar_navigate)
@@ -1205,6 +1240,14 @@ class MainWindow(QMainWindow):
         self._genre_detail.track_queue_requested.connect(
             lambda fp: self._play_filepaths([fp], play_now=False))
 
+        # Build genres stacked widget: grid + detail inside Géneros tab
+        self._genres_stack = QStackedWidget()
+        self._genres_stack.setObjectName("genresStack")
+        self._genres_stack.setStyleSheet("background: transparent; border: none;")
+        self._genres_stack.addWidget(self._genre_grid)
+        self._genres_stack.addWidget(self._genre_detail)
+        self._genres_stack.setCurrentIndex(0)
+
         self._folder_browser = FolderBrowserWidget()
         self._folder_browser.folder_selected.connect(
             lambda fps: self._play_filepaths(fps, play_now=True))
@@ -1228,8 +1271,6 @@ class MainWindow(QMainWindow):
         self._views.register("playlist_detail", self._playlist_detail)
         self._views.register("metadata_editor", self._metadata_editor)
         self._views.register("home_audio", self._home_audio_view)
-        self._views.register("artist_detail", self._artist_detail)
-        self._views.register("genre_detail", self._genre_detail)
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
 
@@ -1410,6 +1451,7 @@ class MainWindow(QMainWindow):
                     self._all_items = self._db.get_all()
                     self._items_index = {i.filepath: i for i in self._all_items}
                     self._apply_filters()
+                    self._refresh_library_sections()
                     if self._current_section_key in ("albums", "artists", "genres"):
                         self._on_library_tab_changed(self._current_section_key)
             self._workers.run_task("backfill_meta",
@@ -1577,19 +1619,19 @@ class MainWindow(QMainWindow):
     def _show_artists(self, key):
         self._show_library_hub_page()
         if self._library_hub_page:
-            self._library_hub_page._tabs.setCurrentIndex(2)
+            self._library_hub_page.set_current_section("artists")
         self._search.show()
 
     def _show_albums(self, key):
         self._show_library_hub_page()
         if self._library_hub_page:
-            self._library_hub_page._tabs.setCurrentIndex(1)
+            self._library_hub_page.set_current_section("albums")
         self._search.show()
 
     def _show_genres(self, key):
         self._show_library_hub_page()
         if self._library_hub_page:
-            self._library_hub_page._tabs.setCurrentIndex(3)
+            self._library_hub_page.set_current_section("genres")
         self._search.show()
 
     def _show_folders(self, key):
@@ -1598,7 +1640,7 @@ class MainWindow(QMainWindow):
         self._search_ctrl.set_active("folders")
         self._show_library_hub_page()
         if self._library_hub_page:
-            self._library_hub_page._tabs.setCurrentIndex(4)
+            self._library_hub_page.set_current_section("folders")
         self._search.show()
 
     def _show_radio(self, key):
@@ -1849,8 +1891,8 @@ class MainWindow(QMainWindow):
                 db=self._db, window=self,
                 songs_widget=self._songs_stack,
                 albums_widget=self._albums_stack,
-                artists_widget=self._artist_grid,
-                genres_widget=self._genre_grid,
+                artists_widget=self._artists_stack,
+                genres_widget=self._genres_stack,
                 folders_widget=self._folder_browser)
             self._library_hub_page.tab_changed.connect(
                 self._on_library_tab_changed)
@@ -2152,6 +2194,9 @@ class MainWindow(QMainWindow):
         self._count.setText(f"{n} elementos" if n else "0 elementos")
         if n:
             self._show_library_hub_page()
+            if self._library_hub_page:
+                self._library_hub_page.set_current_section("library")
+            self._songs_stack.setCurrentIndex(0)
             self._table.setModel(self._model)
             self._table.setColumnWidth(0, 72)
             self._table.setColumnWidth(1, 260)
@@ -2216,8 +2261,8 @@ class MainWindow(QMainWindow):
                 return
             if mode == "list":
                 self._model.populate(self._playlist_refs)
-                self._table.setModel(self._model)
-                self._table.setColumnHidden(7, True)  # hide URI column
+                self._generic_tracks_table.setModel(self._model)
+                self._generic_tracks_table.setColumnHidden(7, True)
                 self._fade_content("library_hub")
             elif mode == "grid":
                 self._song_grid.set_items(self._playlist_refs, card_size=170)
@@ -2228,8 +2273,6 @@ class MainWindow(QMainWindow):
 
         elif section == "genres":
             self._show_library_hub_page()
-            if self._library_hub_page:
-                self._library_hub_page._tabs.setCurrentIndex(3)
 
         elif section == "radio":
             self._fade_content("radio")
@@ -2245,8 +2288,8 @@ class MainWindow(QMainWindow):
                 return
             if mode == "list":
                 self._model.populate(refs)
-                self._table.setModel(self._model)
-                self._table.setColumnHidden(7, True)  # hide URI column
+                self._generic_tracks_table.setModel(self._model)
+                self._generic_tracks_table.setColumnHidden(7, True)
                 self._fade_content("library_hub")
             elif mode == "grid":
                 self._song_grid.set_items(refs, card_size=170)
@@ -2466,7 +2509,8 @@ class MainWindow(QMainWindow):
         # Cache key — skip rebuild if nothing changed
         cache_key = (len(items), self._album_sort_key, self._album_filter_mode, self._search_text)
         if self._coverflow is not None and cache_key == self._coverflow_cache_key:
-            self._views.show("coverflow")
+            self._albums_stack.setCurrentIndex(2)
+            self._fade_content("library_hub")
             self._count.setText(f"{len(self._coverflow._items)} álbumes")
             self._coverflow.setFocus()
             return
@@ -2506,10 +2550,11 @@ class MainWindow(QMainWindow):
             cv_layout.setSpacing(8)
             cv_layout.addWidget(self._coverflow, stretch=1)
             cv_layout.addWidget(self._album_banner, stretch=0)
-            self._views.register("coverflow", coverflow_page)
+            self._albums_stack.addWidget(coverflow_page)
 
         self._coverflow.set_items(covers)
-        self._views.show("coverflow")
+        self._albums_stack.setCurrentIndex(2)
+        self._fade_content("library_hub")
         self._count.setText(f"{len(covers)} álbumes")
         self._coverflow.setFocus()
 
@@ -2711,6 +2756,24 @@ class MainWindow(QMainWindow):
 
     def _refresh_library(self):
         self._playlist_ctrl.refresh_library()
+
+    def _refresh_library_sections(self):
+        """Refresh all library tabs from self._all_items after metadata changes."""
+        if not self._all_items:
+            return
+        # Canciones
+        self._apply_filters()
+        # Álbumes
+        self._album_grid.set_items(self._all_items, 200,
+            sort_key=getattr(self, '_album_sort_key', 'title'),
+            filter_mode=getattr(self, '_album_filter_mode', 'all'))
+        # Artistas
+        if self._artist_repo:
+            self._artist_repo.build(self._all_items)
+            self._artist_grid.set_artists(self._artist_repo.groups)
+        # Géneros
+        if self._genre_ctrl:
+            self._genre_ctrl.show_genres_overview("grid")
 
     # Extracted to ui/controllers/artist_controller.py — grid + detail logic
 
