@@ -1389,7 +1389,9 @@ class MainWindow(QMainWindow):
         if self._workers:
             def _on_backfill_done(count: int):
                 if count > 0 and hasattr(self, '_model'):
-                    self._load_library()
+                    self._all_items = self._db.get_all()
+                    self._items_index = {i.filepath: i for i in self._all_items}
+                    self._apply_filters()
                     if self._current_section_key in ("albums", "artists", "genres"):
                         self._on_library_tab_changed(self._current_section_key)
             self._workers.run_task("backfill_meta",
