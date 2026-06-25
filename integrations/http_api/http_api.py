@@ -248,7 +248,7 @@ class _MichiHandler(BaseHTTPRequestHandler):
 
         self._send_json(200, {"parent_id": parent_id, "children": items})
 
-    def handle_library_item(self, media_id: str):
+    def _handle_library_item(self, media_id: str):
         db = self._db
         all_items = getattr(self, '_all_items', []) or (db.get_all() if db else [])
         for i in all_items:
