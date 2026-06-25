@@ -522,15 +522,13 @@ class MainWindow(QMainWindow):
                 f"{removed} archivos eliminados de la biblioteca (ya no existen)",
                 "info")
 
-        # Auto-scan default music folder on first launch
+        # Auto-scan default music folder on startup (idempotent)
         from core.settings_manager import get
-        if not self._all_items:
-            music_folder = get("general/music_folder")
-            if os.path.isdir(music_folder):
-                from core.file_actions import FileActions
-                self._toast_svc.show("Escaneando música automáticamente...", "info")
-                fa = FileActions(self)
-                fa.scan_path(music_folder)
+        music_folder = get("general/music_folder")
+        if os.path.isdir(music_folder):
+            from core.file_actions import FileActions
+            fa = FileActions(self)
+            fa.scan_path(music_folder)
 
         if (hasattr(self, '_artist_enrich') and self._artist_enrich
                 and hasattr(self._artist_repo, 'groups')):
