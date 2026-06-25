@@ -1535,45 +1535,21 @@ class MainWindow(QMainWindow):
             self._play_filepaths(paths[start_idx:], play_now=True)
 
     def _show_artists(self, key):
-        if not self._all_items and self._db:
-            self._load_library()
-        self._artist_repo.clear_current()
-        self._artist_repo.build(self._all_items)
-        self._artist_grid.set_artists(self._artist_repo.groups)
-        if hasattr(self, '_artist_enrich'):
-            from core.settings_manager import get_bool
-            if get_bool("artist_enrichment/preload_visible"):
-                self._artist_enrich.enrich_visible_artists(
-                    self._artist_repo.groups, limit=12)
-        if self._view_mode not in ("grid", "list"):
-            self._view_mode = "grid"
-            self._view_switcher.set_view("grid", emit=False)
-        self._artist_grid.set_view_mode(self._view_mode)
         self._show_library_hub_page()
         if self._library_hub_page:
             self._library_hub_page._tabs.setCurrentIndex(2)
-        self._current_section_key = "artists"
-        self._count.setText(f"{self._artist_repo.count} artistas")
         self._search.show()
 
     def _show_albums(self, key):
-        if not self._all_items and self._db:
-            self._load_library()
-        self._show_album_grid()
         self._show_library_hub_page()
         if self._library_hub_page:
             self._library_hub_page._tabs.setCurrentIndex(1)
-        self._current_section_key = "albums"
         self._search.show()
 
     def _show_genres(self, key):
-        if not self._all_items and self._db:
-            self._load_library()
-        self._genre_ctrl.show_genres_overview(self._view_mode)
         self._show_library_hub_page()
         if self._library_hub_page:
             self._library_hub_page._tabs.setCurrentIndex(3)
-        self._current_section_key = "genres"
         self._search.show()
 
     def _show_folders(self, key):
@@ -1583,7 +1559,6 @@ class MainWindow(QMainWindow):
         self._show_library_hub_page()
         if self._library_hub_page:
             self._library_hub_page._tabs.setCurrentIndex(4)
-        self._current_section_key = "folders"
         self._search.show()
 
     def _show_radio(self, key):
@@ -1837,9 +1812,48 @@ class MainWindow(QMainWindow):
                 artists_widget=self._artist_grid,
                 genres_widget=self._genre_grid,
                 folders_widget=self._folder_browser)
+            self._library_hub_page.tab_changed.connect(
+                self._on_library_tab_changed)
         if not self._views.widget("library_hub"):
             self._views.register("library_hub", self._library_hub_page)
         self._fade_content("library_hub")
+
+    def _on_library_tab_changed(self, section_key: str):
+        if section_key == getattr(self, '_last_lib_tab', None):
+            return
+        self._last_lib_tab = section_key
+        self._current_section_key = section_key
+        config = _resolve_section_config(section_key, {})
+        views = config.get("views", [])
+        default = config.get("default", "list")
+        self._view_switcher.show()
+        self._view_switcher.set_available_modes(views, default, context=section_key)
+
+        # Album-specific controls
+        if section_key == "albums":
+            self._album_sort_btn.show()
+            self._album_filter_btn.show()
+        else:
+            self._album_sort_btn.hide()
+            self._album_filter_btn.hide()
+
+        # Lazy-load data for the active tab
+        if section_key == "albums":
+            if not self._all_items and self._db:
+                self._load_library()
+            self._show_album_grid()
+        elif section_key == "artists":
+            if not self._all_items and self._db:
+                self._load_library()
+            self._artist_repo.clear_current()
+            self._artist_repo.build(self._all_items)
+            self._artist_grid.set_artists(self._artist_repo.groups)
+        elif section_key == "genres":
+            if not self._all_items and self._db:
+                self._load_library()
+            self._genre_ctrl.show_genres_overview(self._view_mode)
+        elif section_key == "library":
+            self._apply_filters()
 
     def _show_mix_hub_page(self, key=None):
         if self._mix_hub_page is None:

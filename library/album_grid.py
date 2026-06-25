@@ -286,6 +286,7 @@ class AlbumGridWidget(QWidget):
 
     def _build_empty_state(self):
         wrapper = QFrame()
+        wrapper.setFixedWidth(420)
         wrapper.setStyleSheet(
             "QFrame { background: rgba(255,255,255,0.025);"
             " border: 1px solid rgba(255,255,255,0.06);"
@@ -328,7 +329,7 @@ class AlbumGridWidget(QWidget):
         btn.clicked.connect(self.add_folder_requested.emit)
         v.addWidget(btn, alignment=Qt.AlignCenter)
 
-        self._grid.addWidget(wrapper, 0, 0, Qt.AlignHCenter)
+        self._grid.addWidget(wrapper, 0, 0, -1, -1, Qt.AlignCenter)
 
 
 def _placeholder_album_icon(size=72) -> QPixmap:

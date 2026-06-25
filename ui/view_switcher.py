@@ -17,11 +17,11 @@ VIEW_MODE_DEFS = {
     },
     "grid": {
         "icon": "warm_view_grid",
-        "label": "Mosaico",
-        "short_label": "Mosaico",
-        "tooltip": "Vista mosaico",
-        "active_tooltip": "Mosaico activo",
-        "description": "Muestra tarjetas visuales con carátulas.",
+        "label": "Carátulas",
+        "short_label": "Carátulas",
+        "tooltip": "Vista de carátulas",
+        "active_tooltip": "Carátulas activas",
+        "description": "Muestra álbumes como tarjetas con portada.",
     },
     "coverflow": {
         "icon": "warm_view_coverflow",

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QFrame, QTabWidget, QPushButton,
@@ -10,8 +10,11 @@ from PySide6.QtWidgets import (
 
 from ui.central.central_styles import glass_card_qss, glass_button_qss, tab_bar_qss
 
+_TAB_TO_SECTION = {0: "library", 1: "albums", 2: "artists", 3: "genres", 4: "folders"}
+
 
 class LibraryHubPage(QWidget):
+    tab_changed = Signal(str)
     def __init__(self, db=None, window=None, songs_widget: QWidget | None = None,
                  albums_widget: QWidget | None = None,
                  artists_widget: QWidget | None = None,
@@ -93,7 +96,13 @@ class LibraryHubPage(QWidget):
 
         layout.addWidget(self._tabs, 1)
 
+        self._tabs.currentChanged.connect(self._on_tab_index_changed)
+
         self._apply_qss()
+
+    def _on_tab_index_changed(self, index: int):
+        section_key = _TAB_TO_SECTION.get(index, "library")
+        self.tab_changed.emit(section_key)
 
     def _get_stats(self) -> dict:
         stats = {"total_songs": 0, "total_artists": 0, "total_albums": 0}
