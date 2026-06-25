@@ -1376,14 +1376,13 @@ class MainWindow(QMainWindow):
         self._search_ctrl.set_active("local")
         self._apply_filters()
         self._rebuild_sidebar()
+        self._refresh_all_tabs()
         if self._workers:
             def _on_backfill_done(count: int):
                 if count > 0 and hasattr(self, '_model'):
                     self._all_items = self._db.get_all()
                     self._items_index = {i.filepath: i for i in self._all_items}
-                    self._apply_filters()
-                    if self._current_section_key in ("albums", "artists", "genres"):
-                        self._on_library_tab_changed(self._current_section_key)
+                    self._refresh_all_tabs(force=True)
             self._workers.run_task("backfill_meta",
                 self._db.backfill_missing_metadata,
                 on_done=_on_backfill_done)
@@ -1830,8 +1829,8 @@ class MainWindow(QMainWindow):
             self._views.register("library_hub", self._library_hub_page)
         self._fade_content("library_hub")
 
-    def _on_library_tab_changed(self, section_key: str):
-        if section_key == getattr(self, '_last_lib_tab', None):
+    def _on_library_tab_changed(self, section_key: str, force: bool = False):
+        if section_key == getattr(self, '_last_lib_tab', None) and not force:
             return
         self._last_lib_tab = section_key
         self._current_section_key = section_key
@@ -2401,6 +2400,9 @@ class MainWindow(QMainWindow):
         self._on_view_mode_changed("grid")
 
     def _show_album_grid(self):
+        if not self._all_items and self._db:
+            self._all_items = self._db.get_all()
+            self._items_index = {i.filepath: i for i in self._all_items}
         self._album_grid.set_items(self._all_items, 200,
                                    sort_key=getattr(self, '_album_sort_key', 'title'),
                                    filter_mode=getattr(self, '_album_filter_mode', 'all'))
@@ -2676,6 +2678,33 @@ class MainWindow(QMainWindow):
 
     def _on_metadata_saved(self, filepaths: list):
         self._playlist_ctrl.metadata_saved(filepaths)
+
+    def _refresh_all_tabs(self, force: bool = False):
+        """Refresh all library tabs from self._all_items.
+        Called after load, scan, metadata save, import, or backfill.
+        """
+        if not self._all_items and self._db:
+            self._all_items = self._db.get_all()
+            self._items_index = {i.filepath: i for i in self._all_items}
+        if not self._all_items:
+            return
+        # Canciones (table + song_grid)
+        self._apply_filters()
+        self._show_song_grid()
+        # Álbumes (grid + list table)
+        self._album_grid.set_items(self._all_items, 200,
+            sort_key=getattr(self, '_album_sort_key', 'title'),
+            filter_mode=getattr(self, '_album_filter_mode', 'all'))
+        # Artistas (grid)
+        if self._artist_repo:
+            self._artist_repo.build(self._all_items)
+            self._artist_grid.set_artists(self._artist_repo.groups)
+        # Géneros (grid)
+        if hasattr(self, '_genre_ctrl') and self._genre_ctrl:
+            self._genre_ctrl.show_genres_overview("grid")
+        # Refresh active tab if inside library hub
+        if self._current_section_key in ("albums", "artists", "genres", "library", "folders"):
+            self._on_library_tab_changed(self._current_section_key, force=force)
 
     def _refresh_library(self):
         self._playlist_ctrl.refresh_library()
