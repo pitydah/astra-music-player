@@ -1746,14 +1746,14 @@ class MainWindow(QMainWindow):
                 if refs:
                     self._views.show("library")
                     self._table.setModel(self._model)
-                    self._table.setColumnHidden(7, True)  # hide URI column
                     self._table.setColumnWidth(0, 72)
                     self._table.setColumnWidth(1, 260)
                     self._table.setColumnWidth(2, 170)
                     self._table.setColumnWidth(3, 170)
-                    self._table.setColumnWidth(4, 55)
-                    self._table.setColumnWidth(5, 110)
-                    self._table.setColumnWidth(6, 75)
+                    self._table.setColumnWidth(4, 70)
+                    self._table.setColumnWidth(5, 130)
+                    self._table.setColumnWidth(6, 80)
+                    self._table.setColumnWidth(7, 260)
                     self._table.setColumnWidth(7, 200)
                 else:
                     self._views.show("empty")
@@ -2191,14 +2191,14 @@ class MainWindow(QMainWindow):
         if n:
             self._views.show("library")
             self._table.setModel(self._model)
-            self._table.setColumnHidden(7, True)  # hide URI column
             self._table.setColumnWidth(0, 72)
             self._table.setColumnWidth(1, 260)
             self._table.setColumnWidth(2, 170)
             self._table.setColumnWidth(3, 170)
-            self._table.setColumnWidth(4, 55)
-            self._table.setColumnWidth(5, 110)
-            self._table.setColumnWidth(6, 75)
+            self._table.setColumnWidth(4, 70)
+            self._table.setColumnWidth(5, 130)
+            self._table.setColumnWidth(6, 80)
+            self._table.setColumnWidth(7, 260)
         else:
             self._views.show("empty")
 
