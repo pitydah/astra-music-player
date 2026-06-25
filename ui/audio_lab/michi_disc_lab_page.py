@@ -17,7 +17,10 @@ from ui.audio_lab.services.external_tools import check_all_tools
 from ui.audio_lab.services.disc_detection_service import DiscDetectionService
 from ui.audio_lab.services.rip_job_manager import RipJobManager
 from ui.audio_lab.services.encoder_service import EncoderService
-from ui.central.central_styles import glass_button_qss, glass_progress_qss, glass_card_qss
+from ui.central.central_styles import (
+    glass_button_qss, glass_progress_qss, glass_card_qss,
+    clean_table_qss, clean_table_header_qss, combo_dropdown_qss,
+)
 
 
 class MichiDiscLabPage(QWidget):
@@ -417,107 +420,88 @@ class MichiDiscLabPage(QWidget):
         return f"{m}:{s:02d}"
 
     def _apply_qss(self):
-        self.setStyleSheet("""
-            QWidget#michiDiscLabPage {
-                background: #090B11;
-            }
-            QScrollArea#discLabScroll {
-                background: transparent;
-                border: none;
-            }
-            QWidget#discLabContent {
-                background: transparent;
-            }
-            QLabel#discLabTitle {
-                color: rgba(255,255,255,0.92);
-                font-size: 18px;
-                font-weight: 700;
-            }
-            QLabel#discLabSubtitle {
-                color: rgba(255,255,255,0.56);
-                font-size: 13px;
-                margin-bottom: 4px;
-            }
-            QFrame#discLabDrivePanel, QFrame#discLabSettingsPanel,
-            QFrame#discLabProgressPanel, QFrame#discLabDiagPanel {
-                background: rgba(255,255,255,0.030);
-                border: 1px solid rgba(255,255,255,0.035);
-                border-radius: 12px;
-            }
-            QFrame#discLabTrackPanel {
-                background: rgba(255,255,255,0.025);
-                border: 1px solid rgba(255,255,255,0.030);
-                border-radius: 12px;
-            }
-            QLabel#driveStatus {
-                color: rgba(143,183,255,0.72);
-                font-size: 14px;
-            }
-            QTableWidget#discLabTable {
-                background: transparent;
-                border: none;
-                gridline-color: transparent;
-                color: rgba(255,255,255,0.78);
-                selection-background-color: rgba(143,183,255,0.14);
-                selection-color: rgba(255,255,255,1.00);
-            }
-            QTableWidget#discLabTable::item {
-                padding: 5px 8px;
-                border: none;
-            }
-            QTableWidget#discLabTable::item:hover {
-                background: rgba(255,255,255,0.035);
-            }
-            QHeaderView#discLabTableHeader::section {
-                background: rgba(255,255,255,0.040);
-                color: rgba(255,255,255,0.68);
-                font-size: 11px;
-                font-weight: 600;
-                padding: 5px 8px;
-                border: none;
-                border-bottom: 1px solid rgba(255,255,255,0.025);
-            }
-            QLabel#diagTitle {
-                color: rgba(255,255,255,0.60);
-                font-size: 11px;
-                font-weight: 600;
-            }
-            QLabel#diagText {
-                color: rgba(255,255,255,0.54);
-                font-size: 11px;
-            }
-            QLabel#discLabProgressLabel {
-                color: rgba(255,255,255,0.60);
-                font-size: 11px;
-            }
-            QComboBox {
+        # Page background
+        self.setStyleSheet("QWidget#michiDiscLabPage { background: #090B11; }")
+
+        # Scroll area
+        scr = self.findChild(QScrollArea, "discLabScroll")
+        if scr:
+            scr.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+        # Content
+        cnt = self.findChild(QWidget, "discLabContent")
+        if cnt:
+            cnt.setStyleSheet("background: transparent;")
+
+        # Title / subtitle
+        t = self.findChild(QLabel, "discLabTitle")
+        if t:
+            t.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.92); font-size: 18px;"
+                "  font-weight: 700; background: transparent; border: none; }")
+        s = self.findChild(QLabel, "discLabSubtitle")
+        if s:
+            s.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.56); font-size: 13px;"
+                "  background: transparent; border: none; margin-bottom: 4px; }")
+
+        # Glass panels
+        for pn in ("discLabDrivePanel", "discLabSettingsPanel", "discLabProgressPanel",
+                   "discLabDiagPanel", "discLabTrackPanel"):
+            p = self.findChild(QFrame, pn)
+            if p:
+                p.setStyleSheet(glass_card_qss(pn, "elevated"))
+
+        # Drive status
+        ds = self.findChild(QLabel, "driveStatus")
+        if ds:
+            ds.setStyleSheet(
+                "QLabel { color: rgba(143,183,255,0.72); font-size: 14px;"
+                "  background: transparent; border: none; }")
+
+        # Table
+        table = self.findChild(QTableWidget, "discLabTable")
+        if table:
+            table.setStyleSheet(clean_table_qss())
+            hh = table.horizontalHeader()
+            if hh:
+                hh.setStyleSheet(clean_table_header_qss())
+
+        # Diagnostic labels
+        for oname in ("diagTitle", "diagText", "discLabProgressLabel"):
+            lbl = self.findChild(QLabel, oname)
+            if lbl:
+                lbl.setStyleSheet(
+                    "QLabel { color: rgba(255,255,255,0.60); font-size: 11px;"
+                    "  background: transparent; border: none; }"
+                    if oname != "discLabProgressLabel" else
+                    "QLabel { color: rgba(255,255,255,0.54); font-size: 11px;"
+                    "  background: transparent; border: none; }")
+
+        # ComboBoxes
+        _COMBO_STYLE = f"""
+            QComboBox {{
                 background: rgba(255,255,255,0.045);
                 border: 1px solid rgba(255,255,255,0.055);
                 border-radius: 8px;
                 padding: 6px 10px;
                 color: rgba(255,255,255,0.82);
                 font-size: 12px;
-            }
-            QComboBox:hover {
+            }}
+            QComboBox:hover {{
                 border: 1px solid rgba(255,255,255,0.08);
-            }
-            QComboBox QAbstractItemView {
-                background: rgba(13,16,24,0.985);
-                border: 1px solid rgba(255,255,255,0.06);
-                border-radius: 8px;
-                selection-background-color: rgba(143,183,255,0.14);
-                color: rgba(255,255,255,0.86);
-                outline: none;
-            }
-        """)
-        # Apply elevated card style to drive panel
-        drive_panel = self.findChild(QFrame, "discLabDrivePanel")
-        if drive_panel:
-            drive_panel.setStyleSheet(glass_card_qss("discLabDrivePanel", "elevated"))
-        # Apply glass progress
+            }}
+            {combo_dropdown_qss()}
+        """
+        for cb in self.findChildren(QComboBox):
+            cb.setStyleSheet(_COMBO_STYLE)
+
+        # Progress bar
         prog = self.findChild(QProgressBar, "discLabProgress")
         if prog:
             prog.setStyleSheet(glass_progress_qss())
+
+        # Buttons
         for btn_name in ("scanDriveBtn", "analyzeDiscBtn", "destBtn",
                          "isoToggleBtn", "isoSelectBtn", "cancelRipBtn"):
             btn = self.findChild(QPushButton, btn_name)

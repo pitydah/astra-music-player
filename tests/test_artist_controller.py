@@ -7,7 +7,7 @@ class TestArtistController:
         ctrl = ArtistController(mock_window)
         ctrl.show_artists_view("grid")
         mock_window._artist_grid.set_view_mode.assert_called_with("grid")
-        mock_window._ctx.fade_to.assert_called_with("artist_grid")
+        mock_window._show_library_hub_page.assert_called_once()
 
     def test_open_artist_detail_not_found(self, mock_window):
         ctrl = ArtistController(mock_window)

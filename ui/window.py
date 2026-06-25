@@ -206,7 +206,7 @@ def _resolve_section_config(key: str, extra: dict = None) -> dict:
 
 # Navigation routes — maps sidebar keys to handler methods
 NAV_ROUTES = {
-    "library": "_show_library", "albums": "_show_albums",
+    "library": "_show_library_hub_page", "albums": "_show_albums",
     "artists": "_show_artists", "genres": "_show_genres",
     "radio": "_show_radio", "home_audio": "_show_home_audio",
     "identifier": "_show_identifier", "discover": "_show_discover",
@@ -1011,6 +1011,13 @@ class MainWindow(QMainWindow):
         self._table.setContextMenuPolicy(Qt.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self._on_table_menu)
 
+        # Wrap table in a container widget for embedding in LibraryHubPage
+        self._songs_table_page = QWidget()
+        self._songs_table_page.setObjectName("songsTablePage")
+        stp_layout = QVBoxLayout(self._songs_table_page)
+        stp_layout.setContentsMargins(0, 0, 0, 0)
+        stp_layout.addWidget(self._table)
+
         placeholder = QLabel()
         placeholder.setAlignment(Qt.AlignCenter)
         placeholder.setStyleSheet(
@@ -1182,23 +1189,18 @@ class MainWindow(QMainWindow):
 
         self._views = ViewController(self._content, self)
         self._views.register("empty", placeholder)
-        self._views.register("library", self._table)
         self._views.register("remote", self._remote_placeholder)
         self._views.register("coverflow", placeholder_albums)
         self._views.register("expanded", placeholder_expanded)
         self._views.register("radio", self._radio_widget)
-        self._views.register("album_grid", self._album_grid)
         self._views.register("song_grid", self._song_grid)
         self._views.register("discover", self._discover)
         self._views.register("playlist_hub", self._playlist_hub)
         self._views.register("playlist_detail", self._playlist_detail)
         self._views.register("metadata_editor", self._metadata_editor)
         self._views.register("home_audio", self._home_audio_view)
-        self._views.register("artist_grid", self._artist_grid)
         self._views.register("artist_detail", self._artist_detail)
-        self._views.register("genre_grid", self._genre_grid)
         self._views.register("genre_detail", self._genre_detail)
-        self._views.register("folders", self._folder_browser)
         self._views.register("identifier", self._identifier_view)
         self._views.show("empty")
 
@@ -1484,119 +1486,10 @@ class MainWindow(QMainWindow):
     def _show_library(self, key):
         self._kind_filter = None
         self._search_ctrl.set_active("local")
-        self._ensure_library_header()
+        self._show_library_hub_page()
         self._apply_filters()
         self._view_mode = "list"
         self._view_switcher.set_view("list", emit=False)
-
-    def _ensure_library_header(self):
-        """Create the library page wrapper with title, stats, and tabs."""
-        if hasattr(self, '_library_header') and self._library_header is not None:
-            return
-        self._library_header = QWidget()
-        self._library_header.setObjectName("libraryPage")
-        vl = QVBoxLayout(self._library_header)
-        vl.setContentsMargins(32, 24, 32, 12)
-        vl.setSpacing(8)
-
-        title_row = QHBoxLayout()
-        lib_title = QLabel("Biblioteca")
-        lib_title.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }")
-        title_row.addWidget(lib_title)
-        title_row.addStretch()
-        self._lib_count_badge = QLabel("0 canciones")
-        self._lib_count_badge.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.62); font-size: 13px; font-weight: 500;"
-            "  background: rgba(255,255,255,0.05); border-radius: 10px; padding: 4px 14px; }")
-        title_row.addWidget(self._lib_count_badge)
-        vl.addLayout(title_row)
-
-        lib_sub = QLabel(
-            "Música local, archivos disponibles y estadísticas de tu colección.")
-        lib_sub.setWordWrap(True)
-        lib_sub.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.54); font-size: 13px; }")
-        vl.addWidget(lib_sub)
-
-        # Internal tabs — switch views inside a stacked widget
-        self._lib_stack = QStackedWidget()
-        self._lib_stack.setStyleSheet("background: transparent; border: none;")
-
-        # Page 0: Canciones — the real table
-        self._lib_stack.addWidget(self._table)
-
-        # Pages 1-4: placeholders for Álbumes, Artistas, Géneros, Carpetas
-        for label, desc in [
-            ("Álbumes", "Navegación visual por carátulas y álbumes."),
-            ("Artistas", "Explora tu música por artista."),
-            ("Géneros", "Atlas de géneros musicales."),
-            ("Carpetas", "Explorador de archivos por carpeta."),
-        ]:
-            ph = QWidget()
-            ph.setStyleSheet("background: transparent;")
-            pl = QVBoxLayout(ph)
-            pl.setContentsMargins(0, 40, 0, 40)
-            pl.setAlignment(Qt.AlignCenter)
-            pt = QLabel(label)
-            pt.setAlignment(Qt.AlignCenter)
-            pt.setStyleSheet(
-                "QLabel { color: rgba(255,255,255,0.56); font-size: 18px; font-weight: 600; }")
-            pl.addWidget(pt)
-            pd = QLabel(desc)
-            pd.setAlignment(Qt.AlignCenter)
-            pd.setWordWrap(True)
-            pd.setStyleSheet(
-                "QLabel { color: rgba(255,255,255,0.42); font-size: 13px; }")
-            pl.addWidget(pd)
-            self._lib_stack.addWidget(ph)
-
-        self._lib_stack.setCurrentIndex(0)
-        vl.addWidget(self._lib_stack, 1)
-
-        # Style tabs
-        tab_row = QHBoxLayout()
-        tab_row.setSpacing(4)
-        self._lib_tabs = {}
-        for tab_key, tab_label, idx in [
-            ("canciones", "Canciones", 0),
-            ("albums", "Álbumes", 1),
-            ("artists", "Artistas", 2),
-            ("genres", "Géneros", 3),
-            ("folders", "Carpetas", 4),
-        ]:
-            btn = QPushButton(tab_label)
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setCheckable(True)
-            if idx == 0:
-                btn.setChecked(True)
-            btn.clicked.connect(
-                lambda c=None, i=idx, b=btn: self._on_lib_tab(i, b))
-            tab_row.addWidget(btn)
-            self._lib_tabs[tab_key] = btn
-        tab_row.addStretch()
-        vl.addLayout(tab_row)
-
-        # Style tabs
-        tab_qss = (
-            "QPushButton { color: rgba(255,255,255,0.54); font-size: 13px; font-weight: 600;"
-            "  background: transparent; border: 1px solid transparent; border-radius: 8px;"
-            "  padding: 8px 18px; }"
-            "QPushButton:hover { color: rgba(255,255,255,0.78);"
-            "  background: rgba(255,255,255,0.04); }"
-            "QPushButton:checked { color: rgba(255,255,255,0.92);"
-            "  background: rgba(143,183,255,0.14); border: 1px solid rgba(143,183,255,0.22); }"
-        )
-        for btn in self._lib_tabs.values():
-            btn.setStyleSheet(tab_qss)
-
-        self._views.replace("library", self._library_header, delete_old=False)
-
-    def _on_lib_tab(self, idx: int, btn: QPushButton):
-        """Switch library tab and update check states."""
-        self._lib_stack.setCurrentIndex(idx)
-        for b in self._lib_tabs.values():
-            b.setChecked(b is btn)
 
     def _show_playlist_hub(self, key):
         pls = self._db.get_playlists()
@@ -1655,26 +1548,42 @@ class MainWindow(QMainWindow):
         if self._view_mode not in ("grid", "list"):
             self._view_mode = "grid"
             self._view_switcher.set_view("grid", emit=False)
-        self._show_artists_view(self._view_mode)
+        self._artist_grid.set_view_mode(self._view_mode)
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page._tabs.setCurrentIndex(2)
+        self._current_section_key = "artists"
         self._count.setText(f"{self._artist_repo.count} artistas")
         self._search.show()
 
     def _show_albums(self, key):
-        self._section_title.setText("Álbumes")
+        if not self._all_items and self._db:
+            self._load_library()
         self._show_album_grid()
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page._tabs.setCurrentIndex(1)
+        self._current_section_key = "albums"
         self._search.show()
 
     def _show_genres(self, key):
         if not self._all_items and self._db:
             self._load_library()
         self._genre_ctrl.show_genres_overview(self._view_mode)
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page._tabs.setCurrentIndex(3)
+        self._current_section_key = "genres"
+        self._search.show()
 
     def _show_folders(self, key):
-        self._section_title.setText("Carpetas")
         from sources.folder_source import FolderSource
         self._search_ctrl.register("folders", FolderSource(os.path.expanduser("~")))
         self._search_ctrl.set_active("folders")
-        self._views.show("folders")
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page._tabs.setCurrentIndex(4)
+        self._current_section_key = "folders"
         self._search.show()
 
     def _show_radio(self, key):
@@ -1710,7 +1619,7 @@ class MainWindow(QMainWindow):
             self._section_title.setText(device_name)
             self._section_subtitle.setText(f"{len(files)} canciones")
         self._count.setText(f"{len(files)} archivos")
-        self._views.show("library")
+        self._fade_content("library_hub")
         self._table.setModel(self._model)
         self._table.setColumnHidden(7, True)  # hide URI column
         self._search.show()
@@ -1744,7 +1653,7 @@ class MainWindow(QMainWindow):
                 self._count.setText(f"{len(refs)} canciones")
                 self._playlist_refs = refs
                 if refs:
-                    self._views.show("library")
+                    self._fade_content("library_hub")
                     self._table.setModel(self._model)
                     self._table.setColumnWidth(0, 72)
                     self._table.setColumnWidth(1, 260)
@@ -1754,7 +1663,6 @@ class MainWindow(QMainWindow):
                     self._table.setColumnWidth(5, 130)
                     self._table.setColumnWidth(6, 80)
                     self._table.setColumnWidth(7, 260)
-                    self._table.setColumnWidth(7, 200)
                 else:
                     self._views.show("empty")
             elif files:
@@ -1773,7 +1681,7 @@ class MainWindow(QMainWindow):
         self._current_refs = refs
         self._count.setText(f"{len(refs)} canciones")
         if refs:
-            self._views.show("library")
+            self._fade_content("library_hub")
             self._table.setModel(self._model)
             self._table.setColumnHidden(7, True)  # hide URI column
             self._table.setColumnWidth(0, 72)
@@ -1798,7 +1706,7 @@ class MainWindow(QMainWindow):
         self._current_refs = refs
         self._count.setText(f"{len(refs)} canciones")
         if refs:
-            self._views.show("library")
+            self._fade_content("library_hub")
             self._table.setModel(self._model)
             self._table.setColumnHidden(7, True)  # hide URI column
             self._table.setColumnWidth(0, 72)
@@ -1922,9 +1830,13 @@ class MainWindow(QMainWindow):
     def _show_library_hub_page(self, key=None):
         if self._library_hub_page is None:
             from ui.hubs.library_hub_page import LibraryHubPage
-            self._library_hub_page = LibraryHubPage(db=self._db, window=self)
-        if not self._views.widget("library_hub"):
-            self._views.register("library_hub", self._library_hub_page)
+            self._library_hub_page = LibraryHubPage(
+                db=self._db, window=self,
+                songs_widget=self._songs_table_page,
+                albums_widget=self._album_grid,
+                artists_widget=self._artist_grid,
+                genres_widget=self._genre_grid,
+                folders_widget=self._folder_browser)
         if not self._views.widget("library_hub"):
             self._views.register("library_hub", self._library_hub_page)
         self._fade_content("library_hub")
@@ -2184,12 +2096,8 @@ class MainWindow(QMainWindow):
         self._model.populate(results)
         n = len(results)
         self._count.setText(f"{n} elementos" if n else "0 elementos")
-        if hasattr(self, '_lib_count_badge'):
-            stats = self._db.get_stats() if self._db else {}
-            total = stats.get("total", n) if stats else n
-            self._lib_count_badge.setText(f"{total:,} canciones")
         if n:
-            self._views.show("library")
+            self._show_library_hub_page()
             self._table.setModel(self._model)
             self._table.setColumnWidth(0, 72)
             self._table.setColumnWidth(1, 260)
@@ -2225,7 +2133,7 @@ class MainWindow(QMainWindow):
         if section == "library":
             if mode == "list":
                 self._apply_filters()
-                self._fade_content("library")
+                self._fade_content("library_hub")
             elif mode == "grid":
                 self._show_song_grid()
                 self._fade_content("song_grid")
@@ -2233,10 +2141,10 @@ class MainWindow(QMainWindow):
         elif section == "albums":
             if mode == "list":
                 self._show_album_list()
-                self._fade_content("library")
+                self._fade_content("library_hub")
             elif mode == "grid":
                 self._show_album_grid()
-                self._fade_content("album_grid")
+                self._fade_content("library_hub")
             elif mode == "coverflow":
                 self._show_coverflow()
                 self._fade_content("coverflow")
@@ -2252,13 +2160,13 @@ class MainWindow(QMainWindow):
                 self._model.populate(self._playlist_refs)
                 self._table.setModel(self._model)
                 self._table.setColumnHidden(7, True)  # hide URI column
-                self._fade_content("library")
+                self._fade_content("library_hub")
             elif mode == "grid":
                 self._song_grid.set_items(self._playlist_refs, card_size=170)
                 self._fade_content("song_grid")
 
         elif section == "folders":
-            self._fade_content("folders")
+            self._fade_content("library_hub")
 
         elif section == "radio":
             self._fade_content("radio")
@@ -2276,7 +2184,7 @@ class MainWindow(QMainWindow):
                 self._model.populate(refs)
                 self._table.setModel(self._model)
                 self._table.setColumnHidden(7, True)  # hide URI column
-                self._fade_content("library")
+                self._fade_content("library_hub")
             elif mode == "grid":
                 self._song_grid.set_items(refs, card_size=170)
                 self._fade_content("song_grid")

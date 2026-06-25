@@ -40,7 +40,9 @@ class GenreController:
         repo.build(self._ctx_or_svc("all_items", []))
         self._genre_grid.set_genres(repo.groups, repo.families)
         self._ctx_or_svc("configure_header", lambda k: None)("genres")
-        self._ctx_or_svc("fade_to", lambda k: None)("genre_grid")
+        self._win._show_library_hub_page()
+        if self._win._library_hub_page:
+            self._win._library_hub_page._tabs.setCurrentIndex(3)
 
     def open_genre_detail(self, genre_key: str):
         repo = self._genre_repo

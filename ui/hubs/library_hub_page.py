@@ -1,4 +1,4 @@
-"""LibraryHubPage — music library hub with real data and navigation to existing views."""
+"""LibraryHubPage — music library hub with embedded songs table and tab navigation."""
 
 from __future__ import annotations
 
@@ -12,11 +12,21 @@ from ui.central.central_styles import glass_card_qss, glass_button_qss, tab_bar_
 
 
 class LibraryHubPage(QWidget):
-    def __init__(self, db=None, window=None, parent: QWidget | None = None):
+    def __init__(self, db=None, window=None, songs_widget: QWidget | None = None,
+                 albums_widget: QWidget | None = None,
+                 artists_widget: QWidget | None = None,
+                 genres_widget: QWidget | None = None,
+                 folders_widget: QWidget | None = None,
+                 parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("libraryHubPage")
         self._db = db
         self._win = window
+        self._songs_widget = songs_widget
+        self._albums_widget = albums_widget
+        self._artists_widget = artists_widget
+        self._genres_widget = genres_widget
+        self._folders_widget = folders_widget
         self._build_ui()
 
     def _build_ui(self):
@@ -112,8 +122,28 @@ class LibraryHubPage(QWidget):
                    desc: str, stats: dict, btn_kind: str = "primary") -> QWidget:
         w = QWidget()
         w_layout = QVBoxLayout(w)
-        w_layout.setContentsMargins(20, 20, 20, 20)
-        w_layout.setSpacing(16)
+        w_layout.setContentsMargins(0, 0, 0, 0)
+        w_layout.setSpacing(0)
+
+        if key == "canciones" and self._songs_widget is not None:
+            w_layout.addWidget(self._songs_widget, 1)
+            return w
+
+        if key == "albums" and self._albums_widget is not None:
+            w_layout.addWidget(self._albums_widget, 1)
+            return w
+
+        if key == "artists" and self._artists_widget is not None:
+            w_layout.addWidget(self._artists_widget, 1)
+            return w
+
+        if key == "genres" and self._genres_widget is not None:
+            w_layout.addWidget(self._genres_widget, 1)
+            return w
+
+        if key == "folders" and self._folders_widget is not None:
+            w_layout.addWidget(self._folders_widget, 1)
+            return w
 
         stats_card = QFrame()
         stats_card.setObjectName(f"libStats_{key}")

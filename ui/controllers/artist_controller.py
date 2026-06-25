@@ -10,7 +10,9 @@ class ArtistController:
 
     def show_artists_view(self, mode: str):
         self._win._ctx.artist_grid.set_view_mode(mode)
-        self._win._ctx.fade_to("artist_grid")
+        self._win._show_library_hub_page()
+        if self._win._library_hub_page:
+            self._win._library_hub_page._tabs.setCurrentIndex(2)
 
     def open_artist_detail(self, artist_key: str):
         repo = self._win._ctx.artist_repo

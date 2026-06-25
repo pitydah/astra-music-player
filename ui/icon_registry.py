@@ -90,10 +90,18 @@ ICON_REGISTRY: dict[str, IconSpec] = {
         key="sidebar_jellyfin", path="icons/sidebar_clean/sidebar_jellyfin_24.png",
         family="sidebar", symbolic=True,
         description="Jellyfin"),
+    "sidebar_home": IconSpec(
+        key="sidebar_home", path="icons/sidebar_home.svg",
+        family="sidebar", render_mode="native_color",
+        description="Inicio"),
     "sidebar_add": IconSpec(
         key="sidebar_add", path="icons/sidebar_clean/sidebar_add_24.png",
         family="sidebar", symbolic=True,
         description="Anadir"),
+    "sidebar_assistant": IconSpec(
+        key="sidebar_assistant", path="icons/sidebar_assistant.svg",
+        family="sidebar", render_mode="native_color",
+        description="Asistente IA"),
     "sidebar_devices": IconSpec(
         key="sidebar_devices", path="icons/sidebar_devices.svg",
         family="sidebar", symbolic=True, render_mode="symbolic_tint",

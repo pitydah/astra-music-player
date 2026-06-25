@@ -101,6 +101,8 @@ class MockWindow:
         self._count = MagicMock()
         self._content = MagicMock()
         self._mini_player = MagicMock()
+        self._show_library_hub_page = MagicMock()
+        self._library_hub_page = MagicMock()
         self._ctx = MockAppContext(self)
 
 

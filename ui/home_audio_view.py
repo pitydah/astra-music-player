@@ -6,6 +6,24 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QPushButton, QSlider,
 )
 
+from ui.central.central_styles import (
+    glass_button_qss, glass_card_qss, transparent_scrollbar_qss,
+)
+
+
+def _glass_card(name: str = "glassCard") -> QFrame:
+    f = QFrame()
+    f.setObjectName(name)
+    f.setStyleSheet(glass_card_qss(name))
+    return f
+
+
+def _make_btn(text: str, kind: str) -> QPushButton:
+    b = QPushButton(text)
+    b.setStyleSheet(glass_button_qss(kind))
+    b.setCursor(Qt.PointingHandCursor)
+    return b
+
 class HomeAudioView(QWidget):
     connect_requested = Signal()
     refresh_requested = Signal()
@@ -41,12 +59,7 @@ class HomeAudioView(QWidget):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QScrollArea.NoFrame)
-        self._scroll.setStyleSheet(
-            "QScrollArea { background: transparent; border: none; }"
-            "QScrollBar:vertical { background: transparent; width: 6px; }"
-            "QScrollBar::handle:vertical { background: rgba(255,255,255,0.12);"
-            "  border-radius: 3px; min-height: 30px; }"
-            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }")
+        self._scroll.setStyleSheet(transparent_scrollbar_qss())
 
         container = QWidget()
         container.setStyleSheet("background: transparent;")
@@ -225,15 +238,15 @@ class HomeAudioView(QWidget):
         # Buttons
         btns = QHBoxLayout()
         btns.setSpacing(8)
-        btn_ha = _PrimaryButton("Conectar Home Assistant")
+        btn_ha = _make_btn("Conectar Home Assistant", "primary")
         btn_ha.clicked.connect(self.connect_requested.emit)
-        btn_mr = _SecondaryButton("Activar Multiroom")
+        btn_mr = _make_btn("Activar Multiroom", "secondary")
         self._hero_btn_mr = btn_mr
         btn_mr.clicked.connect(
             lambda: self.enable_multiroom_requested.emit(not self._multiroom_active))
-        btn_rf = _GhostButton("Actualizar")
+        btn_rf = _make_btn("Actualizar", "ghost")
         btn_rf.clicked.connect(self.refresh_requested.emit)
-        btn_pref = _GhostButton("Preferencias")
+        btn_pref = _make_btn("Preferencias", "ghost")
         btn_pref.clicked.connect(self.open_settings_requested.emit)
 
         btns.addWidget(btn_ha)
@@ -313,7 +326,7 @@ class HomeAudioView(QWidget):
     # ── System Status card ──
 
     def _build_system_card(self) -> QFrame:
-        card = _GlassCard()
+        card = _glass_card()
         cl = QVBoxLayout(card)
         cl.setContentsMargins(18, 14, 18, 14)
         cl.setSpacing(0)
@@ -380,7 +393,7 @@ class HomeAudioView(QWidget):
     # ── Multiroom card ──
 
     def _build_multiroom_card(self) -> QFrame:
-        card = _GlassCard()
+        card = _glass_card()
         cl = QVBoxLayout(card)
         cl.setContentsMargins(18, 14, 18, 14)
         cl.setSpacing(8)
@@ -404,7 +417,7 @@ class HomeAudioView(QWidget):
                 info.addWidget(v)
             info.addStretch()
             cl.addLayout(info)
-            btn_stop = _SecondaryButton("Detener Multiroom")
+            btn_stop = _make_btn("Detener Multiroom", "secondary")
             btn_stop.clicked.connect(
                 lambda: self.enable_multiroom_requested.emit(False))
             cl.addWidget(btn_stop)
@@ -417,7 +430,7 @@ class HomeAudioView(QWidget):
             desc.setWordWrap(True)
             cl.addWidget(desc)
             cl.addSpacing(4)
-            btn_start = _SecondaryButton("Activar Multiroom")
+            btn_start = _make_btn("Activar Multiroom", "secondary")
             btn_start.clicked.connect(
                 lambda: self.enable_multiroom_requested.emit(True))
             cl.addWidget(btn_start)
@@ -428,7 +441,7 @@ class HomeAudioView(QWidget):
     # ── Devices card ──
 
     def _build_devices_card(self) -> QFrame:
-        card = _GlassCard()
+        card = _glass_card()
         cl = QVBoxLayout(card)
         cl.setContentsMargins(18, 14, 18, 14)
         cl.setSpacing(10)
@@ -439,7 +452,7 @@ class HomeAudioView(QWidget):
             "font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.88);")
         hdr.addWidget(title)
         hdr.addStretch()
-        add_btn = _GhostButton("+ Crear receptor")
+        add_btn = _make_btn("+ Crear receptor", "ghost")
         add_btn.clicked.connect(self.open_receiver_wizard_requested.emit)
         hdr.addWidget(add_btn)
         cl.addLayout(hdr)
@@ -475,7 +488,7 @@ class HomeAudioView(QWidget):
 
     def _build_devices_full(self):
         cl = self._grid_wrapper
-        card = _GlassCard()
+        card = _glass_card()
         cv = QVBoxLayout(card)
         cv.setContentsMargins(18, 14, 18, 14)
         cv.setSpacing(10)
@@ -486,7 +499,7 @@ class HomeAudioView(QWidget):
             "font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.88);")
         hdr.addWidget(title)
         hdr.addStretch()
-        add_btn = _GhostButton("+ Crear receptor")
+        add_btn = _make_btn("+ Crear receptor", "ghost")
         add_btn.clicked.connect(self.open_receiver_wizard_requested.emit)
         hdr.addWidget(add_btn)
         cv.addLayout(hdr)
@@ -522,7 +535,7 @@ class HomeAudioView(QWidget):
     # ── Groups card ──
 
     def _build_groups_card(self) -> QFrame:
-        card = _GlassCard()
+        card = _glass_card()
         cl = QVBoxLayout(card)
         cl.setContentsMargins(18, 14, 18, 14)
         cl.setSpacing(10)
@@ -563,13 +576,13 @@ class HomeAudioView(QWidget):
             row.addStretch()
             row.addWidget(count)
 
-            send_btn = _GhostButton("Enviar")
+            send_btn = _make_btn("Enviar", "ghost")
             send_btn.clicked.connect(
                 lambda checked, zz=z: self.group_selected_requested.emit(zz))
             row.addWidget(send_btn)
             cl.addLayout(row)
 
-        create_btn = _GhostButton("+ Crear grupo")
+        create_btn = _make_btn("+ Crear grupo", "ghost")
         create_btn.clicked.connect(self.create_group_requested.emit)
         cl.addWidget(create_btn)
         cl.addStretch()
@@ -582,7 +595,7 @@ class HomeAudioView(QWidget):
     # ── Diagnostics card ──
 
     def _build_diagnostics_card(self) -> QFrame:
-        card = _GlassCard()
+        card = _glass_card()
         cl = QVBoxLayout(card)
         cl.setContentsMargins(18, 14, 18, 14)
         cl.setSpacing(0)
@@ -651,7 +664,7 @@ class HomeAudioView(QWidget):
     # ── Activity card ──
 
     def _build_activity_card(self) -> QFrame:
-        card = _GlassCard()
+        card = _glass_card()
         cl = QVBoxLayout(card)
         cl.setContentsMargins(18, 14, 18, 14)
         cl.setSpacing(6)
@@ -736,7 +749,7 @@ class HomeAudioView(QWidget):
             ab.setAlignment(Qt.AlignCenter)
             ab.setSpacing(8)
             for label, cb in actions:
-                btn = _SecondaryButton(label)
+                btn = _make_btn(label, "secondary")
                 btn.clicked.connect(cb)
                 ab.addWidget(btn)
             lay.addLayout(ab)
@@ -804,46 +817,6 @@ _TAB_QSS = (
     "  border: 1px solid rgba(255,255,255,0.10); }")
 
 
-class _PrimaryButton(QPushButton):
-    def __init__(self, text):
-        super().__init__(text)
-        self.setStyleSheet(
-            "QPushButton { color: #FFFFFF; font-size: 12px; font-weight: 700;"
-            "  background: rgba(143,183,255,0.16);"
-            "  border: 1px solid rgba(143,183,255,0.18);"
-            "  border-radius: 13px; padding: 10px 18px; }"
-            "QPushButton:hover { background: rgba(143,183,255,0.24);"
-            "  border: 1px solid rgba(143,183,255,0.26); }"
-            "QPushButton:pressed { background: rgba(143,183,255,0.30); }")
-        self.setCursor(Qt.PointingHandCursor)
-
-
-class _SecondaryButton(QPushButton):
-    def __init__(self, text):
-        super().__init__(text)
-        self.setStyleSheet(
-            "QPushButton { color: rgba(255,255,255,0.78); font-size: 12px;"
-            "  font-weight: 600; background: rgba(255,255,255,0.06);"
-            "  border: 1px solid rgba(255,255,255,0.105);"
-            "  border-radius: 13px; padding: 8px 16px; }"
-            "QPushButton:hover { background: rgba(255,255,255,0.10);"
-            "  border: 1px solid rgba(255,255,255,0.16); }"
-            "QPushButton:pressed { background: rgba(255,255,255,0.04); }")
-        self.setCursor(Qt.PointingHandCursor)
-
-
-class _GhostButton(QPushButton):
-    def __init__(self, text):
-        super().__init__(text)
-        self.setStyleSheet(
-            "QPushButton { color: rgba(255,255,255,0.52); font-size: 11px;"
-            "  font-weight: 500; background: transparent;"
-            "  border: 1px solid rgba(255,255,255,0.07);"
-            "  border-radius: 10px; padding: 6px 12px; }"
-            "QPushButton:hover { color: rgba(255,255,255,0.78);"
-            "  background: rgba(255,255,255,0.06);"
-            "  border: 1px solid rgba(255,255,255,0.12); }")
-        self.setCursor(Qt.PointingHandCursor)
 
 
 class _HeroVisual(QWidget):
@@ -880,18 +853,6 @@ class _HeroVisual(QWidget):
         vlay.addStretch()
 
 
-class _GlassCard(QFrame):
-    def __init__(self, name: str = ""):
-        super().__init__()
-        obj_name = name or "glassCard"
-        self.setObjectName(obj_name)
-        self.setStyleSheet(
-            f"QFrame#{obj_name} {{ background: rgba(255,255,255,0.035);"
-            f"  border-radius: 14px;"
-            f"  border: 1px solid rgba(255,255,255,0.035); }}"
-            f"QFrame#{obj_name} QLabel {{ background: transparent; }}")
-
-
 def _clear_layout(layout):
     while layout.count():
         item = layout.takeAt(0)
@@ -912,13 +873,8 @@ class _DeviceTile(QFrame):
         super().__init__()
         self.setObjectName("deviceTile")
         self._device = device
-        self.setStyleSheet(
-            "QFrame#deviceTile { background: rgba(255,255,255,0.035);"
-            "  border-radius: 14px; border: 1px solid rgba(255,255,255,0.035); }"
-            "QFrame#deviceTile:hover { background: rgba(255,255,255,0.050);"
-            "  border: 1px solid rgba(143,183,255,0.10); }"
-            "QFrame#deviceTile QLabel { background: transparent; }")
-        self.setCursor(Qt.ArrowCursor)
+        self.setStyleSheet(glass_card_qss("deviceTile"))
+        self.setCursor(Qt.PointingHandCursor)
         self.setMinimumHeight(150)
         self.setMaximumHeight(160)
 
@@ -958,11 +914,7 @@ class _DeviceTile(QFrame):
         ]:
             btn = QPushButton()
             btn.setFixedSize(28, 28)
-            btn.setStyleSheet(
-                "QPushButton { background: rgba(255,255,255,0.06);"
-                "  border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; }"
-                "QPushButton:hover { background: rgba(255,255,255,0.14);"
-                "  border: 1px solid rgba(255,255,255,0.16); }")
+            btn.setStyleSheet(glass_button_qss("ghost"))
             btn.setCursor(Qt.PointingHandCursor)
             from ui.icons import get_qicon
             qicon = get_qicon(icon_name, size=18)

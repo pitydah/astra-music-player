@@ -23,7 +23,7 @@ class SidebarController(QObject):
 
         # ── Hubs principales ──
         self._sidebar.add_section("hub", "Michi Music", "sidebar_mix")
-        self._sidebar.add_item("hub", "home", "Inicio", "sidebar_library")
+        self._sidebar.add_item("hub", "home", "Inicio", "sidebar_home")
         self._sidebar.add_item("hub", "library_hub", "Biblioteca", "sidebar_library")
         self._sidebar.add_item("hub", "mix_hub", "Mix", "sidebar_mix")
         self._sidebar.add_item("hub", "playlist_hub", "Playlist", "sidebar_playlists")
@@ -33,7 +33,7 @@ class SidebarController(QObject):
         self._sidebar.add_item("hub", "audio_lab", "Audio Lab", "sidebar_mix")
         self._sidebar.add_item("hub", "home_audio", "Home Audio", "home_audio")
         self._sidebar.add_item("hub", "identifier", "Identificador", "sidebar_identifier")
-        self._sidebar.add_item("hub", "assistant", "Asistente", "sidebar_mix")
+        self._sidebar.add_item("hub", "assistant", "Asistente", "sidebar_assistant")
 
         # ── Playlists dinámicas ──
         try:
