@@ -83,7 +83,7 @@ class TrackRefTableModel(QStandardItemModel):
 
     @staticmethod
     def _parse_track_number(value) -> int | None:
-        if not value and value != 0:
+        if value in (None, "", 0, "0"):
             return None
         text = str(value).strip()
         if "/" in text:

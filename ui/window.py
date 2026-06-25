@@ -1687,6 +1687,7 @@ class MainWindow(QMainWindow):
         self._count.setText(f"{len(files)} archivos")
         self._views.show("library")
         self._table.setModel(self._model)
+        self._table.setColumnHidden(7, True)  # hide URI column
         self._search.show()
 
     def _show_discover(self, key):
@@ -1720,6 +1721,7 @@ class MainWindow(QMainWindow):
                 if refs:
                     self._views.show("library")
                     self._table.setModel(self._model)
+                    self._table.setColumnHidden(7, True)  # hide URI column
                     self._table.setColumnWidth(0, 72)
                     self._table.setColumnWidth(1, 260)
                     self._table.setColumnWidth(2, 170)
@@ -1748,6 +1750,7 @@ class MainWindow(QMainWindow):
         if refs:
             self._views.show("library")
             self._table.setModel(self._model)
+            self._table.setColumnHidden(7, True)  # hide URI column
             self._table.setColumnWidth(0, 72)
             self._table.setColumnWidth(1, 260)
             self._table.setColumnWidth(2, 170)
@@ -1772,6 +1775,7 @@ class MainWindow(QMainWindow):
         if refs:
             self._views.show("library")
             self._table.setModel(self._model)
+            self._table.setColumnHidden(7, True)  # hide URI column
             self._table.setColumnWidth(0, 72)
             self._table.setColumnWidth(1, 260)
             self._table.setColumnWidth(2, 170)
@@ -2162,6 +2166,7 @@ class MainWindow(QMainWindow):
         if n:
             self._views.show("library")
             self._table.setModel(self._model)
+            self._table.setColumnHidden(7, True)  # hide URI column
             self._table.setColumnWidth(0, 72)
             self._table.setColumnWidth(1, 260)
             self._table.setColumnWidth(2, 170)
@@ -2221,6 +2226,7 @@ class MainWindow(QMainWindow):
             if mode == "list":
                 self._model.populate(self._playlist_refs)
                 self._table.setModel(self._model)
+                self._table.setColumnHidden(7, True)  # hide URI column
                 self._fade_content("library")
             elif mode == "grid":
                 self._song_grid.set_items(self._playlist_refs, card_size=170)
@@ -2244,6 +2250,7 @@ class MainWindow(QMainWindow):
             if mode == "list":
                 self._model.populate(refs)
                 self._table.setModel(self._model)
+                self._table.setColumnHidden(7, True)  # hide URI column
                 self._fade_content("library")
             elif mode == "grid":
                 self._song_grid.set_items(refs, card_size=170)
@@ -2266,6 +2273,7 @@ class MainWindow(QMainWindow):
             ))
         self._model.populate(refs)
         self._table.setModel(self._model)
+        self._table.setColumnHidden(7, True)  # hide URI column
         self._table.setColumnWidth(0, 72)
         self._table.setColumnWidth(1, 240)
         self._table.setColumnWidth(2, 170)
