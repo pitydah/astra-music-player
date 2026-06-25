@@ -1549,7 +1549,7 @@ class MainWindow(QMainWindow):
             btn.setStyleSheet(tab_qss)
 
         vl.addWidget(self._table, 1)
-        self._views.register("library", self._library_header)
+        self._views.replace("library", self._library_header, delete_old=False)
 
     def _show_playlist_hub(self, key):
         pls = self._db.get_playlists()
