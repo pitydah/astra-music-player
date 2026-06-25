@@ -103,6 +103,10 @@ class AlbumGridWidget(QWidget):
         self._filter_mode = filter_mode
         self._group_mode = group_mode
         self._selected_index = -1
+        self._groups_cache = None
+        self._last_sig = None
+        self._last_cols = -1
+        self._groups = []
         self._rebuild_grid()
 
     # ── responsive layout ──
