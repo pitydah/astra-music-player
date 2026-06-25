@@ -1,4 +1,11 @@
-"""Metadata extraction — GStreamer discoverer + Mutagen fallback + filename inference."""
+"""Metadata extraction — unified Mutagen-first reader with per-format priority.
+
+Format coverage: ID3v2, ID3v1, APEv2, VorbisComment, MP4/iTunes, ASF/WMA,
+RIFF INFO (WAV), AIFF, DSF/DFF.
+
+Priority per field: Mutagen real tags > GStreamer > filename inference.
+For MP3: ID3v2 > APEv2 > ID3v1 > GStreamer > filename.
+"""
 import os
 import logging
 import contextlib
@@ -20,8 +27,27 @@ AUDIO_EXTS = frozenset({
 ALL_EXTS = AUDIO_EXTS
 
 log = logging.getLogger("michi.extractor")
-
 _thread_local = threading.local()
+
+# ── ID3v1 genre table ──
+_ID3V1_GENRES = [
+    "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk",
+    "Grunge", "Hip-Hop", "Jazz", "Metal", "New Age", "Oldies",
+    "Other", "Pop", "R&B", "Rap", "Reggae", "Rock", "Techno",
+    "Industrial", "Alternative", "Ska", "Death Metal", "Pranks",
+    "Soundtrack", "Euro-Techno", "Ambient", "Trip-Hop", "Vocal",
+    "Jazz+Funk", "Fusion", "Trance", "Classical", "Instrumental",
+    "Acid", "House", "Game", "Sound Clip", "Gospel", "Noise",
+    "AlternRock", "Bass", "Soul", "Punk", "Space", "Meditative",
+    "Instrumental Pop", "Instrumental Rock", "Ethnic", "Gothic",
+    "Darkwave", "Techno-Industrial", "Electronic", "Pop-Folk",
+    "Eurodance", "Dream", "Southern Rock", "Comedy", "Cult",
+    "Gangsta", "Top 40", "Christian Rap", "Pop/Funk", "Jungle",
+    "Native American", "Cabaret", "New Wave", "Psychedelic", "Rave",
+    "Showtunes", "Trailer", "Lo-Fi", "Tribal", "Acid Punk",
+    "Acid Jazz", "Polka", "Retro", "Musical", "Rock & Roll",
+    "Hard Rock",
+]
 
 
 def _get_discoverer():
@@ -33,147 +59,25 @@ def _get_discoverer():
 
 
 def _safe_uri(filepath: str) -> str:
-    """Build a file:// URI that works with spaces, accents, and special chars."""
     try:
         from gi.repository import GLib
-        abspath = os.path.abspath(filepath)
-        return GLib.filename_to_uri(abspath, None)
+        return GLib.filename_to_uri(os.path.abspath(filepath), None)
     except (ImportError, Exception):
         return Path(filepath).resolve().as_uri()
 
 
 def _infer_from_filename(filepath: str) -> dict:
-    """Infer artist and title from filename patterns like 'Artist - Title.ext'."""
     from library.metadata_normalizer import infer_metadata_from_filename
     return infer_metadata_from_filename(filepath)
 
 
-def extract_mutagen_tags(filepath: str) -> dict:
-    """Read all common metadata tags from any Mutagen-supported format.
+# ── Parsing helpers ──
 
-    Returns flat dict with title, artist, album, albumartist, date, year,
-    genre, track_number, track_total, disc_number, disc_total, composer,
-    bpm, isrc, label, conductor, compilation, media_type, encoder, copyright,
-    remixer, grouping, mood, originaldate, mb_*, replaygain, bit_depth,
-    duration, sample_rate, channels, bitrate, cover_mime, cover_data.
-
-    Covers: ID3 (MP3), VorbisComment (FLAC/OGG/Opus), MP4/M4A, ASF/WMA, APEv2.
-    """
-    from mutagen import File as MutagenFile
-    info: dict = {
-        "title": "", "artist": "", "album": "", "albumartist": "",
-        "date": "", "year": 0, "genre": "",
-        "track_number": 0, "track_total": 0,
-        "disc_number": 0, "disc_total": 0,
-        "composer": "", "bpm": 0, "isrc": "",
-        "label": "", "conductor": "", "compilation": 0,
-        "media_type": "", "encoder": "", "copyright": "",
-        "remixer": "", "grouping": "", "mood": "",
-        "originaldate": "",
-        "mb_track_id": "", "mb_album_id": "", "mb_albumartist_id": "",
-        "replaygain_track": 0.0, "replaygain_album": 0.0,
-        "replaygain_track_peak": 0.0,
-        "bit_depth": 0, "duration": 0.0,
-        "sample_rate": 0, "channels": 0, "bitrate": 0,
-        "cover_mime": "", "cover_data": b"",
-    }
-    try:
-        mf = MutagenFile(filepath)
-        if mf is None:
-            return info
-
-        if hasattr(mf, 'info') and mf.info:
-            info["duration"] = float(getattr(mf.info, 'length', 0) or 0)
-            info["sample_rate"] = int(getattr(mf.info, 'sample_rate', 0) or 0)
-            info["channels"] = int(getattr(mf.info, 'channels', 0) or 0)
-            info["bitrate"] = int(getattr(mf.info, 'bitrate', 0) or 0)
-            info["bit_depth"] = int(getattr(mf.info, 'bits_per_sample', 0) or 0)
-
-        if not mf.tags or not hasattr(mf.tags, 'get'):
-            return info
-        tags = mf.tags
-
-        def _get(*keys):
-            for k in keys:
-                v = tags.get(k)
-                if v:
-                    if isinstance(v, list):
-                        return str(v[0]) if len(v) > 0 else ""
-                    return str(v)
-            return ""
-
-        info["title"] = _get("title", "TIT2", "\xa9nam", "Title", "WM/Title")
-        info["artist"] = _get("artist", "TPE1", "\xa9ART", "Author", "WM/Author")
-        info["album"] = _get("album", "TALB", "\xa9alb", "WM/AlbumTitle", "Album")
-        info["albumartist"] = _get("albumartist", "ALBUMARTIST", "album artist",
-                                   "TPE2", "aART", "WM/AlbumArtist", "\xa9ART")
-
-        date_val = _get("date", "originaldate", "TDRC", "TYER", "TDOR",
-                        "TORY", "\xa9day", "WM/Year")
-        info["date"] = date_val[:4] if len(date_val) >= 4 else date_val
-        info["originaldate"] = _get("originaldate", "TDOR", "TORY", "ORIGINALYEAR")
-        with contextlib.suppress(ValueError, TypeError):
-            yd = info["date"] or info["originaldate"] or "0"
-            info["year"] = int(yd[:4])
-
-        genre = _get("genre", "TCON", "\xa9gen", "WM/Genre", "GENRE")
-        if genre.startswith("(") and ")" in genre:
-            genre = genre.split(")", 1)[-1].strip()
-        info["genre"] = genre
-
-        raw_track = _get("tracknumber", "TRCK", "trkn", "TRACKNUMBER",
-                         "WM/TrackNumber", "Track")
-        info["track_number"], info["track_total"] = _parse_track_disc(raw_track)
-        raw_disc = _get("discnumber", "TPOS", "disk", "DISCNUMBER", "Disc")
-        info["disc_number"], info["disc_total"] = _parse_track_disc(raw_disc)
-
-        info["composer"] = _get("composer", "TCOM", "\xa9wrt", "WM/Composer", "Composer")
-        bpm_val = _get("bpm", "TBPM", "tmpo", "BPM", "WM/BeatsPerMinute")
-        with contextlib.suppress(ValueError, TypeError):
-            info["bpm"] = int(float(bpm_val)) if bpm_val else 0
-        info["isrc"] = _get("isrc", "TSRC", "ISRC", "WM/ISRC")
-        info["label"] = _get("label", "TPUB", "\xa9pub", "LABEL",
-                             "organization", "WM/Publisher")
-        info["conductor"] = _get("conductor", "TPE3", "TCONDUCTOR", "Conductor")
-        cp_val = _get("TCMP", "cpil", "COMPILATION", "compilation")
-        info["compilation"] = 1 if cp_val.lower() in ("1", "true", "yes") else 0
-        info["media_type"] = _get("TMED", "MEDIA", "sourcemedia", "WM/Media")
-        info["encoder"] = _get("TENC", "TSSE", "ENCODER", "encoder", "WM/EncodedBy")
-        info["copyright"] = _get("TCOP", "copyright", "COPYRIGHT", "WM/Copyright")
-        info["remixer"] = _get("TPE4", "REMIXER", "remixer", "WM/ModifiedBy")
-        info["grouping"] = _get("TIT1", "GRP1", "GROUPING", "grouping",
-                                "WM/ContentGroupDescription")
-        info["mood"] = _get("TMOO", "MOOD", "mood", "WM/Mood")
-
-        info["mb_track_id"] = _get("MUSICBRAINZ_TRACKID", "MusicBrainz Track Id",
-                                   "musicbrainz_trackid")
-        info["mb_album_id"] = _get("MUSICBRAINZ_ALBUMID", "MusicBrainz Album Id",
-                                   "musicbrainz_albumid")
-        info["mb_albumartist_id"] = _get("MUSICBRAINZ_ALBUMARTISTID",
-                                         "MusicBrainz Album Artist Id",
-                                         "musicbrainz_albumartistid")
-
-        rg = _get("REPLAYGAIN_TRACK_GAIN", "replaygain_track_gain")
-        with contextlib.suppress(ValueError, TypeError):
-            info["replaygain_track"] = float(rg.split(" ")[0]) if rg else 0.0
-        rgp = _get("REPLAYGAIN_TRACK_PEAK", "replaygain_track_peak")
-        with contextlib.suppress(ValueError, TypeError):
-            info["replaygain_track_peak"] = float(rgp) if rgp else 0.0
-        rga = _get("REPLAYGAIN_ALBUM_GAIN", "replaygain_album_gain")
-        with contextlib.suppress(ValueError, TypeError):
-            info["replaygain_album"] = float(rga.split(" ")[0]) if rga else 0.0
-
-        info.update(_extract_cover_art(mf, tags))
-
-    except Exception as e:
-        log.debug("Mutagen tags extraction failed for %s: %s", filepath, e)
-    return info
-
-
-def _parse_track_disc(raw: str) -> tuple[int, int]:
-    if not raw:
+def parse_track_number(value) -> tuple[int, int]:
+    """Parse '3/12', '3', or MP4 tuple '(3, 12)' into (number, total)."""
+    if not value:
         return 0, 0
-    s = str(raw).strip()
+    s = str(value).strip()
     if s.startswith("(") and s.endswith(")") and "," in s:
         s = s[1:-1]
     with contextlib.suppress(ValueError, TypeError):
@@ -184,15 +88,320 @@ def _parse_track_disc(raw: str) -> tuple[int, int]:
     return 0, 0
 
 
+def parse_disc_number(value) -> tuple[int, int]:
+    """Parse disc number — delegates to parse_track_number."""
+    return parse_track_number(value)
+
+
+def parse_year(value) -> int:
+    """Normalize year from string, int, or date string like '2024-01-15'."""
+    if not value:
+        return 0
+    if isinstance(value, int):
+        return value
+    with contextlib.suppress(ValueError, TypeError, IndexError):
+        s = str(value).strip()
+        return int(s[:4])
+    return 0
+
+
+# ── ID3v1 fallback ──
+
+def extract_id3v1(filepath: str) -> dict:
+    """Read ID3v1 from last 128 bytes of MP3 as fallback only."""
+    info = {"title": "", "artist": "", "album": "", "year": 0,
+            "comment": "", "track_number": 0, "genre": ""}
+    try:
+        with open(filepath, "rb") as fh:
+            fh.seek(-128, os.SEEK_END)
+            data = fh.read(128)
+        if data[:3] != b"TAG":
+            return info
+        def _d(start, length):
+            raw = data[start:start + length]
+            text = raw.split(b"\x00", 1)[0]
+            try:
+                text = text.decode("utf-8")
+            except UnicodeDecodeError:
+                text = text.decode("latin-1", errors="replace")
+            return text.strip().rstrip("\x00").rstrip()
+        info["title"] = _d(3, 30)
+        info["artist"] = _d(33, 30)
+        info["album"] = _d(63, 30)
+        yr = _d(93, 4)
+        info["year"] = parse_year(yr)
+        info["comment"] = _d(97, 30)
+        if data[125] == 0 and data[126] != 0:
+            info["track_number"] = data[126]
+        genre_byte = data[127]
+        if 0 <= genre_byte < len(_ID3V1_GENRES):
+            info["genre"] = _ID3V1_GENRES[genre_byte]
+    except Exception:
+        pass
+    return info
+
+
+# ── Tag search helper ──
+
+def _tag_get(tags, *keys) -> str:
+    """Search mutagen tags dict for first matching key."""
+    for k in keys:
+        v = tags.get(k)
+        if v:
+            if isinstance(v, list):
+                return str(v[0]) if len(v) > 0 else ""
+            return str(v)
+    return ""
+
+
+# ── merge_metadata_by_priority ──
+
+def merge_metadata_by_priority(*dicts: dict) -> dict:
+    """Merge dicts left to right; first non-empty/non-zero value wins per field."""
+    merged: dict = {}
+    for d in reversed(dicts):
+        for k, v in d.items():
+            if v not in (None, "", 0, 0.0, b""):
+                merged[k] = v
+    return merged
+
+
+# ── Core mutagen tags ──
+
+def extract_mutagen_tags(filepath: str) -> dict:
+    """Read all metadata tags from any Mutagen-supported format.
+
+    Returns flat dict with all standard fields. Handles:
+    ID3v2, APEv2, ID3v1, VorbisComment, MP4/iTunes atoms, ASF/WMA, RIFF INFO.
+    """
+    from mutagen import File as MutagenFile
+
+    info: dict = {
+        "title": "", "artist": "", "album": "", "albumartist": "",
+        "date": "", "year": 0, "originaldate": "",
+        "genre": "", "track_number": 0, "track_total": 0,
+        "disc_number": 0, "disc_total": 0,
+        "composer": "", "lyricist": "", "bpm": 0,
+        "comment": "", "copyright": "", "isrc": "",
+        "label": "", "conductor": "", "compilation": 0,
+        "media_type": "", "encoder": "",
+        "remixer": "", "grouping": "", "mood": "",
+        "mb_track_id": "", "mb_album_id": "", "mb_albumartist_id": "",
+        "mb_artist_id": "", "mb_releasegroup_id": "",
+        "acoustid_id": "", "acoustid_fingerprint": "",
+        "replaygain_track": 0.0, "replaygain_album": 0.0,
+        "replaygain_track_peak": 0.0, "replaygain_album_peak": 0.0,
+        "r128_track_gain": 0.0, "r128_album_gain": 0.0,
+        "bit_depth": 0, "duration": 0.0,
+        "sample_rate": 0, "channels": 0, "bitrate": 0,
+        "cover_mime": "", "cover_data": b"",
+    }
+
+    try:
+        mf = MutagenFile(filepath)
+        if mf is None:
+            return info
+
+        # ── Audio properties ──
+        if hasattr(mf, 'info') and mf.info:
+            info["duration"] = float(getattr(mf.info, 'length', 0) or 0)
+            info["sample_rate"] = int(getattr(mf.info, 'sample_rate', 0) or 0)
+            info["channels"] = int(getattr(mf.info, 'channels', 0) or 0)
+            info["bitrate"] = int(getattr(mf.info, 'bitrate', 0) or 0)
+            info["bit_depth"] = int(getattr(mf.info, 'bits_per_sample', 0) or 0)
+
+        if not mf.tags or not hasattr(mf.tags, 'get'):
+            # Try ID3v1 fallback for MP3
+            ext = os.path.splitext(filepath)[1].lower()
+            if ext == ".mp3":
+                id3v1 = extract_id3v1(filepath)
+                for k in ("title", "artist", "album", "year", "genre",
+                          "track_number", "comment"):
+                    if not info.get(k):
+                        info[k] = id3v1.get(k, info.get(k))
+            return info
+
+        tags = mf.tags
+
+        def _G(*keys):
+            return _tag_get(tags, *keys)
+
+        # ── Core tags ──
+        info["title"] = _G("title", "TIT2", "\xa9nam", "Title", "WM/Title",
+                           "INAM")
+        info["artist"] = _G("artist", "TPE1", "\xa9ART", "Author", "WM/Author",
+                            "AUTH", "IART")
+        info["album"] = _G("album", "TALB", "\xa9alb", "WM/AlbumTitle",
+                           "Album", "IPRD")
+        info["albumartist"] = _G("albumartist", "ALBUMARTIST", "album artist",
+                                 "TPE2", "aART", "WM/AlbumArtist", "\xa9ART")
+
+        # ── Date / year / originaldate ──
+        date_val = _G("date", "originaldate", "TDRC", "TYER", "TDOR",
+                      "TORY", "\xa9day", "WM/Year", "ICRD")
+        info["date"] = date_val[:4] if len(date_val) >= 4 else date_val
+        info["originaldate"] = _G("originaldate", "TDOR", "TORY",
+                                  "ORIGINALYEAR")
+        with contextlib.suppress(ValueError, TypeError):
+            yd = info["date"] or info["originaldate"] or "0"
+            info["year"] = int(yd[:4])
+
+        # ── Genre (strip ID3 parenthetical) ──
+        genre = _G("genre", "TCON", "\xa9gen", "WM/Genre", "GENRE", "IGNR")
+        if genre.startswith("(") and ")" in genre:
+            genre = genre.split(")", 1)[-1].strip()
+        info["genre"] = genre
+
+        # ── Track / disc ──
+        info["track_number"], info["track_total"] = parse_track_number(
+            _G("tracknumber", "TRCK", "trkn", "TRACKNUMBER",
+               "WM/TrackNumber", "Track", "ITRK"))
+        info["disc_number"], info["disc_total"] = parse_disc_number(
+            _G("discnumber", "TPOS", "disk", "DISCNUMBER",
+               "WM/PartOfSet", "Disc"))
+
+        # ── Composer / lyricist / BPM / ISRC ──
+        info["composer"] = _G("composer", "TCOM", "\xa9wrt",
+                              "WM/Composer", "Composer")
+        info["lyricist"] = _G("lyricist", "TEXT", "LYRICIST", "LYRICS",
+                              "WM/Writer")
+        bpm_val = _G("bpm", "TBPM", "tmpo", "BPM", "WM/BeatsPerMinute")
+        with contextlib.suppress(ValueError, TypeError):
+            info["bpm"] = int(float(bpm_val)) if bpm_val else 0
+        info["isrc"] = _G("isrc", "TSRC", "ISRC", "WM/ISRC")
+
+        # ── Comment / copyright / label ──
+        info["comment"] = _G("comment", "COMM", "\xa9cmt", "COMMENT",
+                             "Description", "ICMT")
+        info["copyright"] = _G("TCOP", "copyright", "COPYRIGHT",
+                               "WM/Copyright", "\xa9cpy", "cprt", "ICOP")
+        info["label"] = _G("label", "TPUB", "\xa9pub", "LABEL",
+                           "organization", "WM/Publisher")
+
+        # ── Conductor / compilation / media / encoder ──
+        info["conductor"] = _G("conductor", "TPE3", "TCONDUCTOR", "Conductor")
+        cp_val = _G("TCMP", "cpil", "COMPILATION", "compilation")
+        info["compilation"] = 1 if cp_val.lower() in ("1", "true", "yes") else 0
+        info["media_type"] = _G("TMED", "MEDIA", "sourcemedia", "WM/Media")
+        info["encoder"] = _G("TENC", "TSSE", "ENCODER", "encoder",
+                             "WM/EncodedBy", "ISFT")
+
+        # ── Remixer / grouping / mood ──
+        info["remixer"] = _G("TPE4", "REMIXER", "remixer",
+                             "WM/ModifiedBy")
+        info["grouping"] = _G("TIT1", "GRP1", "GROUPING", "grouping",
+                              "WM/ContentGroupDescription")
+        info["mood"] = _G("TMOO", "MOOD", "mood", "WM/Mood")
+
+        # ── MusicBrainz IDs ──
+        info["mb_track_id"] = _G(
+            "MUSICBRAINZ_TRACKID", "MusicBrainz Track Id",
+            "musicbrainz_trackid",
+            "----:com.apple.iTunes:MusicBrainz Track Id",
+            "MusicBrainz/Track Id")
+        info["mb_album_id"] = _G(
+            "MUSICBRAINZ_ALBUMID", "MusicBrainz Album Id",
+            "musicbrainz_albumid",
+            "----:com.apple.iTunes:MusicBrainz Album Id",
+            "MusicBrainz/Album Id")
+        info["mb_albumartist_id"] = _G(
+            "MUSICBRAINZ_ALBUMARTISTID", "MusicBrainz Album Artist Id",
+            "musicbrainz_albumartistid",
+            "----:com.apple.iTunes:MusicBrainz Album Artist Id",
+            "MusicBrainz/Album Artist Id")
+        info["mb_artist_id"] = _G(
+            "MUSICBRAINZ_ARTISTID", "MusicBrainz Artist Id",
+            "musicbrainz_artistid",
+            "----:com.apple.iTunes:MusicBrainz Artist Id",
+            "MusicBrainz/Artist Id")
+        info["mb_releasegroup_id"] = _G(
+            "MUSICBRAINZ_RELEASEGROUPID", "MusicBrainz Release Group Id",
+            "musicbrainz_releasegroupid",
+            "----:com.apple.iTunes:MusicBrainz Release Group Id",
+            "MusicBrainz/Release Group Id")
+
+        # ── AcoustID ──
+        info["acoustid_id"] = _G(
+            "ACOUSTID_ID", "Acoustid Id", "acoustid_id",
+            "----:com.apple.iTunes:Acoustid Id")
+        info["acoustid_fingerprint"] = _G(
+            "ACOUSTID_FINGERPRINT", "Acoustid Fingerprint",
+            "acoustid_fingerprint")
+
+        # ── ReplayGain ──
+        for key, field in [
+            ("REPLAYGAIN_TRACK_GAIN", "replaygain_track"),
+            ("replaygain_track_gain", "replaygain_track"),
+            ("REPLAYGAIN_ALBUM_GAIN", "replaygain_album"),
+            ("replaygain_album_gain", "replaygain_album"),
+            ("REPLAYGAIN_TRACK_PEAK", "replaygain_track_peak"),
+            ("replaygain_track_peak", "replaygain_track_peak"),
+            ("REPLAYGAIN_ALBUM_PEAK", "replaygain_album_peak"),
+            ("replaygain_album_peak", "replaygain_album_peak"),
+        ]:
+            val = _G(key)
+            if val:
+                with contextlib.suppress(ValueError, TypeError):
+                    if not info.get(field):
+                        info[field] = float(val.split(" ")[0])
+
+        # ── R128 (EBU loudness) ──
+        for key, field in [
+            ("R128_TRACK_GAIN", "r128_track_gain"),
+            ("r128_track_gain", "r128_track_gain"),
+            ("R128_ALBUM_GAIN", "r128_album_gain"),
+            ("r128_album_gain", "r128_album_gain"),
+        ]:
+            val = _G(key)
+            if val:
+                with contextlib.suppress(ValueError, TypeError):
+                    if not info.get(field):
+                        info[field] = float(val.split(" ")[0])
+
+        # ── Cover art ──
+        info.update(_extract_cover_art(mf, tags))
+
+        # ── ID3v1 fallback for MP3 (fills gaps only) ──
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext == ".mp3":
+            id3v1 = extract_id3v1(filepath)
+            for k in ("title", "artist", "album", "year", "genre",
+                      "track_number", "comment"):
+                if not info.get(k):
+                    info[k] = id3v1.get(k, "")
+
+    except Exception as e:
+        log.debug("Mutagen tags extraction failed for %s: %s", filepath, e)
+    return info
+
+
+# ── Cover art ──
+
 def _extract_cover_art(mf, tags) -> dict:
     result: dict = {"cover_mime": "", "cover_data": b""}
     try:
+        # VorbisComment/FLAC — pictures list
         if hasattr(mf, 'pictures') and mf.pictures:
             p = mf.pictures[0]
             result["cover_mime"] = getattr(p, 'mime', 'image/jpeg')
             result["cover_data"] = getattr(p, 'data', b'')
             return result
-        for key in ("APIC:", "APIC"):
+        # METADATA_BLOCK_PICTURE (FLAC)
+        pic_key = "METADATA_BLOCK_PICTURE"
+        if pic_key in tags:
+            try:
+                import base64
+                raw = tags[pic_key]
+                if isinstance(raw, list) and raw:
+                    raw = raw[0]
+                data = base64.b64decode(str(raw))
+                result["cover_mime"] = "image/jpeg"
+                result["cover_data"] = data
+                return result
+            except Exception:
+                pass
+        # MP3 APIC frame
+        for key in (b"APIC:", "APIC:", "APIC", "\xa9cov"):
             try:
                 v = tags.get(key)
                 if v:
@@ -201,6 +410,7 @@ def _extract_cover_art(mf, tags) -> dict:
                     return result
             except Exception:
                 pass
+        # MP4 covr atom
         for key in ("covr", "COVER"):
             try:
                 v = tags.get(key)
@@ -211,13 +421,35 @@ def _extract_cover_art(mf, tags) -> dict:
                     return result
             except Exception:
                 pass
+        # ASF/WMA picture
+        for key in ("WM/Picture", "Cover Art (Front)"):
+            try:
+                v = tags.get(key)
+                if v:
+                    result["cover_mime"] = getattr(v, 'mime', 'image/jpeg')
+                    result["cover_data"] = getattr(v, 'data', b'')
+                    return result
+            except Exception:
+                pass
     except Exception:
         pass
     return result
 
 
+# ── Combined extraction ──
+
 def extract_metadata_combined(filepath: str) -> dict:
-    """Unified extraction: Mutagen > GStreamer > filename inference."""
+    """Unified extraction: Mutagen > GStreamer > filename inference.
+
+    Priority (per field):
+      title:   Mutagen real > GStreamer > filename inference > filename clean
+      artist:  Mutagen real > GStreamer > filename inference > ""
+      album:   Mutagen real > GStreamer > ""
+      year:    Mutagen date/year/originaldate > GStreamer date > 0
+      genre:   Mutagen real > ""
+      duration: GStreamer > Mutagen info.length > 0
+      track_number: Mutagen real > GStreamer > filename inference > 0
+    """
     from library.metadata_normalizer import infer_metadata_from_filename
 
     mg = extract_mutagen_tags(filepath)
@@ -279,6 +511,7 @@ def extract_metadata_combined(filepath: str) -> dict:
     r["album"] = _p("album", "album") or ""
     r["albumartist"] = _p("albumartist", "albumartist") or r["artist"]
     r["date"] = _p("date", "date") or ""
+    r["originaldate"] = mg.get("originaldate") or ""
     r["year"] = mg.get("year") or 0
     r["genre"] = mg.get("genre") or ""
     r["track_number"] = _p("track_number", "track_number") or inferred.get("track_number", 0) or 0
@@ -286,7 +519,9 @@ def extract_metadata_combined(filepath: str) -> dict:
     r["disc_number"] = mg.get("disc_number") or 0
     r["disc_total"] = mg.get("disc_total") or 0
     r["composer"] = mg.get("composer") or ""
+    r["lyricist"] = mg.get("lyricist") or ""
     r["bpm"] = mg.get("bpm") or 0
+    r["comment"] = mg.get("comment") or ""
     r["isrc"] = mg.get("isrc") or ""
     r["label"] = mg.get("label") or ""
     r["conductor"] = mg.get("conductor") or ""
@@ -297,14 +532,20 @@ def extract_metadata_combined(filepath: str) -> dict:
     r["remixer"] = mg.get("remixer") or ""
     r["grouping"] = mg.get("grouping") or ""
     r["mood"] = mg.get("mood") or ""
-    r["originaldate"] = mg.get("originaldate") or ""
     r["mb_track_id"] = mg.get("mb_track_id") or ""
     r["mb_album_id"] = mg.get("mb_album_id") or ""
     r["mb_albumartist_id"] = mg.get("mb_albumartist_id") or ""
+    r["mb_artist_id"] = mg.get("mb_artist_id") or ""
+    r["mb_releasegroup_id"] = mg.get("mb_releasegroup_id") or ""
+    r["acoustid_id"] = mg.get("acoustid_id") or ""
+    r["acoustid_fingerprint"] = mg.get("acoustid_fingerprint") or ""
     r["replaygain_track"] = mg.get("replaygain_track") or 0.0
     r["replaygain_album"] = mg.get("replaygain_album") or 0.0
     r["replaygain_track_peak"] = mg.get("replaygain_track_peak") or 0.0
-    r["bit_depth"] = mg.get("bit_depth") or gst.get("bit_depth", 0) or 0
+    r["replaygain_album_peak"] = mg.get("replaygain_album_peak") or 0.0
+    r["r128_track_gain"] = mg.get("r128_track_gain") or 0.0
+    r["r128_album_gain"] = mg.get("r128_album_gain") or 0.0
+    r["bit_depth"] = mg.get("bit_depth") or 0
     r["duration"] = _p("duration", "duration") or 0.0
     r["sample_rate"] = _p("sample_rate", "sample_rate") or 0
     r["channels"] = _p("channels", "channels") or 0
@@ -314,8 +555,10 @@ def extract_metadata_combined(filepath: str) -> dict:
     return r
 
 
+# ── Backward-compat wrappers ──
+
 def extract_metadata(filepath: str) -> dict:
-    """Backward-compat: returns GStreamer-prioritized dict for legacy callers."""
+    """Backward-compat: returns combined metadata dict."""
     return extract_metadata_combined(filepath)
 
 
