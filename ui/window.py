@@ -1011,13 +1011,6 @@ class MainWindow(QMainWindow):
         self._table.setContextMenuPolicy(Qt.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self._on_table_menu)
 
-        # Wrap table in a container widget for embedding in LibraryHubPage
-        self._songs_table_page = QWidget()
-        self._songs_table_page.setObjectName("songsTablePage")
-        stp_layout = QVBoxLayout(self._songs_table_page)
-        stp_layout.setContentsMargins(0, 0, 0, 0)
-        stp_layout.addWidget(self._table)
-
         placeholder = QLabel()
         placeholder.setAlignment(Qt.AlignCenter)
         placeholder.setStyleSheet(
@@ -1263,7 +1256,6 @@ class MainWindow(QMainWindow):
         self._views = ViewController(self._content, self)
         self._views.register("empty", placeholder)
         self._views.register("remote", self._remote_placeholder)
-        self._views.register("coverflow", placeholder_albums)
         self._views.register("expanded", placeholder_expanded)
         self._views.register("radio", self._radio_widget)
         self._views.register("discover", self._discover)
@@ -2248,7 +2240,6 @@ class MainWindow(QMainWindow):
                 self._fade_content("library_hub")
             elif mode == "coverflow":
                 self._show_coverflow()
-                self._fade_content("coverflow")
 
         elif section == "artists":
             self._show_artists_view(mode)
