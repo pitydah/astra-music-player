@@ -17,7 +17,7 @@ DEFAULTS = {
     "interface/show_quality_badge": True,
     "interface/cover_size": 260,
     "interface/compact_mode": False,
-    "library/auto_scan": False,
+    "library/auto_scan": True,
     "library/exclude_hidden": True,
     "library/covers_cache_size": 100,
     "playback/default_volume": 70,

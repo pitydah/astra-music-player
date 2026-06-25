@@ -523,8 +523,8 @@ class MainWindow(QMainWindow):
                 "info")
 
         # Auto-scan default music folder on first launch
-        from core.settings_manager import get_bool, get
-        if get_bool("library/auto_scan") and not self._all_items:
+        from core.settings_manager import get
+        if not self._all_items:
             music_folder = get("general/music_folder")
             if os.path.isdir(music_folder):
                 from core.file_actions import FileActions
