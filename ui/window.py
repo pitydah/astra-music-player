@@ -1376,6 +1376,13 @@ class MainWindow(QMainWindow):
         self._search_ctrl.set_active("local")
         self._apply_filters()
         self._rebuild_sidebar()
+        if self._workers:
+            def _on_backfill_done(count: int):
+                if count > 0 and hasattr(self, '_model'):
+                    self._load_library()
+            self._workers.run_task("backfill_meta",
+                self._db.backfill_missing_metadata,
+                on_done=_on_backfill_done)
 
     def _apply_filters(self):
         self._search_ctrl.search(self._search_text)
