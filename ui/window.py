@@ -1511,24 +1511,59 @@ class MainWindow(QMainWindow):
             "QLabel { color: rgba(255,255,255,0.54); font-size: 13px; }")
         vl.addWidget(lib_sub)
 
-        # Internal tabs
+        # Internal tabs — switch views inside a stacked widget
+        self._lib_stack = QStackedWidget()
+        self._lib_stack.setStyleSheet("background: transparent; border: none;")
+
+        # Page 0: Canciones — the real table
+        self._lib_stack.addWidget(self._table)
+
+        # Pages 1-4: placeholders for Álbumes, Artistas, Géneros, Carpetas
+        for label, desc in [
+            ("Álbumes", "Navegación visual por carátulas y álbumes."),
+            ("Artistas", "Explora tu música por artista."),
+            ("Géneros", "Atlas de géneros musicales."),
+            ("Carpetas", "Explorador de archivos por carpeta."),
+        ]:
+            ph = QWidget()
+            ph.setStyleSheet("background: transparent;")
+            pl = QVBoxLayout(ph)
+            pl.setContentsMargins(0, 40, 0, 40)
+            pl.setAlignment(Qt.AlignCenter)
+            pt = QLabel(label)
+            pt.setAlignment(Qt.AlignCenter)
+            pt.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.56); font-size: 18px; font-weight: 600; }")
+            pl.addWidget(pt)
+            pd = QLabel(desc)
+            pd.setAlignment(Qt.AlignCenter)
+            pd.setWordWrap(True)
+            pd.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.42); font-size: 13px; }")
+            pl.addWidget(pd)
+            self._lib_stack.addWidget(ph)
+
+        self._lib_stack.setCurrentIndex(0)
+        vl.addWidget(self._lib_stack, 1)
+
+        # Style tabs
         tab_row = QHBoxLayout()
         tab_row.setSpacing(4)
         self._lib_tabs = {}
-        for tab_key, tab_label, nav_target in [
-            ("canciones", "Canciones", None),
-            ("albums", "Álbumes", "albums"),
-            ("artists", "Artistas", "artists"),
-            ("genres", "Géneros", "genres"),
-            ("folders", "Carpetas", "folders"),
+        for tab_key, tab_label, idx in [
+            ("canciones", "Canciones", 0),
+            ("albums", "Álbumes", 1),
+            ("artists", "Artistas", 2),
+            ("genres", "Géneros", 3),
+            ("folders", "Carpetas", 4),
         ]:
             btn = QPushButton(tab_label)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setCheckable(True)
-            if tab_key == "canciones":
+            if idx == 0:
                 btn.setChecked(True)
-            if nav_target:
-                btn.clicked.connect(lambda c=None, t=nav_target: self._on_sidebar_navigate(t))
+            btn.clicked.connect(
+                lambda c=None, i=idx, b=btn: self._on_lib_tab(i, b))
             tab_row.addWidget(btn)
             self._lib_tabs[tab_key] = btn
         tab_row.addStretch()
@@ -1547,8 +1582,13 @@ class MainWindow(QMainWindow):
         for btn in self._lib_tabs.values():
             btn.setStyleSheet(tab_qss)
 
-        vl.addWidget(self._table, 1)
         self._views.replace("library", self._library_header, delete_old=False)
+
+    def _on_lib_tab(self, idx: int, btn: QPushButton):
+        """Switch library tab and update check states."""
+        self._lib_stack.setCurrentIndex(idx)
+        for b in self._lib_tabs.values():
+            b.setChecked(b is btn)
 
     def _show_playlist_hub(self, key):
         pls = self._db.get_playlists()
