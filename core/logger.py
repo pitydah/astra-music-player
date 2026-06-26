@@ -1,7 +1,9 @@
 """Centralized logger for Michi Music Player.
 
-Logs to ~/.local/share/michi-music-player/michi.log (rotating, 5MB x 3 backups).
+Logs to ~/.local/share/michi-music-player/logs/michi.log (rotating, 5MB x 3 backups).
 Console output only when MICHI_DEBUG=1 or --debug flag.
+
+setup_logging() must be called explicitly from main.py — no auto-setup on import.
 """
 
 import logging
@@ -9,8 +11,7 @@ import logging.handlers
 import os
 import sys
 
-LOG_DIR = os.path.expanduser("~/.local/share/michi-music-player")
-LOG_FILE = os.path.join(LOG_DIR, "michi.log")
+LOG_FILE = None  # set after setup_logging() is called
 
 
 def _is_debug() -> bool:
@@ -18,7 +19,17 @@ def _is_debug() -> bool:
 
 
 def setup_logging():
-    os.makedirs(LOG_DIR, exist_ok=True)
+    global LOG_FILE
+    from core.paths import logs_dir
+    log_dir = logs_dir()
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, "michi.log")
+    except OSError:
+        log_path = os.path.join(os.path.expanduser("~/.local/share/michi-music-player"), "michi.log")
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+    LOG_FILE = log_path
 
     logger = logging.getLogger("michi")
     logger.setLevel(logging.DEBUG if _is_debug() else logging.INFO)
@@ -31,12 +42,19 @@ def setup_logging():
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # Rotating file handler — 5 MB, 3 backups
-    fh = logging.handlers.RotatingFileHandler(
-        LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3)
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(fmt)
-    logger.addHandler(fh)
+    try:
+        fh = logging.handlers.RotatingFileHandler(
+            log_path, maxBytes=5 * 1024 * 1024, backupCount=3)
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(fmt)
+        logger.addHandler(fh)
+    except OSError:
+        ch = logging.StreamHandler(sys.stderr)
+        ch.setLevel(logging.WARNING)
+        ch.setFormatter(fmt)
+        logger.addHandler(ch)
+        logger.warning("Cannot write to log file %s — logging to stderr", log_path)
+        return
 
     if _is_debug():
         ch = logging.StreamHandler(sys.stderr)
@@ -44,13 +62,11 @@ def setup_logging():
         ch.setFormatter(fmt)
         logger.addHandler(ch)
 
-    # Suppress noisy third-party loggers
     logging.getLogger("PIL").setLevel(logging.WARNING)
 
-    # Log runtime environment
     _log = logging.getLogger("michi.runtime")
     _log.info("Python %s · PySide6 %s", sys.version.split()[0], _pyside_version())
-    _log.info("Log file: %s", LOG_FILE)
+    _log.info("Log file: %s", log_path)
 
 
 def _pyside_version() -> str:
@@ -65,5 +81,4 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(f"michi.{name}")
 
 
-# Auto-setup on import
-setup_logging()
+# Explicit call required — no auto-setup on import

@@ -43,22 +43,15 @@ class HomePage(QWidget):
     # ── Stats ──
 
     def _get_stats(self) -> dict:
-        stats = {"total_songs": 0, "total_artists": 0, "total_albums": 0}
+        stats = {"total_songs": 0, "total_artists": 0, "total_albums": 0,
+                 "missing_metadata": 0}
         try:
-            if self._db and hasattr(self._db, "get_stats"):
+            if self._db and hasattr(self._db, "get_dashboard_stats"):
+                ds = self._db.get_dashboard_stats()
+                stats.update(ds)
+            elif self._db and hasattr(self._db, "get_stats"):
                 st = self._db.get_stats()
                 stats["total_songs"] = st.get("total", 0)
-            if self._db and hasattr(self._db, "get_all"):
-                items = self._db.get_all() or []
-                artists = set()
-                albums = set()
-                for item in items:
-                    a = str(getattr(item, "artist", "") or "").strip().lower()
-                    artists.add(a or "artista desconocido")
-                    al = str(getattr(item, "album", "") or "").strip().lower()
-                    albums.add(al or "sin album")
-                stats["total_artists"] = len(artists)
-                stats["total_albums"] = len(albums)
         except Exception:
             pass
         return stats
@@ -197,39 +190,19 @@ class HomePage(QWidget):
             f"{songs:,} canciones · {stats['total_albums']:,} álbumes"
             f" · {stats['total_artists']:,} artistas")
 
-    def _update_assistant(self, stats: dict, items: list):
+    def _update_assistant(self, stats: dict, _items=None):
         _clear_layout(self._asst_content)
         actions = []
 
-        # Missing metadata
-        missing = sum(1 for i in items
-            if not getattr(i, "title", "") or getattr(i, "title", "") == getattr(i, "filename", "")
-            or not getattr(i, "artist", "") or not getattr(i, "album", ""))
+        missing = stats.get("missing_metadata", 0)
         if missing > 0:
             actions.append((f"Completar metadatos de {missing} canciones",
                             "metadata_editor", "accent"))
 
-        # Missing covers - approximate check
-        missing_covers = 0
-        if items:
-            albums_with_covers = set()
-            for i in items:
-                al = getattr(i, "album", "") or "Sin álbum"
-                if al not in albums_with_covers:
-                    albums_with_covers.add(al)
-                    if not hasattr(i, "cover_path") or not getattr(i, "cover_path", ""):
-                        missing_covers += 1
-        if missing_covers > 0:
-            actions.append((f"Buscar carátulas para {missing_covers} álbumes",
-                            "albums", "secondary"))
-
-        # Scan pending
         songs = stats.get("total_songs", 0)
         if songs == 0:
             actions.append(("Añadir carpeta de música",
                             "library", "primary"))
-        elif missing == 0 and missing_covers <= 3:
-            pass  # nothing needed
 
         if not actions:
             no_op = QLabel("No hay tareas importantes pendientes.")

@@ -746,6 +746,25 @@ class LibraryDB:
             "SELECT COALESCE(SUM(duration),0) FROM media_items WHERE deleted_at IS NULL").fetchone()[0] or 0
         return {"total": total, "audio": audio, "video": video, "duration": dur}
 
+    def get_dashboard_stats(self) -> dict:
+        """Aggregated stats for the Home dashboard — no full table scan."""
+        total = self._conn.execute(
+            "SELECT COUNT(*) FROM media_items WHERE deleted_at IS NULL").fetchone()[0]
+        artists = self._conn.execute(
+            "SELECT COUNT(DISTINCT COALESCE(NULLIF(artist,''),"
+            " NULLIF(albumartist,''))) FROM media_items WHERE deleted_at IS NULL").fetchone()[0]
+        albums = self._conn.execute(
+            "SELECT COUNT(DISTINCT COALESCE(NULLIF(album,''),NULLIF(albumartist,'')))"
+            " FROM media_items WHERE deleted_at IS NULL").fetchone()[0]
+        dur = self._conn.execute(
+            "SELECT COALESCE(SUM(duration),0) FROM media_items WHERE deleted_at IS NULL").fetchone()[0] or 0
+        missing_meta = self._conn.execute(
+            "SELECT COUNT(*) FROM media_items WHERE deleted_at IS NULL"
+            " AND (COALESCE(title,'')='' OR COALESCE(artist,'')='' OR COALESCE(album,'')='')").fetchone()[0]
+        return {"total_songs": total, "total_artists": artists,
+                "total_albums": albums, "total_duration": dur,
+                "missing_metadata": missing_meta}
+
     # ── Playlists ──
 
     # Extracted to library/playlist_store.py — CRUD playlists
