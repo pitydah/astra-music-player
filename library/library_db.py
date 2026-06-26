@@ -190,6 +190,21 @@ class LibraryDB:
                          str(meta.get("mb_albumartist_id", "") or ""),
                          filepath))
                     self._conn.commit()
+                    # Store embedded cover art in cache
+                    albumartist = str(meta.get("albumartist", "") or "")
+                    cover_data = meta.get("cover_data", b"")
+                    if cover_data and album:
+                        try:
+                            from library.album_key import make_album_key
+                            ak = make_album_key(albumartist, artist, album)
+                            cover_mime = meta.get("cover_mime", "image/jpeg")
+                            self._conn.execute(
+                                "INSERT OR REPLACE INTO album_art_cache "
+                                "(album_hash, mime, data) VALUES (?,?,?)",
+                                (ak, cover_mime, cover_data))
+                            self._conn.commit()
+                        except Exception:
+                            pass
                     logger.debug("Async metadata written for %s", filepath)
                 except Exception as e:
                     logger.debug("Async metadata writeback failed for %s: %s", filepath, e)

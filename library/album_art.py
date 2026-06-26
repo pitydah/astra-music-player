@@ -1,7 +1,6 @@
 """Album cover art — extraction and album grouping for CoverFlow."""
 
 import os
-import hashlib
 import sqlite3
 from functools import lru_cache
 from dataclasses import dataclass
@@ -83,10 +82,15 @@ def make_default_cover(title: str = "", size: int = 280) -> QPixmap:
     return pix
 
 
-def _get_embedded_cover(album_name: str, artist: str = "") -> QPixmap | None:
+def _get_embedded_cover(album_name: str, artist: str = "", albumartist: str = "") -> QPixmap | None:
     if not album_name:
         return None
-    album_hash = hashlib.md5(album_name.encode()).hexdigest()
+    try:
+        from library.album_key import make_album_key
+        album_hash = make_album_key(albumartist or "", artist or "", album_name)
+    except Exception:
+        import hashlib
+        album_hash = hashlib.md5(album_name.encode()).hexdigest()
     try:
         from library.library_db import DB_PATH
         conn = sqlite3.connect(DB_PATH)
