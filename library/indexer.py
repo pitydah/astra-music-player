@@ -16,7 +16,7 @@ from library.metadata_normalizer import (
     normalize_text, normalize_artist_name, normalize_genre, normalize_year,
     normalize_disc_track, normalize_bpm, normalize_mb_id,
 )
-from library.metadata_extractor import ALL_EXTS, extract_metadata_combined
+from library.metadata_extractor import ALL_EXTS, _safe_extract as extract_metadata_combined
 from library.media_item import media_kind
 from library.album_key import make_album_key, make_artist_key
 

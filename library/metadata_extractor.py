@@ -475,6 +475,53 @@ def extract_sidecar_cover(filepath: str) -> dict:
     return result
 
 
+# ── Safe metadata extraction (tolerant to corrupt files) ──
+
+def _safe_extract(filepath: str) -> dict:
+    """Extract metadata with per-file error recording and filename fallback.
+
+    If both GStreamer and Mutagen fail, records the error in index_errors
+    and returns inferred metadata from the filename. Prevents a corrupt file
+    from stopping an entire scan.
+    """
+    try:
+        return extract_metadata_combined(filepath)
+    except Exception as e:
+        log.warning("Metadata extraction failed for %s: %s", filepath, e)
+        try:
+            from library.library_db import DB_PATH
+            import sqlite3
+            import time
+            conn = sqlite3.connect(DB_PATH)
+            conn.execute(
+                "INSERT OR REPLACE INTO index_errors (filepath, error, stage, updated_at)"
+                " VALUES (?,?,?,?)",
+                (filepath, str(e)[:512], "extract_metadata", time.time()))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+        from library.metadata_normalizer import infer_metadata_from_filename
+        inferred = infer_metadata_from_filename(filepath)
+        return {"title": inferred.get("title", ""),
+                "artist": inferred.get("artist", ""),
+                "album": "", "year": 0, "genre": "",
+                "duration": 0.0, "track_number": int(inferred.get("track_number", 0) or 0),
+                "track_total": 0, "disc_number": 0, "disc_total": 0,
+                "composer": "", "bpm": 0, "isrc": "", "label": "",
+                "conductor": "", "compilation": 0, "media_type": "",
+                "encoder": "", "copyright": "", "remixer": "",
+                "grouping": "", "mood": "", "originaldate": "",
+                "mb_track_id": "", "mb_album_id": "", "mb_albumartist_id": "",
+                "mb_artist_id": "", "mb_releasegroup_id": "",
+                "acoustid_id": "", "acoustid_fingerprint": "",
+                "replaygain_track": 0.0, "replaygain_album": 0.0,
+                "replaygain_track_peak": 0.0, "replaygain_album_peak": 0.0,
+                "r128_track_gain": 0.0, "r128_album_gain": 0.0,
+                "bit_depth": 0, "sample_rate": 0, "channels": 0,
+                "bitrate": 0, "cover_mime": "", "cover_data": b""}
+
+
 # ── Combined extraction ──
 
 def extract_metadata_combined(filepath: str) -> dict:
