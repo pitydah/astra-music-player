@@ -923,7 +923,7 @@ class LibraryDB:
         rows = self._conn.execute(
             "SELECT * FROM detected_tracks ORDER BY detected_at DESC LIMIT ?",
             (limit,)).fetchall()
-        cols = [desc[0] for desc in self._conn.execute(
+        cols = [desc[1] for desc in self._conn.execute(  # desc[1]=name, desc[0]=cid
             "PRAGMA table_info(detected_tracks)").fetchall()]
         return [dict(zip(cols, r, strict=False)) for r in rows]
 
@@ -944,6 +944,6 @@ class LibraryDB:
             (title, artist, max_age_hours * 3600)).fetchall()
         if not rows:
             return None
-        cols = [desc[0] for desc in self._conn.execute(
+        cols = [desc[1] for desc in self._conn.execute(  # desc[1]=name
             "PRAGMA table_info(detected_tracks)").fetchall()]
         return dict(zip(cols, rows[0], strict=False))

@@ -54,9 +54,9 @@ class TrackRefTableModel(QStandardItemModel):
              "Año", "Género", "Duración", "Ruta"])
 
     def populate(self, items: list[TrackRef]):
+        self.setSortingEnabled(False)
         self.removeRows(0, self.rowCount())
         for item in items:
-            # Track number
             tr = QStandardItem()
             tr.setEditable(False)
             tr.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
@@ -68,7 +68,6 @@ class TrackRefTableModel(QStandardItemModel):
             else:
                 tr.setText("—")
 
-            # Title
             t = QStandardItem(_title(item))
             t.setEditable(False)
             t.setToolTip(item.uri)
@@ -79,7 +78,6 @@ class TrackRefTableModel(QStandardItemModel):
             al = QStandardItem(_album(item))
             al.setEditable(False)
 
-            # Year: store as int for numeric sorting
             y = QStandardItem()
             y.setEditable(False)
             y.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
@@ -93,7 +91,6 @@ class TrackRefTableModel(QStandardItemModel):
             g = QStandardItem(item.genre or "—")
             g.setEditable(False)
 
-            # Duration: store formatted text but sort by raw seconds
             d = QStandardItem()
             d.setEditable(False)
             d.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -107,6 +104,7 @@ class TrackRefTableModel(QStandardItemModel):
             uri = QStandardItem(item.uri)
             uri.setEditable(False)
             self.appendRow([tr, t, a, al, y, g, d, uri])
+        self.setSortingEnabled(True)
 
     def get_trackref(self, row: int) -> TrackRef | None:
         idx = self.index(row, self.COL_TITLE)
