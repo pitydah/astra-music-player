@@ -160,22 +160,24 @@ class AlbumGridWidget(QWidget):
                 return
         self._last_cols = cols
 
-        # Offload cover loading to WorkerManager if available
-        if self._worker_mgr and self._items:
-            self._pending_covers = True
-            self._worker_mgr.load_covers(self._items, self._cover_size)
-            # Show cached groups while loading
-            if self._groups_cache:
-                self._rebuild_cards_from(self._groups_cache)
+        if not self._items:
+            self._groups_cache = []
+            self._groups = []
+            self._render_cards([])
             return
 
-        # Synchronous fallback
-        groups = load_covers_for_albums(self._items, self._cover_size)
+        # 1. Render albums immediately with placeholder covers
+        groups = load_covers_for_albums(self._items, self._cover_size, lazy=True)
         groups = self._apply_filter(groups)
         self._sort_groups(groups)
         self._groups_cache = groups
         self._groups = groups
         self._rebuild_cards()
+
+        # 2. Load real covers in background
+        if self._worker_mgr:
+            self._pending_covers = True
+            self._worker_mgr.load_covers(self._items, self._cover_size)
 
     def _render_cards(self, groups):
         cols = self._calculate_columns()

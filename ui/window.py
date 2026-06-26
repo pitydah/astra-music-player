@@ -2761,7 +2761,7 @@ class MainWindow(QMainWindow):
         self._show_song_grid()
 
     def _refresh_albums_data(self):
-        self._album_grid.set_items(self._all_items, 200,
+        self._album_grid.set_items(self._album_items(), 200,
             sort_key=getattr(self, '_album_sort_key', 'title'),
             filter_mode=getattr(self, '_album_filter_mode', 'all'))
         self._coverflow_cache_key = None

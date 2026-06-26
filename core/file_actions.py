@@ -24,7 +24,7 @@ class FileActions:
             return
         for fp in files:
             self._db.add_file(fp)
-        self._win._load_library()
+        self._win._reload_library_after_change(reason="open_files")
         self._win._play_file(files[0])
         if len(files) > 1:
             from ui.toast_notification import ToastNotification
