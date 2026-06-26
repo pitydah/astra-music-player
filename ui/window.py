@@ -1909,19 +1909,13 @@ class MainWindow(QMainWindow):
 
         # Lazy-load data for the active tab
         if section_key == "albums":
-            if not self._all_items and self._db:
-                self._load_library()
             self._show_album_grid()
         elif section_key == "artists":
-            if not self._all_items and self._db:
-                self._load_library()
             self._artist_repo.clear_current()
             self._artist_repo.build(self._all_items)
             self._artist_grid.set_artists(self._artist_repo.groups)
         elif section_key == "genres":
-            if not self._all_items and self._db:
-                self._load_library()
-            self._genre_ctrl.show_genres_overview(self._view_mode)
+            self._refresh_genres_data()
         elif section_key == "library":
             self._apply_filters()
 
@@ -2180,6 +2174,8 @@ class MainWindow(QMainWindow):
         self._apply_filters()
 
     def _on_search_results(self, results: list):
+        if self._current_section_key not in ("library",):
+            return
         self._model.populate(results)
         n = len(results)
         self._count.setText(f"{n} elementos" if n else "0 elementos")
@@ -2764,8 +2760,7 @@ class MainWindow(QMainWindow):
         self._refresh_genres_data()
 
     def _refresh_songs_data(self):
-        """Pure data refresh — updates model without touching counters/view."""
-        self._apply_filters()
+        """Pure data — update song grid, no search, no navigation."""
         self._song_grid.set_items(self._all_items, card_size=170)
 
     def _refresh_albums_data(self):

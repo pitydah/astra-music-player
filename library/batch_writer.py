@@ -54,6 +54,7 @@ class BatchWriter:
 
         set_clause = ", ".join(
             f"{c}=excluded.{c}" for c in _CONFLICT_UPDATE_COLS)
+        set_clause += ", deleted_at=NULL, scan_status='ok', scan_error=''"
         self._sql = (
             f"INSERT INTO media_items ({', '.join(BATCH_COLUMNS)}) "
             f"VALUES ({', '.join(['?'] * len(BATCH_COLUMNS))}) "
