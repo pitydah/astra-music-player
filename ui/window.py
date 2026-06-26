@@ -3536,6 +3536,17 @@ class MainWindow(QMainWindow):
             self._view_switcher.update_for_width(self.width())
 
     def closeEvent(self, event):
+        # Confirm exit if setting enabled
+        from core.settings_manager import get_bool
+        if get_bool("general/confirm_exit"):
+            from PySide6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self, "Cerrar Michi Music Player",
+                "¿Estás seguro de que querés cerrar?",
+                QMessageBox.Yes | QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                event.ignore()
+                return
         # Save queue state before shutdown
         try:
             engine = self._playback.engine
