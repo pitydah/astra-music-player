@@ -71,7 +71,7 @@ class EqDialog(QDialog):
         close_btn.setFixedSize(28, 28)
         close_btn.setFlat(True)
         close_btn.setStyleSheet(
-            "QPushButton { color: rgba(255,255,255,0.35); font-size: 16px; }"
+            "QPushButton { color: rgba(255,255,255,0.56); font-size: 16px; }"
             "QPushButton:hover { color: #FF3C48; }")
         close_btn.clicked.connect(self.close)
         header.addWidget(close_btn)

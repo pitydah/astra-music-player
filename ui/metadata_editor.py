@@ -23,6 +23,8 @@ from metadata.artwork_utils import (
     _pillow_available,
 )
 
+from ui.central.central_styles import clean_table_qss, clean_table_header_qss, tab_bar_qss
+
 # ═══════════════════════════════════════════════════════════
 # Style tokens
 # ═══════════════════════════════════════════════════════════
@@ -34,7 +36,7 @@ _BORDER    = "rgba(255,255,255,0.06)"
 _TEXT      = "rgba(255,255,255,0.96)"
 _TEXT2     = "rgba(255,255,255,0.72)"
 _TEXT3     = "rgba(255,255,255,0.56)"
-_TEXT_DIM  = "rgba(255,255,255,0.42)"
+_TEXT_DIM  = "rgba(255,255,255,0.48)"
 
 
 _BTN_CSS = f"""
@@ -177,7 +179,6 @@ class MetadataEditorWidget(QWidget):
         self._tools_tabs.addTab(self._st_panel, "Smart Tagging")
         self._tools_tabs.addTab(self._doctor_panel, "Library Doctor")
         self._tools_tabs.setVisible(False)
-        from ui.central.central_styles import tab_bar_qss
         self._tools_tabs.setStyleSheet(tab_bar_qss())
         main.addWidget(self._tools_tabs)
 
@@ -294,21 +295,8 @@ class MetadataEditorWidget(QWidget):
         self._table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self._table.setSortingEnabled(False)
 
-        self._table.setStyleSheet(f"""
-            QTableWidget {{
-                background: transparent; color: {_TEXT}; border: none;
-                gridline-color: transparent;
-                selection-background-color: {_SELECTED}; selection-color: {_TEXT};
-                alternate-background-color: rgba(255,255,255,0.018);
-            }}
-            QTableWidget::item {{ color: {_TEXT}; padding: 6px; }}
-            QTableWidget::item:hover {{ background: {_HOVER}; }}
-            QHeaderView::section {{
-                background: rgba(255,255,255,0.045); color: rgba(255,255,255,0.86);
-                border: none; border-bottom: 1px solid rgba(255,255,255,0.03);
-                padding: 8px 10px; font-size: 11.5px; font-weight: 700;
-            }}
-        """)
+        self._table.setStyleSheet(clean_table_qss())
+        self._table.horizontalHeader().setStyleSheet(clean_table_header_qss())
 
         self._table.itemSelectionChanged.connect(self._on_table_selection)
         self._table.setColumnWidth(0, 85)

@@ -184,7 +184,7 @@ class LibraryDoctorPanel(QWidget):
         layout.addWidget(action)
 
         meta = QLabel(f"{sug.get('count', 0)} items · {sug.get('category', '')}")
-        meta.setStyleSheet("QLabel { color: rgba(255,255,255,0.30); font-size: 10px; }")
+        meta.setStyleSheet("QLabel { color: rgba(255,255,255,0.48); font-size: 10px; }")
         layout.addWidget(meta)
 
         card.setStyleSheet(
