@@ -1,7 +1,11 @@
 """Album Art Worker — threaded cover art loading without blocking the UI."""
 
+import logging
+
 from PySide6.QtCore import QObject, Signal, QThread, Slot
 from PySide6.QtGui import QImage, QPixmap
+
+logger = logging.getLogger("michi.album_art_worker")
 
 
 class AlbumArtWorker(QObject):
@@ -35,3 +39,9 @@ class AlbumArtManager(QObject):
 
     def _on_art_ready(self, track_id: int, pixmap: QPixmap):
         pass  # override by connecting to art_ready signal
+
+    def shutdown(self):
+        """Stop the worker thread."""
+        self._thread.quit()
+        if not self._thread.wait(2000):
+            logger.warning("AlbumArtManager thread did not stop in time")

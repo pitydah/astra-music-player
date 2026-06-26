@@ -30,6 +30,7 @@ class AudDProvider(BaseRecognizer):
 
         Sends audio bytes as base64-encoded body.
         Falls back to filepath if `sample_bytes` is None.
+        Rejects files larger than 10MB to avoid memory issues.
         """
         if not self.api_key:
             logger.warning("AudD: no API key configured")
@@ -37,10 +38,17 @@ class AudDProvider(BaseRecognizer):
 
         try:
             import base64
+            import os
+
+            _MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
             if sample_bytes:
                 audio_b64 = base64.b64encode(sample_bytes).decode()
             elif filepath:
+                if os.path.getsize(filepath) > _MAX_FILE_BYTES:
+                    logger.warning("AudD: file too large (%d bytes), use sample_bytes",
+                                   os.path.getsize(filepath))
+                    return None
                 with open(filepath, "rb") as f:
                     audio_b64 = base64.b64encode(f.read()).decode()
             else:

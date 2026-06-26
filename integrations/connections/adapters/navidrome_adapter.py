@@ -19,9 +19,12 @@ class NavidromeAdapter(BaseServerAdapter):
         super().__init__(host, port, username, password, ssl)
 
     def _params(self, extra: str = "") -> str:
-        salt = f"{self._password}{self._username}" if self._password else ""
-        token = hashlib.md5(salt.encode()).hexdigest()
-        base = f"u={urllib.request.quote(self._username)}&t={token}&v=1.16.1&c=michi&f=json"
+        import random
+        import string
+        salt = "".join(random.choices(string.ascii_letters + string.digits, k=12))
+        token = hashlib.md5((self._password + salt).encode()).hexdigest()
+        base = (f"u={urllib.request.quote(self._username)}"
+                f"&t={token}&s={salt}&v=1.16.1&c=michi&f=json")
         if extra:
             base += f"&{extra}"
         return base
