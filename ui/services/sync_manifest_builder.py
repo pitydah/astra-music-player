@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 import time
@@ -146,24 +147,10 @@ class SyncManifestBuilder:
         import uuid
         items = self._db.get_all() if hasattr(self._db, "get_all") else []
 
-        # Also fetch soft-deleted items (not returned by get_all)
+        # Also fetch soft-deleted items via public API
         deleted_items = []
-        try:
-            rows = self._db._conn.execute(
-                "SELECT id, filepath, title, artist, album, duration, ext, "
-                "size, year, genre, deleted_at, track_uid "
-                "FROM media_items WHERE deleted_at IS NOT NULL "
-                "AND deleted_at >= ?", (since,)).fetchall()
-            deleted_items = [
-                {"id": r[0], "filepath": r[1], "title": r[2] or "",
-                 "artist": r[3] or "", "album": r[4] or "",
-                 "duration": r[5] or 0, "ext": r[6] or "",
-                 "size": r[7] or 0, "year": r[8] or 0,
-                 "genre": r[9] or "", "track_uid": r[11] or ""}
-                for r in rows
-            ]
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            deleted_items = self._db.get_deleted_since(since)
 
         from sync.sync_protocol import make_track_id
 

@@ -894,6 +894,20 @@ class LibraryDB:
             "SELECT track_id FROM favorites ORDER BY added_at DESC").fetchall()
         return [r[0] for r in rows]
 
+    def get_deleted_since(self, since: float = 0.0) -> list[dict]:
+        """Return soft-deleted tracks newer than a Unix timestamp."""
+        rows = self._conn.execute(
+            "SELECT id, filepath, title, artist, album, duration, ext,"
+            " size, year, genre, track_uid"
+            " FROM media_items WHERE deleted_at IS NOT NULL"
+            " AND deleted_at >= ?", (since,)).fetchall()
+        return [{"id": r[0], "filepath": r[1], "title": r[2] or "",
+                 "artist": r[3] or "", "album": r[4] or "",
+                 "duration": r[5] or 0, "ext": r[6] or "",
+                 "size": r[7] or 0, "year": r[8] or 0,
+                 "genre": r[9] or "", "track_uid": r[11] or ""}
+                for r in rows]
+
     def get_play_history(self, device: str = "desktop") -> list[dict]:
         rows = self._conn.execute(
             "SELECT track_id, played_at FROM play_history ORDER BY played_at DESC LIMIT 100"

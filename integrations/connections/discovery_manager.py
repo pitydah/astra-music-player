@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import socket
 import time
@@ -85,6 +86,7 @@ class DiscoveryManager:
 
     def scan_jellyfin_udp(self) -> list[DiscoveredServer]:
         results: list[DiscoveredServer] = []
+        sock = None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -102,9 +104,12 @@ class DiscoveryManager:
                     ))
                 except socket.timeout:
                     break
-            sock.close()
         except Exception as e:
             logger.debug("Jellyfin UDP scan failed: %s", e)
+        finally:
+            if sock:
+                with contextlib.suppress(OSError):
+                    sock.close()
         return results
 
     def classify_server(self, host: str, port: int) -> str:
