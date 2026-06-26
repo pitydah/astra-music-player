@@ -1,8 +1,8 @@
 # Michi Music Player
 
-Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 206 tests · ruff 0
+Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 339 tests · ruff 0
 
-[![Tests](https://img.shields.io/badge/tests-206%2F206-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-339%2F339-brightgreen)]()
 [![Ruff](https://img.shields.io/badge/ruff-0-green)]()
 [![Python](https://img.shields.io/badge/python-3.11+-blue)]()
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange)]()

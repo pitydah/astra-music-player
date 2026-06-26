@@ -85,7 +85,7 @@ DEFAULTS = {
     "home_audio/local_media_server_enabled": False,
     "home_audio/local_media_server_port": 8125,
     "home_audio/play_local_monitor": True,
-    "artist_enrichment/enabled": True,
+    "artist_enrichment/enabled": False,
     "artist_enrichment/provider": "musicbrainz",
     "artist_enrichment/api_key": "",
     "artist_enrichment/language": "",

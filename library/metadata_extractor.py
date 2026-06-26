@@ -453,6 +453,7 @@ def _extract_cover_art(mf, tags) -> dict:
 _COVER_NAMES = ("cover.jpg", "cover.png", "folder.jpg", "folder.png",
                 "front.jpg", "front.png", "Cover.jpg", "Cover.png",
                 "Folder.jpg", "Folder.png")
+_MAX_COVER_BYTES = 8 * 1024 * 1024  # 8 MB limit for sidecar/embedded covers
 
 
 def extract_sidecar_cover(filepath: str) -> dict:
@@ -463,6 +464,13 @@ def extract_sidecar_cover(filepath: str) -> dict:
         for name in _COVER_NAMES:
             candidate = os.path.join(directory, name)
             if os.path.isfile(candidate):
+                try:
+                    size = os.path.getsize(candidate)
+                    if size > _MAX_COVER_BYTES:
+                        log.debug("Sidecar cover too large (%d bytes): %s", size, candidate)
+                        continue
+                except OSError:
+                    continue
                 ext = os.path.splitext(name)[1].lower()
                 mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
                             ".png": "image/png"}
