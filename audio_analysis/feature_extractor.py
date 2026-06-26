@@ -68,7 +68,13 @@ def _extract_librosa(filepath: str, feat: AudioFeature,
         import librosa
 
         duration = min(sample_duration, 90)
-        y, sr = sf.read(filepath, dtype="float32", samplerate=None)
+        max_frames = int(duration * 22050)  # upper bound, actual sr may differ
+        try:
+            y, sr = sf.read(filepath, dtype="float32", samplerate=None,
+                            always_2d=False, frames=max_frames + 1)
+        except Exception:
+            y, sr = sf.read(filepath, dtype="float32", samplerate=None)
+            y = y[:max_frames] if len(y) > max_frames else y
 
         if len(y.shape) > 1:
             y = np.mean(y, axis=1)

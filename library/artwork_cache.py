@@ -2,7 +2,7 @@
 
 Sizes: thumb (96), medium (260), large (512).
 Key: SHA256(filepath + mtime + size).
-Cache dir: ~/.cache/michi/covers/
+Cache dir: ~/.cache/michi-music-player/covers/local/ (via core.paths)
 """
 
 import hashlib
@@ -11,13 +11,17 @@ import os
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
-
-CACHE_DIR = os.path.expanduser("~/.cache/michi/covers")
+MAX_CACHE_SIZE_MB = 200
 SIZES = {"thumb": 96, "medium": 260, "large": 512}
 
 
+def _cache_dir() -> str:
+    from core.paths import covers_cache_dir
+    return covers_cache_dir()
+
+
 def _ensure_cache_dir():
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    os.makedirs(_cache_dir(), exist_ok=True)
 
 
 def _cache_key(filepath: str) -> str:
@@ -31,11 +35,10 @@ def _cache_key(filepath: str) -> str:
 
 def _cache_path(filepath: str, size_name: str) -> str:
     key = _cache_key(filepath)
-    return os.path.join(CACHE_DIR, f"{key}_{size_name}.png")
+    return os.path.join(_cache_dir(), f"{key}_{size_name}.png")
 
 
 def get_cached(filepath: str, size_name: str = "medium") -> QPixmap | None:
-    """Return cached scaled pixmap, or None if not found."""
     if size_name not in SIZES:
         return None
     path = _cache_path(filepath, size_name)
@@ -47,28 +50,33 @@ def get_cached(filepath: str, size_name: str = "medium") -> QPixmap | None:
 
 
 def cache_cover(filepath: str, pix: QPixmap, size_name: str = "medium"):
-    """Scale and cache a cover pixmap."""
     if size_name not in SIZES:
         return
     target = SIZES[size_name]
-    scaled = pix.scaled(
-        target, target, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    scaled = pix.scaled(target, target, Qt.KeepAspectRatio, Qt.SmoothTransformation)
     path = _cache_path(filepath, size_name)
+    tmp = path + ".tmp"
     _ensure_cache_dir()
-    scaled.save(path, "PNG")
+    scaled.save(tmp, "PNG")
+    try:
+        os.replace(tmp, path)
+    except OSError:
+        with __import__("contextlib").suppress(OSError):
+            os.unlink(tmp)
 
 
 def cache_origin(filepath: str, pix: QPixmap):
-    """Cache original-size cover as large (for expanded view)."""
     cache_cover(filepath, pix, "large")
 
 
-def invalidate(filepath: str):
-    """Remove all cached versions for a filepath."""
-    key = _cache_key(filepath)
-    for size_name in SIZES:
-        path = os.path.join(CACHE_DIR, f"{key}_{size_name}.png")
-        if os.path.exists(path):
-            os.remove(path)
-
-
+def cleanup_cache(max_count: int = 500):
+    """Remove oldest cache entries if exceeding count limit."""
+    d = _cache_dir()
+    if not os.path.isdir(d):
+        return
+    files = sorted(
+        (os.path.join(d, f) for f in os.listdir(d) if f.endswith(".png")),
+        key=os.path.getmtime)
+    for f in files[max_count:]:
+        with __import__("contextlib").suppress(OSError):
+            os.unlink(f)
