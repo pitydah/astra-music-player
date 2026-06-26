@@ -89,7 +89,7 @@ class FileActions:
                 self._win._db.cleanup_missing()
 
             def on_cleanup_done(_result):
-                self._win._load_library()
+                self._win._reload_library_after_change(reason="scan")
                 self._win._coverflow_cache_key = None
                 ToastNotification.success(
                     f"Escaneo completado: {added} archivos añadidos", self._win)

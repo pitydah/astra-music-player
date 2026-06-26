@@ -1430,18 +1430,11 @@ class MainWindow(QMainWindow):
     # ── Library ──
 
     def _load_library(self):
-        self._all_items = self._db.get_all()
-        self._items_index = {i.filepath: i for i in self._all_items}
-        self._search_ctrl.set_active("local")
-        self._apply_filters()
-        self._rebuild_sidebar()
-        self._refresh_all_tabs()
+        self._reload_library_after_change(reason="load")
         if self._workers:
             def _on_backfill_done(count: int):
                 if count > 0 and hasattr(self, '_model'):
-                    self._all_items = self._db.get_all()
-                    self._items_index = {i.filepath: i for i in self._all_items}
-                    self._refresh_all_tabs(force=True)
+                    self._reload_library_after_change(reason="backfill")
             self._workers.run_task("backfill_meta",
                 self._db.backfill_missing_metadata,
                 on_done=_on_backfill_done)
@@ -2156,6 +2149,9 @@ class MainWindow(QMainWindow):
 
     def _on_search(self, text: str):
         self._search_text = text.strip()
+        if self._current_section_key == "albums":
+            self._refresh_active_library_tab(force=True)
+            return
         if self._current_section_key == "artists" and not self._artist_repo.current_key:
             query = self._search_text.lower()
             if not query:
@@ -2746,7 +2742,7 @@ class MainWindow(QMainWindow):
         self._search_ctrl.set_active("local")
         self._rebuild_sidebar()
         self._refresh_all_tabs(force=True)
-        self._refresh_active_library_tab()
+        self._refresh_active_library_tab(force=True)
 
     def _refresh_all_tabs(self, force: bool = False):
         """Refresh data for all library tabs without changing the active tab."""
@@ -2798,19 +2794,36 @@ class MainWindow(QMainWindow):
 
     def _album_items(self) -> list:
         if not self._all_items and self._db:
-            self._load_library()
+            self._all_items = self._db.get_all()
+            self._items_index = {i.filepath: i for i in self._all_items}
         return [i for i in self._all_items if getattr(i, "kind", "audio") == "audio"]
 
-    def _refresh_active_library_tab(self):
+    def _refresh_active_library_tab(self, force: bool = False):
         section = self._current_section_key
         if section == "library":
-            self._apply_filters()
+            if self._view_mode == "grid":
+                self._songs_stack.setCurrentIndex(1)
+                self._show_song_grid()
+            else:
+                self._songs_stack.setCurrentIndex(0)
+                self._apply_filters()
         elif section == "albums":
-            self._show_album_grid()
+            if self._view_mode == "list":
+                self._albums_stack.setCurrentIndex(1)
+                self._show_album_list()
+            elif self._view_mode == "coverflow":
+                self._show_coverflow()
+            else:
+                self._albums_stack.setCurrentIndex(0)
+                self._show_album_grid()
         elif section == "artists":
             self._refresh_artists_data()
+            if hasattr(self, '_artists_stack'):
+                self._artists_stack.setCurrentIndex(0)
         elif section == "genres":
             self._refresh_genres_data()
+            if hasattr(self, '_genres_stack'):
+                self._genres_stack.setCurrentIndex(0)
 
     def _add_folder(self):
         from PySide6.QtWidgets import QFileDialog
