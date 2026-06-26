@@ -22,12 +22,12 @@ class _CoverLoaderWorker(QRunnable):
 
     def run(self):
         try:
-            if self._existing is not None and self._items is not None:
+            if self._items:
                 from library.album_art import load_covers_for_albums
                 result = load_covers_for_albums(self._items, self._cover_size)
                 self._signals.done.emit(result)
             else:
-                self._signals.done.emit(None)
+                self._signals.done.emit([])
         except Exception as e:
             self._signals.error.emit(str(e))
 
@@ -104,6 +104,8 @@ class WorkerManager(QObject):
     def _on_covers_done(self, result):
         if isinstance(result, list):
             self.covers_ready.emit(result)
+        else:
+            self._log.warning("Cover loader returned invalid result: %r", type(result))
 
     def identify(self, capture_service, recognizer):
         """Run capture + identify in background thread."""
