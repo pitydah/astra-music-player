@@ -1065,7 +1065,7 @@ class MainWindow(QMainWindow):
         self._song_grid.song_double_clicked.connect(
             lambda fp: self._play_file(fp))
 
-        # Build songs stacked widget inside Canciones tab: list (table) + grid (cards)
+        # Build songs stacked widget: list (table) + grid (cards) inside Canciones tab
         self._songs_stack = QStackedWidget()
         self._songs_stack.setObjectName("songsStack")
         self._songs_stack.setStyleSheet("background: transparent; border: none;")
@@ -1107,27 +1107,6 @@ class MainWindow(QMainWindow):
         self._generic_tracks_table.verticalHeader().setDefaultSectionSize(30)
         self._generic_tracks_table.setSortingEnabled(True)
         self._generic_tracks_table.setStyleSheet(table_qss() + scrollbar_qss())
-
-        # Build artists stacked widget: grid + detail inside Artistas tab
-        self._artists_stack = QStackedWidget()
-        self._artists_stack.setObjectName("artistsStack")
-        self._artists_stack.setStyleSheet("background: transparent; border: none;")
-        self._artists_stack.addWidget(self._artist_grid)
-        self._artists_stack.addWidget(self._artist_detail)
-        self._artists_stack.setCurrentIndex(0)
-
-        # Build artists stacked widget: grid + detail inside Artistas tab
-        self._artists_stack = QStackedWidget()
-        self._artists_stack.setObjectName("artistsStack")
-        self._artists_stack.setStyleSheet("background: transparent; border: none;")
-        self._artists_stack.addWidget(self._artist_grid)
-        self._artists_stack.addWidget(self._artist_detail)
-        self._artists_stack.setCurrentIndex(0)
-
-        # Build genres stacked widget: grid + detail inside Géneros tab
-        self._genres_stack = QStackedWidget()
-        self._genres_stack.setObjectName("genresStack")
-        self._genres_stack.setStyleSheet("background: transparent; border: none;")
 
         self._discover = DiscoverDashboard()
         self._discover.navigate_requested.connect(
@@ -1210,6 +1189,14 @@ class MainWindow(QMainWindow):
             lambda fp: self._play_filepaths([fp], play_now=False))
         self._artist_detail.track_metadata_requested.connect(
             lambda fp: self._open_metadata_for_files([fp]))
+
+        # Build artists stacked widget: grid + detail inside Artistas tab
+        self._artists_stack = QStackedWidget()
+        self._artists_stack.setObjectName("artistsStack")
+        self._artists_stack.setStyleSheet("background: transparent; border: none;")
+        self._artists_stack.addWidget(self._artist_grid)
+        self._artists_stack.addWidget(self._artist_detail)
+        self._artists_stack.setCurrentIndex(0)
 
         # Genre grid + detail
         self._genre_grid = GenreGridWidget()
@@ -2262,6 +2249,8 @@ class MainWindow(QMainWindow):
 
         elif section == "genres":
             self._show_library_hub_page()
+            if self._library_hub_page:
+                self._library_hub_page.set_current_section("genres")
 
         elif section == "radio":
             self._fade_content("radio")
@@ -2746,32 +2735,62 @@ class MainWindow(QMainWindow):
     def _on_metadata_saved(self, filepaths: list):
         self._playlist_ctrl.metadata_saved(filepaths)
 
+    def _reload_library_after_change(self, reason: str = ""):
+        self._all_items = self._db.get_all()
+        self._items_index = {i.filepath: i for i in self._all_items}
+        self._search_ctrl.set_active("local")
+        self._rebuild_sidebar()
+        self._refresh_all_tabs(force=True)
+        self._refresh_active_library_tab()
+
     def _refresh_all_tabs(self, force: bool = False):
-        """Refresh all library tabs from self._all_items.
-        Called after load, scan, metadata save, import, or backfill.
-        """
+        """Refresh data for all library tabs without changing the active tab."""
         if not self._all_items and self._db:
             self._all_items = self._db.get_all()
             self._items_index = {i.filepath: i for i in self._all_items}
         if not self._all_items:
             return
-        # Canciones (table + song_grid)
+        self._refresh_songs_data()
+        self._refresh_albums_data()
+        self._refresh_artists_data()
+        self._refresh_genres_data()
+
+    def _refresh_songs_data(self):
         self._apply_filters()
         self._show_song_grid()
-        # Álbumes (grid + list table)
+
+    def _refresh_albums_data(self):
         self._album_grid.set_items(self._all_items, 200,
             sort_key=getattr(self, '_album_sort_key', 'title'),
             filter_mode=getattr(self, '_album_filter_mode', 'all'))
-        # Artistas (grid)
+        self._coverflow_cache_key = None
+
+    def _refresh_artists_data(self):
         if self._artist_repo:
             self._artist_repo.build(self._all_items)
             self._artist_grid.set_artists(self._artist_repo.groups)
-        # Géneros (grid)
+
+    def _refresh_genres_data(self):
         if hasattr(self, '_genre_ctrl') and self._genre_ctrl:
             self._genre_ctrl.show_genres_overview("grid")
-        # Refresh active tab if inside library hub
-        if self._current_section_key in ("albums", "artists", "genres", "library", "folders"):
-            self._on_library_tab_changed(self._current_section_key, force=force)
+
+    def _refresh_active_library_tab(self):
+        section = self._current_section_key
+        if section == "library":
+            self._apply_filters()
+        elif section == "albums":
+            self._show_album_grid()
+        elif section == "artists":
+            self._refresh_artists_data()
+        elif section == "genres":
+            self._refresh_genres_data()
+
+    def _add_folder(self):
+        from PySide6.QtWidgets import QFileDialog
+        path = QFileDialog.getExistingDirectory(
+            self, "Añadir carpeta", os.path.expanduser("~"))
+        if path:
+            self._scan_path(path)
 
     def _refresh_library(self):
         self._playlist_ctrl.refresh_library()
