@@ -1065,6 +1065,11 @@ class MainWindow(QMainWindow):
         self._song_grid.song_double_clicked.connect(
             lambda fp: self._play_file(fp))
 
+        # Generic song grid for external views (playlists, favs, recent)
+        self._generic_song_grid = SongGridWidget()
+        self._generic_song_grid.song_double_clicked.connect(
+            lambda fp: self._play_file(fp))
+
         # Build songs stacked widget: list (table) + grid (cards) inside Canciones tab
         self._songs_stack = QStackedWidget()
         self._songs_stack.setObjectName("songsStack")
@@ -2241,7 +2246,7 @@ class MainWindow(QMainWindow):
                 self._generic_tracks_table.setColumnHidden(7, True)
                 self._fade_content("library_hub")
             elif mode == "grid":
-                self._song_grid.set_items(self._playlist_refs, card_size=170)
+                self._generic_song_grid.set_items(self._playlist_refs, card_size=170)
                 self._fade_content("library_hub")
 
         elif section == "folders":
@@ -2270,7 +2275,7 @@ class MainWindow(QMainWindow):
                 self._generic_tracks_table.setColumnHidden(7, True)
                 self._fade_content("library_hub")
             elif mode == "grid":
-                self._song_grid.set_items(refs, card_size=170)
+                self._generic_song_grid.set_items(refs, card_size=170)
                 self._fade_content("library_hub")
 
     def _show_album_list(self):

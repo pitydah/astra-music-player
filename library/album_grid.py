@@ -67,6 +67,8 @@ class AlbumGridWidget(QWidget):
         self._last_cols = -1
         self._selected_index = -1
         self._cards: list[_AlbumCard] = []
+        self._cover_request_id = 0
+        self._pending_items_sig: tuple | None = None
         self._worker_mgr = None
         self._pending_covers = False
 
@@ -107,6 +109,8 @@ class AlbumGridWidget(QWidget):
         self._last_sig = None
         self._last_cols = -1
         self._groups = []
+        self._cover_request_id += 1
+        self._pending_items_sig = self._compute_items_sig()
         self._rebuild_grid()
 
     # ── responsive layout ──
@@ -127,7 +131,15 @@ class AlbumGridWidget(QWidget):
         if mgr:
             mgr.covers_ready.connect(self._on_covers_ready)
 
+    def _compute_items_sig(self):
+        return tuple((getattr(i, 'filepath', ''), getattr(i, 'album', ''),
+                      getattr(i, 'artist', ''), getattr(i, 'duration', 0))
+                     for i in self._items[:100])
+
     def _on_covers_ready(self, groups):
+        current_sig = self._compute_items_sig()
+        if current_sig != self._pending_items_sig:
+            return
         groups = self._apply_filter(groups)
         self._sort_groups(groups)
         self._groups_cache = groups
