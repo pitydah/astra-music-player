@@ -2283,7 +2283,8 @@ class MainWindow(QMainWindow):
 
     def _show_album_list(self):
         from library.album_art import group_by_album
-        groups = group_by_album(self._all_items)
+        items = self._filtered_album_items()
+        groups = group_by_album(items)
         refs = []
         for album, artist, tracks in groups:
             dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
@@ -2462,14 +2463,12 @@ class MainWindow(QMainWindow):
         self._on_view_mode_changed("grid")
 
     def _show_album_grid(self):
-        if not self._all_items and self._db:
-            self._all_items = self._db.get_all()
-            self._items_index = {i.filepath: i for i in self._all_items}
-        self._album_grid.set_items(self._all_items, 200,
+        items = self._filtered_album_items()
+        self._album_grid.set_items(items, 200,
                                    sort_key=getattr(self, '_album_sort_key', 'title'),
                                    filter_mode=getattr(self, '_album_filter_mode', 'all'))
         from library.album_art import group_by_album
-        groups = group_by_album(self._all_items)
+        groups = group_by_album(items)
         self._count.setText(f"{len(groups)} álbumes")
 
     def _show_song_grid(self):
@@ -2491,14 +2490,13 @@ class MainWindow(QMainWindow):
         self._on_view_mode_changed("coverflow")
 
     def _show_coverflow(self):
-        items = self._all_items
-        if self._kind_filter:
-            items = [i for i in items if i.kind == self._kind_filter]
+        items = self._filtered_album_items()
 
         # Cache key — skip rebuild if nothing changed
         cache_key = (len(items), self._album_sort_key, self._album_filter_mode, self._search_text)
         if self._coverflow is not None and cache_key == self._coverflow_cache_key:
-            self._views.show("coverflow")
+            self._albums_stack.setCurrentIndex(2)
+            self._fade_content("library_hub")
             self._count.setText(f"{len(self._coverflow._items)} álbumes")
             self._coverflow.setFocus()
             return
@@ -2740,6 +2738,7 @@ class MainWindow(QMainWindow):
 
     def _on_metadata_saved(self, filepaths: list):
         self._playlist_ctrl.metadata_saved(filepaths)
+        self._reload_library_after_change(reason="metadata_saved")
 
     def _reload_library_after_change(self, reason: str = ""):
         self._all_items = self._db.get_all()
@@ -2777,8 +2776,30 @@ class MainWindow(QMainWindow):
             self._artist_grid.set_artists(self._artist_repo.groups)
 
     def _refresh_genres_data(self):
-        if hasattr(self, '_genre_ctrl') and self._genre_ctrl:
-            self._genre_ctrl.show_genres_overview("grid")
+        """Pure data refresh — no navigation."""
+        if hasattr(self, '_genre_repo') and self._genre_repo:
+            self._genre_repo.build(self._all_items)
+            self._genre_grid.set_genres(self._genre_repo.groups, self._genre_repo.families)
+
+    def _filtered_album_items(self) -> list:
+        items = self._album_items()
+        q = (self._search_text or "").lower().strip()
+        if not q:
+            return items
+        return [
+            i for i in items
+            if q in (getattr(i, "album", "") or "Sin álbum").lower()
+            or q in (getattr(i, "artist", "") or "Artista desconocido").lower()
+            or q in (getattr(i, "albumartist", "") or "").lower()
+            or q in (getattr(i, "genre", "") or "").lower()
+            or q in (getattr(i, "title", "") or "").lower()
+            or q in str(getattr(i, "year", "") or "").lower()
+        ]
+
+    def _album_items(self) -> list:
+        if not self._all_items and self._db:
+            self._load_library()
+        return [i for i in self._all_items if getattr(i, "kind", "audio") == "audio"]
 
     def _refresh_active_library_tab(self):
         section = self._current_section_key
@@ -3526,7 +3547,7 @@ class MainWindow(QMainWindow):
         if files:
             for fp in files:
                 self._db.add_file(fp)
-            self._load_library()
+            self._reload_library_after_change(reason="drop_files")
             if len(files) == 1:
                 self._play_file(files[0])
             else:
