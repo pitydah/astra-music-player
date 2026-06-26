@@ -51,6 +51,11 @@ class MockAppContext:
         self.set_window_title = MagicMock()
         self.play_file = MagicMock()
         self.show_album_grid = MagicMock()
+        self.show_library_hub = MagicMock()
+        self.set_library_tab = MagicMock()
+        self.set_artist_stack = MagicMock()
+        self.set_genre_stack = MagicMock()
+        self.play_filepaths = MagicMock()
 
 
 class MockWindow:

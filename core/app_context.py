@@ -193,3 +193,24 @@ class AppContext:
 
     def show_album_grid(self):
         self._win._show_album_grid()
+
+    # ── Library hub coordination ──
+
+    def show_library_hub(self):
+        self._win._show_library_hub_page()
+
+    def set_library_tab(self, section_key: str):
+        """Switch library hub tab: library/albums/artists/genres/folders."""
+        if self._win._library_hub_page:
+            self._win._library_hub_page.set_current_section(section_key)
+
+    def set_artist_stack(self, index: int):
+        if hasattr(self._win, '_artists_stack'):
+            self._win._artists_stack.setCurrentIndex(index)
+
+    def set_genre_stack(self, index: int):
+        if hasattr(self._win, '_genres_stack'):
+            self._win._genres_stack.setCurrentIndex(index)
+
+    def play_filepaths(self, filepaths: list[str], play_now: bool = True):
+        self._win._play_filepaths(filepaths, play_now=play_now)

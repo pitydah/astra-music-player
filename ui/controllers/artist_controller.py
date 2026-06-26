@@ -10,10 +10,9 @@ class ArtistController:
 
     def show_artists_view(self, mode: str):
         self._win._ctx.artist_grid.set_view_mode(mode)
-        self._win._show_library_hub_page()
-        if self._win._library_hub_page:
-            self._win._library_hub_page.set_current_section("artists")
-            self._win._artists_stack.setCurrentIndex(0)
+        self._win._ctx.show_library_hub()
+        self._win._ctx.set_library_tab("artists")
+        self._win._ctx.set_artist_stack(0)
 
     def open_artist_detail(self, artist_key: str):
         repo = self._win._ctx.artist_repo
@@ -32,8 +31,8 @@ class ArtistController:
                 else f"{s // 60} min")
         self._win._ctx.section_subtitle.setText(" · ".join(parts))
         self._win._ctx.view_switcher.set_available_modes([])
-        self._win._artists_stack.setCurrentIndex(1)
-        self._win._fade_content("library_hub")
+        self._win._ctx.set_artist_stack(1)
+        self._win._ctx.fade_to("library_hub")
 
     def show_artists_overview(self):
         self._win._ctx.artist_repo.clear_current()
@@ -49,7 +48,7 @@ class ArtistController:
             if shuffle:
                 import random
                 random.shuffle(fps)
-            self._win._play_filepaths(fps, play_now=True)
+            self._win._ctx.play_filepaths(fps, play_now=True)
 
     def queue_artist(self, artist_key: str):
         fps = self.artist_filepaths(artist_key)
