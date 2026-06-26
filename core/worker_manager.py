@@ -133,3 +133,10 @@ class WorkerManager(QObject):
 
     def pending(self) -> int:
         return self._pool.activeThreadCount()
+
+    def shutdown(self, timeout_ms: int = 2000):
+        """Wait for pending tasks and clear the pool."""
+        self._pool.clear()
+        if not self._pool.waitForDone(timeout_ms):
+            self._log.warning("WorkerManager shutdown: %d tasks still active after %dms",
+                              self._pool.activeThreadCount(), timeout_ms)

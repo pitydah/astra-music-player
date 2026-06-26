@@ -32,6 +32,8 @@ class LibraryDB:
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._conn.execute("PRAGMA busy_timeout=5000")
+        self._conn.execute("PRAGMA foreign_keys=ON")
         Schema.initialize(self._conn)
         self._init_fts()
 
@@ -576,11 +578,17 @@ class LibraryDB:
         return len(missing_ids)
 
     def cleanup_missing_under_root(self, root_path: str) -> int:
-        """Soft-delete missing files ONLY under the given directory root."""
-        root = os.path.normpath(root_path)
+        """Soft-delete missing files ONLY under the given directory root.
+
+        Uses normalized path prefix comparison instead of SQL LIKE to avoid
+        accidental matches (e.g. root '/music' matching '/music_backup').
+        """
+        import os
+        root = os.path.normpath(os.path.abspath(root_path)) + os.sep
         rows = self._conn.execute(
             "SELECT id, filepath FROM media_items WHERE deleted_at IS NULL"
-            " AND directory LIKE ?", (root + "%",)).fetchall()
+            " AND directory >= ? AND directory < ?",
+            (root, root + "\uffff")).fetchall()
         if not rows:
             return 0
         missing_ids = []

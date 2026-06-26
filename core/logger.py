@@ -1,10 +1,11 @@
 """Centralized logger for Michi Music Player.
 
-Logs to ~/.local/share/michi-music-player/michi.log
+Logs to ~/.local/share/michi-music-player/michi.log (rotating, 5MB x 3 backups).
 Console output only when MICHI_DEBUG=1 or --debug flag.
 """
 
 import logging
+import logging.handlers
 import os
 import sys
 
@@ -30,7 +31,9 @@ def setup_logging():
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    fh = logging.FileHandler(LOG_FILE)
+    # Rotating file handler — 5 MB, 3 backups
+    fh = logging.handlers.RotatingFileHandler(
+        LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
     logger.addHandler(fh)
@@ -43,6 +46,19 @@ def setup_logging():
 
     # Suppress noisy third-party loggers
     logging.getLogger("PIL").setLevel(logging.WARNING)
+
+    # Log runtime environment
+    _log = logging.getLogger("michi.runtime")
+    _log.info("Python %s · PySide6 %s", sys.version.split()[0], _pyside_version())
+    _log.info("Log file: %s", LOG_FILE)
+
+
+def _pyside_version() -> str:
+    try:
+        from PySide6 import __version_info__
+        return ".".join(map(str, __version_info__[:3]))
+    except Exception:
+        return "unknown"
 
 
 def get_logger(name: str) -> logging.Logger:

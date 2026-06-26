@@ -85,8 +85,10 @@ class PlayerService(QObject):
         current = self._engine.current
         state = getattr(self._engine, '_state', None)
         if current:
-            if state in (PlaybackState.PAUSED, PlaybackState.STOPPED):
+            if state == PlaybackState.PAUSED:
                 self._engine.resume()
+            elif state == PlaybackState.STOPPED:
+                self._engine.play(current)
             else:
                 self._engine.play(current)
         else:
