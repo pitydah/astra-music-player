@@ -149,8 +149,8 @@ class PlaybackController:
         try:
             diag = self._win._ctx.player.get_audio_diagnostics() if hasattr(
                 self._win._ctx.player, 'get_audio_diagnostics') else None
-            if diag and hasattr(self._win._player_bar, '_quality_badge'):
-                self._win._player_bar._quality_badge.set_route_tooltip(diag)
+            if diag and self._win._ctx.player_bar:
+                self._win._ctx.player_bar.set_route_tooltip(diag)
         except Exception:
             pass
 
