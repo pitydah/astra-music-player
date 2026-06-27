@@ -42,9 +42,23 @@ class TestSmokeStartupScript:
         content = _script_path().read_text()
         assert "LibraryDB" in content
 
-    def test_script_exits_zero_on_success(self):
+    def test_script_uses_finally(self):
+        """smoke_startup.py must use try/finally for cleanup."""
+        content = _script_path().read_text()
+        assert "finally" in content
+
+    def test_script_calls_db_close(self):
+        """smoke_startup.py must close the database."""
+        content = _script_path().read_text()
+        assert "db.close()" in content
+
+    def test_script_has_error_exit_path(self):
+        """smoke_startup.py must handle errors and exit non-zero."""
+        content = _script_path().read_text()
+        assert "errors += 1" in content
+
+    def test_script_exits_zero_on_success(self, tmp_path):
         """smoke_startup.py must exit with code 0 when all checks pass."""
-        # This test requires GI/GStreamer available in the environment
         try:
             import gi
             gi.require_version("Gst", "1.0")
@@ -53,15 +67,13 @@ class TestSmokeStartupScript:
         except (ImportError, ValueError):
             pytest.skip("GI/GStreamer not available in this environment")
 
-        # Use subprocess like CI would to ensure isolation
         env = os.environ.copy()
         env["QT_QPA_PLATFORM"] = "offscreen"
         env["PYTHONUNBUFFERED"] = "1"
-        env["MICHI_TEST_DATA_DIR"] = "/tmp/michi-smoke-test/data"
-        env["MICHI_TEST_CACHE_DIR"] = "/tmp/michi-smoke-test/cache"
-        env["MICHI_TEST_CONFIG_DIR"] = "/tmp/michi-smoke-test/config"
+        env["MICHI_TEST_DATA_DIR"] = str(tmp_path / "data")
+        env["MICHI_TEST_CACHE_DIR"] = str(tmp_path / "cache")
+        env["MICHI_TEST_CONFIG_DIR"] = str(tmp_path / "config")
 
-        # Need to ensure the package is importable — add repo root
         repo_root = str(Path(__file__).resolve().parent.parent)
         env.setdefault("PYTHONPATH", "")
         if repo_root not in env.get("PYTHONPATH", "").split(os.pathsep):
@@ -75,10 +87,6 @@ class TestSmokeStartupScript:
             print(result.stdout)
             print(result.stderr)
         assert result.returncode == 0, f"smoke_startup failed: {result.stderr}"
-
-    def test_script_fails_without_gi(self, monkeypatch):
-        """smoke_startup.py should detect missing gi and return non-zero."""
-        content = _script_path().read_text()
-        assert "exit" in content, "script should handle errors"
-        # We can't easily mock gi being missing, but we check the error handling exists
-        assert "errors += 1" in content or "sys.exit" in content
+        # DB should have been created inside tmp_path/data
+        db_file = tmp_path / "data" / "library.db"
+        assert db_file.is_file(), f"DB file not found at {db_file}"

@@ -185,8 +185,11 @@ class TestPyProjectPackaging:
         with open(path) as f:
             content = f.read()
 
-        debian_start = content.find("        debian)")
-        assert debian_start != -1, "install.sh missing debian package block"
+        # Find the debian() block inside install_core_deps, not the detection section
+        pkgs_start = content.find("install_packages_critical \"$pm\"")
+        assert pkgs_start != -1, "install.sh missing package installation block"
+        debian_start = content.find("        debian)", pkgs_start)
+        assert debian_start != -1, "install.sh missing debian package block in install_core_deps"
         debian_end = content.find("            ;;", debian_start)
         assert debian_end != -1, "install.sh debian package block is malformed"
         debian_block = content[debian_start:debian_end]

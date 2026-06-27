@@ -1,6 +1,7 @@
 """Tests for library database operations."""
 
 import os
+import sqlite3
 import tempfile
 
 
@@ -9,6 +10,33 @@ def test_db_init():
     db = LibraryDB(":memory:")
     assert db.get_stats()["total"] == 0
     db.close()
+
+
+def test_db_close_prevents_queries(tmp_path):
+    """close() must invalidate the connection so queries fail."""
+    import pytest
+    from library.library_db import LibraryDB
+    db_path = str(tmp_path / "library.db")
+    db = LibraryDB(db_path)
+    db.close()
+    with pytest.raises(sqlite3.ProgrammingError):
+        db.get_all()
+
+
+def test_db_close_on_file_db(tmp_path):
+    """close() on a file-based DB must release the file lock."""
+    from library.library_db import LibraryDB
+    db_path = str(tmp_path / "library.db")
+    db = LibraryDB(db_path)
+    assert os.path.isfile(db_path)
+    db.close()
+    # After close, a new connection should be able to open the file
+    import sqlite3
+    conn2 = sqlite3.connect(db_path)
+    conn2.row_factory = None
+    row = conn2.execute("SELECT 1").fetchone()
+    assert row[0] == 1
+    conn2.close()
 
 
 def test_add_file():

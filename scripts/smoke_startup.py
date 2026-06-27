@@ -22,13 +22,26 @@ if _repo_root not in sys.path:
 
 
 def _ensure_env():
-    """Set safe defaults for test environment if not already set."""
+    """Set safe defaults for test environment if not already set.
+
+    Returns (tmp_root, created_tmp):
+        tmp_root: path to created temp dir, or None if using external vars
+        created_tmp: True if we created a temp dir (must clean it up)
+    """
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+    all_set = all(
+        k in os.environ
+        for k in ("MICHI_TEST_DATA_DIR", "MICHI_TEST_CACHE_DIR", "MICHI_TEST_CONFIG_DIR")
+    )
+    if all_set:
+        return None, False
+
     tmp = tempfile.mkdtemp(prefix="michi-smoke-")
     os.environ.setdefault("MICHI_TEST_DATA_DIR", os.path.join(tmp, "data"))
     os.environ.setdefault("MICHI_TEST_CACHE_DIR", os.path.join(tmp, "cache"))
     os.environ.setdefault("MICHI_TEST_CONFIG_DIR", os.path.join(tmp, "config"))
-    return tmp
+    return tmp, True
 
 
 def _diagnostics():
@@ -40,14 +53,20 @@ def _diagnostics():
     print(f"  CONFIG_DIR: {os.environ.get('MICHI_TEST_CONFIG_DIR', 'NOT SET')}")
 
 
+def _run_step(label, fn):
+    """Run a step function with clean error handling."""
+    print(label)
+    try:
+        return fn()
+    except Exception as e:
+        print(f"  ✗ {e!r}")
+        return 1
+
+
 def _check_imports():
     errors = 0
-    checks = [
-        ("PySide6", None),
-        ("mutagen", None),
-        ("numpy", None),
-    ]
-    for name, _ in checks:
+    checks = ["PySide6", "mutagen", "numpy"]
+    for name in checks:
         try:
             __import__(name)
             print(f"  ✓ {name}")
@@ -95,20 +114,21 @@ def _check_paths():
 def _check_db():
     from core.paths import database_path
     from library.library_db import LibraryDB
+
     db_path = database_path()
     db = LibraryDB(db_path)
-    # Verify the DB file exists and is under MICHI_TEST_DATA_DIR
-    assert os.path.isfile(db_path), f"DB file not created: {db_path}"
-    data_dir = os.environ.get("MICHI_TEST_DATA_DIR", "")
-    assert db_path.startswith(data_dir), (
-        f"DB path {db_path} not under test data dir {data_dir}"
-    )
-    print(f"  ✓ LibraryDB created at {db_path}")
-    # Quick sanity: execute a query
-    result = db.get_all()
-    print(f"  ✓ DB query (get_all): {len(result)} items")
-    db.close()
-    return 0
+    try:
+        assert os.path.isfile(db_path), f"DB file not created: {db_path}"
+        data_dir = os.environ.get("MICHI_TEST_DATA_DIR", "")
+        assert db_path.startswith(data_dir), (
+            f"DB path {db_path} not under test data dir {data_dir}"
+        )
+        print(f"  ✓ LibraryDB created at {db_path}")
+        result = db.get_all()
+        print(f"  ✓ DB query (get_all): {len(result)} items")
+        return 0
+    finally:
+        db.close()
 
 
 def _check_qt():
@@ -125,44 +145,43 @@ def _check_qt():
 
 def main():
     errors = 0
+    tmp_root = None
+    created_tmp = False
 
-    print("=== Michi Music Player — Smoke Startup ===")
-    print()
+    try:
+        tmp_root, created_tmp = _ensure_env()
 
-    tmp_root = _ensure_env()
-    print("[1/7] Environment")
-    _diagnostics()
-    print()
+        print("=== Michi Music Player — Smoke Startup ===")
+        print()
 
-    print("[2/7] Python imports")
-    errors += _check_imports()
-    print()
+        print("[1/7] Environment")
+        _diagnostics()
+        print()
 
-    print("[3/7] PyGObject / GStreamer")
-    errors += _check_gst()
-    print()
+        errors += _run_step("[2/7] Python imports", _check_imports)
+        print()
 
-    print("[4/7] XDG paths")
-    errors += _check_paths()
-    print()
+        errors += _run_step("[3/7] PyGObject / GStreamer", _check_gst)
+        print()
 
-    print("[5/7] SQLite database")
-    errors += _check_db()
-    print()
+        errors += _run_step("[4/7] XDG paths", _check_paths)
+        print()
 
-    print("[6/7] Qt widgets")
-    errors += _check_qt()
-    print()
+        errors += _run_step("[5/7] SQLite database", _check_db)
+        print()
 
-    print("[7/7] Summary")
-    if errors:
-        print(f"  ✗ {errors} error(s) detected")
-    else:
-        print("  ✓ All checks passed")
+        errors += _run_step("[6/7] Qt widgets", _check_qt)
+        print()
 
-    # Cleanup temp dir
-    import shutil
-    shutil.rmtree(tmp_root, ignore_errors=True)
+        print("[7/7] Summary")
+        if errors:
+            print(f"  ✗ {errors} error(s) detected")
+        else:
+            print("  ✓ All checks passed")
+    finally:
+        if created_tmp and tmp_root:
+            import shutil
+            shutil.rmtree(tmp_root, ignore_errors=True)
 
     sys.exit(errors)
 
