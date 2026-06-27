@@ -99,6 +99,7 @@ class GStreamerEngine(QObject):
 
         # Transmit
         self._transmit_device = None
+        self._restarting = False
 
         # Crossfade / ReplayGain
         self._volume = 0.70
@@ -409,14 +410,18 @@ class GStreamerEngine(QObject):
         fh.seek(h.data_offset)
         remaining = h.data_size
         while self._dff_running and remaining > 0:
+            appsrc = self._appsrc
+            if appsrc:
+                cur_level = appsrc.get_property("current-level-bytes")
+                if cur_level is not None and cur_level > 65536:
+                    import time
+                    time.sleep(0.010)
+                    continue
             data = fh.read(min(16384, remaining))
             if not data:
                 break
             remaining -= len(data)
             GLib.idle_add(self._push_dff, bytes(data), remaining <= 0)
-            if remaining > 0 and self._dff_running:
-                import time
-                time.sleep(0.005)  # throttle to avoid flooding the event loop
         if remaining <= 0 and self._dff_running:
             GLib.idle_add(self._push_dff_eos)
 
@@ -463,18 +468,19 @@ class GStreamerEngine(QObject):
 
     def stop(self):
         self._dff_running = False
-        if self._pipeline:
-            self._pipeline.set_state(Gst.State.NULL)
-            result = self._pipeline.get_state(100 * Gst.MSECOND)
-            if result[0] == Gst.StateChangeReturn.FAILURE:
-                import logging
-                logging.getLogger("michi.player").warning(
-                    "Pipeline NULL transition failed in stop()")
-        if self._bus_id and self._pipeline:
-            bus = self._pipeline.get_bus()
-            bus.disconnect(self._bus_id)
-            bus.remove_signal_watch()
-            self._bus_id = 0
+        pipeline = self._pipeline
+        bus_id = self._bus_id
+        self._pipeline = None
+        self._bus_id = 0
+        self._appsrc = None
+        if pipeline:
+            pipeline.set_state(Gst.State.NULL)
+            pipeline.get_state(Gst.CLOCK_TIME_NONE)
+            if bus_id:
+                with contextlib.suppress(Exception):
+                    bus = pipeline.get_bus()
+                    bus.disconnect(bus_id)
+                    bus.remove_signal_watch()
         self._pipeline = None
         self._appsrc = None
         if self._dff_thread and self._dff_thread.is_alive():
@@ -539,15 +545,23 @@ class GStreamerEngine(QObject):
             self._restart_if_playing()
 
     def _restart_if_playing(self):
-        if self._current and self._state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
-            pos = 0
-            if self._pipeline:
-                ok, pos_ns = self._pipeline.query_position(Gst.Format.TIME)
-                if ok:
-                    pos = pos_ns / 1e9
-            self.play(self._current)
-            if pos > 0.5:
-                self.seek(pos)
+        if getattr(self, '_restarting', False):
+            return
+        self._restarting = True
+        try:
+            if self._current and self._state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
+                pos = 0
+                pipeline = self._pipeline
+                if pipeline:
+                    with contextlib.suppress(Exception):
+                        ok, pos_ns = pipeline.query_position(Gst.Format.TIME)
+                        if ok:
+                            pos = pos_ns / 1e9
+                self.play(self._current)
+                if pos > 0.5:
+                    self.seek(pos)
+        finally:
+            self._restarting = False
 
     # ── Pipeline Building ──
 
@@ -637,26 +651,28 @@ class GStreamerEngine(QObject):
             logging.getLogger("michi.player").warning(
                 "GStreamer error: %s | %s", err, debug)
             self.error_occurred.emit(f"GStreamer: {err}")
-            # Cleanup pipeline after error
             self._dff_running = False
-            if self._pipeline:
-                self._pipeline.set_state(Gst.State.NULL)
-                self._pipeline.get_state(2 * Gst.SECOND)
-            if self._bus_id and self._pipeline:
-                with contextlib.suppress(Exception):
-                    bus = self._pipeline.get_bus()
-                    bus.disconnect(self._bus_id)
-                    bus.remove_signal_watch()
-            self._bus_id = 0
+            pipeline = self._pipeline
+            bus_id = self._bus_id
             self._pipeline = None
+            self._bus_id = 0
             self._appsrc = None
+            if pipeline:
+                pipeline.set_state(Gst.State.NULL)
+                pipeline.get_state(Gst.CLOCK_TIME_NONE)
+                if bus_id:
+                    with contextlib.suppress(Exception):
+                        bus = pipeline.get_bus()
+                        bus.disconnect(bus_id)
+                        bus.remove_signal_watch()
             self._state = PlaybackState.STOPPED
             self.state_changed.emit(self._state)
             if self._file_handle:
                 with contextlib.suppress(Exception):
                     self._file_handle.close()
                 self._file_handle = None
-            self._timer.stop() if hasattr(self, '_timer') and self._timer else None
+            if hasattr(self, '_timer') and self._timer:
+                self._timer.stop()
         elif t == Gst.MessageType.WARNING:
             err, debug = message.parse_warning()
             logging.getLogger("michi.player").debug(

@@ -1,6 +1,7 @@
 """Pipeline Factory — builds GStreamer pipelines per profile and format."""
 import logging
 import os
+import contextlib
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst  # noqa: E402
@@ -14,8 +15,12 @@ logger = logging.getLogger("michi.pipeline")
 
 
 class PipelineFactory:
+    _gst_inited = False
+
     def __init__(self):
-        Gst.init(None)
+        if not PipelineFactory._gst_inited:
+            Gst.init(None)
+            PipelineFactory._gst_inited = True
 
     def build_for_uri(self, uri: str, fmt: AudioFormatInfo,
                       route: AudioRoutePlan,
@@ -131,6 +136,13 @@ class PipelineFactory:
             else:
                 eq = Gst.ElementFactory.make("equalizer-nbands", "eq_nbands")
                 if eq:
+                    eq.set_property("num-bands", 31)
+                    if hasattr(eq, 'set_property') and dsp.eq_bands_31:
+                        for i, val in enumerate(dsp.eq_bands_31):
+                            if i > 30:
+                                break
+                            with contextlib.suppress(Exception):
+                                eq.set_property(f"band{i}", val)
                     audio_sink.add(eq)
                     last.link(eq)
                     last = eq

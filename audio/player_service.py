@@ -245,5 +245,5 @@ class PlayerService(QObject):
         return self._engine.current
 
     @property
-    def engine(self) -> GStreamerEngine:
-        return self._engine
+    def duration(self) -> float:
+        return self._engine.duration if hasattr(self._engine, 'duration') else 0.0

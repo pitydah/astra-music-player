@@ -133,7 +133,6 @@ class DacManager(QObject):
         import gi
         gi.require_version("Gst", "1.0")
         from gi.repository import Gst
-        Gst.init(None)
 
         try:
             sink_name = device.device_string.split(maxsplit=1)[0]
@@ -151,7 +150,6 @@ class DacManager(QObject):
         import gi
         gi.require_version("Gst", "1.0")
         from gi.repository import Gst
-        Gst.init(None)
 
         plugins = [
             "playbin", "decodebin", "audioconvert", "audioresample",

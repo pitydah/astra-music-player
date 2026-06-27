@@ -72,19 +72,26 @@ def get_quality_label(filepath: str) -> tuple[str, str]:
 def build_eq_parametric_chain(bands: list[dict], preamp_db: float) -> str:
     """Build parametric EQ chain with audioiirfilter biquads.
 
-    Each band is a dict with type, frequency, q, gain, and biquad coefficients
-    (b0/b1/b2, a0/a1/a2) computed by eq_biquad.py.
+    Each band is a dict with type, frequency, q, gain. Biquad coefficients
+    (b0/b1/b2, a0/a1/a2) are computed on-the-fly by eq_biquad.py.
+    Pre-computed coefficients in the dict (a0/a1/a2/b0/b1/b2) take precedence.
     """
     if not bands:
         return ""
+    from audio.eq_biquad import compute_biquad
     parts = []
     for i, band in enumerate(bands):
-        a0 = band.get("a0", 1.0)
-        a1 = band.get("a1", 0.0)
-        a2 = band.get("a2", 0.0)
-        b0 = band.get("b0", 1.0)
-        b1 = band.get("b1", 0.0)
-        b2 = band.get("b2", 0.0)
+        if all(k in band for k in ("a0", "a1", "a2", "b0", "b1", "b2")):
+            a0, a1, a2 = band["a0"], band["a1"], band["a2"]
+            b0, b1, b2 = band["b0"], band["b1"], band["b2"]
+        else:
+            coefs = compute_biquad(
+                band.get("type", "Peak"),
+                band.get("freq", 1000.0),
+                band.get("gain", 0.0),
+                band.get("Q", 1.41),
+                fs=band.get("fs", 44100.0))
+            b0, b1, b2, a0, a1, a2 = coefs
         parts.append(
             f"audioiirfilter name=param_eq_{i} "
             f"a0={a0} a1={a1} a2={a2} "

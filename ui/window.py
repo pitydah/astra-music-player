@@ -723,11 +723,11 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self):
         pb = self._player_bar
-        self._player.position_changed.connect(pb.set_position)
-        self._player.duration_changed.connect(pb.set_duration)
-        self._player.state_changed.connect(
+        self._playback.position_changed.connect(pb.set_position)
+        self._playback.duration_changed.connect(pb.set_duration)
+        self._playback.state_changed.connect(
             lambda state: self._playback_ctrl.on_state(state))
-        self._player.error_occurred.connect(lambda m: self._toast_svc.show(f"Error: {m}", "error"))
+        self._playback.error_occurred.connect(lambda m: self._toast_svc.show(f"Error: {m}", "error"))
         pb.play_clicked.connect(self._playback.toggle)
         pb.prev_clicked.connect(self._playback.play_prev)
         pb.next_clicked.connect(self._playback.play_next)
@@ -1555,11 +1555,11 @@ class MainWindow(QMainWindow):
         # Disconnect player signals to prevent leaks
         import contextlib
         with contextlib.suppress(TypeError, RuntimeError, AttributeError):
-            self._player.position_changed.disconnect()
+            self._playback.position_changed.disconnect()
         with contextlib.suppress(TypeError, RuntimeError, AttributeError):
-            self._player.duration_changed.disconnect()
+            self._playback.duration_changed.disconnect()
         with contextlib.suppress(TypeError, RuntimeError, AttributeError):
-            self._player.state_changed.disconnect()
+            self._playback.state_changed.disconnect()
         self._shutdown.shutdown()
         event.accept()
 
