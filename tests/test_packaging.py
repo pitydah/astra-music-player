@@ -134,3 +134,53 @@ class TestPyProjectPackaging:
             "ci_local.sh missing MICHI_TEST_CACHE_DIR"
         assert "MICHI_TEST_CONFIG_DIR" in content, \
             "ci_local.sh missing MICHI_TEST_CONFIG_DIR"
+
+    # ── GstPbutils coverage ──
+
+    def test_ci_yml_has_gst_pbutils_package(self):
+        """ci.yml must install gir1.2-gst-plugins-base-1.0 for GstPbutils."""
+        repo_root = os.path.dirname(os.path.dirname(__file__))
+        path = os.path.join(repo_root, ".github/workflows/ci.yml")
+        with open(path) as f:
+            content = f.read()
+        assert "gir1.2-gst-plugins-base-1.0" in content, \
+            "ci.yml missing gir1.2-gst-plugins-base-1.0"
+
+    def test_ci_yml_has_gst_pbutils_require(self):
+        """ci.yml must verify gi/GstPbutils explicitly."""
+        repo_root = os.path.dirname(os.path.dirname(__file__))
+        path = os.path.join(repo_root, ".github/workflows/ci.yml")
+        with open(path) as f:
+            content = f.read()
+        assert 'gi.require_version("GstPbutils", "1.0")' in content, \
+            "ci.yml missing GstPbutils verification"
+
+    def test_ci_local_sh_has_gst_pbutils_require(self):
+        """ci_local.sh must verify GstPbutils explicitly."""
+        repo_root = os.path.dirname(os.path.dirname(__file__))
+        path = os.path.join(repo_root, "scripts/ci_local.sh")
+        with open(path) as f:
+            content = f.read()
+        assert 'gi.require_version("GstPbutils", "1.0")' in content, \
+            "ci_local.sh missing GstPbutils verification"
+
+    def test_check_runtime_has_gst_pbutils_critical(self):
+        """check_runtime.py must require GstPbutils as critical dependency."""
+        repo_root = os.path.dirname(os.path.dirname(__file__))
+        path = os.path.join(repo_root, "scripts/check_runtime.py")
+        with open(path) as f:
+            content = f.read()
+        assert 'gi.require_version("GstPbutils", "1.0")' in content, \
+            "check_runtime.py missing GstPbutils requirement"
+        assert "GstPbutils" in content, \
+            "check_runtime.py missing GstPbutils reference"
+
+    def test_install_sh_debian_has_gst_pbutils_gir(self):
+        """install.sh Debian section must install gir1.2-gst-plugins-base-1.0."""
+        repo_root = os.path.dirname(os.path.dirname(__file__))
+        path = os.path.join(repo_root, "scripts/install.sh")
+        with open(path) as f:
+            content = f.read()
+        # Find the debian section
+        assert "gir1.2-gst-plugins-base-1.0" in content, \
+            "install.sh missing gir1.2-gst-plugins-base-1.0"

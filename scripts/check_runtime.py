@@ -46,13 +46,16 @@ def check():
     try:
         import gi
         gi.require_version("Gst", "1.0")
-        from gi.repository import Gst
+        gi.require_version("GstPbutils", "1.0")
+        from gi.repository import Gst, GstPbutils
         Gst.init(None)
         ver = Gst.version_string()
         print(f"  GStreamer {ver}")
         ok("GStreamer")
+        if GstPbutils:
+            ok("GstPbutils")
     except Exception as e:
-        fail(f"GStreamer: {e}", critical=True)
+        fail(f"GStreamer/GstPbutils: {e}", critical=True)
         errors += 1
         Gst = None
 

@@ -320,7 +320,7 @@ install_core_deps() {
         debian)
             install_packages_critical "$pm" \
                 python3 python3-pip python3-venv \
-                python3-gi gir1.2-gstreamer-1.0 \
+                python3-gi gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 \
                 gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
                 gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
                 gstreamer1.0-libav \

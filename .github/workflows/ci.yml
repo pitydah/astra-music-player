@@ -71,9 +71,11 @@ jobs:
           try:
               import gi
               gi.require_version("Gst", "1.0")
-              from gi.repository import Gst
+              gi.require_version("GstPbutils", "1.0")
+              from gi.repository import Gst, GstPbutils
               Gst.init(None)
               print("GStreamer OK:", Gst.version_string())
+              print("GstPbutils OK:", GstPbutils)
           except Exception as e:
               print("PyGObject/GStreamer import failed:", repr(e))
               raise

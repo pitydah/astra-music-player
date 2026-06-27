@@ -113,9 +113,11 @@ print(f"  Python: {sys.executable}")
 try:
     import gi
     gi.require_version("Gst", "1.0")
-    from gi.repository import Gst
+    gi.require_version("GstPbutils", "1.0")
+    from gi.repository import Gst, GstPbutils
     Gst.init(None)
     print(f"  OK: {Gst.version_string()}")
+    print(f"  OK: GstPbutils available ({GstPbutils})")
 except Exception as e:
     print(f"  FAIL: PyGObject / GStreamer unavailable: {e!r}")
     raise
