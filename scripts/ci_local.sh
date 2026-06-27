@@ -2,6 +2,7 @@
 # Local CI simulation — validates that pip install, lint, compile, and pytest
 # all work in a clean venv with system-site-packages.
 # Run this before pushing to verify basic CI compliance.
+# Supports: Debian/Ubuntu, Arch/CachyOS, Fedora, openSUSE
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,45 +12,91 @@ trap 'rm -rf "$TMPDIR"' EXIT
 echo "=== CI Local Test ==="
 echo
 
-# 1. Create clean venv
-echo "[1/6] Creating virtual environment (--system-site-packages)..."
+# [1/7] Create clean venv
+echo "[1/7] Creating virtual environment (--system-site-packages)..."
 python3 -m venv --system-site-packages "$TMPDIR/.venv"
 source "$TMPDIR/.venv/bin/activate"
 pip install --upgrade pip -q
 
-# 2. Install package (editable with dev deps)
-echo "[2/6] Installing michi-music-player..."
+# [2/7] Install package (editable with dev deps)
+echo "[2/7] Installing michi-music-player..."
 cd "$REPO_DIR"
 pip install -e ".[dev]" 2>&1 | tail -3
 
-# 3. Verify system deps are NOT installed by pip (they come from apt --system-site-packages)
-echo "[3/6] Verifying no system deps via pip..."
+# [3/7] Verify system deps are NOT installed inside the venv
+echo "[3/7] Verifying no system deps via pip..."
 python3 << 'PYEOF'
-import subprocess, sys
+import os
+import subprocess
+import sys
+from pathlib import Path
 
-result = subprocess.run([sys.executable, '-m', 'pip', 'show', 'PyGObject', 'pycairo', 'dbus-python'],
-                       capture_output=True, text=True)
-for line in result.stdout.splitlines():
-    if line.startswith('Location:'):
-        loc = line.split('Location:')[1].strip()
-        if 'site-packages' in loc and 'dist-packages' not in loc:
-            if 'PyGObject' in result.stdout or 'pycairo' in result.stdout or 'dbus-python' in result.stdout:
-                print(f"  FAIL: system dep installed by pip at {loc}")
-                exit(1)
-for pkg in ['PyGObject', 'pycairo', 'dbus-python']:
-    r = subprocess.run([sys.executable, '-m', 'pip', 'show', pkg], capture_output=True, text=True)
-    if 'dist-packages' in r.stdout:
+venv = Path(os.environ.get("VIRTUAL_ENV", "")).resolve()
+pkgs = ["PyGObject", "pycairo", "dbus-python"]
+failed = False
+
+
+def classify_location(loc: str) -> str:
+    """Classify where a package is installed."""
+    if not loc:
+        return "unknown"
+    p = Path(loc).resolve()
+    s = str(p)
+
+    # inside the test venv -> installed by pip
+    if venv and s.startswith(str(venv)):
+        return "venv-pip"
+
+    # system paths (apt, pacman, dnf, zypper)
+    if any(s.startswith(prefix) for prefix in ("/usr/lib", "/usr/local/lib", "/lib", "/opt")):
+        return "system"
+
+    # Debian/Ubuntu dist-packages
+    if "dist-packages" in s:
+        return "system"
+
+    # user-site (pip install --user)
+    if "/.local/lib/" in s:
+        return "user-site-warning"
+
+    # unknown location
+    return "unknown"
+
+
+for pkg in pkgs:
+    r = subprocess.run(
+        [sys.executable, "-m", "pip", "show", pkg],
+        capture_output=True, text=True,
+    )
+    if r.returncode != 0:
+        print(f"  OK: {pkg} not visible to pip")
         continue
-    if r.returncode == 0:
-        loc_line = [l for l in r.stdout.splitlines() if l.startswith('Location:')]
-        if loc_line and 'site-packages' in loc_line[0]:
-            print(f"  FAIL: {pkg} installed by pip at {loc_line[0]}")
-            exit(1)
-print("  OK - system deps not installed by pip")
+
+    loc = ""
+    for line in r.stdout.splitlines():
+        if line.startswith("Location:"):
+            loc = line.split("Location:", 1)[1].strip()
+            break
+
+    cls = classify_location(loc)
+    if cls == "venv-pip":
+        print(f"  FAIL: {pkg} appears installed inside venv: {loc}")
+        failed = True
+    elif cls == "system":
+        print(f"  OK: {pkg} from system path: {loc}")
+    elif cls == "user-site-warning":
+        print(f"  WARN: {pkg} from user site (not venv): {loc}")
+    else:
+        print(f"  WARN: {pkg} location could not be classified: {loc}")
+
+if failed:
+    sys.exit(1)
+
+print("  OK - system-only deps are not installed inside the venv")
 PYEOF
 
-# 4. Verify metadata
-echo "[4/6] Verifying metadata..."
+# [4/7] Verify metadata
+echo "[4/7] Verifying metadata..."
 python3 << 'PYEOF'
 import importlib.metadata
 v = importlib.metadata.version('michi-music-player')
@@ -58,15 +105,31 @@ assert v.startswith('0.1'), f"Unexpected version: {v}"
 print("  OK")
 PYEOF
 
-# 5. Lint + compile
-echo "[5/6] Running lint..."
+# [5/7] Verify PyGObject / GStreamer runtime
+echo "[5/7] Verifying PyGObject / GStreamer runtime..."
+python3 << 'PYEOF'
+import sys
+print(f"  Python: {sys.executable}")
+try:
+    import gi
+    gi.require_version("Gst", "1.0")
+    from gi.repository import Gst
+    Gst.init(None)
+    print(f"  OK: {Gst.version_string()}")
+except Exception as e:
+    print(f"  FAIL: PyGObject / GStreamer unavailable: {e!r}")
+    raise
+PYEOF
+
+# [6/7] Lint + compile
+echo "[6/7] Running lint..."
 python3 -m ruff check . --output-format concise || { echo "  LINT FAILED"; exit 1; }
 echo "  OK"
 python3 -m compileall -q . || { echo "  COMPILE FAILED"; exit 1; }
 echo "  COMPILE OK"
 
-# 6. Pytest
-echo "[6/6] Running pytest..."
+# [7/7] Pytest
+echo "[7/7] Running pytest..."
 cd "$REPO_DIR"
 QT_QPA_PLATFORM=offscreen \
 PYTHONUNBUFFERED=1 \
