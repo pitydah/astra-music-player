@@ -15,14 +15,15 @@ class TestPyProjectPackaging:
             import tomllib
         else:
             import tomli as tomllib
-        with open(path, "rb") as f:
-            return tomllib.load(f)
+        with open(path) as f:
+            return tomllib.load(f.buffer)
 
     def test_no_system_only_deps_in_pip(self, pyproject):
         """PyGObject, pycairo, dbus-python must NOT be in pip dependencies.
 
         These packages cannot be installed via pip and must come from the
-        system package manager. They should not appear in [project.dependencies]."""
+        system package manager. They should not appear in [project.dependencies].
+        """
         deps = pyproject["project"]["dependencies"]
         for dep in deps:
             dep_name = dep.split(">")[0].split("<")[0].split("=")[0].strip()
@@ -172,15 +173,25 @@ class TestPyProjectPackaging:
             content = f.read()
         assert 'gi.require_version("GstPbutils", "1.0")' in content, \
             "check_runtime.py missing GstPbutils requirement"
-        assert "GstPbutils" in content, \
-            "check_runtime.py missing GstPbutils reference"
+        assert "GStreamer/GstPbutils" in content, \
+            "check_runtime.py must report GstPbutils failures as critical runtime failures"
+        assert "critical=True" in content, \
+            "check_runtime.py must keep GstPbutils in the critical GStreamer failure path"
 
     def test_install_sh_debian_has_gst_pbutils_gir(self):
-        """install.sh Debian section must install gir1.2-gst-plugins-base-1.0."""
+        """Debian installer block must install the GIR package required by GstPbutils."""
         repo_root = os.path.dirname(os.path.dirname(__file__))
         path = os.path.join(repo_root, "scripts/install.sh")
         with open(path) as f:
             content = f.read()
-        # Find the debian section
-        assert "gir1.2-gst-plugins-base-1.0" in content, \
-            "install.sh missing gir1.2-gst-plugins-base-1.0"
+
+        debian_start = content.find("        debian)")
+        assert debian_start != -1, "install.sh missing debian package block"
+        debian_end = content.find("            ;;", debian_start)
+        assert debian_end != -1, "install.sh debian package block is malformed"
+        debian_block = content[debian_start:debian_end]
+
+        assert "gir1.2-gstreamer-1.0" in debian_block, \
+            "install.sh debian block missing base GStreamer GIR package"
+        assert "gir1.2-gst-plugins-base-1.0" in debian_block, \
+            "install.sh debian block missing GstPbutils GIR package"
