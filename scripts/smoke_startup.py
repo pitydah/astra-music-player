@@ -143,6 +143,49 @@ def _check_qt():
     return 0
 
 
+def _check_main_window():
+    """Create MainWindow in safe mode to validate all controllers and navigation."""
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+
+    os.environ.setdefault("MICHI_SAFE_MODE", "1")
+
+    from ui.window import MainWindow
+    w = MainWindow()
+
+    checks = [
+        '_nav_ctrl', '_lib_ctrl', '_home_ctrl', '_services',
+        '_view_registry', '_ha_handlers', '_cf_ctrl', '_smart_ctrl',
+        '_srv_ctrl', '_id_handlers', '_sidebar_menu_ctrl',
+        '_search_router', '_view_router', '_album_sort_menu',
+        '_playback_ctrl', '_album_ctrl', '_artist_ctrl', '_genre_ctrl',
+        '_playlist_ctrl', '_file_actions', '_expanded_ctrl',
+        '_cast_ctrl', '_transmit_ctrl', '_audio_output_ctrl', '_ctx',
+    ]
+    for attr in checks:
+        v = getattr(w, attr, None)
+        assert v is not None, f"MainWindow missing {attr}"
+
+    # Navigate all sections to verify routing
+    sections = [
+        'home', 'library_hub', 'mix_hub', 'playlist_hub', 'playback_hub',
+        'connections_hub', 'radio', 'audio_lab', 'home_audio', 'identifier',
+        'assistant', 'discover', 'settings_hub', 'devices_page',
+        'michi_disc_lab', 'metadata_editor', 'albums', 'artists', 'genres',
+        'folders', 'favs', 'recent',
+    ]
+    for key in sections:
+        w._nav_ctrl.dispatch(key)
+
+    print("  ✓ MainWindow created (safe mode)")
+    print(f"  ✓ {len(checks)} controllers confirmed")
+    print(f"  ✓ {len(sections)} sections navigable")
+    return 0
+
+
 def main():
     errors = 0
     tmp_root = None
@@ -173,7 +216,10 @@ def main():
         errors += _run_step("[6/7] Qt widgets", _check_qt)
         print()
 
-        print("[7/7] Summary")
+        errors += _run_step("[7/7] MainWindow", _check_main_window)
+        print()
+
+        print("[8/8] Summary")
         if errors:
             print(f"  ✗ {errors} error(s) detected")
         else:
