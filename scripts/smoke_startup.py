@@ -73,6 +73,22 @@ def _check_imports():
         except ImportError as e:
             print(f"  ✗ {name}: {e}")
             errors += 1
+    # Verify indexing layer modules import cleanly
+    indexer_modules = [
+        "library.batch_writer",
+        "library.change_detector",
+        "library.file_watcher",
+        "library.folder_index",
+        "library.indexer",
+        "library.smart_mixes",
+    ]
+    for mod_name in indexer_modules:
+        try:
+            __import__(mod_name)
+            print(f"  ✓ {mod_name}")
+        except Exception as e:
+            print(f"  ✗ {mod_name}: {e!r}")
+            errors += 1
     return errors
 
 

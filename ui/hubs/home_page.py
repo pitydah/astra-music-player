@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QPainter
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QFrame, QScrollArea, QPushButton,
+    QScrollArea, QPushButton,
 )
 
 from ui.central.central_styles import (
     glass_button_qss, card_title_qss, page_title_qss, page_subtitle_qss,
 )
-from ui.effects.michi_glass import AcrylicBrush, NoiseOverlay, apply_card_shadow
-from ui.effects.michi_hover import HoverLiftFilter, ShineOverlay
+from ui.effects.michi_glass import AcrylicGlassFrame
 
 
 class HomePage(QWidget):
@@ -81,7 +79,7 @@ class HomePage(QWidget):
         cl.addWidget(title)
 
         # ── 1. Library Status ──
-        self._lib_card = _AcrylicGlassFrame("homeLibCard")
+        self._lib_card = AcrylicGlassFrame("homeLibCard", hover_shine=True)
         self._lib_card.setObjectName("homeLibCard")
         lc = QVBoxLayout(self._lib_card)
         lc.setContentsMargins(24, 20, 24, 20)
@@ -100,7 +98,7 @@ class HomePage(QWidget):
         cl.addWidget(self._lib_card)
 
         # ── 2. Michi Assistant ──
-        self._asst_card = _AcrylicGlassFrame("homeAsstCard")
+        self._asst_card = AcrylicGlassFrame("homeAsstCard", hover_shine=True)
         ac = QVBoxLayout(self._asst_card)
         ac.setContentsMargins(24, 16, 24, 16)
         ac.setSpacing(8)
@@ -117,7 +115,7 @@ class HomePage(QWidget):
         bottom.setSpacing(16)
 
         # Last session
-        self._session_card = _AcrylicGlassFrame("homeSessionCard")
+        self._session_card = AcrylicGlassFrame("homeSessionCard", hover_shine=True)
         sc = QVBoxLayout(self._session_card)
         sc.setContentsMargins(20, 16, 20, 16)
         sc.setSpacing(8)
@@ -141,7 +139,7 @@ class HomePage(QWidget):
         bottom.addWidget(self._session_card, 1)
 
         # Connections
-        self._conn_card = _AcrylicGlassFrame("homeConnCard")
+        self._conn_card = AcrylicGlassFrame("homeConnCard", hover_shine=True)
         cc = QVBoxLayout(self._conn_card)
         cc.setContentsMargins(20, 16, 20, 16)
         cc.setSpacing(8)
@@ -258,25 +256,3 @@ def _clear_layout(layout):
         elif item.layout():
             _clear_layout(item.layout())
 
-
-class _AcrylicGlassFrame(QFrame):
-    """QFrame with painted acrylic glass background via AcrylicBrush.
-
-    Applies blur + tint + noise + specular automatically.
-    Also adds NoiseOverlay, ShineOverlay, HoverLiftFilter, and card shadow.
-    """
-    def __init__(self, name: str, parent=None):
-        super().__init__(parent)
-        self.setObjectName(name)
-        self.setAttribute(Qt.WA_StyledBackground, False)
-        self._brush = AcrylicBrush(tint_opacity=0.06, specular_opacity=18)
-        NoiseOverlay(self)
-        ShineOverlay(self)
-        self.installEventFilter(HoverLiftFilter(self, lift_delta=1, enable_shine=True))
-        QTimer.singleShot(0, lambda: apply_card_shadow(self))
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        self._brush.paint(self, painter, clip_radius=18)
-        painter.end()

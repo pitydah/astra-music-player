@@ -35,7 +35,7 @@ flatpak-builder --user --install --force-clean build-dir data/com.michi.MusicPla
 pip install michi_music_player-0.1.0a0-py3-none-any.whl
 ```
 
-## ✨ Features en RC1
+## ✨ Funcionalidades incluidas en esta pre-release
 
 ### Audio
 - 9 perfiles de audio (Standard, Hi-Fi PCM, Bit-Perfect PCM, DSD→PCM, DoP, Streaming, Pure Audio, Studio Monitor, Multiroom)
@@ -87,14 +87,15 @@ pip install michi_music_player-0.1.0a0-py3-none-any.whl
 
 ## 📊 Métricas de Calidad
 
-| Métrica | Valor |
-|---------|-------|
-| Tests | 359 passed, 2 skipped |
-| Ruff | 0 violaciones |
-| Archivos Python | 425 |
-| Controladores | 29 |
-| Perfiles de audio | 9 |
-| Providers reconocimiento | 3 reales |
+> **Nota:** Las métricas son dinámicas. Para verificarlas localmente ejecutar:
+> `ruff check .`, `QT_QPA_PLATFORM=offscreen pytest -q` y `./scripts/ci_local.sh`.
+
+| Métrica | Validación |
+|---------|------------|
+| Tests | `QT_QPA_PLATFORM=offscreen pytest -q` |
+| Ruff | `ruff check .` |
+| Runtime | `./scripts/ci_local.sh` |
+| Smoke | `QT_QPA_PLATFORM=offscreen python3 scripts/smoke_startup.py` |
 
 ## 🐛 Issues Conocidos
 

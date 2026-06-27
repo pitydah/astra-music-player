@@ -130,6 +130,16 @@ class TestCIRuntimeValidation:
     def test_has_michi_test_config_dir(self):
         assert "MICHI_TEST_CONFIG_DIR" in self._ci()
 
+    def test_has_michi_safe_mode(self):
+        """CI runtime must set MICHI_SAFE_MODE."""
+        assert "MICHI_SAFE_MODE" in self._ci()
+
+    def test_smoke_startup_has_michi_safe_mode(self):
+        """Smoke job in CI must set MICHI_SAFE_MODE."""
+        ci = self._ci()
+        smoke_section = ci.split("smoke_startup.py")[0]
+        assert "MICHI_SAFE_MODE" in smoke_section
+
     def test_no_timeout_without_dependency(self):
         """If --timeout is in CI, pytest-timeout must be in pyproject.toml."""
         ci = self._ci()
@@ -162,10 +172,36 @@ class TestVersioningHonesty:
     def test_estado_not_static_metrics(self):
         """ESTADO.md must not declare fixed test counts."""
         content = _read(os.path.join(_root(), "ESTADO.md"))
-        # Allow "Tests: 430 ejecutados" (with context) but not bare "Tests: 359"
         lines = content.split("\n")
         for line in lines:
             stripped = line.strip()
             if stripped.startswith("**Tests:**") or stripped.startswith("Tests:"):
                 assert "ejecutados" in stripped or "verificar" in stripped.lower(), (
                     f"Static metric in ESTADO.md: {stripped}")
+
+    def test_no_static_counts_in_markdown_tables(self):
+        """Verify no markdown tables have hardcoded test/ruff counts as second-column values."""
+        STATIC_METRIC_PATTERNS = [
+            r"\|\s*Tests\s*\|\s*\d+\s*\|",
+            r"\|\s*Ruff\s*\|\s*0\b",
+            r"\*\*Tests:\*\*\s*\d+",
+            r"Tests:\s*\d+",
+            r"Ruff:\s*0\b",
+            r"\d+\s+pasando",
+        ]
+        SAFE_WORDS = {"verificar", "pendiente", "ejecutar", "comando", "run", "dinámico"}
+        docs = ["ESTADO.md", "RELEASE_NOTES.md", "README.md", "AGENTS.md"]
+        for doc in docs:
+            path = os.path.join(_root(), doc)
+            if not os.path.exists(path):
+                continue
+            content = _read(path)
+            for i, line in enumerate(content.split("\n"), 1):
+                stripped = line.strip()
+                # Skip lines with verifiable commands or safe words
+                if any(w in stripped.lower() for w in SAFE_WORDS):
+                    continue
+                for pattern in STATIC_METRIC_PATTERNS:
+                    if re.search(pattern, stripped):
+                        raise AssertionError(
+                            f"Static metric in {doc}:{i}: {stripped}")

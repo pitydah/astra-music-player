@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Michi Music Player — Release Candidate Generator
+# Michi Music Player — Pre-release Generator
 # =============================================================================
 # Usage: ./scripts/create_release.sh [--flatpak]
 #

@@ -1,24 +1,29 @@
 # Michi Music Player — Estado del Software
 
 > **Repositorio:** `pitydah/michi-music-player`  
-> **Última actualización:** 2026-06-26  
-> **Versión:** Alpha avanzada (pre-beta)  
-> **Tests:** 430 ejecutados · **Ruff:** 0 (verificar con `ruff check .` y `pytest -q`)
+> **Última actualización:** 2026-06-27  
+> **Versión:** pre-alpha técnica  
+> **Validación:** pendiente de confirmar en GitHub Actions.  
+> Para validar localmente ejecutar:  
+> `ruff check .`  
+> `QT_QPA_PLATFORM=offscreen pytest -q`  
+> `QT_QPA_PLATFORM=offscreen python3 scripts/smoke_startup.py`  
+> `./scripts/ci_local.sh`
 
 ---
 
-## 📊 Métricas Principales
+## 📊 Métricas de Arquitectura
 
-| Métrica | Valor |
-|---------|-------|
-| Líneas totales en `ui/window.py` | 1,548 (−53% desde 3,311) |
-| Métodos en `MainWindow` | 147 (−100 desde 247) |
-| Importaciones top-level | 118 |
-| Widgets creados directamente en window.py | 0 (todo en `UIBuilder`) |
-| Archivos Python | ~250 |
-| Controllers | 20+ |
-| Tests | 359 |
-| Ruff | 0 violaciones |
+| Métrica | Valor | Cómo verificar |
+|---------|-------|---------------|
+| Líneas en `ui/window.py` | 1,548 (−53% desde 3,311) | `python tools/audit_window.py` |
+| Métodos en `MainWindow` | 147 | `python tools/audit_window.py` |
+| Widgets directos en window.py | 0 (todo en `UIBuilder`) | `python tools/audit_window.py` |
+| Controllers extraídos | 16+ | `ls ui/controllers/` |
+| Tests | dinámico | `QT_QPA_PLATFORM=offscreen pytest -q` |
+| Ruff | dinámico | `ruff check .` |
+| Runtime | dinámico | `./scripts/ci_local.sh` |
+| Smoke startup | dinámico | `QT_QPA_PLATFORM=offscreen python3 scripts/smoke_startup.py` |
 
 ---
 
@@ -183,8 +188,8 @@ Sidebar click → sidebar_controller → navigation_requested(key)
 | SQLite | WAL mode, FTS5 |
 | mutagen | ID3/Vorbis/MP4 |
 | OpenGL | Opcional (fallback `safe_2d`) |
-| Ruff | 0 errores |
-| pytest | 359 tests |
+| Ruff | dinámico — verificar con `ruff check .` |
+| pytest | dinámico — verificar con `QT_QPA_PLATFORM=offscreen pytest -q` |
 
 ---
 
