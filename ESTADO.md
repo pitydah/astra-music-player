@@ -3,7 +3,7 @@
 > **Repositorio:** `pitydah/michi-music-player`  
 > **Última actualización:** 2026-06-26  
 > **Versión:** Alpha avanzada (pre-beta)  
-> **Tests:** 359 pasando · **Ruff:** 0
+> **Tests:** 430 ejecutados · **Ruff:** 0 (verificar con `ruff check .` y `pytest -q`)
 
 ---
 

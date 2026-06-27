@@ -149,10 +149,11 @@ class PlaybackController:
         try:
             diag = self._win._ctx.player.get_audio_diagnostics() if hasattr(
                 self._win._ctx.player, 'get_audio_diagnostics') else None
-            if diag and hasattr(self._win._player_bar, '_quality_badge'):
-                self._win._player_bar._quality_badge.set_route_tooltip(diag)
+            if diag and hasattr(self._win, '_player_bar_ctrl') and self._win._player_bar_ctrl:
+                self._win._player_bar_ctrl.set_route_tooltip(diag)
         except Exception:
-            pass
+            import logging
+            logging.getLogger("michi.playback").debug("audio diagnostics not available")
 
         if track.uri.startswith("http") and track.cover_path:
             pix = QPixmap(track.cover_path)

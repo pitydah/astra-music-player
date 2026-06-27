@@ -721,17 +721,18 @@ class MainWindow(QMainWindow):
         pb.audio_output_clicked.connect(self._show_audio_output_menu)
         pb.mini_player_clicked.connect(self._open_mini_player)
         pb.cover_loaded.connect(self._bg_theme.apply)
-        pb._quality_badge.clicked_details.connect(self._show_audio_diagnostics)
+        pb.quality_details_requested.connect(self._show_audio_diagnostics)
 
     def _setup_tray(self):
         from ui.controllers.tray_controller import TrayController
         self._tray_ctrl = TrayController(self)
+        self._tray_ctrl.setup()
+        self._tray = self._tray_ctrl.icon
 
     def _notify_track(self, title: str, artist: str):
         if hasattr(self, '_tray_ctrl') and self._tray_ctrl:
             self._tray_ctrl.notify(title, artist)
-        self._tray_ctrl.setup()
-        self._tray = self._tray_ctrl._icon
+
     def _import_playlist(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Importar playlist", os.path.expanduser("~"),

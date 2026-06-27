@@ -22,10 +22,24 @@ RELEASE_NAME="michi-music-player-${VERSION}"
 DIST_DIR="$REPO_ROOT/dist"
 
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║   Michi Music Player — Release Candidate Generator           ║"
-echo "║   Version: ${VERSION}                                       ║"
+echo "║   Michi Music Player — Release Generator                     ║"
+echo "║   Version: ${VERSION}                                        ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
+
+# ── Pre-release validation ──
+if [ "${SKIP_CI_LOCAL:-0}" != "1" ]; then
+    echo "→ Ejecutando CI local..."
+    cd "$REPO_ROOT"
+    if ! bash scripts/ci_local.sh; then
+        echo "❌ CI local falló; no se genera release"
+        echo "   Usa SKIP_CI_LOCAL=1 para omitir esta verificación"
+        exit 1
+    fi
+    echo "✓ CI local superado"
+else
+    echo "⚠️  CI local omitido (SKIP_CI_LOCAL=1)"
+fi
 
 # ── Clean & prepare ──
 echo "→ Limpiando dist/ anterior..."

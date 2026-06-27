@@ -1,7 +1,7 @@
-# Michi Music Player v0.1.0-rc1 — Release Candidate
+# Michi Music Player v0.1.0-alpha — Pre-release Draft
 
 **Fecha:** 2026-06-26
-**Estado:** Release Candidate 1
+**Estado:** Pre-release Draft
 **Licencia:** GPL-3.0-or-later
 
 ---
@@ -15,24 +15,24 @@ biblioteca SQLite FTS5, y 425+ archivos Python.
 
 | Archivo | Descripción |
 |---------|-------------|
-| `michi-music-player-0.1.0-rc1.tar.gz` | Código fuente completo (git archive) |
-| `michi-music-player-0.1.0-rc1.zip` | Código fuente (ZIP) |
-| `michi_music_player-0.1.0rc1-py3-none-any.whl` | Wheel instalable vía pip |
+| `michi-music-player-0.1.0-alpha.tar.gz` | Código fuente completo (git archive) |
+| `michi-music-player-0.1.0-alpha.zip` | Código fuente (ZIP) |
+| `michi_music_player-0.1.0a0-py3-none-any.whl` | Wheel instalable vía pip |
 | `SHA256SUMS` | Checksums SHA256 de todos los archivos |
 
 ## 🚀 Instalación Rápida
 
 ```bash
 # Opción A: Instalador unificado (recomendado)
-tar xzf michi-music-player-0.1.0-rc1.tar.gz
-cd michi-music-player-0.1.0-rc1
+tar xzf michi-music-player-0.1.0-alpha.tar.gz
+cd michi-music-player-0.1.0-alpha
 ./install.sh
 
 # Opción B: Flatpak
 flatpak-builder --user --install --force-clean build-dir data/com.michi.MusicPlayer.yml
 
 # Opción C: Solo Python (sin desktop integration)
-pip install michi_music_player-0.1.0rc1-py3-none-any.whl
+pip install michi_music_player-0.1.0a0-py3-none-any.whl
 ```
 
 ## ✨ Features en RC1
