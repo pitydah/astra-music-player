@@ -12,19 +12,19 @@ trap 'rm -rf "$TMPDIR"' EXIT
 echo "=== CI Local Test ==="
 echo
 
-# [1/7] Create clean venv
-echo "[1/7] Creating virtual environment (--system-site-packages)..."
+# [1/8] Create clean venv
+echo "[1/8] Creating virtual environment (--system-site-packages)..."
 python3 -m venv --system-site-packages "$TMPDIR/.venv"
 source "$TMPDIR/.venv/bin/activate"
 pip install --upgrade pip -q
 
-# [2/7] Install package (editable with dev deps)
-echo "[2/7] Installing michi-music-player..."
+# [2/8] Install package (editable with dev deps)
+echo "[2/8] Installing michi-music-player..."
 cd "$REPO_DIR"
 pip install -e ".[dev]" 2>&1 | tail -3
 
-# [3/7] Verify system deps are NOT installed inside the venv
-echo "[3/7] Verifying no system deps via pip..."
+# [3/8] Verify system deps are NOT installed inside the venv
+echo "[3/8] Verifying no system deps via pip..."
 python3 << 'PYEOF'
 import os
 import subprocess
@@ -95,8 +95,8 @@ if failed:
 print("  OK - system-only deps are not installed inside the venv")
 PYEOF
 
-# [4/7] Verify metadata
-echo "[4/7] Verifying metadata..."
+# [4/8] Verify metadata
+echo "[4/8] Verifying metadata..."
 python3 << 'PYEOF'
 import importlib.metadata
 v = importlib.metadata.version('michi-music-player')
@@ -105,8 +105,8 @@ assert v.startswith('0.1'), f"Unexpected version: {v}"
 print("  OK")
 PYEOF
 
-# [5/7] Verify PyGObject / GStreamer runtime
-echo "[5/7] Verifying PyGObject / GStreamer runtime..."
+# [5/8] Verify PyGObject / GStreamer runtime
+echo "[5/8] Verifying PyGObject / GStreamer runtime..."
 python3 << 'PYEOF'
 import sys
 print(f"  Python: {sys.executable}")
@@ -123,15 +123,26 @@ except Exception as e:
     raise
 PYEOF
 
-# [6/7] Lint + compile
-echo "[6/7] Running lint..."
+# [6/8] Smoke startup
+echo "[6/8] Running smoke startup..."
+cd "$REPO_DIR"
+QT_QPA_PLATFORM=offscreen \
+PYTHONUNBUFFERED=1 \
+MICHI_TEST_DATA_DIR="$TMPDIR/michi-smoke-data" \
+MICHI_TEST_CACHE_DIR="$TMPDIR/michi-smoke-cache" \
+MICHI_TEST_CONFIG_DIR="$TMPDIR/michi-smoke-config" \
+python3 scripts/smoke_startup.py || { echo "  SMOKE STARTUP FAILED"; exit 1; }
+echo "  OK"
+
+# [7/8] Lint + compile
+echo "[7/8] Running lint..."
 python3 -m ruff check . --output-format concise || { echo "  LINT FAILED"; exit 1; }
 echo "  OK"
 python3 -m compileall -q -x '.venv/|\.tmpl\.' . || { echo "  COMPILE FAILED"; exit 1; }
 echo "  COMPILE OK"
 
-# [7/7] Pytest
-echo "[7/7] Running pytest..."
+# [8/8] Pytest
+echo "[8/8] Running pytest..."
 cd "$REPO_DIR"
 QT_QPA_PLATFORM=offscreen \
 PYTHONUNBUFFERED=1 \
