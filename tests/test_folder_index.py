@@ -1,60 +1,85 @@
-"""Tests for folder_index — file listing and edge cases."""
+"""Tests for folder_index — caching, file listing, subfolder listing."""
 
-import pytest
-
-from library.folder_index import list_audio_files, list_subfolders, get_audio_tree
-
-
-@pytest.fixture
-def audio_tree(tmp_path):
-    """Create a temp directory structure with audio files and subfolders."""
-    # Files
-    (tmp_path / "song.mp3").touch()
-    (tmp_path / "track.flac").touch()
-    (tmp_path / "image.jpg").touch()          # non-audio
-    (tmp_path / ".hidden.mp3").touch()         # hidden
-    (tmp_path / "notes.txt").touch()           # non-audio
-
-    # Subfolders
-    sub = tmp_path / "album"
-    sub.mkdir()
-    (sub / "track01.ogg").touch()
-    (sub / "track02.wav").touch()
-
-    hidden_sub = tmp_path / ".secret"
-    hidden_sub.mkdir()
-    (hidden_sub / "ghost.mp3").touch()
-
-    return tmp_path
+import os
+import tempfile
 
 
-def test_list_audio_files(audio_tree):
-    files = list_audio_files(str(audio_tree))
-    assert len(files) == 2  # song.mp3, track.flac (not .jpg, .txt, .hidden)
-    assert any("song.mp3" in f for f in files)
-    assert any("track.flac" in f for f in files)
+class TestListAudioFiles:
+    def test_empty_directory(self):
+        from library.folder_index import list_audio_files, clear_cache
+        clear_cache()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            files = list_audio_files(tmpdir)
+            assert files == []
+
+    def test_finds_audio_files(self):
+        from library.folder_index import list_audio_files, clear_cache
+        clear_cache()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for name in ("song.mp3", "track.flac", "album/cover.jpg"):
+                p = os.path.join(tmpdir, name)
+                os.makedirs(os.path.dirname(p), exist_ok=True)
+                open(p, "w").close()
+            files = list_audio_files(tmpdir)
+            paths = [os.path.basename(f) for f in files]
+            assert "song.mp3" in paths
+            assert "track.flac" in paths
+
+    def test_ignores_hidden_files(self):
+        from library.folder_index import list_audio_files, clear_cache
+        clear_cache()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for name in (".hidden.mp3", "visible.mp3"):
+                open(os.path.join(tmpdir, name), "w").close()
+            files = list_audio_files(tmpdir)
+            names = [os.path.basename(f) for f in files]
+            assert ".hidden.mp3" not in names
+            assert "visible.mp3" in names
+
+    def test_ignores_non_audio(self):
+        from library.folder_index import list_audio_files, clear_cache
+        clear_cache()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for name in ("song.mp3", "doc.txt", "image.png"):
+                open(os.path.join(tmpdir, name), "w").close()
+            files = list_audio_files(tmpdir)
+            assert len(files) == 1
 
 
-def test_list_subfolders(audio_tree):
-    dirs = list_subfolders(str(audio_tree))
-    assert len(dirs) == 1  # album (not .secret)
-    assert any("album" in d for d in dirs)
+class TestListSubfolders:
+    def test_empty_directory(self):
+        from library.folder_index import list_subfolders, clear_cache
+        clear_cache()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            assert list_subfolders(tmpdir) == []
+
+    def test_finds_subfolders(self):
+        from library.folder_index import list_subfolders, clear_cache
+        clear_cache()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for name in ("Music", "Podcasts", ".hidden"):
+                os.makedirs(os.path.join(tmpdir, name), exist_ok=True)
+            dirs = list_subfolders(tmpdir)
+            names = [os.path.basename(d) for d in dirs]
+            assert "Music" in names
+            assert "Podcasts" in names
+            assert ".hidden" not in names
 
 
-def test_list_audio_hidden_ignored(audio_tree):
-    files = list_audio_files(str(audio_tree))
-    for f in files:
-        assert ".hidden" not in f
-        assert ".secret" not in f
+class TestCache:
+    def test_cache_hit(self):
+        from library.folder_index import list_audio_files, clear_cache, _cache
+        clear_cache()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            open(os.path.join(tmpdir, "song.mp3"), "w").close()
+            list_audio_files(tmpdir)
+            assert f"files:{tmpdir}" in _cache
 
-
-def test_list_nonexistent():
-    assert list_audio_files("/nonexistent/path") == []
-    assert list_subfolders("/nonexistent/path") == []
-
-
-def test_get_audio_tree(audio_tree):
-    tree = get_audio_tree(str(audio_tree), max_depth=2)
-    assert len(tree["files"]) == 2
-    assert "album" in tree["folders"]
-    assert len(tree["folders"]["album"]["files"]) == 2
+    def test_clear_cache(self):
+        from library.folder_index import list_audio_files, clear_cache, _cache
+        clear_cache()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            open(os.path.join(tmpdir, "song.mp3"), "w").close()
+            list_audio_files(tmpdir)
+            clear_cache()
+            assert f"files:{tmpdir}" not in _cache

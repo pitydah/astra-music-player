@@ -53,8 +53,8 @@ class MiniPlayer(QWidget):
             "QPushButton { color: rgba(255,255,255,0.56); font-size: 16px;"
             " background: transparent; border: 1px solid transparent;"
             " border-radius: 8px; }"
-            "QPushButton:hover { color: #FF3C48;"
-            " background: rgba(255,60,72,0.12); }")
+            "QPushButton:hover { color: #8FB7FF;"
+            " background: rgba(143,183,255,0.12); }")
         close_btn.clicked.connect(self.hide)
         title_bar.addWidget(title_lbl)
         title_bar.addStretch()
@@ -100,8 +100,8 @@ class MiniPlayer(QWidget):
             QSlider::sub-page:horizontal {
                 background: qlineargradient(
                     x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #8FB7FF, stop:0.5 #FF243D,
-                    stop:0.8 #D00073, stop:1 #6B1B8F
+                    stop:0 #8FB7FF, stop:0.5 #7AA7FF,
+                    stop:0.8 #5A8AE0, stop:1 #3A6EC0
                 );
                 border-radius: 2px;
             }

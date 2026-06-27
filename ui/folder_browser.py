@@ -36,6 +36,7 @@ class FolderBrowserWidget(QWidget):
         super().__init__(parent)
         self._root = os.path.expanduser("~")
         self._db = db
+        self._db_connected = db is not None
         self._favorites: list[str] = []
         self._history: list[str] = []
         self._load_persistent()
@@ -120,6 +121,7 @@ class FolderBrowserWidget(QWidget):
         self._scan_btn = QPushButton("Escanear")
         self._scan_btn.setStyleSheet(glass_button_qss("ghost"))
         self._scan_btn.clicked.connect(lambda: self.scan_requested.emit(self._root))
+        self._scan_btn.setToolTip("Escanear carpeta para agregar archivos a la biblioteca")
         toolbar_layout.addWidget(self._scan_btn)
 
         self._refresh_btn = QPushButton("Actualizar")
@@ -533,18 +535,44 @@ class FolderBrowserWidget(QWidget):
         except Exception:
             folders = []
 
-        self._detail_stats.setText(
-            f"Archivos: {len(files)} · Carpetas: {len(folders)}")
+        total_dur = 0.0
+        if self._db and self._db_connected:
+            stats = self._db.get_directory_stats(self._root)
+            total_dur = stats["total_duration"]
+            dur_str = f" · {self._format_duration(total_dur)}" if total_dur else ""
+        else:
+            dur_str = ""
 
-        # Cover
-        cover = self._find_cover(self._root)
-        if cover:
-            pix = QPixmap(cover)
-            if not pix.isNull():
-                pix = pix.scaled(224, 224, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self._detail_cover.setPixmap(pix)
-            else:
-                self._detail_cover.setText("♪")
+        self._detail_stats.setText(
+            f"Archivos: {len(files)} · Carpetas: {len(folders)}{dur_str}")
+
+        # Cover — try album_art_cache first, then sidecar files
+        pix = None
+        if self._db and self._db_connected:
+            try:
+                from library.album_key import make_album_key
+                folder_name = os.path.basename(self._root)
+                artist_name = os.path.basename(os.path.dirname(self._root))
+                ak = make_album_key(artist_name, artist_name, folder_name)
+                cached = self._db.get_album_art_cache(ak)
+                if cached:
+                    mime, data = cached
+                    tpix = QPixmap()
+                    if tpix.loadFromData(data):
+                        pix = tpix
+            except Exception:
+                pass
+
+        if pix is None:
+            cover = self._find_cover(self._root)
+            if cover:
+                tpix = QPixmap(cover)
+                if not tpix.isNull():
+                    pix = tpix
+
+        if pix:
+            pix = pix.scaled(224, 224, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self._detail_cover.setPixmap(pix)
         else:
             self._detail_cover.setText("♪")
 
@@ -727,6 +755,19 @@ class FolderBrowserWidget(QWidget):
         btns.accepted.connect(dlg.accept)
         layout.addWidget(btns)
         dlg.exec()
+
+    def set_db(self, db):
+        self._db = db
+        self._db_connected = db is not None
+
+    def set_watcher_active(self, active: bool):
+        if active:
+            self._scan_btn.setText("● Escanear")
+            self._scan_btn.setToolTip(
+                "Monitoreo en tiempo real activo. Usá Escanear para forzar un re-escaneo completo.")
+        else:
+            self._scan_btn.setText("Escanear")
+            self._scan_btn.setToolTip("Escanear carpeta para agregar archivos a la biblioteca")
 
     @staticmethod
     def _open_in_file_manager(path: str):

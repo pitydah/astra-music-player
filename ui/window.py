@@ -420,6 +420,11 @@ class MainWindow(QMainWindow):
             except Exception:
                 logging.getLogger("michi.setup").warning("FileWatcher failed to start")
 
+        # Update folder browser watcher indicator
+        if (hasattr(self, '_file_watcher') and hasattr(self, '_folder_browser')
+                and self._file_watcher and self._folder_browser):
+            self._folder_browser.set_watcher_active(self._file_watcher.is_running)
+
         if (hasattr(self, '_artist_enrich') and self._artist_enrich
                 and hasattr(self._artist_repo, 'groups')):
             from core.settings_manager import get_bool
@@ -609,6 +614,10 @@ class MainWindow(QMainWindow):
         self._about_action = QAction("Acerca de", self)
         self._about_action.triggered.connect(self._show_about)
         self.addAction(self._about_action)
+
+        self._duplicates_action = QAction("Buscar duplicados...", self)
+        self._duplicates_action.triggered.connect(self._show_duplicates)
+        self.addAction(self._duplicates_action)
 
         self._quit_action = QAction("Salir", self)
         self._quit_action.setShortcut("Ctrl+Q")
@@ -1421,6 +1430,11 @@ class MainWindow(QMainWindow):
 
     def _scan_path(self, path: str):
         self._file_actions.scan_path(path)
+
+    def _show_duplicates(self):
+        from ui.dialogs.duplicate_dialog import DuplicateDialog
+        dlg = DuplicateDialog(self._db, self)
+        dlg.exec()
 
     # Extracted to core/playback_controller.py — play/pause/queue logic
     def _play_filepaths(self, filepaths: list[str], play_now: bool = True):

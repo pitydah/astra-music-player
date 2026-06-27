@@ -1113,10 +1113,10 @@ class PremiumSlider(QSlider):
                 track_rect.left(), track_rect.center().y(),
                 track_rect.right(), track_rect.center().y(),
             )
-            gradient.setColorAt(0.0, QColor("#FF7A00"))
-            gradient.setColorAt(0.35, QColor("#FF4A2D"))
-            gradient.setColorAt(0.68, QColor("#F21B5B"))
-            gradient.setColorAt(1.0, QColor("#9F0C80"))
+            gradient.setColorAt(0.0, QColor("#8FB7FF"))
+            gradient.setColorAt(0.35, QColor("#7AA7FF"))
+            gradient.setColorAt(0.68, QColor("#6B9AF0"))
+            gradient.setColorAt(1.0, QColor("#5A8AE0"))
 
             progress_rect = QRectF(track_rect.left(), track_rect.top(),
                                    progress_w, track_rect.height())
@@ -1150,7 +1150,7 @@ class PremiumSlider(QSlider):
                 fill = QColor("#525866")
                 bd = QColor("#747986")
             elif self._pressed:
-                fill = QColor("#F21B5B")
+                fill = QColor("#8FB7FF")
                 bd = QColor("#F5F5F7")
             elif self._hovered:
                 fill = QColor("#FF4A2D")

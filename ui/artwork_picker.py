@@ -152,7 +152,7 @@ class ArtworkResizeDialog(QDialog):
         if ow > 3000 or oh > 3000 or omb > 5:
             warn = QLabel(f"La imagen es muy grande ({ow}×{oh}, {omb:.1f} MB). Se recomienda redimensionar a 600×600 o 1000×1000.")
             warn.setWordWrap(True)
-            warn.setStyleSheet("color: #FFB347; font-size: 11px; background: transparent;")
+            warn.setStyleSheet("color: rgba(200,180,100,0.60); font-size: 11px; background: transparent;")
             main.addWidget(warn)
 
         # ── Buttons ──

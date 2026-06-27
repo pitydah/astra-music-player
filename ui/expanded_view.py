@@ -82,7 +82,7 @@ class ExpandedNowPlaying(QWidget):
         self._cover.setAlignment(Qt.AlignCenter)
         self._cover.setFixedSize(310, 310)
         self._cover.setStyleSheet(
-            "QLabel { background: #1a1a2e; border-radius: 12px; }")
+            "QLabel { background: rgba(255,255,255,0.04); border-radius: 12px; }")
         body.addWidget(self._cover, alignment=Qt.AlignCenter)
 
         body.addSpacing(16)
@@ -175,7 +175,7 @@ class ExpandedNowPlaying(QWidget):
         act_row.setSpacing(24)
         fav_btn = QPushButton("♡ Favorito")
         fav_btn.setFlat(True)
-        fav_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); } QPushButton:hover { color: #FF3C48; }")
+        fav_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); } QPushButton:hover { color: #8FB7FF; }")
         dl_btn = QPushButton("⤓ Descargar")
         dl_btn.setFlat(True)
         dl_btn.setStyleSheet("QPushButton { color: rgba(245,245,247,0.56); } QPushButton:hover { color: #8FB7FF; }")

@@ -448,7 +448,7 @@ class UIBuilder:
         w._genres_stack.addWidget(w._genre_detail)
         w._genres_stack.setCurrentIndex(0)
 
-        w._folder_browser = FolderBrowserWidget()
+        w._folder_browser = FolderBrowserWidget(db=w._db)
         w._folder_browser.folder_selected.connect(
             lambda fps, _w=w: _w._play_filepaths(fps, play_now=True))
         w._folder_browser.queue_requested.connect(

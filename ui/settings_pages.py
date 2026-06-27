@@ -753,7 +753,7 @@ class AdvancedPage(_Page):
         self._reset_audio = SettingsActionButton("Resetear audio")
         self._reset_all = SettingsActionButton("Resetear toda la app")
         lbl = QLabel("Estas acciones no se pueden deshacer")
-        lbl.setStyleSheet("color: #FF6B6B; font-size: 10.5px; background: transparent;")
+        lbl.setStyleSheet("color: rgba(255,100,100,0.55); font-size: 10.5px; background: transparent;")
         card3.add_row(lbl)
         card3.add_row(SettingsRow("Reset UI", "", self._reset_ui))
         card3.add_row(SettingsRow("Reset Audio", "", self._reset_audio))

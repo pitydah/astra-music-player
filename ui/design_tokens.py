@@ -159,6 +159,6 @@ SIDEBAR_SECTION_TEXT = "rgba(245,245,247,0.72)"
 SIDEBAR_ITEM_TEXT = "rgba(245,245,247,0.86)"
 SIDEBAR_ACTIVE_GRADIENT = (
     "qlineargradient(x1:0, y1:0, x2:1, y2:0,"
-    " stop:0 rgba(255,122,0,0.70),"
-    " stop:0.55 rgba(255,77,46,0.68),"
-    " stop:1 rgba(232,0,109,0.68))")
+    " stop:0 rgba(143,183,255,0.70),"
+    " stop:0.55 rgba(100,150,255,0.60),"
+    " stop:1 rgba(80,130,255,0.50))")
