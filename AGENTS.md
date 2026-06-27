@@ -255,7 +255,8 @@ PySide6 mutagen numpy shazamio pyaudio requests
 
 | Metric | Value |
 |--------|-------|
-| Ruff | **0** |
+| Ruff | **0** (verificar con `ruff check .`) |
+| Tests | **454** (verificar con `pytest -q`)
 | Bugs (F-class) | **0** |
 | Stubs | **0** |
 | Dead code | **0** |
