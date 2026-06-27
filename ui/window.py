@@ -1485,7 +1485,7 @@ class MainWindow(QMainWindow):
         self._reload_library_after_change(reason="load")
         if self._workers:
             def _on_backfill_done(count: int):
-                if count > 0 and hasattr(self, '_model'):
+                if count > 0:
                     self._reload_library_after_change(reason="backfill")
             self._workers.run_task("backfill_meta",
                 self._db.backfill_missing_metadata,
@@ -1592,11 +1592,9 @@ class MainWindow(QMainWindow):
             self._update_nav_buttons()
 
     def _update_nav_buttons(self):
-        if hasattr(self, '_back_btn'):
-            self._back_btn.setEnabled(self._nav_history_index > 0)
-        if hasattr(self, '_forward_btn'):
-            self._forward_btn.setEnabled(
-                self._nav_history_index < len(self._nav_history) - 1)
+        self._back_btn.setEnabled(self._nav_history_index > 0)
+        self._forward_btn.setEnabled(
+            self._nav_history_index < len(self._nav_history) - 1)
 
     # ── Static route handlers ──
 
@@ -2625,7 +2623,7 @@ class MainWindow(QMainWindow):
             return
 
         # Update album info banner using repository
-        if hasattr(self, '_album_banner') and hasattr(self, '_album_repo'):
+        if hasattr(self, '_album_banner'):
             item = self._coverflow.item_at(index)
             if not item:
                 return
@@ -2707,7 +2705,7 @@ class MainWindow(QMainWindow):
 
     def _on_album_enriched(self, album_key: str, data: dict):
         """Handle MusicBrainz album enrichment result — update banner if visible."""
-        if not hasattr(self, '_album_repo') or not data:
+        if not data:
             return
         self._album_repo.update_enrichment(album_key, data)
         if hasattr(self, '_album_banner') and self._album_banner:
@@ -2841,9 +2839,8 @@ class MainWindow(QMainWindow):
 
     def _refresh_genres_data(self):
         """Pure data refresh — no navigation."""
-        if hasattr(self, '_genre_repo') and self._genre_repo:
-            self._genre_repo.build(self._all_items)
-            self._genre_grid.set_genres(self._genre_repo.groups, self._genre_repo.families)
+        self._genre_repo.build(self._all_items)
+        self._genre_grid.set_genres(self._genre_repo.groups, self._genre_repo.families)
 
     def _filtered_album_items(self) -> list:
         items = self._album_items()
@@ -2886,12 +2883,10 @@ class MainWindow(QMainWindow):
                 self._show_album_grid()
         elif section == "artists":
             self._refresh_artists_data()
-            if hasattr(self, '_artists_stack'):
-                self._artists_stack.setCurrentIndex(0)
+            self._artists_stack.setCurrentIndex(0)
         elif section == "genres":
             self._refresh_genres_data()
-            if hasattr(self, '_genres_stack'):
-                self._genres_stack.setCurrentIndex(0)
+            self._genres_stack.setCurrentIndex(0)
 
     def _add_folder(self):
         from PySide6.QtWidgets import QFileDialog
@@ -2974,8 +2969,7 @@ class MainWindow(QMainWindow):
         self._artist_enrich.refresh_artist(artist_key)
         self._artist_enrich.enrich_artist(group, force=True)
 
-        if hasattr(self._artist_grid, 'set_artists'):
-            self._artist_grid.set_artists(repo.groups)
+        self._artist_grid.set_artists(repo.groups)
 
         self._toast_svc.show(
             f"Actualizando info de {group.display_name}...", "info")
@@ -2986,7 +2980,7 @@ class MainWindow(QMainWindow):
             repo.apply_external_info(artist_key, info)
 
         # Refresh detail if open for this artist
-        if (hasattr(self, '_artist_detail') and hasattr(self._artist_detail, '_artist')
+        if (hasattr(self._artist_detail, '_artist')
                 and self._artist_detail._artist
                 and self._artist_detail._artist.key == artist_key):
             group = repo.get_group(artist_key)
@@ -2996,16 +2990,14 @@ class MainWindow(QMainWindow):
                 self._artist_detail.set_external_info(info)
 
         # Refresh grid
-        if hasattr(self._artist_grid, 'set_artists'):
-            self._artist_grid.set_artists(repo.groups)
+        self._artist_grid.set_artists(repo.groups)
 
     def _on_artist_image_loaded(self, artist_key: str, local_path: str):
         repo = self._ctx.artist_repo
         # Refresh grid to show new thumb
-        if hasattr(self._artist_grid, 'set_artists'):
-            self._artist_grid.set_artists(repo.groups)
+        self._artist_grid.set_artists(repo.groups)
         # Refresh detail if open for this artist
-        if (hasattr(self, '_artist_detail') and hasattr(self._artist_detail, '_artist')
+        if (hasattr(self._artist_detail, '_artist')
                 and self._artist_detail._artist
                 and self._artist_detail._artist.key == artist_key):
             group = repo.get_group(artist_key)
@@ -3017,8 +3009,7 @@ class MainWindow(QMainWindow):
         if hasattr(repo, 'mark_enrichment_error'):
             repo.mark_enrichment_error(artist_key, error)
         # Refresh grid to show error badge
-        if hasattr(self._artist_grid, 'set_artists'):
-            self._artist_grid.set_artists(repo.groups)
+        self._artist_grid.set_artists(repo.groups)
         self._toast_svc.show(
             f"Enriquecimiento: {error}", "error")
 
