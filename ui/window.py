@@ -169,6 +169,8 @@ class MainWindow(QMainWindow):
         self._search_ctrl.register("local", LocalSource(self._db))
         self._search_ctrl.register("radio", RadioSource(self._radio_manager))
         self._search_ctrl.results_ready.connect(self._on_search_results)
+        from core.app_context import AppContext
+        self._ctx = AppContext(self)
         from ui.controllers.playlist_controller import PlaylistController
         self._playlist_ctrl = PlaylistController(self)
         from ui.controllers.genre_repository import GenreRepository
@@ -232,9 +234,7 @@ class MainWindow(QMainWindow):
         from ui.controllers.artist_repository import ArtistRepository
         self._artist_repo = ArtistRepository()
 
-        # AppContext + AppServices before controllers that use them
-        from core.app_context import AppContext
-        self._ctx = AppContext(self)
+        # AppServices before controllers that use them
         from core.app_services import AppServices
         svc = AppServices(
             db=self._db, playback=self._playback, player=self._player,

@@ -7,11 +7,12 @@ from PySide6.QtWidgets import QFileDialog, QInputDialog
 class PlaylistController:
     def __init__(self, window, services=None):
         self._win = window
-        self._ctx = window._ctx
+        self._ctx = getattr(window, '_ctx', None)
         self._svc = services
 
     def _toast(self, text: str, level: str = "info"):
-        self._ctx.toast.show(text, level)
+        if self._ctx and hasattr(self._ctx, 'toast'):
+            self._ctx.toast.show(text, level)
 
     # ── M3U Import ──
 
