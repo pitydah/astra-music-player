@@ -6,9 +6,11 @@
 PySide6>=6.7
 mutagen>=1.47
 numpy>=1.24
-PyGObject>=3.46
-pycairo>=1.29
-dbus-python>=1.3
+
+# ── System dependencies (NOT pip-installable — use your distro package manager) ──
+# PyGObject>=3.46 → Debian: python3-gi gir1.2-gstreamer-1.0 | Arch: python-gobject | Fedora: python3-gobject
+# pycairo>=1.29   → Debian: python3-cairo | Arch: python-cairo | Fedora: python3-cairo
+# dbus-python>=1.3 → Debian: python3-dbus | Arch: python-dbus | Fedora: python3-dbus
 
 # ── Optional features (after pip install .) ──
 # Recognition: pip install .[recognition]

@@ -39,13 +39,15 @@ michi-music-player/
 ├── sync/           → Android REST API + UDP multicast discovery
 ├── lyrics/         → lrclib_client.py
 ├── metadata/       → album_info_repository.py (LRU 200 + SQLite fallback)
-├── tests/          → **283 tests** in 52 files (pytest + pytest-qt)
+├── tests/          → pytest + pytest-qt suite (run: pytest -q)
 ├── docs/           → architecture.md, roadmap.md
 ├── icons/          → 38+ icons (SVG + PNG, sidebar_clean/, sidebar/, nowplaying_clean/, radio/)
 └── AGENTS.md       → This file
 ```
 
-**Total:** 414 Python files · 283 tests · 14 controllers · 9 audio profiles · 3 recognition providers
+**Total:** 14 controllers · 9 audio profiles · 3 recognition providers
+**Verify:** `ruff check .` · `python -m compileall -q .` · `pytest -q`
+**Note:** Do not trust handwritten test/file counts — run the commands above.
 
 ## 3. Architectural Patterns — MUST FOLLOW (migration in progress)
 
@@ -253,18 +255,17 @@ PySide6 mutagen numpy shazamio pyaudio requests
 
 | Metric | Value |
 |--------|-------|
-| Tests | **283** in 52 files |
-| Python files | **414** |
 | Ruff | **0** |
 | Bugs (F-class) | **0** |
 | Stubs | **0** |
 | Dead code | **0** |
 | Audio profiles | **9** |
-| Controllers | **14** (3 with Qt Signals, DI via AppServices) |
+| Controllers | **14** (with Qt Signals, DI via AppContext/AppServices) |
 | Recognition providers | **3 real** (ShazamIO, AudD, AcoustID) |
 | Icons registered | **38+** |
-| NAV_ROUTES validated | ✅ startup `ImportError` on stale routes |
-| `_win._xxx` private accesses from controllers | **3** (down from 63) |
+| NAV_ROUTES validated | ✅ startup `RuntimeError` on stale routes |
+| XDG paths consolidated | ✅ all via `core.paths` |
+| System deps documented | ✅ PyGObject/pycairo/dbus-python via system, not pip |
 | `sqlite3.connect(DB_PATH)` bypass removed | ✅ all via `core.paths.database_path()` |
 
 **Installation:**

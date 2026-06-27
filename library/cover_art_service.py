@@ -13,7 +13,9 @@ def _covers_cache_dir() -> str:
     return covers_cache_dir()
 
 
-CACHE_DIR = os.path.expanduser("~/.cache/michi/covers")  # legacy compat
+_CACHE_DIR_LEGACY = os.path.expanduser("~/.cache/michi/covers")  # legacy compat (not used actively)
+
+CACHE_DIR = _covers_cache_dir()
 
 
 class CoverArtService:
