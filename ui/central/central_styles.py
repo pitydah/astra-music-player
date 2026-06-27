@@ -11,10 +11,12 @@ from ui.central.central_tokens import (
     BADGE_EXPERIMENTAL_BG, BADGE_EXPERIMENTAL_TEXT,
     SURFACE_CARD, SURFACE_CARD_HOVER, SURFACE_CARD_ELEVATED,
     SURFACE_CARD_ACCENT, BORDER_CARD, BORDER_CARD_ACCENT, BORDER_CARD_ELEVATED,
+    BORDER_SEPARATOR,
     STATUS_INFO_BG, STATUS_INFO_TEXT,
     STATUS_WARNING_BG, STATUS_WARNING_TEXT,
     STATUS_SUCCESS_BG, STATUS_SUCCESS_TEXT,
     STATUS_ERROR_BG, STATUS_ERROR_TEXT,
+    GLASS_EDGE, GLASS_EDGE_FOCUS, SURFACE_HERO,
 )
 
 # ── Legacy aliases (for existing code that references old names) ──
@@ -821,5 +823,133 @@ def icon_slot_qss(name: str) -> str:
             border: 1px solid rgba(143,183,255,0.06);
             border-radius: 12px;
             color: rgba(255,255,255,0.52);
+        }}
+    """
+
+
+def glass_icon_slot_qss(name: str = "", size: int = 44) -> str:
+    """Icon slot with configurable size. Keeps icon centered."""
+    r = max(size // 4, 8)
+    return f"""
+        QLabel#{name} {{
+            background: rgba(143,183,255,0.06);
+            border: 1px solid rgba(143,183,255,0.06);
+            border-radius: {r}px;
+            min-width: {size}px;
+            max-width: {size}px;
+            min-height: {size}px;
+            max-height: {size}px;
+            color: rgba(255,255,255,0.52);
+        }}
+    """
+
+
+def glass_hero_qss(name: str = "") -> str:
+    """Hero section — elevated glass with gradient, subtle border, strong presence."""
+    obj = f"QWidget#{name}" if name else "QWidget"
+    return f"""
+        {obj} {{
+            background: {SURFACE_HERO};
+            border: 1px solid rgba(143,183,255,0.08);
+            border-radius: 24px;
+        }}
+        {obj} QLabel {{
+            background: transparent;
+            border: none;
+        }}
+    """
+
+
+def glass_action_card_qss(name: str = "") -> str:
+    """Action card — compact, gradient background, hover-reactive."""
+    obj = f"QFrame#{name}" if name else "QFrame"
+    return f"""
+        {obj} {{
+            background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                stop:0 rgba(255,255,255,0.045),
+                stop:1 rgba(255,255,255,0.030));
+            border: 1px solid rgba(255,255,255,0.040);
+            border-radius: 12px;
+        }}
+        {obj}:hover {{
+            background: rgba(143,183,255,0.06);
+            border: 1px solid rgba(143,183,255,0.10);
+        }}
+        {obj} QLabel {{
+            background: transparent;
+            border: none;
+        }}
+    """
+
+
+def glass_popup_qss() -> str:
+    """Popup/dropdown — more opaque than cards, solid presence."""
+    return f"""
+        QFrame {{
+            background: {SURFACE_POPUP};
+            border: 1px solid rgba(143,183,255,0.10);
+            border-radius: 14px;
+        }}
+        QFrame QLabel {{
+            background: transparent;
+            border: none;
+            color: {TEXT_NORMAL};
+        }}
+    """
+
+
+def glass_input_qss() -> str:
+    """Premium input field — inner depth with gradient, accent focus."""
+    return f"""
+        QLineEdit, QSpinBox, QDateEdit, QTimeEdit {{
+            background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                stop:0 rgba(255,255,255,0.045),
+                stop:0.08 rgba(0,0,0,0.06),
+                stop:1 rgba(255,255,255,0.030));
+            border: 1px solid {GLASS_EDGE};
+            border-top: 1px solid rgba(0,0,0,0.15);
+            border-radius: 10px;
+            padding: 8px 12px;
+            color: {TEXT_PRIMARY};
+            font-size: 13px;
+            selection-background-color: {ACCENT_SELECTION};
+        }}
+        QLineEdit:focus, QSpinBox:focus, QDateEdit:focus, QTimeEdit:focus {{
+            background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                stop:0 rgba(255,255,255,0.060),
+                stop:0.08 rgba(0,0,0,0.04),
+                stop:1 rgba(255,255,255,0.045));
+            border: 1px solid {GLASS_EDGE_FOCUS};
+            border-top: 1px solid {GLASS_EDGE_FOCUS};
+        }}
+        QLineEdit:disabled, QSpinBox:disabled {{
+            background: rgba(255,255,255,0.025);
+            color: {TEXT_DISABLED};
+        }}
+    """
+
+
+def dialog_premium_qss() -> str:
+    """Premium dialog surface — solid dark, accent border, lg radius."""
+    return (
+        "QDialog {"
+        "  background: rgba(14,16,24,0.98);"
+        "  border: 1px solid rgba(143,183,255,0.12);"
+        "  border-radius: 18px;"
+        "}"
+        "QDialog QLabel {"
+        "  background: transparent;"
+        "  border: none;"
+        "}"
+    )
+
+
+def card_separator_qss() -> str:
+    """Subtle horizontal separator using BORDER_SEPARATOR from tokens."""
+    return f"""
+        QFrame {{
+            max-height: 1px;
+            background: {BORDER_SEPARATOR};
+            border: none;
         }}
     """

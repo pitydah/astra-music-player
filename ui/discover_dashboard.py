@@ -1,22 +1,21 @@
 """Discover Dashboard — large cards for Mix, NoReproducidos, Favoritos, Recientes."""
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QScrollArea, QFrame,
 )
 
-from ui.icons import get_icon
+from ui.icons import get_pixmap
+from ui.central.central_styles import (
+    glass_card_qss, glass_icon_slot_qss, card_title_qss, card_desc_qss, page_title_qss, page_subtitle_qss,
+)
 
 
 class DiscoverDashboard(QWidget):
-    navigate_requested = Signal(str)  # sidebar key
+    navigate_requested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(
-            "background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            " stop:0 rgba(20,22,28,0.94), stop:1 rgba(8,10,16,0.94));")
-
+        self.setObjectName("discoverDashboard")
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QScrollArea.NoFrame)
@@ -29,45 +28,24 @@ class DiscoverDashboard(QWidget):
         layout.setContentsMargins(32, 24, 32, 24)
         layout.setSpacing(20)
 
-        # Title
         title = QLabel("Descubrir")
-        title.setStyleSheet(
-            "font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.94);"
-            "background: transparent;")
+        title.setStyleSheet(page_title_qss())
         layout.addWidget(title)
 
         subtitle = QLabel("Explora, descubre y redescubre tu música")
-        subtitle.setStyleSheet(
-            "font-size: 13px; color: rgba(255,255,255,0.48);"
-            "background: transparent;")
+        subtitle.setStyleSheet(page_subtitle_qss())
         layout.addWidget(subtitle)
         layout.addSpacing(8)
 
-        # Cards grid
         grid = QGridLayout()
         grid.setSpacing(16)
 
         cards = [
-            ("mix_daily", "Mix diario", "Reproducido en los últimos 7 días",
-             "qlineargradient(x1:0, y1:0, x2:1, y2:1, "
-             "stop:0 rgba(143,183,255,0.14), stop:1 rgba(143,183,255,0.08))",
-             "sidebar_mix"),
-            ("mix_unplayed", "No escuchadas", "Canciones que aún no has reproducido",
-             "qlineargradient(x1:0, y1:0, x2:1, y2:1, "
-             "stop:0 rgba(255,255,255,0.06), stop:1 rgba(255,255,255,0.03))",
-             "sidebar_unplayed"),
-            ("mix_popular", "Más escuchadas", "Tus canciones con más reproducciones",
-             "qlineargradient(x1:0, y1:0, x2:1, y2:1, "
-             "stop:0 rgba(143,183,255,0.10), stop:1 rgba(143,183,255,0.06))",
-             "sidebar_popular"),
-            ("favs", "Favoritos", "Canciones que has marcado como favoritas",
-             "qlineargradient(x1:0, y1:0, x2:1, y2:1, "
-             "stop:0 rgba(143,183,255,0.12), stop:1 rgba(143,183,255,0.06))",
-             "sidebar_popular"),
-            ("recent", "Recientes", "Reproducidas recientemente",
-             "qlineargradient(x1:0, y1:0, x2:1, y2:1, "
-             "stop:0 rgba(255,255,255,0.06), stop:1 rgba(255,255,255,0.03))",
-             "sidebar_recent"),
+            ("mix_daily", "Mix diario", "Reproducido en los últimos 7 días", "sidebar_mix"),
+            ("mix_unplayed", "No escuchadas", "Canciones que aún no has reproducido", "sidebar_unplayed"),
+            ("mix_popular", "Más escuchadas", "Tus canciones con más reproducciones", "sidebar_popular"),
+            ("favs", "Favoritos", "Canciones que has marcado como favoritas", "sidebar_popular"),
+            ("recent", "Recientes", "Reproducidas recientemente", "sidebar_recent"),
         ]
 
         self._cards_data = cards
@@ -77,7 +55,6 @@ class DiscoverDashboard(QWidget):
         self._rebuild_cards()
 
         self._scroll.setWidget(container)
-
         main = QVBoxLayout(self)
         main.setContentsMargins(0, 0, 0, 0)
         main.addWidget(self._scroll)
@@ -91,13 +68,12 @@ class DiscoverDashboard(QWidget):
         if cols == self._last_cols:
             return
         self._last_cols = cols
-        # Clear existing cards
         while self._grid.count():
             item = self._grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        for i, (key, name, desc, bg, icon_name) in enumerate(self._cards_data):
-            card = _DiscoverCard(name, desc, bg, icon_name)
+        for i, (key, name, desc, icon_name) in enumerate(self._cards_data):
+            card = _DiscoverCard(name, desc, icon_name)
             card.clicked.connect(lambda checked=False, k=key:
                                  self.navigate_requested.emit(k))
             self._grid.addWidget(card, i // cols, i % cols)
@@ -106,62 +82,37 @@ class DiscoverDashboard(QWidget):
 class _DiscoverCard(QFrame):
     clicked = Signal()
 
-    def __init__(self, title: str, desc: str, bg: str, icon_name: str):
+    def __init__(self, title: str, desc: str, icon_name: str):
         super().__init__()
         self.setObjectName("discoverCard")
         self.setMinimumHeight(140)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet(f"""
-            QFrame#discoverCard {{
-                background: {bg};
-                border: 1px solid rgba(255,255,255,0.04);
-                border-radius: 16px;
-            }}
-            QFrame#discoverCard:hover {{
-                border: 1px solid rgba(143,183,255,0.12);
-            }}
-            QFrame#discoverCard QLabel {{
-                background: transparent;
-                border: none;
-            }}
-        """)
+        self.setStyleSheet(glass_card_qss("discoverCard", "elevated"))
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(16)
 
-        # Icon
         icon_lbl = QLabel()
-        path = get_icon(icon_name)
-        if path:
-            from PySide6.QtGui import QPixmap
-            pix = QPixmap(path)
-            if not pix.isNull():
-                icon_lbl.setPixmap(pix.scaled(48, 48, Qt.KeepAspectRatio,
-                                             Qt.SmoothTransformation))
+        pix = get_pixmap(icon_name, size=44)
+        if pix and not pix.isNull():
+            icon_lbl.setPixmap(pix)
         icon_lbl.setFixedSize(56, 56)
         icon_lbl.setAlignment(Qt.AlignCenter)
-        icon_lbl.setStyleSheet(
-            "QLabel { background: rgba(255,255,255,0.06); border-radius: 14px; }")
+        icon_lbl.setStyleSheet(glass_icon_slot_qss("discoIcon", size=56))
         layout.addWidget(icon_lbl)
 
-        # Text
         text_col = QVBoxLayout()
         text_col.setSpacing(4)
         title_lbl = QLabel(title)
-        title_lbl.setStyleSheet(
-            "font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.92);"
-            "background: transparent;")
+        title_lbl.setStyleSheet(card_title_qss())
         text_col.addWidget(title_lbl)
 
         desc_lbl = QLabel(desc)
-        desc_lbl.setStyleSheet(
-            "font-size: 12px; color: rgba(255,255,255,0.50);"
-            "background: transparent;")
+        desc_lbl.setStyleSheet(card_desc_qss())
         desc_lbl.setWordWrap(True)
         text_col.addWidget(desc_lbl)
         layout.addLayout(text_col, 1)
-
         layout.addStretch()
 
     def mousePressEvent(self, event):

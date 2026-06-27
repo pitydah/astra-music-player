@@ -160,8 +160,8 @@ class BatchWriter:
                         " (filepath, error, stage, updated_at) VALUES (?,?,?,?)",
                         (fp, str(e)[:256], "batch_writer", time.time()))
                     self._conn.commit()
-                except Exception:
-                    pass
+                except Exception as e2:
+                    logger.warning("Failed to log index_error for %s: %s", fp, e2)
                 self._buffer.remove(r)
         if saved < len(records):
             logger.warning("Single flush: %d saved, %d failed",

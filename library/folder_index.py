@@ -7,10 +7,7 @@ navigation (e.g. arrow keys in FolderBrowser).
 import os
 import time
 
-_AUDIO_EXTS = frozenset({
-    ".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus",
-    ".dsf", ".dff", ".aiff", ".ape", ".wv", ".wma", ".spx",
-})
+from library.metadata_extractor import AUDIO_EXTS as _AUDIO_EXTS
 
 _cache: dict[str, tuple[float, list[str] | list[str]]] = {}
 _CACHE_TTL = 5.0
@@ -75,8 +72,10 @@ def get_folder_duration(directory: str) -> float:
             from library.metadata_extractor import extract_metadata_combined
             meta = extract_metadata_combined(fp)
             total += meta.get("duration", 0.0) or 0.0
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger("michi.folder_index").debug(
+                "get_folder_duration failed for %s: %s", fp, e)
     return total
 
 

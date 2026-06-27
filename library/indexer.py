@@ -276,8 +276,8 @@ class Indexer(QObject):
                     "(album_hash, mime, data) VALUES (?,?,?)",
                     (ak, cover_mime, cover_data))
                 self._db._conn.commit()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to cache cover for %s: %s", filepath, e)
 
         return {
             "filepath": filepath,

@@ -41,6 +41,17 @@ class LibraryDB:
         Schema.initialize(self._conn)
         self._init_fts()
 
+    @property
+    def conn(self):
+        return self._conn
+
+    def get_album_art_cache(self, album_hash: str):
+        """Return (mime, data) from album_art_cache, or None."""
+        row = self._conn.execute(
+            "SELECT mime, data FROM album_art_cache WHERE album_hash=?",
+            (album_hash,)).fetchone()
+        return row if row else None
+
     # ── Migration / schema delegates (kept for compat) ──
 
     def _run_migrations(self):
@@ -48,9 +59,6 @@ class LibraryDB:
 
     def _migrate_scan_roots_to_library_roots(self):
         Schema._migrate_scan_roots_to_library_roots(self._conn)
-
-    def _populate_track_uids(self):
-        Schema._populate_track_uids(self._conn)
 
     @staticmethod
     def _compute_track_uid(filepath, artist, album, title, duration, mb_track_id):
@@ -503,7 +511,7 @@ class LibraryDB:
         return len(missing)
 
 
-    def cleanup_missing(self) -> int:
+    def cleanup_missing(self, rebuild_fts: bool = True) -> int:
         """Soft-delete missing files, scoped to known directories."""
         dirs = self.get_directories()
         if not dirs:
@@ -523,12 +531,12 @@ class LibraryDB:
                 (now, rid))
         self._conn.commit()
 
-        # Rebuild FTS5 after soft-deletes
-        from library.search_index import SearchIndex
-        idx = SearchIndex(self._conn)
-        if idx.fts_exists:
-            with contextlib.suppress(Exception):
-                idx.rebuild_fts()
+        if rebuild_fts:
+            from library.search_index import SearchIndex
+            idx = SearchIndex(self._conn)
+            if idx.fts_exists:
+                with contextlib.suppress(Exception):
+                    idx.rebuild_fts()
         return len(missing_ids)
 
     def cleanup_missing_under_root(self, root_path: str) -> int:

@@ -496,19 +496,6 @@ def _safe_extract(filepath: str) -> dict:
         return extract_metadata_combined(filepath)
     except Exception as e:
         log.warning("Metadata extraction failed for %s: %s", filepath, e)
-        try:
-            from core.paths import database_path
-            import sqlite3
-            import time
-            conn = sqlite3.connect(database_path())
-            conn.execute(
-                "INSERT OR REPLACE INTO index_errors (filepath, error, stage, updated_at)"
-                " VALUES (?,?,?,?)",
-                (filepath, str(e)[:512], "extract_metadata", time.time()))
-            conn.commit()
-            conn.close()
-        except Exception:
-            pass
         from library.metadata_normalizer import infer_metadata_from_filename
         inferred = infer_metadata_from_filename(filepath)
         return {"title": inferred.get("title", ""),

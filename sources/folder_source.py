@@ -7,10 +7,6 @@ from library.folder_index import list_audio_files, list_subfolders
 from library.metadata_normalizer import infer_metadata_from_filename
 
 
-AUDIO_EXTS = {".mp3", ".flac", ".ogg", ".wav", ".m4a", ".aac", ".opus",
-              ".dsf", ".dff", ".aiff", ".ape", ".wv", ".wma", ".spx"}
-
-
 class FolderSource(MusicSource):
     def __init__(self, root: str, db=None):
         self.root = root

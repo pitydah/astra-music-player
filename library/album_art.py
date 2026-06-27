@@ -88,7 +88,8 @@ def make_default_cover(title: str = "", size: int = 280) -> QPixmap:
     return pix
 
 
-def _get_embedded_cover(album_name: str, artist: str = "", albumartist: str = "") -> QPixmap | None:
+def _get_embedded_cover(album_name: str, artist: str = "",
+                         albumartist: str = "", db=None) -> QPixmap | None:
     if not album_name:
         return None
     try:
@@ -97,21 +98,25 @@ def _get_embedded_cover(album_name: str, artist: str = "", albumartist: str = ""
     except Exception:
         import hashlib
         album_hash = hashlib.md5(album_name.encode()).hexdigest()
+    row = None
     try:
-        from core.paths import database_path
-        conn = sqlite3.connect(database_path())
-        row = conn.execute(
-            "SELECT mime, data FROM album_art_cache WHERE album_hash=?",
-            (album_hash,)).fetchone()
-        conn.close()
-        if row:
-            pix = QPixmap()
-            pix.loadFromData(row[1])
-            if not pix.isNull():
-                return pix
+        if db is not None:
+            row = db.get_album_art_cache(album_hash)
+        else:
+            from core.paths import database_path
+            conn = sqlite3.connect(database_path())
+            row = conn.execute(
+                "SELECT mime, data FROM album_art_cache WHERE album_hash=?",
+                (album_hash,)).fetchone()
+            conn.close()
     except Exception:
         import logging
         logging.getLogger("michi").debug("Album art: embedded cover extraction failed")
+    if row:
+        pix = QPixmap()
+        pix.loadFromData(row[1] if isinstance(row, tuple) else row["data"])
+        if not pix.isNull():
+            return pix
     return None
 
 

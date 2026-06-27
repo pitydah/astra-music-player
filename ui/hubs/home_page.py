@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QFrame, QScrollArea, QPushButton,
 )
 
 from ui.central.central_styles import (
-    glass_card_qss, glass_button_qss,
-    card_title_qss,
-    page_title_qss, page_subtitle_qss,
+    glass_button_qss, card_title_qss, page_title_qss, page_subtitle_qss,
 )
+from ui.effects.michi_glass import AcrylicBrush, NoiseOverlay, apply_card_shadow
+from ui.effects.michi_hover import HoverLiftFilter, ShineOverlay
 
 
 class HomePage(QWidget):
@@ -80,7 +81,7 @@ class HomePage(QWidget):
         cl.addWidget(title)
 
         # ── 1. Library Status ──
-        self._lib_card = QFrame()
+        self._lib_card = _AcrylicGlassFrame("homeLibCard")
         self._lib_card.setObjectName("homeLibCard")
         lc = QVBoxLayout(self._lib_card)
         lc.setContentsMargins(24, 20, 24, 20)
@@ -96,12 +97,10 @@ class HomePage(QWidget):
             "QLabel { color: rgba(255,255,255,0.56); font-size: 12px;"
             "  background: transparent; border: none; }")
         lc.addWidget(self._lib_counts)
-        self._lib_card.setStyleSheet(glass_card_qss("homeLibCard", "elevated"))
         cl.addWidget(self._lib_card)
 
         # ── 2. Michi Assistant ──
-        self._asst_card = QFrame()
-        self._asst_card.setObjectName("homeAsstCard")
+        self._asst_card = _AcrylicGlassFrame("homeAsstCard")
         ac = QVBoxLayout(self._asst_card)
         ac.setContentsMargins(24, 16, 24, 16)
         ac.setSpacing(8)
@@ -111,7 +110,6 @@ class HomePage(QWidget):
         self._asst_content = QVBoxLayout()
         self._asst_content.setSpacing(4)
         ac.addLayout(self._asst_content)
-        self._asst_card.setStyleSheet(glass_card_qss("homeAsstCard", "elevated"))
         cl.addWidget(self._asst_card)
 
         # ── 3. Last Session + Connections (side by side) ──
@@ -119,8 +117,7 @@ class HomePage(QWidget):
         bottom.setSpacing(16)
 
         # Last session
-        self._session_card = QFrame()
-        self._session_card.setObjectName("homeSessionCard")
+        self._session_card = _AcrylicGlassFrame("homeSessionCard")
         sc = QVBoxLayout(self._session_card)
         sc.setContentsMargins(20, 16, 20, 16)
         sc.setSpacing(8)
@@ -141,12 +138,10 @@ class HomePage(QWidget):
         self._continue_btn.clicked.connect(
             lambda: self.navigation_requested.emit("playback_hub"))
         sc.addWidget(self._continue_btn)
-        self._session_card.setStyleSheet(glass_card_qss("homeSessionCard", "elevated"))
         bottom.addWidget(self._session_card, 1)
 
         # Connections
-        self._conn_card = QFrame()
-        self._conn_card.setObjectName("homeConnCard")
+        self._conn_card = _AcrylicGlassFrame("homeConnCard")
         cc = QVBoxLayout(self._conn_card)
         cc.setContentsMargins(20, 16, 20, 16)
         cc.setSpacing(8)
@@ -166,7 +161,6 @@ class HomePage(QWidget):
         self._conn_btn.clicked.connect(
             lambda: self.navigation_requested.emit("connections_hub"))
         cc.addWidget(self._conn_btn)
-        self._conn_card.setStyleSheet(glass_card_qss("homeConnCard", "elevated"))
         bottom.addWidget(self._conn_card, 1)
 
         cl.addLayout(bottom)
@@ -182,10 +176,8 @@ class HomePage(QWidget):
         songs = stats.get("total_songs", 0)
         if songs == 0:
             self._lib_status_msg.setText("Tu biblioteca necesita atención")
-            self._lib_card.setStyleSheet(glass_card_qss("homeLibCard", "accent"))
         else:
             self._lib_status_msg.setText("Tu biblioteca está lista")
-            self._lib_card.setStyleSheet(glass_card_qss("homeLibCard", "elevated"))
         self._lib_counts.setText(
             f"{songs:,} canciones · {stats['total_albums']:,} álbumes"
             f" · {stats['total_artists']:,} artistas")
@@ -265,3 +257,26 @@ def _clear_layout(layout):
             item.widget().deleteLater()
         elif item.layout():
             _clear_layout(item.layout())
+
+
+class _AcrylicGlassFrame(QFrame):
+    """QFrame with painted acrylic glass background via AcrylicBrush.
+
+    Applies blur + tint + noise + specular automatically.
+    Also adds NoiseOverlay, ShineOverlay, HoverLiftFilter, and card shadow.
+    """
+    def __init__(self, name: str, parent=None):
+        super().__init__(parent)
+        self.setObjectName(name)
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self._brush = AcrylicBrush(tint_opacity=0.06, specular_opacity=18)
+        NoiseOverlay(self)
+        ShineOverlay(self)
+        self.installEventFilter(HoverLiftFilter(self, lift_delta=1, enable_shine=True))
+        QTimer.singleShot(0, lambda: apply_card_shadow(self))
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        self._brush.paint(self, painter, clip_radius=18)
+        painter.end()

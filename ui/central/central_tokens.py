@@ -16,6 +16,10 @@ BORDER_NORMAL          = "rgba(255,255,255,0.06)"
 BORDER_POPUP           = "rgba(143,183,255,0.12)"
 BORDER_DIALOG          = "rgba(143,183,255,0.10)"
 
+GLASS_EDGE             = "rgba(255,255,255,0.035)"
+GLASS_EDGE_FOCUS       = "rgba(143,183,255,0.28)"
+GLASS_INPUT_DEPTH      = "qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 rgba(0,0,0,0.12), stop:0.05 rgba(0,0,0,0.02), stop:1 rgba(255,255,255,0.03))"
+
 # ── Text ──
 TEXT_PRIMARY           = "rgba(255,255,255,0.95)"
 TEXT_NORMAL            = "rgba(255,255,255,0.86)"
@@ -61,13 +65,18 @@ SURFACE_CARD            = "rgba(255,255,255,0.040)"
 SURFACE_CARD_HOVER      = "rgba(255,255,255,0.060)"
 SURFACE_CARD_ELEVATED   = "qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 rgba(255,255,255,0.060), stop:0.7 rgba(255,255,255,0.040), stop:1 rgba(143,183,255,0.035))"
 SURFACE_CARD_ACCENT     = "rgba(143,183,255,0.04)"
+SURFACE_CARD_COMPACT    = "rgba(255,255,255,0.030)"
+SURFACE_CARD_ELEVATED_STRONG = "qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 rgba(255,255,255,0.070), stop:0.6 rgba(255,255,255,0.045), stop:1 rgba(143,183,255,0.040))"
+SURFACE_HERO            = "qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 rgba(255,255,255,0.065), stop:0.5 rgba(143,183,255,0.035), stop:1 rgba(255,255,255,0.025))"
+SURFACE_FLOATING        = "rgba(16,18,26,0.96)"
 SURFACE_CONTROL         = "rgba(255,255,255,0.045)"
 SURFACE_CONTROL_HOVER   = "rgba(255,255,255,0.065)"
 
-# ── Card borders (semantic) ──
-BORDER_CARD             = "rgba(255,255,255,0.040)"
+# ── Card borders (semantic) — brighter than card bg for edge definition ──
+BORDER_CARD             = "rgba(255,255,255,0.055)"
+BORDER_CARD_HOVER       = "rgba(255,255,255,0.080)"
 BORDER_CARD_ACCENT      = "rgba(143,183,255,0.10)"
-BORDER_CARD_ELEVATED    = "rgba(255,255,255,0.040)"
+BORDER_CARD_ELEVATED    = "rgba(255,255,255,0.055)"
 BORDER_CONTROL          = "rgba(255,255,255,0.05)"
 BORDER_CONTROL_HOVER    = "rgba(255,255,255,0.06)"
 BORDER_SEPARATOR        = "rgba(143,183,255,0.08)"

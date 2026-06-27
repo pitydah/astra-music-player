@@ -11,64 +11,12 @@ from PySide6.QtWidgets import (
     QLabel, QFrame, QPushButton,
 )
 
-HERE = Path(__file__).parent.parent
-
-# ═══════════════════════════════════════════════════════════
-# Color tokens
-# ═══════════════════════════════════════════════════════════
-_HERO_BG = (
-    "qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-    "stop:0 rgba(255,255,255,0.075),"
-    "stop:0.55 rgba(255,255,255,0.040),"
-    "stop:1 rgba(255,255,255,0.025))"
+from ui.icons import get_pixmap
+from ui.central.central_styles import (
+    glass_card_qss, glass_button_qss, glass_hero_qss,
 )
 
-
-def _icon_pixmap(name: str, size: int = 32) -> QPixmap:
-    from ui.icons import get_icon
-    path = get_icon(name)
-    if path:
-        return QPixmap(path).scaled(
-            size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-    pix = QPixmap(size, size)
-    pix.fill(Qt.transparent)
-    return pix
-
-
-def _glass_btn_css(extra: str = "") -> str:
-    return f"""
-        QPushButton {{
-            background: rgba(255,255,255,0.060);
-            color: rgba(255,255,255,0.90);
-            border: 1px solid rgba(255,255,255,0.095);
-            border-radius: 14px;
-            padding: 10px 14px;
-            font-size: 12.5px;
-            font-weight: 600;
-            {extra}
-        }}
-        QPushButton:hover {{
-            background: rgba(255,255,255,0.095);
-            border: 1px solid rgba(255,255,255,0.150);
-        }}
-        QPushButton:pressed {{
-            background: rgba(255,255,255,0.125);
-        }}
-    """
-
-
-def _card_css(name: str, hover_bg: str = "0.055") -> str:
-    return f"""
-        QFrame#{name} {{
-            background: rgba(255,255,255,0.040);
-            border: 1px solid rgba(255,255,255,0.070);
-            border-radius: 16px;
-        }}
-        QFrame#{name}:hover {{
-            background: rgba(255,255,255,{hover_bg});
-            border: 1px solid rgba(255,255,255,0.125);
-        }}
-    """
+HERE = Path(__file__).parent.parent
 
 
 # ═══════════════════════════════════════════════════════════
@@ -218,7 +166,7 @@ class PlaylistHubWidget(QWidget):
     def _build_hero(self):
         card = QFrame()
         card.setObjectName("heroCard")
-        card.setStyleSheet(f"QFrame#heroCard {{ background: {_HERO_BG}; border: 1px solid rgba(255,255,255,0.085); border-radius: 22px; }}")
+        card.setStyleSheet(glass_hero_qss("heroCard"))
         card.setFixedHeight(152)
 
         h = QHBoxLayout(card)
@@ -227,7 +175,7 @@ class PlaylistHubWidget(QWidget):
 
         # Icon
         icon_lbl = QLabel()
-        icon_pix = _icon_pixmap("sidebar_playlists", 56)
+        icon_pix = get_pixmap("sidebar_playlists", size=56)
         if not icon_pix.isNull():
             icon_lbl.setPixmap(icon_pix)
             icon_lbl.setFixedSize(56, 56)
@@ -283,7 +231,7 @@ class PlaylistHubWidget(QWidget):
         for label, slot in actions:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(_glass_btn_css())
+            btn.setStyleSheet(glass_button_qss("secondary"))
             btn.setFixedHeight(40)
             btn.clicked.connect(slot)
             row.addWidget(btn)
@@ -308,7 +256,7 @@ class PlaylistHubWidget(QWidget):
     def _make_playlist_card(self, pl: dict) -> QFrame:
         card = QFrame()
         card.setObjectName("playlistCard")
-        card.setStyleSheet(_card_css("playlistCard"))
+        card.setStyleSheet(glass_card_qss("playlistCard"))
         card.setFixedSize(210, 270)
         card.setCursor(Qt.PointingHandCursor)
 
@@ -372,20 +320,20 @@ class PlaylistHubWidget(QWidget):
 
         play_btn = QPushButton("▶ Reproducir")
         play_btn.setCursor(Qt.PointingHandCursor)
-        play_btn.setStyleSheet(_glass_btn_css("padding: 5px 8px; font-size: 10.5px;"))
+        play_btn.setStyleSheet(glass_button_qss("primary") + "QPushButton { padding: 5px 8px; font-size: 10.5px; }")
         play_btn.clicked.connect(lambda: self.playlist_play_requested.emit(pl.get("id", 0)))
         btn_row.addWidget(play_btn)
 
         queue_btn = QPushButton("+ Cola")
         queue_btn.setCursor(Qt.PointingHandCursor)
-        queue_btn.setStyleSheet(_glass_btn_css("padding: 5px 8px; font-size: 10.5px;"))
+        queue_btn.setStyleSheet(glass_button_qss("secondary") + "QPushButton { padding: 5px 8px; font-size: 10.5px; }")
         queue_btn.clicked.connect(lambda: self.playlist_queue_requested.emit(pl.get("id", 0)))
         btn_row.addWidget(queue_btn)
 
         edit_btn = QPushButton("✎")
         edit_btn.setCursor(Qt.PointingHandCursor)
         edit_btn.setFixedSize(30, 28)
-        edit_btn.setStyleSheet(_glass_btn_css("padding: 2px; font-size: 12px;"))
+        edit_btn.setStyleSheet(glass_button_qss("ghost"))
         edit_btn.clicked.connect(lambda: self.playlist_edit_requested.emit(pl.get("id", 0)))
         btn_row.addWidget(edit_btn)
 
@@ -426,7 +374,7 @@ class PlaylistHubWidget(QWidget):
     def _make_smart_card(self, key: str, title: str, desc: str, symbol: str) -> QFrame:
         card = QFrame()
         card.setObjectName("smartCard")
-        card.setStyleSheet(_card_css("smartCard"))
+        card.setStyleSheet(glass_card_qss("smartCard"))
         card.setFixedSize(210, 130)
         card.setCursor(Qt.PointingHandCursor)
 
@@ -478,7 +426,7 @@ class PlaylistHubWidget(QWidget):
     def _make_create_card(self, key: str, title: str, desc: str) -> QFrame:
         card = QFrame()
         card.setObjectName("createCard")
-        card.setStyleSheet(_card_css("createCard"))
+        card.setStyleSheet(glass_card_qss("createCard"))
         card.setFixedSize(210, 110)
         card.setCursor(Qt.PointingHandCursor)
 
@@ -544,7 +492,7 @@ class PlaylistHubWidget(QWidget):
     def _make_tool_card(self, key: str, title: str, desc: str) -> QFrame:
         card = QFrame()
         card.setObjectName("toolCard")
-        card.setStyleSheet(_card_css("toolCard", "0.050"))
+        card.setStyleSheet(glass_card_qss("toolCard"))
         card.setFixedSize(210, 110)
         card.setCursor(Qt.PointingHandCursor)
 

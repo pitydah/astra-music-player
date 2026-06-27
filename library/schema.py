@@ -141,6 +141,7 @@ INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_detected_tracks_artist_title ON detected_tracks(artist, title)",
     "CREATE INDEX IF NOT EXISTS idx_media_artist ON media_items(artist)",
     "CREATE INDEX IF NOT EXISTS idx_media_album ON media_items(album)",
+    "CREATE INDEX IF NOT EXISTS idx_media_directory ON media_items(directory)",
     "CREATE INDEX IF NOT EXISTS idx_media_genre ON media_items(genre)",
     "CREATE INDEX IF NOT EXISTS idx_media_year ON media_items(year)",
 ]

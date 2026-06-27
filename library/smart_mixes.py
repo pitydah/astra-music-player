@@ -14,10 +14,12 @@ from core.paths import database_path
 logger = logging.getLogger(__name__)
 
 
-def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(database_path())
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+def _connect(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
+    if conn is not None:
+        return conn
+    new_conn = sqlite3.connect(database_path())
+    new_conn.execute("PRAGMA journal_mode=WAL")
+    return new_conn
 
 
 def _has_table(conn: sqlite3.Connection, table: str) -> bool:
@@ -39,33 +41,39 @@ def _deleted_filter(conn: sqlite3.Connection, alias: str = "") -> str:
     return f"AND {prefix}deleted_at IS NULL"
 
 
-def get_popular(limit: int = 30) -> list[str]:
+def _run_query(sql: str, params: tuple = (), conn: sqlite3.Connection | None = None) -> list[str]:
+    close_conn = conn is None
+    conn = _connect(conn)
+    try:
+        rows = conn.execute(sql, params).fetchall()
+        return [r[0] for r in rows]
+    finally:
+        if close_conn:
+            conn.close()
+
+
+def get_popular(limit: int = 30, conn: sqlite3.Connection | None = None) -> list[str]:
     """Most played tracks overall (by media_items.play_count)."""
     try:
-        conn = _connect()
-        deleted = _deleted_filter(conn)
-        rows = conn.execute(
+        deleted = _deleted_filter(_connect(conn))
+        return _run_query(
             f"SELECT filepath FROM media_items "
             f"WHERE play_count > 0 {deleted} "
             f"ORDER BY play_count DESC, last_played DESC LIMIT ?",
-            (limit,)).fetchall()
-        conn.close()
-        return [r[0] for r in rows]
+            (limit,), conn)
     except Exception as e:
         logger.warning("get_popular failed: %s", e)
         return []
 
 
-def get_daily_mix(limit: int = 30) -> list[str]:
-    """Tracks played in the last 7 days.
-
-    Uses media_items joined with play_history for recency.
-    """
+def get_daily_mix(limit: int = 30, conn: sqlite3.Connection | None = None) -> list[str]:
+    """Tracks played in the last 7 days."""
+    c = _connect(conn)
+    close_conn = conn is None
     try:
-        conn = _connect()
-        deleted = _deleted_filter(conn)
-        if _has_table(conn, "play_history"):
-            rows = conn.execute(
+        deleted = _deleted_filter(c)
+        if _has_table(c, "play_history"):
+            rows = c.execute(
                 f"SELECT m.filepath, MAX(h.played_at) as latest "
                 f"FROM media_items m "
                 f"JOIN play_history h ON h.track_id = m.filepath "
@@ -73,80 +81,73 @@ def get_daily_mix(limit: int = 30) -> list[str]:
                 f"GROUP BY m.filepath "
                 f"ORDER BY m.play_count DESC, latest DESC LIMIT ?",
                 (limit,)).fetchall()
-            conn.close()
             if rows:
                 return [r[0] for r in rows]
-        else:
-            conn.close()
         # Fallback: use media_items.last_played
-        conn = _connect()
-        deleted = _deleted_filter(conn)
-        rows = conn.execute(
+        rows = c.execute(
             f"SELECT filepath FROM media_items "
             f"WHERE last_played IS NOT NULL "
             f"AND last_played > strftime('%s','now') - 604800 {deleted} "
             f"ORDER BY play_count DESC, last_played DESC LIMIT ?",
             (limit,)).fetchall()
-        conn.close()
         return [r[0] for r in rows]
     except Exception as e:
         logger.warning("get_daily_mix failed: %s", e)
         return []
+    finally:
+        if close_conn:
+            c.close()
 
 
-def get_unplayed(limit: int = 20) -> list[str]:
+def get_unplayed(limit: int = 20, conn: sqlite3.Connection | None = None) -> list[str]:
     """Tracks with play_count = 0 or never played."""
     try:
-        conn = _connect()
-        deleted = _deleted_filter(conn)
-        rows = conn.execute(
+        deleted = _deleted_filter(_connect(conn))
+        return _run_query(
             f"SELECT filepath FROM media_items "
             f"WHERE (play_count = 0 OR play_count IS NULL) "
             f"AND (last_played IS NULL) {deleted} "
             f"ORDER BY RANDOM() LIMIT ?",
-            (limit,)).fetchall()
-        conn.close()
-        return [r[0] for r in rows]
+            (limit,), conn)
     except Exception as e:
         logger.warning("get_unplayed failed: %s", e)
         return []
 
 
-def get_favorites_recent(limit: int = 20) -> list[str]:
+def get_favorites_recent(limit: int = 20, conn: sqlite3.Connection | None = None) -> list[str]:
     """Recently favorited tracks, ordered by favorites.added_at."""
+    c = _connect(conn)
+    close_conn = conn is None
     try:
-        conn = _connect()
-        if not _has_table(conn, "favorites"):
-            conn.close()
+        if not _has_table(c, "favorites"):
             return []
-        deleted = _deleted_filter(conn)
-        rows = conn.execute(
+        deleted = _deleted_filter(c)
+        rows = c.execute(
             f"SELECT m.filepath FROM media_items m "
             f"JOIN favorites f ON f.track_id = m.filepath "
             f"WHERE 1=1 {deleted} "
             f"ORDER BY f.added_at DESC LIMIT ?",
             (limit,)).fetchall()
-        conn.close()
         return [r[0] for r in rows]
     except Exception as e:
         logger.warning("get_favorites_recent failed: %s", e)
         return []
+    finally:
+        if close_conn:
+            c.close()
 
 
-def get_by_genre(genre: str, limit: int = 30) -> list[str]:
+def get_by_genre(genre: str, limit: int = 30, conn: sqlite3.Connection | None = None) -> list[str]:
     """Tracks of a specific genre."""
     if not genre or not genre.strip():
         return []
     try:
-        conn = _connect()
-        deleted = _deleted_filter(conn)
-        rows = conn.execute(
+        deleted = _deleted_filter(_connect(conn))
+        return _run_query(
             f"SELECT filepath FROM media_items WHERE genre LIKE ? "
             f"{deleted} "
             f"ORDER BY RANDOM() LIMIT ?",
-            (f"%{genre}%", limit)).fetchall()
-        conn.close()
-        return [r[0] for r in rows]
+            (f"%{genre}%", limit), conn)
     except Exception as e:
         logger.warning("get_by_genre failed: %s", e)
         return []
