@@ -261,12 +261,12 @@ PySide6 mutagen numpy shazamio pyaudio requests
 | Recognition providers | **3 real** (ShazamIO, AudD, AcoustID) |
 | Icons registered | **38+** |
 
-**Last commits:**
+**Installation:**
 ```
-f219611 fix: extend SVG alpha-safe renderer to entire app
-5730faa fix: sidebar section headers — white text 0.88
-6233287 fix: SVG native_color — remove pure black pixels + edge cleanup
-9614995 fix: Home Audio — own sidebar section + transparent background
+./scripts/install.sh              # unified distro auto-detection (Arch, Debian, Fedora, openSUSE)
+./scripts/install.sh --minimal    # core only, no optional deps
+./scripts/install.sh --no-venv    # system deps only
+./scripts/run_from_source.sh      # run without system install
 ```
 
 ## 10. Key Data Flows

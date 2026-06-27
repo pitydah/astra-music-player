@@ -171,10 +171,9 @@ def check():
     if errors:
         print(f"⚠️  {errors} problema(s) crítico(s) detectado(s)")
         print("\nPara instalar dependencias:")
-        print("  Arch/CachyOS:   ./scripts/install_arch.sh")
-        print("  Ubuntu/Debian:  ./scripts/install_debian_ubuntu.sh")
-        print("  Fedora:         ./scripts/install_fedora.sh")
-        print("  openSUSE:       ./scripts/install_opensuse.sh")
+        print("  ./scripts/install.sh          (instalador unificado automático)")
+        print("  ./scripts/install.sh --minimal (solo dependencias core)")
+        print("  ./scripts/run_from_source.sh   (ejecutar sin instalar al sistema)")
     else:
         print("✅ Todo está listo. Ejecuta: python3 main.py")
     print()

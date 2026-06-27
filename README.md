@@ -60,41 +60,23 @@ Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 340+ te
 
 ## Instalación
 
-### Arch Linux / CachyOS / Manjaro
+### Instalador unificado (todas las distros)
+
+El script detecta automáticamente tu distribución y configura todo:
+
 ```bash
 git clone https://github.com/pitydah/michi-music-player.git
 cd michi-music-player
-./scripts/install_arch.sh
+./scripts/install.sh
 source .venv/bin/activate
 michi-music-player
 ```
 
-### Ubuntu / Debian / Linux Mint
-```bash
-git clone https://github.com/pitydah/michi-music-player.git
-cd michi-music-player
-./scripts/install_debian_ubuntu.sh
-source .venv/bin/activate
-michi-music-player
-```
+**Distros soportadas:** Arch Linux / CachyOS / Manjaro, Ubuntu / Debian / Linux Mint, Fedora, openSUSE (Tumbleweed / Leap)
 
-### Fedora
-```bash
-git clone https://github.com/pitydah/michi-music-player.git
-cd michi-music-player
-./scripts/install_fedora.sh
-source .venv/bin/activate
-michi-music-player
-```
-
-### openSUSE (Tumbleweed / Leap)
-```bash
-git clone https://github.com/pitydah/michi-music-player.git
-cd michi-music-player
-./scripts/install_opensuse.sh
-source .venv/bin/activate
-michi-music-player
-```
+**Flags adicionales:**
+- `--minimal` — instala solo dependencias core (sin chromaprint, avahi, snapcast, etc.)
+- `--no-venv` — instala solo dependencias del sistema, sin entorno virtual
 
 ### Ejecutar desde fuente (sin instalar al sistema)
 ```bash

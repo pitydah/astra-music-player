@@ -1,6 +1,7 @@
 # Michi Music Player — Python dependencies
 # Install: pip install .          (core)
 #           pip install .[all]    (all features)
+#           ./scripts/install.sh  (unified installer with system deps)
 
 PySide6>=6.7
 mutagen>=1.47
@@ -14,6 +15,10 @@ dbus-python>=1.3
 # shazamio
 # pyaudio
 
+# Audio Analysis: pip install .[audio-analysis]
+# librosa>=0.10
+# soundfile>=0.12
+
 # Development: pip install .[dev]
 # pytest>=7
 # pytest-qt>=4
@@ -24,9 +29,15 @@ dbus-python>=1.3
 #   python3-gi gir1.2-gstreamer-1.0 gstreamer1.0-plugins-base
 #   gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
 #   gstreamer1.0-plugins-ugly gstreamer1.0-libav
+#   python3-dbus python3-cairo
+#   python3-numpy python3-mutagen
 # Fedora:
 #   python3-gobject gstreamer1-plugins-base gstreamer1-plugins-good
-#   gstreamer1-plugins-bad-free gstreamer1-plugins-ugly
+#   gstreamer1-plugins-bad-free gstreamer1-plugins-ugly-free
+#   gstreamer1-libav python3-dbus python3-cairo
+#   python3-numpy python3-mutagen
 # Arch:
 #   python-gobject gst-plugins-base gst-plugins-good
 #   gst-plugins-bad gst-plugins-ugly gst-libav
+#   python-dbus python-cairo
+#   python-mutagen python-numpy

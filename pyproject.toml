@@ -39,24 +39,30 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-recognition = [
-    "shazamio",
-    "pyaudio",
-]
-kde = []     # system deps only: python3-gi, gstreamer1.0-plugins-*
-home_audio = []  # system deps: avahi-utils
-sync = []    # no extra pip deps required
 dev = [
     "pytest>=7",
     "pytest-qt>=4",
     "ruff",
 ]
-all = [
+recognition = [
     "shazamio",
     "pyaudio",
+]
+audio-analysis = [
+    "librosa>=0.10",
+    "soundfile>=0.12",
+]
+kde = []     # system deps only: python3-gi, gstreamer1.0-plugins-*
+home_audio = []  # system deps: avahi-utils
+sync = []    # no extra pip deps required
+all = [
     "pytest>=7",
     "pytest-qt>=4",
     "ruff",
+    "shazamio",
+    "pyaudio",
+    "librosa>=0.10",
+    "soundfile>=0.12",
 ]
 
 [project.urls]
