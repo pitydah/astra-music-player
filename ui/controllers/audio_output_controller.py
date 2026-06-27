@@ -1,13 +1,17 @@
 """AudioOutputController — local audio output device selection."""
 import logging
 
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QMenu
 
 
-class AudioOutputController:
+class AudioOutputController(QObject):
     """Manages local audio output device selection via GStreamer DeviceMonitor."""
 
+    preferences_requested = Signal()
+
     def __init__(self, window, services=None):
+        super().__init__()
         self._win = window
         self._svc = services
 
@@ -43,7 +47,7 @@ class AudioOutputController:
         menu.addAction("PipeWire (sistema)",
                        lambda: self._win._ctx.playback.set_output_device_id(None))
         menu.addAction("Actualizar dispositivos", self.show_menu)
-        menu.addAction("Preferencias de audio…", self._win._show_preferences)
+        menu.addAction("Preferencias de audio…", self.preferences_requested.emit)
 
         btn = self._win._ctx.player_bar.audio_output_button()
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))

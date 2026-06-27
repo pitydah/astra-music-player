@@ -69,14 +69,52 @@ def cache_origin(filepath: str, pix: QPixmap):
     cache_cover(filepath, pix, "large")
 
 
-def cleanup_cache(max_count: int = 500):
-    """Remove oldest cache entries if exceeding count limit."""
+def cleanup_cache(max_count: int = 500, max_size_mb: int | None = None):
+    """Remove oldest cache entries exceeding count or size limits.
+
+    Applies both limits:
+      - max_count: maximum number of PNG files in the cache directory
+      - max_size_mb: maximum total size in MB (defaults to MAX_CACHE_SIZE_MB)
+    Only removes .png files managed by this cache — never touches other files.
+    """
     d = _cache_dir()
     if not os.path.isdir(d):
         return
-    files = sorted(
-        (os.path.join(d, f) for f in os.listdir(d) if f.endswith(".png")),
-        key=os.path.getmtime)
-    for f in files[max_count:]:
+    if max_size_mb is None:
+        max_size_mb = MAX_CACHE_SIZE_MB
+
+    # Gather cache entries sorted by mtime (oldest first)
+    entries: list[tuple[str, float, int]] = []
+    for name in os.listdir(d):
+        if not name.endswith(".png"):
+            continue
+        fpath = os.path.join(d, name)
+        try:
+            st = os.stat(fpath)
+        except OSError:
+            continue
+        entries.append((fpath, st.st_mtime, st.st_size))
+
+    entries.sort(key=lambda e: e[1])  # sort by mtime
+
+    # Determine cut point by count
+    to_remove: set[str] = set()
+    if len(entries) > max_count:
+        for fpath, _, _ in entries[:len(entries) - max_count]:
+            to_remove.add(fpath)
+
+    # Determine additional cut point by total size
+    total_bytes = sum(st_size for _, _, st_size in entries)
+    max_bytes = max_size_mb * 1024 * 1024
+    if total_bytes > max_bytes and entries:
+        running = total_bytes
+        for fpath, _, st_size in entries:
+            if running <= max_bytes:
+                break
+            to_remove.add(fpath)
+            running -= st_size
+
+    # Delete files
+    for fpath in sorted(to_remove):
         with __import__("contextlib").suppress(OSError):
-            os.unlink(f)
+            os.unlink(fpath)

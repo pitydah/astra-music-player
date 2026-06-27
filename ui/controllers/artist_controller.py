@@ -55,14 +55,21 @@ class ArtistController:
         if fps:
             self._win._ctx.playback.enqueue(fps, play_now=False)
 
+    def _get_db(self):
+        """Return database handle, preferring injected service."""
+        if self._svc and hasattr(self._svc, 'db'):
+            return self._svc.db
+        return self._win._ctx.db
+
     def create_playlist_from_artist(self, artist_key: str):
         repo = self._win._ctx.artist_repo
         group = repo.get_group(artist_key)
         if not group:
             return
-        pid = self._win._ctx.db.create_playlist(group.display_name)
+        db = self._get_db()
+        pid = db.create_playlist(group.display_name)
         for fp in [t.filepath for t in group.all_tracks if os.path.isfile(t.filepath)]:
-            self._win._ctx.db.add_to_playlist(pid, fp)
+            db.add_to_playlist(pid, fp)
         self._win._ctx.rebuild_sidebar()
         self._win._ctx.toast.show(f"Playlist creada: {group.display_name}", "success")
 

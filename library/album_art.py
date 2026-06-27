@@ -92,8 +92,8 @@ def _get_embedded_cover(album_name: str, artist: str = "", albumartist: str = ""
         import hashlib
         album_hash = hashlib.md5(album_name.encode()).hexdigest()
     try:
-        from library.library_db import DB_PATH
-        conn = sqlite3.connect(DB_PATH)
+        from core.paths import database_path
+        conn = sqlite3.connect(database_path())
         row = conn.execute(
             "SELECT mime, data FROM album_art_cache WHERE album_hash=?",
             (album_hash,)).fetchone()

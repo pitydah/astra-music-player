@@ -1,13 +1,19 @@
 """Expanded controller — now playing expanded view management."""
 import os
 
+from PySide6.QtCore import QObject, Signal
 from audio.player import PlaybackState
 from library.cover_art_service import CoverArtService
 from ui.expanded_view import ExpandedNowPlaying
 
 
-class ExpandedController:
+class ExpandedController(QObject):
+    play_files_requested = Signal(list)
+    metadata_requested = Signal(list)
+    preferences_requested = Signal(str)
+
     def __init__(self, window, services=None):
+        super().__init__()
         self._win = window
         self._svc = services
 
@@ -17,7 +23,9 @@ class ExpandedController:
 
         if self._win._ctx.expanded is None:
             self._win._ctx.expanded = ExpandedNowPlaying()
-            if hasattr(self._win, '_workers'):
+            if self._svc and hasattr(self._svc, 'workers'):
+                self._win._ctx.expanded._lyrics._workers = self._svc.workers
+            elif hasattr(self._win, '_workers'):
                 self._win._ctx.expanded._lyrics._workers = self._win._workers
             self._win._ctx.expanded.go_back.connect(self.back)
             self._win._ctx.expanded.play_clicked.connect(self._win._ctx.playback.toggle)
@@ -31,12 +39,11 @@ class ExpandedController:
                 lambda fp="": self._win._ctx.playlist_ctrl.hub_create_from_folder()
                 if hasattr(self._win._ctx, 'playlist_ctrl') else None)
             self._win._ctx.expanded.eq_requested.connect(
-                lambda: self._win._show_preferences("eq")
-                if hasattr(self._win, '_show_preferences') else None)
+                lambda: self.preferences_requested.emit("eq"))
             self._win._ctx.expanded.file_info_requested.connect(
-                lambda: self._win._open_metadata_for_files(
+                lambda: self.metadata_requested.emit(
                     [self._win._ctx.playback.current])
-                if self._win._ctx.playback.current and hasattr(self._win, '_open_metadata_for_files') else None)
+                if self._win._ctx.playback.current else None)
 
             self._win._ctx.player.position_changed.connect(self._win._ctx.expanded.set_position)
             self._win._ctx.player.duration_changed.connect(self._win._ctx.expanded.set_duration)

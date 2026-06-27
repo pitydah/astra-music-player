@@ -21,7 +21,11 @@ from library.metadata_extractor import AUDIO_EXTS, ALL_EXTS, extract_metadata, e
 from library.media_item import MediaItem, media_kind  # noqa: E402
 from library.devices import get_mounted_devices, scan_device_music  # noqa: E402, F401
 
-DB_PATH = os.path.expanduser("~/.local/share/michi-music-player/library.db")
+def _default_db_path() -> str:
+    from core.paths import database_path
+    return database_path()
+
+DB_PATH = _default_db_path()
 
 
 # ── Database ──

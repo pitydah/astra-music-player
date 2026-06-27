@@ -10,6 +10,7 @@ class PlayerService(QObject):
     state_changed = Signal(str)         # playing/paused/stopped
     position_changed = Signal(float)    # seconds
     duration_changed = Signal(float)    # seconds
+    volume_changed = Signal(int)        # volume 0-100
     error_occurred = Signal(str)
     queue_changed = Signal(list)        # list[dict]
     finished = Signal()
@@ -105,6 +106,7 @@ class PlayerService(QObject):
 
     def set_volume(self, vol: int):
         self._engine.set_volume(vol)
+        self.volume_changed.emit(vol)
 
     # ── Queue ──
 
@@ -233,6 +235,12 @@ class PlayerService(QObject):
     def set_eq_preamp(self, db: float):
         if hasattr(self._engine, 'set_eq_preamp'):
             self._engine.set_eq_preamp(db)
+
+    def get_eq_state(self) -> dict | None:
+        """Return current EQ state dict, or None if engine has no EQ."""
+        if hasattr(self._engine, 'get_eq_state'):
+            return self._engine.get_eq_state()
+        return None
 
     def set_spectrum_enabled(self, enabled: bool):
         if hasattr(self._engine, 'set_spectrum_enabled'):

@@ -112,14 +112,13 @@ class TestSmartMixes:
         shutil.rmtree(cls.tmpdir, ignore_errors=True)
 
     def setup_method(self):
-        from library.smart_mixes import DB_PATH as _orig
-        self._orig_db_path = _orig
         import library.smart_mixes
-        library.smart_mixes.DB_PATH = self.db_path
+        self._orig_database_path = library.smart_mixes.database_path
+        library.smart_mixes.database_path = lambda: self.db_path
 
     def teardown_method(self):
         import library.smart_mixes
-        library.smart_mixes.DB_PATH = self._orig_db_path
+        library.smart_mixes.database_path = self._orig_database_path
 
     def test_popular_orders_by_play_count(self):
         result = get_popular(10)

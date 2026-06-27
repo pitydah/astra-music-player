@@ -28,31 +28,42 @@ _ICON_SCORE_THRESHOLD = 40  # below this, consider low quality
 
 
 def _image_dimensions(path: str) -> tuple[int, int]:
-    """Get (width, height) of an image without loading it fully."""
+    """Get (width, height) of an image without loading it fully.
+
+    Tries PIL first, then falls back to header parsers for JPEG and PNG.
+    """
     try:
         from PIL import Image
         with Image.open(path) as img:
             return img.size
     except Exception:
         pass
-    # Fallback: try to parse header manually for JPEG
     try:
         with open(path, "rb") as f:
-            if f.read(2) != b"\xff\xd8":
-                return (0, 0)
-            while True:
-                marker = f.read(2)
-                if not marker or marker[0] != 0xff:
-                    break
-                if marker in (b"\xff\xd8", b"\xff\xd9"):
-                    continue
-                if marker in (b"\xff\xc0", b"\xff\xc1", b"\xff\xc2"):
-                    f.read(3)  # skip length + precision
-                    h = int.from_bytes(f.read(2), "big")
-                    w = int.from_bytes(f.read(2), "big")
+            sig = f.read(8)
+            # ── JPEG ──
+            if sig[:2] == b"\xff\xd8":
+                f.seek(2)  # rewind to just after SOI marker
+                while True:
+                    marker = f.read(2)
+                    if not marker or marker[0] != 0xff:
+                        break
+                    if marker in (b"\xff\xd8", b"\xff\xd9"):
+                        continue
+                    if marker in (b"\xff\xc0", b"\xff\xc1", b"\xff\xc2"):
+                        f.read(3)  # skip length + precision
+                        h = int.from_bytes(f.read(2), "big")
+                        w = int.from_bytes(f.read(2), "big")
+                        return (w, h)
+                    length = int.from_bytes(f.read(2), "big")
+                    f.seek(length - 2, 1)
+            # ── PNG ──
+            elif sig == b"\x89PNG\r\n\x1a\n":
+                f.read(4)  # skip IHDR length (always 13)
+                if f.read(4) == b"IHDR":
+                    w = int.from_bytes(f.read(4), "big")
+                    h = int.from_bytes(f.read(4), "big")
                     return (w, h)
-                length = int.from_bytes(f.read(2), "big")
-                f.seek(length - 2, 1)
     except Exception:
         pass
     return (0, 0)
@@ -107,7 +118,7 @@ class ArtworkResolver:
                 continue
 
             w, h = _image_dimensions(full_path)
-            if w < 200 or h < 200 and score > 0:
+            if (w < 200 or h < 200) and score > 0:
                 score = max(score // 2, 5)  # penalize small images
 
             results.append({

@@ -18,6 +18,7 @@ class AppServices:
     playback: object = None    # PlayerService
     player: object = None      # PlayerEngine
     model: object = None       # TrackRefTableModel
+    workers: object = None     # WorkerManager
 
     # UI feedback
     toast: object = None       # ToastService
@@ -37,3 +38,7 @@ class AppServices:
     rebuild_sidebar: callable = None
     load_library: callable = None
     play_file: callable = None            # (filepath: str) -> None
+    reload_library: callable = None       # (reason: str) -> None
+    clear_coverflow_cache: callable = None
+    enrich_artist: callable = None        # (key: str, name: str) -> None
+    get_content_widget: callable = None   # () -> QWidget — for overlay parents

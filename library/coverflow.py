@@ -529,6 +529,14 @@ class CoverFlowWidget(QGraphicsView):
         self._update_layout()
         self._position_slider()
 
+    def cover_size(self) -> int:
+        """Return the cover width in pixels (square)."""
+        return self._cover_w
+
+    def set_cover_pixmap(self, idx: int, pixmap: QPixmap):
+        """Load a cover pixmap for the item at index."""
+        self._on_cover_loaded(idx, pixmap)
+
     def item_at(self, idx: int) -> CoverFlowItem | None:
         if 0 <= idx < len(self._items):
             return self._items[idx]

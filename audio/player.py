@@ -524,6 +524,15 @@ class GStreamerEngine(QObject):
         self._eq.preamp_db = db
         self._restart_if_playing()
 
+    def get_eq_state(self) -> dict:
+        """Return current EQ state as a plain dict. Safe to call anytime."""
+        return {
+            "mode": self._eq.mode,
+            "bands_31": list(self._eq.bands_31) if self._eq.bands_31 else [0.0] * 31,
+            "bands_parametric": list(self._eq.bands_parametric) if self._eq.bands_parametric else [],
+            "preamp_db": self._eq.preamp_db,
+        }
+
     def set_spectrum_enabled(self, enabled: bool):
         self._spectrum_enabled = enabled
         if self._pipeline and self._state == PlaybackState.PLAYING:

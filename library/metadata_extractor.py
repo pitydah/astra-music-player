@@ -497,10 +497,10 @@ def _safe_extract(filepath: str) -> dict:
     except Exception as e:
         log.warning("Metadata extraction failed for %s: %s", filepath, e)
         try:
-            from library.library_db import DB_PATH
+            from core.paths import database_path
             import sqlite3
             import time
-            conn = sqlite3.connect(DB_PATH)
+            conn = sqlite3.connect(database_path())
             conn.execute(
                 "INSERT OR REPLACE INTO index_errors (filepath, error, stage, updated_at)"
                 " VALUES (?,?,?,?)",

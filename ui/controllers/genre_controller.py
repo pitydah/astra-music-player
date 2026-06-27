@@ -37,7 +37,9 @@ class GenreController:
 
     def show_genres_overview(self, mode: str = "grid"):
         repo = self._genre_repo
-        repo.build(self._ctx_or_svc("all_items", []))
+        db = self._ctx_or_svc("db", None)
+        all_items = db.get_all() if db else []
+        repo.build(all_items)
         self._genre_grid.set_genres(repo.groups, repo.families)
         self._ctx_or_svc("configure_header", lambda k: None)("genres")
         self._win._ctx.show_library_hub()
@@ -71,7 +73,11 @@ class GenreController:
             if shuffle:
                 import random
                 random.shuffle(fps)
-            self._win._play_filepaths(fps, play_now=True)
+            playback = self._ctx_or_svc("playback", None)
+            if playback and hasattr(playback, 'play_queue'):
+                playback.play_queue(fps)
+            elif playback:
+                playback.enqueue(fps, play_now=True)
 
     def queue_genre(self, genre_key: str):
         fps = self._genre_repo.filepaths_for_genre(genre_key)

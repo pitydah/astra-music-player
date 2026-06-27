@@ -9,13 +9,13 @@ Uses the real schema:
 import logging
 import sqlite3
 
-from library.library_db import DB_PATH
+from core.paths import database_path
 
 logger = logging.getLogger(__name__)
 
 
 def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(database_path())
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 

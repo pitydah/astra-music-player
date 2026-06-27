@@ -9,7 +9,6 @@ Usage:
   python3 scripts/install_icons.py --uninstall   # remove installed icons
 """
 import argparse
-import os
 import shutil
 import subprocess
 import sys
@@ -145,7 +144,7 @@ def install_icons() -> bool:
         scalable_dir = icon_dir / "scalable" / "apps"
         ensure_dir(scalable_dir)
         shutil.copy2(source, scalable_dir / f"{APP_ID}.svg")
-        print(f"  ✓ scalable (SVG)")
+        print("  ✓ scalable (SVG)")
 
     print(f"  {installed} iconos instalados en {icon_dir}")
     return True

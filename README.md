@@ -1,8 +1,8 @@
 # Michi Music Player
 
-Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 340+ tests · ruff 0 · alpha avanzada
+Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 283 tests · ruff 0 · pre-beta
 
-[![Tests](https://img.shields.io/badge/tests-339%2F339-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-283-brightgreen)]()
 [![Ruff](https://img.shields.io/badge/ruff-0-green)]()
 [![Python](https://img.shields.io/badge/python-3.11+-blue)]()
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange)]()
@@ -53,9 +53,9 @@ Reproductor audiófilo premium para Linux · PySide6/Qt6 · GStreamer · 340+ te
 - 📱 **Sincronización Android** — API REST + UDP multicast discovery
 
 ### Arquitectura
-- 🏛️ **AppContext DI** — Inyección de dependencias centralizada, 0 accesos directos a window desde controladores
+- 🏛️ **AppContext DI** — Inyección de dependencias centralizada vía `AppContext`, controladores acceden a servicios por interfaz
 - 🧩 **14 controladores** — Transmit, AudioOutput, Snapcast, HomeAudio, Cast, LocalMediaServer, MiniPlayer, PlayerBar, Playlist, Artist, Album, Expanded, MPRIS, Tray
-- 🔒 **Encapsulación** — PlayerService como facade único al engine, wrappers públicos para todos los métodos, 0 accesos a atributos privados
+- 🔒 **Encapsulación reforzada** — PlayerService como facade único al engine, CoverFlow con API pública, progresiva eliminación de accesos privados desde window.py
 - 🧹 **Código activo** — módulos cableados a flujos reales, servicios opcionales con degradación segura
 
 ## Instalación

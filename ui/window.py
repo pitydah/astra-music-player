@@ -235,12 +235,27 @@ NAV_ROUTES = {
 
 
 class MainWindow(QMainWindow):
+    @classmethod
+    def _validate_nav_routes(cls):
+        """Assert that every NAV_ROUTES key maps to an existing method.
+
+        Converts silent route dispatch failures into immediate ImportError at startup.
+        """
+        missing = []
+        for key, method_name in NAV_ROUTES.items():
+            if not hasattr(cls, method_name):
+                missing.append(f"  {key!r} → {method_name!r} (not found)")
+        if missing:
+            msg = "NAV_ROUTES references non-existent methods:\n" + "\n".join(missing)
+            raise ImportError(msg)
+
     def __init__(self):
         from time import perf_counter
         _t0 = perf_counter()
         _log = logging.getLogger("michi.startup")
 
         super().__init__()
+        self._validate_nav_routes()  # must be first — fails fast on config errors
         self._safe_mode = os.environ.get("MICHI_SAFE_MODE") == "1"
         self._view_cache: dict[str, QWidget] = {}
         from core.shutdown_manager import ShutdownManager
@@ -387,6 +402,7 @@ class MainWindow(QMainWindow):
         svc = AppServices(
             db=self._db, playback=self._playback, player=self._player,
             model=self._model, toast=self._toast_svc,
+            workers=self._workers,
             player_bar=getattr(self, '_player_bar_ctrl', None),
             features=self._features,
             artist_repo=self._artist_repo, genre_repo=self._genre_repo,
@@ -394,12 +410,18 @@ class MainWindow(QMainWindow):
             configure_header=self._configure_header_for_section,
             rebuild_sidebar=self._rebuild_sidebar,
             load_library=self._load_library, play_file=self._play_file,
+            reload_library=self._reload_library_after_change,
+            clear_coverflow_cache=lambda: setattr(self, '_coverflow_cache_key', None),
+            enrich_artist=lambda k, n: (hasattr(self, '_artist_enrich')
+                                        and hasattr(self._artist_enrich, 'enrich_artist_by_key')
+                                        and self._artist_enrich.enrich_artist_by_key(k, n)),
+            get_content_widget=lambda: self._content if hasattr(self, '_content') else self,
         )
         self._services = svc
 
         # Controllers — pass AppServices for progressive migration
         from core.file_actions import FileActions
-        self._file_actions = FileActions(self)
+        self._file_actions = FileActions(self, services=svc)
         from ui.controllers.album_controller import AlbumController
         self._album_ctrl = AlbumController(self, refresh_grid=self._show_album_grid, services=svc)
         from ui.controllers.transmit_controller import TransmitController
@@ -420,6 +442,15 @@ class MainWindow(QMainWindow):
         self._expanded_ctrl = ExpandedController(self, services=svc)
         from ui.controllers.artist_controller import ArtistController
         self._artist_ctrl = ArtistController(self, services=svc)
+
+        # ── Wire controller signals ──
+        self._cast_ctrl.transmit_device_selected.connect(self._activate_transmit_device)
+        self._cast_ctrl.add_transmit_requested.connect(self._add_transmit_device)
+        self._cast_ctrl.manage_transmit_requested.connect(self._manage_transmit_devices)
+        self._audio_output_ctrl.preferences_requested.connect(
+            lambda: self._show_preferences("audio"))
+        self._expanded_ctrl.preferences_requested.connect(self._show_preferences)
+        self._expanded_ctrl.metadata_requested.connect(self._open_metadata_for_files)
 
     def _init_optional_services(self):
         """Music identifier, HomeAudioView, Snapcast, API, mDNS, enrichment, MPRIS."""
@@ -1451,7 +1482,7 @@ class MainWindow(QMainWindow):
         if sync_mgr and sync_mgr.is_active:
             import contextlib
             with contextlib.suppress(Exception):
-                sync_peers = self._sync_manager.get_all_peers()
+                sync_peers = sync_mgr.get_all_peers()
         self._sidebar_controller.rebuild(load_servers(), sync_peers)
 
         # Sidebar shadow
@@ -1556,7 +1587,7 @@ class MainWindow(QMainWindow):
         self._view_switcher.set_view("list", emit=False)
 
     def _show_playlist_hub(self, key):
-        pls = self._db.get_playlists()
+        pls = self._playlist_ctrl.get_all_playlists()
         self._playlist_hub.set_playlists(pls)
         self._fade_content("playlist_hub")
 
@@ -1566,8 +1597,8 @@ class MainWindow(QMainWindow):
     def _show_playlist_detail(self, key):
         pid = int(key.split(":", 1)[1])
         self._current_playlist = pid
-        items = self._db.get_playlist_items(pid)
-        pl = next((p for p in self._db.get_playlists() if p["id"] == pid), {"name": "Playlist"})
+        items = self._playlist_ctrl.get_playlist_items(pid)
+        pl = self._playlist_ctrl.get_playlist_by_id(pid) or {"name": "Playlist"}
         self._playlist_detail.set_playlist(pl, items)
         total_dur = int(sum(getattr(i, 'duration', 0) or 0 for i in items))
         h = total_dur // 3600
@@ -1586,7 +1617,7 @@ class MainWindow(QMainWindow):
         pid = getattr(self, '_current_playlist', 0)
         if not pid:
             return
-        items = self._db.get_playlist_items(pid)
+        items = self._playlist_ctrl.get_playlist_items(pid)
         paths = [i.filepath for i in items if getattr(i, 'filepath', '')]
         if not paths:
             return
@@ -2019,16 +2050,13 @@ class MainWindow(QMainWindow):
     def _create_playlist(self):
         name, ok = QInputDialog.getText(self, "Nueva playlist", "Nombre:")
         if ok and name.strip():
-            self._db.create_playlist(name.strip())
-            self._rebuild_sidebar()
+            self._playlist_ctrl.create_playlist(name.strip())
 
     def _delete_playlist(self, pid):
-        self._db.delete_playlist(pid)
-        self._rebuild_sidebar()
-        self._load_library()
+        self._playlist_ctrl.delete_playlist(pid)
 
     def _edit_playlist_dialog(self, pid: int):
-        pl = next((p for p in self._db.get_playlists() if p["id"] == pid), None)
+        pl = self._playlist_ctrl.get_playlist_by_id(pid)
         if not pl:
             return
 
@@ -2277,7 +2305,7 @@ class MainWindow(QMainWindow):
             self._fade_content("radio")
 
         elif section == "playlist_hub":
-            self._playlist_hub.set_playlists(self._db.get_playlists())
+            self._playlist_hub.set_playlists(self._playlist_ctrl.get_all_playlists())
             self._fade_content("playlist_hub")
 
         elif section in ("favs", "recent", "mix_unplayed"):
@@ -2452,14 +2480,14 @@ class MainWindow(QMainWindow):
     def _on_album_sort(self, key: str):
         self._album_sort_key = key
         self._coverflow_cache_key = None
-        if self._current_section_key == "albums" and self._view_mode == "grid":
-            self._show_album_grid()
+        if self._current_section_key == "albums":
+            self._refresh_active_library_tab(force=True)
 
     def _on_album_filter(self, key: str):
         self._album_filter_mode = key
         self._coverflow_cache_key = None
-        if self._current_section_key == "albums" and self._view_mode == "grid":
-            self._show_album_grid()
+        if self._current_section_key == "albums":
+            self._refresh_active_library_tab(force=True)
 
     def _fade_content(self, target: str):
         self._nav.show(target)
@@ -2510,7 +2538,7 @@ class MainWindow(QMainWindow):
         if self._coverflow is not None and cache_key == self._coverflow_cache_key:
             self._albums_stack.setCurrentIndex(2)
             self._fade_content("library_hub")
-            self._count.setText(f"{len(self._coverflow._items)} álbumes")
+            self._count.setText(f"{self._coverflow.count()} álbumes")
             self._coverflow.setFocus()
             return
         self._coverflow_cache_key = cache_key
@@ -2558,9 +2586,11 @@ class MainWindow(QMainWindow):
         self._coverflow.setFocus()
 
     def _on_coverflow_dbl(self, index: int):
-        if not self._coverflow or index >= len(self._coverflow._items):
+        if not self._coverflow or index >= self._coverflow.count():
             return
-        item = self._coverflow._items[index]
+        item = self._coverflow.item_at(index)
+        if not item:
+            return
         data = item.data or {}
         tracks = data.get("tracks", [])
         if tracks:
@@ -2569,12 +2599,14 @@ class MainWindow(QMainWindow):
             self._show_expanded()
 
     def _on_coverflow_snap(self, index: int):
-        if not self._coverflow or index >= len(self._coverflow._items):
+        if not self._coverflow or index >= self._coverflow.count():
             return
 
         # Update album info banner using repository
         if hasattr(self, '_album_banner') and hasattr(self, '_album_repo'):
-            item = self._coverflow._items[index]
+            item = self._coverflow.item_at(index)
+            if not item:
+                return
             tracks = item.data.get("tracks", []) if item.data else []
             key = _album_key(item, tracks)
             summary = self._album_repo.get_summary(key, fallback_data=tracks)
@@ -2593,8 +2625,8 @@ class MainWindow(QMainWindow):
             # Precarga vecinos ±2
             for off in (-2, -1, 1, 2):
                 ni = index + off
-                if 0 <= ni < len(self._coverflow._items):
-                    n_item = self._coverflow._items[ni]
+                if 0 <= ni < self._coverflow.count():
+                    n_item = self._coverflow.item_at(ni)
                     n_tracks = n_item.data.get("tracks", []) if n_item.data else []
                     n_key = _album_key(n_item, n_tracks)
                     if n_key not in self._album_repo._lru:
@@ -2623,11 +2655,7 @@ class MainWindow(QMainWindow):
         if not tracks:
             return
         album_name = tracks[0].album or "Álbum"
-        pid = self._db.create_playlist(album_name)
-        for t in tracks:
-            if os.path.isfile(t.filepath):
-                self._db.add_to_playlist(pid, t.filepath)
-        self._rebuild_sidebar()
+        self._playlist_ctrl.create_playlist_from_tracks(tracks, album_name)
         self._toast_svc.show(f"Playlist creada: {album_name}", "success")
 
     def _on_coverflow_metadata_album(self, idx: int):
@@ -2709,9 +2737,9 @@ class MainWindow(QMainWindow):
         from library.album_art import load_cover_pixmap
         tracks = item.data.get("tracks", []) if item.data else []
         if tracks:
-            pix = load_cover_pixmap(tracks[0].filepath, self._coverflow._cover_w)
+            pix = load_cover_pixmap(tracks[0].filepath, self._coverflow.cover_size())
             if pix and not pix.isNull():
-                self._coverflow._on_cover_loaded(idx, pix)
+                self._coverflow.set_cover_pixmap(idx, pix)
 
     # Extracted to ui/controllers/album_controller.py — album grid + detail actions
 

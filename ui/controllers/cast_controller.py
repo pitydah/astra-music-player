@@ -1,15 +1,21 @@
 """CastController — unified cast menu combining Snapcast + Home Assistant."""
 import logging
 
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QMenu
 
 logger = logging.getLogger("michi.cast.controller")
 
 
-class CastController:
+class CastController(QObject):
     """Unified casting — delegates to SnapcastController or HomeAudioController."""
 
+    transmit_device_selected = Signal(object)  # device or None for local
+    add_transmit_requested = Signal()
+    manage_transmit_requested = Signal()
+
     def __init__(self, window, services=None):
+        super().__init__()
         self._win = window
         self._svc = services
 
@@ -28,7 +34,7 @@ class CastController:
         local.setCheckable(True)
         active = ctx.transmit_mgr.get_active()
         local.setChecked(active is None)
-        local.triggered.connect(lambda: self._win._activate_transmit_device(None))
+        local.triggered.connect(lambda: self.transmit_device_selected.emit(None))
 
         # TransmitManager network devices
         devices = ctx.transmit_mgr.get_devices()
@@ -40,7 +46,7 @@ class CastController:
                 action.setCheckable(True)
                 action.setChecked(active is not None and active.name == dev.name)
                 action.triggered.connect(
-                    lambda checked=False, d=dev: self._win._activate_transmit_device(d))
+                    lambda checked=False, d=dev: self.transmit_device_selected.emit(d))
         else:
             menu.addSeparator()
             empty = menu.addAction("No hay dispositivos configurados")
@@ -78,9 +84,9 @@ class CastController:
 
         menu.addSeparator()
         menu.addAction("Añadir dispositivo…",
-                       self._win._add_transmit_device)
+                       self.add_transmit_requested.emit)
         menu.addAction("Administrar dispositivos…",
-                       self._win._manage_transmit_devices)
+                       self.manage_transmit_requested.emit)
 
         btn = None
         if ctx and hasattr(ctx, 'player_bar'):

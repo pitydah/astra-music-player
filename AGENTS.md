@@ -250,16 +250,19 @@ PySide6 mutagen numpy shazamio pyaudio requests
 
 | Metric | Value |
 |--------|-------|
-| Tests | **206** in 25 files |
-| Python files | **242** |
+| Tests | **283** in 52 files |
+| Python files | **414** |
 | Ruff | **0** |
 | Bugs (F-class) | **0** |
 | Stubs | **0** |
 | Dead code | **0** |
 | Audio profiles | **9** |
-| Controllers | **14** |
+| Controllers | **14** (3 with Qt Signals, DI via AppServices) |
 | Recognition providers | **3 real** (ShazamIO, AudD, AcoustID) |
 | Icons registered | **38+** |
+| NAV_ROUTES validated | ✅ startup `ImportError` on stale routes |
+| `_win._xxx` private accesses from controllers | **3** (down from 63) |
+| `sqlite3.connect(DB_PATH)` bypass removed | ✅ all via `core.paths.database_path()` |
 
 **Installation:**
 ```
