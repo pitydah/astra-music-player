@@ -685,6 +685,8 @@ class MainWindow(QMainWindow):
             ("Ctrl+Down", "Bajar volumen"),
             ("Ctrl+M", "Silenciar"),
             ("Ctrl+F", "Buscar"),
+            ("Alt+Left", "Navegar atrás"),
+            ("Alt+Right", "Navegar adelante"),
             ("Ctrl+P", "Preferencias"),
             ("Ctrl+Q", "Salir"),
         ]
@@ -831,20 +833,8 @@ class MainWindow(QMainWindow):
         shadow.setYOffset(0)
         shadow.setColor(QColor(0, 0, 0, 40))
         self._sidebar.setGraphicsEffect(shadow)
-    def _push_nav(self, key: str):
-        self._nav_ctrl.push(key)
-    def _update_nav_buttons(self):
-        self._nav_ctrl._update_buttons()
 
     # ── Static route handlers ──
-
-    def _show_library(self, key):
-        self._kind_filter = None
-        self._search_ctrl.set_active("local")
-        self._show_library_hub_page()
-        self._apply_filters()
-        self._view_mode = "list"
-        self._view_switcher.set_view("list", emit=False)
 
     def _show_playlist_hub(self, key):
         pls = self._db.get_playlists()
@@ -1228,11 +1218,6 @@ class MainWindow(QMainWindow):
 
     def _restore_central_opacity(self):
         self._nav.restore_opacity()
-
-    def _show_list_view(self):
-        self._view_router.show_list_view()
-    def _show_grid_view(self):
-        self._view_router.show_grid_view()
 
     def _on_album_open_folder(self, folder):
         self._album_ctrl.open_folder(folder)

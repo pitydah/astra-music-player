@@ -54,6 +54,9 @@ SECTION_CONFIG: dict[str, dict] = {
     "mix_popular": {"title": "Más escuchadas", "subtitle": "Mayor número de reproducciones",
                     "icon": "sidebar_popular", "views": [],
                     "search": False, "default": None},
+    "mix_favorites": {"title": "Favoritos recientes", "subtitle": "Canciones marcadas recientemente",
+                      "icon": "sidebar_popular", "views": ["list", "grid"],
+                      "search": True, "default": "list"},
     "add_server": {"title": "Añadir servidor", "subtitle": "Conecta Navidrome o Jellyfin",
                    "icon": "sidebar_add", "views": [],
                    "search": False, "default": None},
@@ -335,6 +338,7 @@ class NavigationController(QObject):
 
         if not self._history.is_restoring:
             self._history.push(key)
+            self._update_buttons()
 
         # Dynamic prefix routes
         if key.startswith("playlist:new"):
