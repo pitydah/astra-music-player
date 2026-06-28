@@ -87,7 +87,7 @@ class Indexer(QObject):
 
             # Process files: detect changes, extract metadata, build album keys
             self._state.set_phase(ScanPhase.EXTRACTING)
-            batch_writer = BatchWriter(self._db._conn, batch_size=self._batch_size)
+            batch_writer = BatchWriter(self._db.conn, batch_size=self._batch_size)
 
             for i, fp in enumerate(files):
                 if self._cancelled:
@@ -157,9 +157,8 @@ class Indexer(QObject):
             if n:
                 self.batch_complete.emit(n)
 
-            # Phase 6: Cleanup missing files
-            self._state.set_phase(ScanPhase.CLEANING)
-            missing = self._db.remove_missing()
+            # Phase 6: Cleanup missing files — scoped by FileActions after scan
+            missing = 0
             self._state.missing_count = missing
             self.cleanup_complete.emit(missing)
 
@@ -271,11 +270,11 @@ class Indexer(QObject):
             try:
                 ak = make_album_key(albumartist or artist, artist, album)
                 cover_mime = meta.get("cover_mime", "image/jpeg")
-                self._db._conn.execute(
+                self._db.conn.execute(
                     "INSERT OR REPLACE INTO album_art_cache "
                     "(album_hash, mime, data) VALUES (?,?,?)",
                     (ak, cover_mime, cover_data))
-                self._db._conn.commit()
+                self._db.conn.commit()
             except Exception as e:
                 logger.debug("Failed to cache cover for %s: %s", filepath, e)
 
@@ -329,19 +328,19 @@ class Indexer(QObject):
     def _rebuild_indexes(self):
         """Rebuild SQLite indexes and FTS5 index for fast queries."""
         try:
-            self._db._conn.execute(
+            self._db.conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_media_artist ON media_items(artist)")
-            self._db._conn.execute(
+            self._db.conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_media_album ON media_items(album)")
-            self._db._conn.execute(
+            self._db.conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_media_albumartist ON media_items(albumartist)")
-            self._db._conn.execute(
+            self._db.conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_media_genre ON media_items(genre)")
-            self._db._conn.execute(
+            self._db.conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_media_year ON media_items(year)")
-            self._db._conn.commit()
+            self._db.conn.commit()
             from library.search_index import SearchIndex
-            idx = SearchIndex(self._db._conn)
+            idx = SearchIndex(self._db.conn)
             if idx.fts_exists:
                 idx.rebuild_fts()
         except Exception as e:
@@ -350,7 +349,7 @@ class Indexer(QObject):
     def _schedule_enrichment(self):
         """Request MusicBrainz enrichment for newly indexed artists."""
         try:
-            rows = self._db._conn.execute(
+            rows = self._db.conn.execute(
                 "SELECT DISTINCT albumartist, artist FROM media_items "
                 "WHERE albumartist != '' OR artist != ''").fetchall()
             seen = set()

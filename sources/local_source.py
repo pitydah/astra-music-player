@@ -56,7 +56,7 @@ class LocalSource(MusicSource):
         if self._engine is None:
             try:
                 from library.search_engine import SearchEngine
-                self._engine = SearchEngine(self._db._conn)
+                self._engine = SearchEngine(self._db.conn)
             except Exception:
                 pass
         return self._engine
