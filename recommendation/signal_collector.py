@@ -49,23 +49,23 @@ class SignalCollector:
     def _save_signal(self, track_id: str, signal_type: str):
         try:
             key = hashlib.sha256(track_id.encode()).hexdigest()[:16]
-            self._db._conn.execute(
+            self._db.conn.execute(
                 "INSERT INTO track_signal (track_key, signal_type, timestamp) VALUES (?,?,?)",
                 (key, signal_type, time.strftime("%Y-%m-%dT%H:%M:%S")),
             )
-            self._db._conn.commit()
+            self._db.conn.commit()
         except Exception as e:
             logger.debug("Signal record failed: %s", e)
 
     def get_signals(self, signal_type: str = "", limit: int = 500) -> list[str]:
         try:
             if signal_type:
-                rows = self._db._conn.execute(
+                rows = self._db.conn.execute(
                     "SELECT DISTINCT track_key FROM track_signal WHERE signal_type=? LIMIT ?",
                     (signal_type, limit),
                 ).fetchall()
             else:
-                rows = self._db._conn.execute(
+                rows = self._db.conn.execute(
                     "SELECT DISTINCT track_key FROM track_signal LIMIT ?",
                     (limit,),
                 ).fetchall()
@@ -75,7 +75,7 @@ class SignalCollector:
 
     def clear_signals(self):
         try:
-            self._db._conn.execute("DELETE FROM track_signal")
-            self._db._conn.commit()
+            self._db.conn.execute("DELETE FROM track_signal")
+            self._db.conn.commit()
         except Exception:
             pass

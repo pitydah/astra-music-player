@@ -455,7 +455,7 @@ class FolderBrowserWidget(QWidget):
         folder_durations = {}
         if self._db and folders_arr:
             for f in folders_arr:
-                dur = self._db._conn.execute(
+                dur = self._db.conn.execute(
                     "SELECT COALESCE(SUM(duration), 0) FROM media_items "
                     "WHERE directory = ? AND deleted_at IS NULL",
                     (f,)).fetchone()

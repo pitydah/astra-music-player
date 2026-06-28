@@ -64,11 +64,23 @@ class FileWatcher(QObject):
     def stop(self):
         self._running = False
         self._timer.stop()
-        self._watcher.directories().clear()
+        dirs = list(self._watcher.directories())
+        files = list(self._watcher.files())
+        import contextlib
+        if dirs:
+            with contextlib.suppress(RuntimeError):
+                self._watcher.removePaths(dirs)
+        if files:
+            with contextlib.suppress(RuntimeError):
+                self._watcher.removePaths(files)
         self._flush()
 
     def refresh_roots(self):
-        self._watcher.directories().clear()
+        dirs = list(self._watcher.directories())
+        import contextlib
+        if dirs:
+            with contextlib.suppress(RuntimeError):
+                self._watcher.removePaths(dirs)
         self._watch_roots()
 
     def _watch_roots(self):
@@ -100,7 +112,7 @@ class FileWatcher(QObject):
             return
 
         known = {
-            r[0] for r in self._db._conn.execute(
+            r[0] for r in self._db.conn.execute(
                 "SELECT filepath FROM media_items "
                 "WHERE directory = ? AND deleted_at IS NULL",
                 (dirpath,)

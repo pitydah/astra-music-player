@@ -93,7 +93,7 @@ class DuplicateDialog(QDialog):
                 item.setText(1, fp)
                 item.setData(1, Qt.UserRole, rid)
                 # Look up metadata from DB
-                row = self._db._conn.execute(
+                row = self._db.conn.execute(
                     "SELECT artist, album FROM media_items WHERE id=?",
                     (rid,)).fetchone()
                 item.setText(2, row[0] if row else "")
@@ -125,7 +125,7 @@ class DuplicateDialog(QDialog):
             return
 
         for rid in to_remove:
-            row = self._db._conn.execute(
+            row = self._db.conn.execute(
                 "SELECT filepath FROM media_items WHERE id=?", (rid,)).fetchone()
             if row:
                 self._db.remove_file(row[0])

@@ -418,12 +418,8 @@ class MainWindow(QMainWindow):
                 "Modo seguro activado — servicios opcionales deshabilitados", "info")
         self._load_library()
 
-        # Backfill missing metadata after library load
-        if not self._safe_mode and hasattr(self, '_workers'):
-            self._workers.run_task("backfill_metadata",
-                lambda: self._db.backfill_missing_metadata(), priority=5)
-            self._workers.run_task("backfill_album_art",
-                lambda: self._db.backfill_missing_album_art(), priority=5)
+        # Backfill scheduling is owned by LibraryController.load()
+        # Keep FileWatcher start and folder browser indicator below
 
         # Start FileWatcher after library is loaded
         if not self._safe_mode and hasattr(self, '_file_watcher'):
@@ -1463,10 +1459,10 @@ class MainWindow(QMainWindow):
     def _on_watcher_files_removed(self, paths: list[str]):
         now = __import__("time").time()
         for fp in paths:
-            self._db._conn.execute(
+            self._db.conn.execute(
                 "UPDATE media_items SET deleted_at=? WHERE filepath=?",
                 (now, fp))
-        self._db._conn.commit()
+        self._db.conn.commit()
         self._reload_library_after_change(reason="watcher_removed")
 
     def _on_watcher_files_modified(self, paths: list[str]):

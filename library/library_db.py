@@ -544,8 +544,15 @@ class LibraryDB:
 
         Uses normalized path prefix comparison instead of SQL LIKE to avoid
         accidental matches (e.g. root '/music' matching '/music_backup').
+
+        Skips if the root directory does not exist (e.g. unmounted USB/NAS).
         """
         import os
+        if not root_path or not os.path.isdir(root_path):
+            import logging
+            logging.getLogger("michi.library").warning(
+                "Skipping cleanup_missing_under_root: root unavailable: %s", root_path)
+            return 0
         root = os.path.normpath(os.path.abspath(root_path)) + os.sep
         rows = self._conn.execute(
             "SELECT id, filepath FROM media_items WHERE deleted_at IS NULL"

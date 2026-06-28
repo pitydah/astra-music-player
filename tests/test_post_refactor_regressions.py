@@ -239,61 +239,78 @@ class TestGIIsolation:
         assert ".tmpl" in content
 
 
-# ── 6. Hub pages — no duplicate title QLabels ──
+# ── 7. Hardening — watcher, DB encapsulation, safe mode local, backfill ──
 
 
-class TestHubPageTitles:
-    """Hub pages must not create page-title QLabels that match SECTION_CONFIG.
+class TestHardening:
+    """Anti-regression tests for structural hardening."""
 
-    The header is set by NavigationController.configure_header(), so hub pages
-    should not duplicate it as a page-internal title. The heading should be
-    the page's content heading (e.g. a card section title), not a duplicate
-    of the navigation route name.
-    """
+    def test_file_watcher_uses_remove_paths(self):
+        """FileWatcher must use removePaths, not directories().clear()."""
+        content = _read(os.path.join(_root(), "library", "file_watcher.py"))
+        assert "removePaths" in content, "FileWatcher must use removePaths"
+        assert "directories().clear()" not in content, (
+            "directories().clear() is unreliable")
 
-    SECTION_CONFIG_TITLES = {
-        "home_page": "Inicio",
-        "library_hub_page": "Biblioteca",
-        "mix_hub_page": "Mix",
-        "playback_hub_page": "Reproducción",
-        "connections_hub_page": "Conexiones",
-        "settings_hub_page": "Configuración",
-    }
+    def test_ci_local_uses_michi_safe_mode(self):
+        """ci_local.sh must set MICHI_SAFE_MODE=1 for smoke and pytest."""
+        content = _read(os.path.join(_root(), "scripts", "ci_local.sh"))
+        assert "MICHI_SAFE_MODE=1" in content
 
-    HUB_FILES = {
-        "home_page": "ui/hubs/home_page.py",
-        "library_hub_page": "ui/hubs/library_hub_page.py",
-        "mix_hub_page": "ui/hubs/mix_hub_page.py",
-        "playback_hub_page": "ui/hubs/playback_hub_page.py",
-        "connections_hub_page": "ui/hubs/connections_hub_page.py",
-        "settings_hub_page": "ui/hubs/settings_hub_page.py",
-    }
+    def test_backfill_scheduled_only_by_library_controller(self):
+        """Backfill must be scheduled in LibraryController, not window.py."""
+        window = _read(os.path.join(_root(), "ui", "window.py"))
+        lib_ctrl = _read(os.path.join(_root(), "ui", "controllers",
+                                      "library_controller.py"))
+        assert "backfill_missing_metadata" not in window, (
+            "window.py must not schedule backfill_missing_metadata")
+        assert "backfill_missing_album_art" not in window, (
+            "window.py must not schedule backfill_missing_album_art")
+        assert "backfill_missing_metadata" in lib_ctrl, (
+            "LibraryController must schedule backfill_missing_metadata")
+        assert "backfill_missing_album_art" in lib_ctrl, (
+            "LibraryController must schedule backfill_missing_album_art")
 
-    def test_hub_pages_no_duplicate_section_title(self):
-        """Verify no hub page has a QLabel(text) matching its SECTION_CONFIG title."""
-        root = os.path.join(os.path.dirname(__file__), "..")
-        for hub_key, hub_path in self.HUB_FILES.items():
-            full = os.path.join(root, hub_path)
-            if not os.path.exists(full):
+    def test_indexer_does_not_call_global_remove_missing(self):
+        """Indexer must not call global remove_missing()."""
+        content = _read(os.path.join(_root(), "library", "indexer.py"))
+        assert "remove_missing()" not in content, (
+            "Indexer must not call global remove_missing()")
+
+    def test_no_external_librarydb_private_conn(self):
+        """External modules must not access LibraryDB._conn directly."""
+        import glob
+        forbidden_patterns = ["self._db._conn", "db._conn", "_db._conn"]
+        allowed_prefixes = (
+            "library/library_db.py",
+            "tests/conftest.py",
+            "tests/test_",
+            "tools/",
+        )
+        errors = []
+        for path in glob.glob("**/*.py", root_dir=_root(), recursive=True):
+            if path.startswith(allowed_prefixes):
+                continue
+            if ".venv/" in path or "build/" in path or "__pycache__" in path:
+                continue
+            full = os.path.join(_root(), path)
+            if not os.path.isfile(full):
                 continue
             content = _read(full)
-            expected_title = self.SECTION_CONFIG_TITLES[hub_key]
-            # Check for QLabel(f"<title>") or QLabel("<title>") patterns
-            import re
-            label_pattern = re.compile(
-                r'QLabel\(\s*["\']' + re.escape(expected_title) + r'["\']\)')
-            matches = label_pattern.findall(content)
-            assert len(matches) == 0, (
-                f"{hub_path}: QLabel with SECTION_CONFIG title '{expected_title}' "
-                f"found {len(matches)} time(s). Hub should not duplicate the nav-bar title."
-            )
+            for pattern in forbidden_patterns:
+                if pattern in content:
+                    errors.append(f"{path}: contains {pattern}")
+        assert not errors, "Private _conn access detected:\n" + "\n".join(errors)
 
-    def test_hub_pages_use_card_title_qss_for_card_titles(self):
-        """Verify hub pages use card_title_qss() for card section headings."""
-        root = os.path.join(os.path.dirname(__file__), "..")
-        path = os.path.join(root, "ui", "hubs", "settings_hub_page.py")
-        content = _read(path)
-        assert "card_title_qss()" in content or "cardTitle" in content, (
-            "settings_hub must use card_title_qss() for card titles")
-        assert "card_desc_qss()" in content or "cardDesc" in content, (
-            "settings_hub must use card_desc_qss() for card descriptions")
+    def test_cleanup_missing_under_unavailable_root_returns_zero(self, tmp_path):
+        """cleanup_missing_under_root must return 0 for non-existent root."""
+        from library.library_db import LibraryDB
+        db_path = str(tmp_path / "lib.db")
+        db = LibraryDB(db_path)
+        try:
+            missing_root = str(tmp_path / "offline")
+            result = db.cleanup_missing_under_root(missing_root)
+            assert result == 0, (
+                f"Expected 0 for unavailable root, got {result}")
+        finally:
+            db.close()

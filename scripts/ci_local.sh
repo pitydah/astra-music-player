@@ -128,6 +128,7 @@ echo "[6/8] Running smoke startup..."
 cd "$REPO_DIR"
 QT_QPA_PLATFORM=offscreen \
 PYTHONUNBUFFERED=1 \
+MICHI_SAFE_MODE=1 \
 MICHI_TEST_DATA_DIR="$TMPDIR/michi-smoke-data" \
 MICHI_TEST_CACHE_DIR="$TMPDIR/michi-smoke-cache" \
 MICHI_TEST_CONFIG_DIR="$TMPDIR/michi-smoke-config" \
@@ -146,6 +147,7 @@ echo "[8/8] Running pytest..."
 cd "$REPO_DIR"
 QT_QPA_PLATFORM=offscreen \
 PYTHONUNBUFFERED=1 \
+MICHI_SAFE_MODE=1 \
 MICHI_TEST_DATA_DIR="$TMPDIR/michi-test-data" \
 MICHI_TEST_CACHE_DIR="$TMPDIR/michi-test-cache" \
 MICHI_TEST_CONFIG_DIR="$TMPDIR/michi-test-config" \

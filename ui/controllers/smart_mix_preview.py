@@ -33,7 +33,7 @@ class SmartMixPreview:
 
     def __init__(self, db: LibraryDB):
         self._db = db
-        self._conn = db._conn if hasattr(db, '_conn') else None
+        self._conn = db.conn if hasattr(db, 'conn') else None
 
     @property
     def _MIXES(self):
@@ -116,7 +116,7 @@ class SmartMixPreview:
 def _get_fav_filepaths(db=None) -> list[str]:
     if db is not None:
         try:
-            rows = db._conn.execute(
+            rows = db.conn.execute(
                 "SELECT m.filepath FROM favorites f "
                 "LEFT JOIN media_items m ON f.track_id = m.filepath OR f.track_id = CAST(m.id AS TEXT) "
                 "WHERE m.deleted_at IS NULL AND m.filepath IS NOT NULL "
@@ -147,7 +147,7 @@ def _get_fav_filepaths(db=None) -> list[str]:
 def _get_recent_filepaths(db=None) -> list[str]:
     if db is not None:
         try:
-            rows = db._conn.execute(
+            rows = db.conn.execute(
                 "SELECT m.filepath FROM play_history h "
                 "LEFT JOIN media_items m ON h.track_id = m.filepath OR h.track_id = CAST(m.id AS TEXT) "
                 "WHERE m.deleted_at IS NULL AND m.filepath IS NOT NULL "
