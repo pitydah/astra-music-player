@@ -39,6 +39,7 @@ dependencies = [
 dev = [
     "pytest>=7",
     "pytest-qt>=4",
+    "pytest-timeout>=2",
     "ruff",
 ]
 recognition = [
@@ -55,6 +56,7 @@ sync = []    # no extra pip deps required
 all = [
     "pytest>=7",
     "pytest-qt>=4",
+    "pytest-timeout>=2",
     "ruff",
     "shazamio",
     "pyaudio",
@@ -110,6 +112,7 @@ target-version = ["py311"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 qt_api = "pyside6"
+timeout = 120
 markers = [
     "perf: performance tests, not run by default",
 ]

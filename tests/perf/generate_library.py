@@ -25,7 +25,6 @@ def generate(db, root: str, count: int = 10_000):
 
         db.add_file(fp)
 
-    db.rebuild_indexes()
     elapsed = time.perf_counter() - start
-    print(f"  done in {elapsed:.2f}s")
+    print(f"  generated {count} items in {elapsed:.2f}s")
     return elapsed

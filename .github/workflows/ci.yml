@@ -53,7 +53,7 @@ jobs:
             gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
             gstreamer1.0-libav gstreamer1.0-tools \
             python3-dbus python3-cairo \
-            python3-numpy python3-mutagen
+            python3-numpy python3-mutagen python3-pil python3-pil.imagetk
 
       - name: Create venv (system packages)
         run: |
@@ -139,3 +139,12 @@ jobs:
         run: |
           source .venv/bin/activate
           pytest -q
+
+      - name: Performance tests (optional)
+        continue-on-error: true
+        env:
+          QT_QPA_PLATFORM: offscreen
+          MICHI_SAFE_MODE: 1
+        run: |
+          source .venv/bin/activate
+          pytest -q -m perf
