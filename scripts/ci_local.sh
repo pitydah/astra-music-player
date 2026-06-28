@@ -135,15 +135,27 @@ MICHI_TEST_CONFIG_DIR="$TMPDIR/michi-smoke-config" \
 python3 scripts/smoke_startup.py || { echo "  SMOKE STARTUP FAILED"; exit 1; }
 echo "  OK"
 
-# [7/8] Lint + compile
-echo "[7/8] Running lint..."
+# [7/8] Smoke UI routes
+echo "[7/8] Running UI route smoke..."
+cd "$REPO_DIR"
+QT_QPA_PLATFORM=offscreen \
+PYTHONUNBUFFERED=1 \
+MICHI_SAFE_MODE=1 \
+MICHI_TEST_DATA_DIR="$TMPDIR/michi-smoke-data" \
+MICHI_TEST_CACHE_DIR="$TMPDIR/michi-smoke-cache" \
+MICHI_TEST_CONFIG_DIR="$TMPDIR/michi-smoke-config" \
+python3 scripts/smoke_ui_routes.py || { echo "  UI ROUTE SMOKE FAILED"; exit 1; }
+echo "  OK"
+
+# [9/9] Lint + compile
+echo "[9/9] Running lint..."
 python3 -m ruff check . --output-format concise || { echo "  LINT FAILED"; exit 1; }
 echo "  OK"
 python3 -m compileall -q -x '.venv/|\.tmpl\.' . || { echo "  COMPILE FAILED"; exit 1; }
 echo "  COMPILE OK"
 
-# [8/8] Pytest
-echo "[8/8] Running pytest..."
+# [10/10] Pytest
+echo "[10/10] Running pytest..."
 cd "$REPO_DIR"
 QT_QPA_PLATFORM=offscreen \
 PYTHONUNBUFFERED=1 \
