@@ -338,3 +338,16 @@ class TestHardening:
         assert "FTS5" in content, "library_db.py should log FTS5 errors"
         assert "Failed to cache embedded cover" in content, (
             "library_db.py should log embedded cover cache failures")
+
+    def test_action_log_no_silent_exceptions(self):
+        """ActionLog must not silently swallow exceptions in get_recent/total_actions."""
+        content = _read(os.path.join(_root(), "integrations", "ai_assistant",
+                                     "action_log.py"))
+        assert "except Exception:\n            return []" not in content, (
+            "get_recent() must log before returning []")
+        assert "except Exception:\n            return 0" not in content, (
+            "total_actions() must log before returning 0")
+        assert "get_recent failed" in content, (
+            "get_recent() must have logger.debug for errors")
+        assert "total_actions failed" in content, (
+            "total_actions() must have logger.debug for errors")

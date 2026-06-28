@@ -82,7 +82,8 @@ class ActionLog:
                 }
                 for r in rows
             ]
-        except Exception:
+        except Exception as e:
+            logger.debug("get_recent failed: %s", e)
             return []
 
     def total_actions(self) -> int:
@@ -92,7 +93,8 @@ class ActionLog:
             return self._conn.execute(
                 "SELECT COUNT(*) FROM action_log"
             ).fetchone()[0]
-        except Exception:
+        except Exception as e:
+            logger.debug("total_actions failed: %s", e)
             return 0
 
     def close(self):
