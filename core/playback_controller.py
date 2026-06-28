@@ -226,6 +226,12 @@ class PlaybackController:
             lambda db: self._win._ctx.player.set_eq_preamp(db))
         dlg.eq_bypass_changed.connect(
             lambda bypass: self._win._ctx.player.set_eq_bypass(bypass))
+        # Connect spectrum data from engine to spectrum widget
+        if hasattr(dlg, '_spectrum'):
+            engine = self._win._ctx.player
+            if hasattr(engine, 'spectrum_data'):
+                engine.spectrum_data.connect(
+                    lambda fft: dlg._spectrum.push_fft(fft, 44100))
         dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowStaysOnTopHint)
         dlg.show()
         dlg.raise_()

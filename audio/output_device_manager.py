@@ -1,6 +1,10 @@
 """Audio Device Info + detection — DAC-aware device listing."""
+import re
 from dataclasses import dataclass, field
 
+
+_ALSA_CARD_RE = re.compile(
+    r"^\s*(\d+)\s*\[([^\]]+)\].*$")
 
 _DAC_BRANDS = [
     "topping", "fiio", "smsl", "schiit", "ifi", "focusrite", "scarlett",
@@ -73,11 +77,11 @@ def list_devices() -> list[AudioDeviceInfo]:
     try:
         with open("/proc/asound/cards") as f:
             for line in f:
-                if "[" in line and "]" in line:
-                    raw = line.strip()
-                    card_num = raw.split()[0].rstrip(":")
-                    card_id = line.split("[")[1].split("]")[0].strip()
-                    name_lower = f"{card_id} {raw}".lower()
+                m = _ALSA_CARD_RE.match(line)
+                if m:
+                    card_num = m.group(1)
+                    card_id = m.group(2).strip()
+                    name_lower = f"{card_id} {line.strip()}".lower()
                     is_usb = "usb" in name_lower
                     is_dac = any(b in name_lower for b in _DAC_BRANDS)
 
