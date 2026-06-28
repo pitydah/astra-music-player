@@ -308,7 +308,7 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             if srv:
                 with srv._sessions_lock:
                     srv._sessions[token.token] = token
-                library_size = srv._db.get_stats()["total"] if srv._db else 0
+                library_size = srv._db.get_stats().get("total", 0) if srv._db else 0
             else:
                 library_size = 0
             resp = RegisterResponse(
@@ -372,6 +372,7 @@ class SyncServer(QObject):
         self._sessions_lock = threading.Lock()
         self._track_index: dict[str, str] = {}
         self._track_index_lock = threading.Lock()
+        self._track_index_built = False
         self._manifest_provider: callable | None = None
         self._delta_provider: callable | None = None
 
@@ -382,6 +383,13 @@ class SyncServer(QObject):
     def set_delta_provider(self, provider):
         """Register a callable for GET /api/sync/manifest/delta."""
         self._delta_provider = provider
+
+    def _purge_expired_sessions(self):
+        """Remove expired sessions to prevent memory leak."""
+        with self._sessions_lock:
+            expired = [k for k, v in self._sessions.items() if v.is_expired()]
+            for k in expired:
+                del self._sessions[k]
 
     def _build_index(self):
         """Build track_id → filepath lookup (prefers track_uid when available)."""
@@ -396,10 +404,11 @@ class SyncServer(QObject):
             new_index[tid] = fp
         with self._track_index_lock:
             self._track_index = new_index
+            self._track_index_built = True
 
     def _resolve_track(self, track_id: str) -> str | None:
         with self._track_index_lock:
-            if track_id not in self._track_index:
+            if not self._track_index_built:
                 self._track_index_lock.release()
                 self._build_index()
                 self._track_index_lock.acquire()
@@ -424,9 +433,14 @@ class SyncServer(QObject):
         self.server_started.emit(self._port)
 
     def _serve(self):
+        purge_counter = 0
         while self._running and self._httpd:
             try:
                 self._httpd.handle_request()
+                purge_counter += 1
+                if purge_counter >= 50:
+                    self._purge_expired_sessions()
+                    purge_counter = 0
             except Exception as e:
                 if self._running:
                     self.sync_error.emit(str(e))

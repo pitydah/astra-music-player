@@ -92,8 +92,6 @@ class DiscoveryServer(QObject):
             except socket.timeout:
                 pass
             except OSError:
-                if self._running:
-                    time.sleep(0.1)
                 continue
 
         if self._sock:
@@ -182,6 +180,14 @@ class DiscoveryServer(QObject):
             if info:
                 peers.append(info)
         return peers
+
+    @property
+    def alias(self) -> str:
+        return self._alias
+
+    @alias.setter
+    def alias(self, value: str):
+        self._alias = value
 
     @property
     def peers(self) -> list[str]:

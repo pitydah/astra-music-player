@@ -66,12 +66,15 @@ class DetectionService(QObject):
             try:
                 from recognition.audio_capture_service import AudioCaptureService
                 self._capture = AudioCaptureService()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("AudioCaptureService init failed: %s", e)
         if not self._capture_timer:
             from PySide6.QtCore import QTimer
             self._capture_timer = QTimer(self)
             self._capture_timer.timeout.connect(self.identify_once)
+        if not self._capture or not self._capture.is_available:
+            logger.warning("Detection started but no audio capture available")
+            self._set_status("no_capture")
         self._capture_timer.start(15000)
         logger.info("Detection started source=%s", source)
 
@@ -177,17 +180,22 @@ class DetectionService(QObject):
                 filepath=track.filepath or "",
                 matched_library_id=track.matched_library_id or 0,
             )
-        except Exception:
-            self._db.add_detected_track(
-                title=track.title or "",
-                artist=track.artist or "",
-                album=track.album or "",
-                source=track.source or "",
-                provider=track.provider or "",
-                confidence=track.confidence or 0.0,
-                filepath=track.filepath or "",
-                matched_library_id=track.matched_library_id or 0,
-            )
+        except Exception as e:
+            logger.warning("Failed to save detected track (retrying with defaults): %s", e)
+            try:
+                self._db.add_detected_track(
+                    title=track.title or "",
+                    artist=track.artist or "",
+                    album=track.album or "",
+                    source=track.source or "",
+                    provider=track.provider or "",
+                    confidence=track.confidence or 0.0,
+                    filepath=track.filepath or "",
+                    matched_library_id=track.matched_library_id or 0,
+                )
+            except Exception as e2:
+                logger.error("Failed to save detected track after retry: %s", e2)
+                return
         self.track_detected.emit(track)
 
     def _set_status(self, status: str):

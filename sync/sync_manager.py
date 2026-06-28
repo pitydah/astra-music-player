@@ -74,7 +74,7 @@ class SyncManager(QObject):
 
     def set_alias(self, alias: str):
         self._save_alias(alias)
-        self._discovery._alias = alias
+        self._discovery.alias = alias
 
     def set_manifest_provider(self, provider):
         """Register a manifest provider for GET /api/sync/manifest."""

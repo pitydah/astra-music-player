@@ -1,5 +1,4 @@
 """Tests for audio format probing (format_probe.py)."""
-import pytest
 from audio.format_probe import probe_format, AudioFormatInfo, _default_dsd_rate, _dsd_speed_label
 
 

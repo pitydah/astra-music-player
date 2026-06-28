@@ -111,12 +111,22 @@ class AudioCaptureService(QObject):
     def _find_monitor_device(pyaudio_instance) -> int | None:
         """Find the PulseAudio/PipeWire monitor source device index."""
         count = pyaudio_instance.get_device_count()
+        default_monitor = None
+        fallback_sink = None
         for i in range(count):
             info = pyaudio_instance.get_device_info_by_index(i)
             name = info.get("name", "").lower()
-            # Match monitor/sink devices
-            if any(kw in name for kw in ("monitor", "output", "sink", "loopback")) and info.get("maxInputChannels", 0) > 0:
-                return i
+            if "monitor" in name and info.get("maxInputChannels", 0) > 0:
+                default_monitor = i
+                if ".monitor" in name:
+                    return i
+            elif any(kw in name for kw in ("output", "sink", "loopback")) and info.get("maxInputChannels", 0) > 0:
+                if fallback_sink is None:
+                    fallback_sink = i
+        if default_monitor is not None:
+            return default_monitor
+        if fallback_sink is not None:
+            return fallback_sink
         # Fallback: find default input
         try:
             default = pyaudio_instance.get_default_input_device_info()

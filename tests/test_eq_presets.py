@@ -1,5 +1,4 @@
 """Tests for equalizer presets."""
-import json
 import os
 import tempfile
 
@@ -22,7 +21,7 @@ class TestConstants:
         assert len(ISO_31_LABELS) == 31
 
     def test_iso_freqs_are_sorted(self):
-        assert ISO_31_FREQS == sorted(ISO_31_FREQS)
+        assert sorted(ISO_31_FREQS) == ISO_31_FREQS
 
     def test_iso_first_is_20(self):
         assert ISO_31_FREQS[0] == 20
