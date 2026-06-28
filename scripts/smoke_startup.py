@@ -59,6 +59,8 @@ def _run_step(label, fn):
     try:
         return fn()
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"  ✗ {e!r}")
         return 1
 
