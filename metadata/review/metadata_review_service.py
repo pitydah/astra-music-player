@@ -39,24 +39,43 @@ class MetadataReviewService:
         )
         self._undo = MetadataUndo(db, self._repo)
 
+    @staticmethod
+    def _get_setting(key: str, default):
         from core.settings_manager import get_bool, get_float, get_int
-        self._enabled = get_bool("ai_assistant/metadata_review_enabled")
-        if self._enabled is None:
-            self._enabled = True
-        self._min_confidence = get_float("ai_assistant/metadata_min_confidence") or 0.75
-        self._allow_low = get_bool("ai_assistant/metadata_allow_low_confidence")
-        if self._allow_low is None:
-            self._allow_low = False
-        self._max_batch = get_int("ai_assistant/metadata_max_batch") or 50
-        self._require_confirm = get_bool("ai_assistant/metadata_require_field_confirmation")
-        if self._require_confirm is None:
-            self._require_confirm = True
-        self._apply_to_db = get_bool("ai_assistant/metadata_apply_to_db")
-        if self._apply_to_db is None:
-            self._apply_to_db = True
-        self._apply_to_files = get_bool("ai_assistant/metadata_apply_to_files")
-        if self._apply_to_files is None:
-            self._apply_to_files = False
+        if isinstance(default, bool):
+            val = get_bool(key)
+            return val if val is not None else default
+        if isinstance(default, float):
+            return get_float(key) or default
+        return get_int(key) or default
+
+    @property
+    def _enabled(self):
+        return self._get_setting("ai_assistant/metadata_review_enabled", True)
+
+    @property
+    def _min_confidence(self):
+        return self._get_setting("ai_assistant/metadata_min_confidence", 0.75)
+
+    @property
+    def _allow_low(self):
+        return self._get_setting("ai_assistant/metadata_allow_low_confidence", False)
+
+    @property
+    def _max_batch(self):
+        return self._get_setting("ai_assistant/metadata_max_batch", 50)
+
+    @property
+    def _require_confirm(self):
+        return self._get_setting("ai_assistant/metadata_require_field_confirmation", True)
+
+    @property
+    def _apply_to_db(self):
+        return self._get_setting("ai_assistant/metadata_apply_to_db", True)
+
+    @property
+    def _apply_to_files(self):
+        return self._get_setting("ai_assistant/metadata_apply_to_files", False)
 
     def _disabled_response(self):
         return {

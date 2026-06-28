@@ -54,6 +54,9 @@ class MetadataApplyService:
             for change in proposal.changes:
                 if change.field in accepted and change.suggested_value:
                     old_val = self._get_current(proposal.track_id, change.field)
+                    if old_val is None:
+                        skipped += 1
+                        continue
                     ok = self._db.update_media_item_field(
                         proposal.track_id, change.field, change.suggested_value,
                     )
@@ -68,12 +71,12 @@ class MetadataApplyService:
                 else:
                     skipped += 1
 
-            proposal.status = "applied" if applied > 0 else "rejected"
+            proposal.status = "applied" if applied == len(proposal.changes) else "partial" if applied > 0 else "rejected"
             self._repo.save_proposal(proposal)
 
         review.status = "applied"
         self._repo.log_action(
-            review_id, "apply", "applied",
+            review_id, "apply", "applied" if skipped == 0 else "partial",
             f"Aplicados {applied} cambios, omitidos {skipped}",
         )
         return {"status": "applied", "applied": applied, "skipped": skipped, "target": "local_db"}
@@ -95,6 +98,9 @@ class MetadataApplyService:
             if ok:
                 for c in changes_to_write:
                     old_val = self._get_current(proposal.track_id, c.field)
+                    if old_val is None:
+                        skipped += 1
+                        continue
                     self._db.update_media_item_field(proposal.track_id, c.field, c.suggested_value)
                     self._repo.save_undo(review_id, proposal.track_id, c.field, old_val)
                     c.accepted = True
@@ -102,24 +108,25 @@ class MetadataApplyService:
             else:
                 skipped += len(changes_to_write)
 
-            proposal.status = "applied" if applied > 0 else "rejected"
+            proposal.status = "applied" if applied == len(proposal.changes) else "partial" if applied > 0 else "rejected"
             self._repo.save_proposal(proposal)
 
         review.status = "applied"
         self._repo.log_action(
-            review_id, "apply", "applied_to_files",
+            review_id, "apply", "applied_to_files" if skipped == 0 else "partial",
             f"Escritos {applied} cambios en archivos, omitidos {skipped}",
         )
         return {"status": "applied", "applied": applied, "skipped": skipped, "target": "file_tags"}
 
-    def _get_current(self, track_id: int, field: str) -> str:
+    def _get_current(self, track_id: int, field: str) -> str | None:
         try:
             item = self._db.get_media_item_by_id(track_id)
             if item:
                 return str(getattr(item, field, "") or "")
-        except Exception:
-            pass
-        return ""
+        except Exception as e:
+            logger.warning("Failed to get current value for track %d field %s: %s",
+                           track_id, field, e)
+        return None
 
 
 def _write_tags_for_track(filepath: str, changes: list) -> bool:

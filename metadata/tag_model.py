@@ -50,15 +50,23 @@ class TrackTags:
         "bpm", "isrc", "musicbrainz_trackid", "musicbrainz_albumid",
     ]
 
+    _NUMERIC_FIELDS = {"bpm", "tracknumber", "tracktotal", "discnumber", "disctotal"}
+
     def set_field(self, field: str, value) -> bool:
         """Set a field value, tracking dirty state. Returns True if changed."""
         old = getattr(self, field, "")
-        if str(old) != str(value):
-            setattr(self, field, value)
-            self.dirty = True
-            self.dirty_fields.add(field)
-            return True
-        return False
+        if field in self._NUMERIC_FIELDS:
+            try:
+                if int(old) == int(value):
+                    return False
+            except (ValueError, TypeError):
+                pass
+        elif str(old).strip().lower() == str(value).strip().lower():
+            return False
+        setattr(self, field, value)
+        self.dirty = True
+        self.dirty_fields.add(field)
+        return True
 
     def mark_dirty(self, field: str | None = None):
         self.dirty = True
