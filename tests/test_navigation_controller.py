@@ -336,6 +336,18 @@ class TestNavigationController:
         ctrl.dispatch("dev:usb")
         win._sidebar_controller.set_active.assert_called_with("devices_page")
 
+    def test_dispatch_playlist_long_prefix_sets_sidebar_to_playlist_hub(self, ctrl, win):
+        ctrl.dispatch("playlist:123")
+        win._sidebar_controller.set_active.assert_called_with("playlist_hub")
+
+    def test_dispatch_mix_child_sets_sidebar_to_mix_hub(self, ctrl, win):
+        ctrl.dispatch("mix_daily")
+        win._sidebar_controller.set_active.assert_called_with("mix_hub")
+
+    def test_dispatch_library_child_sets_sidebar_to_library_hub(self, ctrl, win):
+        ctrl.dispatch("albums")
+        win._sidebar_controller.set_active.assert_called_with("library_hub")
+
 
 class TestResolveSidebarActiveKey:
     def test_home(self):
