@@ -110,3 +110,6 @@ target-version = ["py311"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 qt_api = "pyside6"
+markers = [
+    "perf: performance tests, not run by default",
+]

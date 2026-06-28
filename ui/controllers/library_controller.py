@@ -23,8 +23,10 @@ class LibraryController(QObject):
     # ── Public entry points ──
 
     def load(self):
-        """Full library load with backfill tasks scheduled."""
+        """Full library load with backfill tasks scheduled (guarded by safe mode)."""
         self.reload_after_change(reason="load")
+        if getattr(self._win, '_safe_mode', False):
+            return
         workers = self._win._workers
         if workers:
             workers.run_task("backfill_meta",
