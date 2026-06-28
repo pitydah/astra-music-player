@@ -52,7 +52,6 @@ def parse_dff(filepath: str) -> DffHeader:
             chunk_end = f.tell() + chunk_size
 
             if chunk_id == b"PROP":
-                _parse_prop(f, chunk_size, chunk_end)
                 # Re-read position: we need to extract from PROP
                 # Reset and parse PROP sub-chunks manually
                 prop_start = f.tell() - chunk_size - 12
@@ -95,6 +94,4 @@ def parse_dff(filepath: str) -> DffHeader:
         )
 
 
-def _parse_prop(f, chunk_size, chunk_end):
-    """Dummy — just skip PROP. Actual parsing done inline above."""
-    pass
+

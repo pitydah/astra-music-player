@@ -30,10 +30,10 @@ class MiniPlayerController(QObject):
             mp.prev_clicked.connect(self._ctx.playback.play_prev)
             mp.next_clicked.connect(self._ctx.playback.play_next)
             mp.seek_requested.connect(self._ctx.playback.seek)
-            self._ctx.player.position_changed.connect(
+            self._ctx.playback.position_changed.connect(
                 lambda s: mp.set_position(
-                    s, getattr(self._ctx.player, '_duration', 0)))
-            self._ctx.player.state_changed.connect(
+                    s, self._ctx.playback.duration if hasattr(self._ctx.playback, 'duration') else 0))
+            self._ctx.playback.state_changed.connect(
                 lambda s: mp.set_state(
                     "playing" if s == PlaybackState.PLAYING else
                     "paused" if s == PlaybackState.PAUSED else "stopped"))

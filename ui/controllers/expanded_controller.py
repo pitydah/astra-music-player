@@ -46,9 +46,9 @@ class ExpandedController(QObject):
                     [self._ctx.playback.current])
                 if self._ctx.playback.current else None)
 
-            self._ctx.player.position_changed.connect(self._ctx.expanded.set_position)
-            self._ctx.player.duration_changed.connect(self._ctx.expanded.set_duration)
-            self._ctx.player.state_changed.connect(
+            self._ctx.playback.position_changed.connect(self._ctx.expanded.set_position)
+            self._ctx.playback.duration_changed.connect(self._ctx.expanded.set_duration)
+            self._ctx.playback.state_changed.connect(
                 lambda s: self._ctx.expanded.set_state(
                     "playing" if s == PlaybackState.PLAYING else
                     "paused" if s == PlaybackState.PAUSED else "stopped"))

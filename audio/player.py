@@ -361,6 +361,7 @@ class GStreamerEngine(QObject):
         from audio.output_profiles import get_profile
         from audio.dac_manager import DacManager
         from audio.pipeline_factory import PipelineFactory
+        from audio.dsp_state import DspState
 
         fmt = probe_format(filepath)
         profile = get_profile(self._audio_profile)
@@ -368,8 +369,19 @@ class GStreamerEngine(QObject):
         dm.refresh_devices()
         route = dm.select_output_route(fmt, profile, None)
 
+        dsp = DspState(
+            eq_enabled=self._eq.enabled if hasattr(self._eq, 'enabled') else False,
+            eq_mode=self._eq.mode if hasattr(self._eq, 'mode') else "bypass",
+            eq_bands_parametric=list(getattr(getattr(self._eq, 'bands_parametric', None) or [], [])),
+            eq_preamp_db=getattr(self._eq, 'eq_preamp_db', 0.0),
+            replaygain_enabled=self._replaygain,
+            spectrum_enabled=self._spectrum_enabled,
+            transmit_enabled=self._transmit_device is not None,
+        )
+
         factory = PipelineFactory()
-        self._pipeline = factory.build_dff_pipeline(filepath, fmt, route)
+        self._pipeline = factory.build_dff_pipeline(
+            filepath, fmt, route, dsp=dsp, transmit_device=self._transmit_device)
         if not self._pipeline:
             self.error_occurred.emit("Failed to create DFF pipeline")
             return
@@ -626,12 +638,15 @@ class GStreamerEngine(QObject):
     def _on_media_finished_eos(self):
         """Handle track end — gapless-aware."""
         if self._gapless_active:
-            # Gapless already preloaded next track via about-to-finish
-            # Just advance queue index without restarting
             self._gapless_active = False
-            self._queue_index += 1
-            if self._db:
-                self._db.save_queue(self._queue, self._queue_index)
+            next_idx = self._queue_index + 1
+            if 0 <= next_idx < len(self._queue):
+                self._queue_index = next_idx
+                self._current = self._queue[next_idx]
+                self.queue_changed.emit(self._queue)
+                if self._db:
+                    self._db.save_queue(self._queue, self._queue_index)
+                self.state_changed.emit(self._state)
         else:
             self._on_media_finished()
 

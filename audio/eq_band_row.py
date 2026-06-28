@@ -127,9 +127,9 @@ class BandRow(QWidget):
         idx = self._type.findData(f_type)
         if idx >= 0:
             self._type.setCurrentIndex(idx)
-        self._freq.setValue(int(freq))
-        self._gain.setValue(int(gain * 10))
-        self._q.setValue(int(Q * 10))
+        self._freq.setValue(round(freq))
+        self._gain.setValue(round(gain * 10))
+        self._q.setValue(round(Q * 10))
         self._on_freq()
         self._on_gain()
         self._on_q()

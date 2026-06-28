@@ -56,26 +56,3 @@ class AudioRouteDiagnostics:
             for w in self.warnings:
                 lines.append(f"⚠ {w}")
         return "\n".join(lines)
-        return {
-            "current_uri": self.current_uri,
-            "profile": self.profile,
-            "backend": self.backend,
-            "device_name": self.device_name,
-            "device_string": self.device_string,
-            "input_codec": self.input_codec,
-            "input_container": self.input_container,
-            "input_sample_rate": self.input_sample_rate,
-            "input_bit_depth": self.input_bit_depth,
-            "input_channels": self.input_channels,
-            "output_sample_rate": self.output_sample_rate,
-            "output_format": self.output_format,
-            "output_channels": self.output_channels,
-            "dsd_mode": self.dsd_mode,
-            "dsp_active": self.dsp_active,
-            "eq_active": self.eq_active,
-            "replaygain_active": self.replaygain_active,
-            "spectrum_active": self.spectrum_active,
-            "resampling_active": self.resampling_active,
-            "bitperfect_status": self.bitperfect_status,
-            "warnings": self.warnings,
-        }

@@ -60,7 +60,8 @@ def select_gain(mode: str, track_gain: float | None,
 def compute_safe_gain(gain_db: float | None, headroom_db: float,
                       track_peak: float | None = None,
                       album_peak: float | None = None,
-                      anti_clip: bool = True) -> float:
+                      anti_clip: bool = True,
+                      peak_limit: float = 1.0) -> float:
     """Compute the safe linear gain, accounting for headroom and clipping.
 
     Args:
@@ -89,7 +90,7 @@ def compute_safe_gain(gain_db: float | None, headroom_db: float,
         return gain
 
     # Prevent clipping: if peak * gain > peak_limit, reduce gain
-    max_gain = 1.0 / max(peak, 0.0001)
+    max_gain = peak_limit / max(peak, 0.0001)
     return min(gain, max_gain)
 
 
@@ -125,7 +126,8 @@ def apply_full(config: ReplayGainConfig,
     # Compute safe gain
     gain = compute_safe_gain(
         effective_db, config.headroom_db,
-        track_peak, album_peak, config.anti_clip)
+        track_peak, album_peak, config.anti_clip,
+        peak_limit=config.peak_limit)
 
     # Label
     mode_label = {"track": "Track", "album": "Album",

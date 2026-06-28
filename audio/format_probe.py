@@ -114,6 +114,7 @@ def probe_format(filepath: str, item=None) -> AudioFormatInfo:
 
 
 def _default_dsd_rate(ext: str) -> int:
+    _ext = ext
     return 2822400
 
 

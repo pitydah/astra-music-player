@@ -46,25 +46,39 @@ class PipelineFactory:
         return self._make_sink_bin(route, dsp, transmit_device)
 
     def build_dff_pipeline(self, filepath: str, fmt: AudioFormatInfo,
-                           route: AudioRoutePlan) -> Gst.Pipeline | None:
-        """Build a manual DFF pipeline with appsrc."""
+                           route: AudioRoutePlan,
+                           dsp: DspState | None = None,
+                           transmit_device=None) -> Gst.Pipeline | None:
+        """Build a manual DFF pipeline with appsrc and optional DSP.
+
+        After decoding DSD to PCM, routes through _make_sink_bin for EQ,
+        ReplayGain, spectrum, and transmit when enabled.
+        """
         src = Gst.ElementFactory.make("appsrc", "dff-appsrc")
         dec = Gst.ElementFactory.make("avdec_dsd_msbf", None)
         conv = Gst.ElementFactory.make("audioconvert", None)
-        sink = self._make_sink_from_route(route)
-        if not all([src, dec, conv, sink]):
+
+        if dsp and dsp.is_dsp_active():
+            sink_bin = self._make_sink_bin(route, dsp, transmit_device)
+            sink_element = sink_bin if sink_bin else self._make_sink_from_route(route)
+        else:
+            sink_element = self._make_sink_from_route(route)
+
+        if not all([src, dec, conv, sink_element]):
             import logging
             logging.getLogger("michi.pipeline").warning(
                 "DFF pipeline: missing elements — appsrc=%s avdec_dsd_msbf=%s audioconvert=%s sink=%s",
-                src is not None, dec is not None, conv is not None, sink is not None)
+                src is not None, dec is not None, conv is not None, sink_element is not None)
             return None
 
         pipeline = Gst.Pipeline.new("michi-dff")
-        for e in [src, dec, conv, sink]:
-            pipeline.add(e)
+        pipeline.add(src)
+        pipeline.add(dec)
+        pipeline.add(conv)
+        pipeline.add(sink_element)
         src.link(dec)
         dec.link(conv)
-        conv.link(sink)
+        conv.link(sink_element)
 
         src.set_property("format", Gst.Format.TIME)
         src.set_property("block", True)
