@@ -97,7 +97,7 @@ class LocalMediaServer(QObject):
             return
         try:
             self._server = HTTPServer(
-                ("0.0.0.0", self._port),
+                ("127.0.0.1", self._port),
                 _make_handler(self._registry, self._token_map))
             self._thread = Thread(
                 target=self._server.serve_forever, daemon=True)

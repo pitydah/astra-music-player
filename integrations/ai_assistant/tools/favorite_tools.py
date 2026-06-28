@@ -34,15 +34,6 @@ def mark_favorite(db: Any, track_ids: list[int]) -> ToolResult:
                 error="No se encontraron las canciones en la biblioteca.",
             )
         changed = 0
-        for fp in filepaths:
-            if hasattr(db, "toggle_favorite"):
-                result = db.toggle_favorite(fp)
-                if result:
-                    changed += 1
-                    db.toggle_favorite(fp)  # toggle back, then force ON
-
-        # Force favorite ON for all specified tracks
-        changed = 0
         if hasattr(db, "toggle_favorite"):
             current = set(db.get_favorites() or [])
             for fp in filepaths:

@@ -23,8 +23,13 @@ class ActionLog:
         if not enabled:
             return
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self._conn = sqlite3.connect(db_path)
-        self._conn.execute("PRAGMA journal_mode=WAL")
+        try:
+            self._conn = sqlite3.connect(db_path)
+            self._conn.execute("PRAGMA journal_mode=WAL")
+        except sqlite3.Error:
+            self._enabled = False
+            self._conn = None
+            return
         self._conn.execute("""CREATE TABLE IF NOT EXISTS action_log (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp  REAL NOT NULL,
@@ -91,7 +96,7 @@ class ActionLog:
             return 0
 
     def close(self):
-        if self._enabled and hasattr(self, "_conn"):
+        if self._enabled and self._conn is not None:
             self._conn.close()
 
 

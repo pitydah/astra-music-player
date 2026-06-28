@@ -73,8 +73,10 @@ class AudioCaptureManager(QObject):
             if SINK_NAME in line:
                 parts = line.split()
                 if parts:
-                    QProcess.execute(PACTL_BIN,
-                                     ["unload-module", parts[0]])
+                    proc2 = QProcess(self)
+                    proc2.start(PACTL_BIN,
+                                ["unload-module", parts[0]])
+                    proc2.waitForFinished(3000)
         self._sink_id = None
         self._loopback_id = None
         self.sink_removed.emit()
@@ -96,7 +98,9 @@ class AudioCaptureManager(QObject):
 
     def disable_local_monitor(self):
         if self._loopback_id and PACTL_BIN:
-            QProcess.execute(PACTL_BIN,
-                             ["unload-module", str(self._loopback_id)])
+            proc = QProcess(self)
+            proc.start(PACTL_BIN,
+                       ["unload-module", str(self._loopback_id)])
+            proc.waitForFinished(3000)
         self._loopback_id = None
         self._local_monitor = False

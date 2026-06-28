@@ -7,18 +7,21 @@ from typing import Any
 from integrations.ai_assistant.schemas import ToolResult
 
 
+_broker_instance = None
+
+
 def _get_broker() -> Any:
     from integrations.knowledge_broker.service import KnowledgeBrokerService
-    global _broker_singleton
-    if not hasattr(_get_broker, "_instance") or _get_broker._instance is None:
+    global _broker_instance
+    if _broker_instance is None:
         try:
-            _get_broker._instance = KnowledgeBrokerService()
-        except Exception:
-            _get_broker._instance = None
-    return _get_broker._instance
-
-
-_get_broker._instance = None
+            _broker_instance = KnowledgeBrokerService()
+        except Exception as e:
+            import logging
+            logging.getLogger("michi.knowledge_tools").warning(
+                "KnowledgeBroker init failed: %s", e)
+            _broker_instance = None
+    return _broker_instance
 
 
 def lookup_artist_info(db: Any, artist_name: str = "",
