@@ -241,3 +241,23 @@ class TestNavigationController:
         ctrl.navigate_back()
         win._on_sidebar_navigate.assert_called_with("albums")
 
+    def test_dispatch_saves_previous_search(self, ctrl, win):
+        win._search_text = "rock"
+        win._search.text.return_value = "rock"
+        ctrl.dispatch("albums")
+        ctrl.dispatch("artists")
+        assert ctrl._history._history[0] == ("albums", "rock"), (
+            "dispatch should save previous search before clearing")
+
+    def test_navigate_back_restores_search_text(self, ctrl, win):
+        win._search_text = "rock"
+        win._search.text.return_value = "rock"
+        ctrl.dispatch("albums")
+        win._search_text = ""
+        win._search.text.return_value = ""
+        ctrl.dispatch("artists")
+        ctrl.navigate_back()
+        assert ctrl._history.current_key == "albums", "back should return to albums"
+        assert win._search_text == "rock" or win._search.setText.called, (
+            "search text should be restored on navigate back")
+

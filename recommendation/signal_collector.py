@@ -70,12 +70,13 @@ class SignalCollector:
                     (limit,),
                 ).fetchall()
             return [r[0] for r in rows]
-        except Exception:
+        except Exception as e:
+            logger.debug("Signal fetch failed: %s", e)
             return []
 
     def clear_signals(self):
         try:
             self._db.conn.execute("DELETE FROM track_signal")
             self._db.conn.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Signal clear failed: %s", e)

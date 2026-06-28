@@ -57,8 +57,10 @@ class LocalSource(MusicSource):
             try:
                 from library.search_engine import SearchEngine
                 self._engine = SearchEngine(self._db.conn)
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger("michi.local_source").debug(
+                    "SearchEngine init failed: %s", e)
         return self._engine
 
     def _to_refs(self, items) -> list[TrackRef]:

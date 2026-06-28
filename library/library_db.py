@@ -138,8 +138,8 @@ class LibraryDB:
             self._conn.execute(
                 "INSERT INTO media_fts(media_fts) VALUES('rebuild')")
             self._conn.commit()
-        except sqlite3.Error:
-            pass
+        except sqlite3.Error as e:
+            logger.debug("FTS5 initialization/rebuild failed: %s", e)
 
     def close(self):
         self._conn.close()
@@ -245,8 +245,8 @@ class LibraryDB:
                     "INSERT OR REPLACE INTO album_art_cache "
                     "(album_hash, mime, data) VALUES (?,?,?)",
                     (ak, cover_mime, cover_data))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to cache embedded cover for %s: %s", filepath, e)
 
         try:
             writer = BatchWriter(self._conn, batch_size=1)

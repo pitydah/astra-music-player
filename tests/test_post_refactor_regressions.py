@@ -253,9 +253,14 @@ class TestHardening:
             "directories().clear() is unreliable")
 
     def test_ci_local_uses_michi_safe_mode(self):
-        """ci_local.sh must set MICHI_SAFE_MODE=1 for smoke and pytest."""
+        """ci_local.sh must set MICHI_SAFE_MODE=1 for both smoke and pytest."""
         content = _read(os.path.join(_root(), "scripts", "ci_local.sh"))
-        assert "MICHI_SAFE_MODE=1" in content
+        assert content.count("MICHI_SAFE_MODE=1") >= 2, (
+            "ci_local.sh must set MICHI_SAFE_MODE=1 for both smoke_startup and pytest")
+        smoke_section = content.split("python3 scripts/smoke_startup.py")[0]
+        pytest_section = content.split("python3 -m pytest")[0]
+        assert "MICHI_SAFE_MODE=1" in smoke_section, "smoke startup missing safe mode"
+        assert "MICHI_SAFE_MODE=1" in pytest_section, "pytest missing safe mode"
 
     def test_backfill_scheduled_only_by_library_controller(self):
         """Backfill must be scheduled in LibraryController, not window.py."""
@@ -314,3 +319,22 @@ class TestHardening:
                 f"Expected 0 for unavailable root, got {result}")
         finally:
             db.close()
+
+    def test_library_db_no_silent_critical_passes(self):
+        """library_db.py must not silently swallow critical errors."""
+        content = _read(os.path.join(_root(), "library", "library_db.py"))
+        forbidden = [
+            "except sqlite3.Error:\n            pass",
+            "except Exception:\n                pass",
+            "except Exception:\n            pass",
+        ]
+        for pattern in forbidden:
+            assert pattern not in content, (
+                f"library_db.py must not silently swallow: {pattern!r}")
+
+    def test_library_db_logs_degradable_errors(self):
+        """library_db.py must log FTS5 and embedded cover errors."""
+        content = _read(os.path.join(_root(), "library", "library_db.py"))
+        assert "FTS5" in content, "library_db.py should log FTS5 errors"
+        assert "Failed to cache embedded cover" in content, (
+            "library_db.py should log embedded cover cache failures")
