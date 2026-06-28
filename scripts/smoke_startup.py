@@ -237,26 +237,26 @@ def main():
         print("=== Michi Music Player — Smoke Startup ===")
         print()
 
-        print("[1/7] Environment")
+        print("[1/8] Environment")
         _diagnostics()
         print()
 
-        errors += _run_step("[2/7] Python imports", _check_imports)
+        errors += _run_step("[2/8] Python imports", _check_imports)
         print()
 
-        errors += _run_step("[3/7] PyGObject / GStreamer", _check_gst)
+        errors += _run_step("[3/8] PyGObject / GStreamer", _check_gst)
         print()
 
-        errors += _run_step("[4/7] XDG paths", _check_paths)
+        errors += _run_step("[4/8] XDG paths", _check_paths)
         print()
 
-        errors += _run_step("[5/7] SQLite database", _check_db)
+        errors += _run_step("[5/8] SQLite database", _check_db)
         print()
 
-        errors += _run_step("[6/7] Qt widgets", _check_qt)
+        errors += _run_step("[6/8] Qt widgets", _check_qt)
         print()
 
-        errors += _run_step("[7/7] MainWindow", _check_main_window)
+        errors += _run_step("[7/8] MainWindow", _check_main_window)
         print()
 
         print("[8/8] Summary")

@@ -58,16 +58,32 @@ class AcrylicBrush:
                                 clip_radius - 1, clip_radius - 1)
 
 
+_NOISE_TILE_SIZE = 96
+_NOISE_TILE_CACHE: QPixmap | None = None
+_NOISE_SEED = 42
+
+
+def _noise_tile() -> QPixmap:
+    global _NOISE_TILE_CACHE
+    if _NOISE_TILE_CACHE is not None:
+        return _NOISE_TILE_CACHE
+    import random as _r
+    _r.seed(_NOISE_SEED)
+    img = QImage(_NOISE_TILE_SIZE, _NOISE_TILE_SIZE, QImage.Format_Grayscale8)
+    for y in range(_NOISE_TILE_SIZE):
+        for x in range(_NOISE_TILE_SIZE):
+            img.setPixel(x, y, _r.randint(0, 12))
+    _NOISE_TILE_CACHE = QPixmap.fromImage(img)
+    return _NOISE_TILE_CACHE
+
+
 class NoiseOverlay(QWidget):
     """Subtle noise/grain texture overlay for glass surfaces."""
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        if parent:
-            self.setParent(parent)
         self.setObjectName("noiseOverlay")
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self._cached_noise: QPixmap | None = None
         if parent:
             parent.installEventFilter(self)
 
@@ -77,25 +93,12 @@ class NoiseOverlay(QWidget):
                 return super().eventFilter(obj, event)
             if event.type() == QEvent.Resize:
                 self.setGeometry(obj.rect())
-                self._generate_noise(obj.width(), obj.height())
         return super().eventFilter(obj, event)
 
-    def _generate_noise(self, w: int, h: int):
-        import random as _r
-        _r.seed(42)
-        img = QImage(w, h, QImage.Format_Grayscale8)
-        for y in range(h):
-            for x in range(w):
-                v = _r.randint(0, 12)
-                img.setPixel(x, y, v)
-        self._cached_noise = QPixmap.fromImage(img)
-
     def paintEvent(self, event):
-        if self._cached_noise is None:
-            return
         painter = QPainter(self)
         painter.setOpacity(0.6)
-        painter.drawPixmap(0, 0, self._cached_noise)
+        painter.drawTiledPixmap(self.rect(), _noise_tile())
         painter.end()
 
 

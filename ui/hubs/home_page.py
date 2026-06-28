@@ -1,6 +1,7 @@
 """HomePage — clean dashboard: library status, suggestions, continuity, ecosystem."""
 from __future__ import annotations
 
+import logging
 import os
 
 from PySide6.QtCore import Qt, Signal
@@ -13,6 +14,8 @@ from ui.central.central_styles import (
     glass_button_qss, card_title_qss, card_desc_qss,
 )
 from ui.effects.michi_glass import AcrylicGlassFrame
+
+logger = logging.getLogger("michi.home_page")
 
 
 class HomePage(QWidget):
@@ -48,8 +51,8 @@ class HomePage(QWidget):
             elif self._db and hasattr(self._db, "get_stats"):
                 st = self._db.get_stats()
                 stats["total_songs"] = st.get("total", 0)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Home stats unavailable: %s", e)
         return stats
 
     # ── Build UI ──

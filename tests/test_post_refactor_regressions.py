@@ -351,3 +351,27 @@ class TestHardening:
             "get_recent() must have logger.debug for errors")
         assert "total_actions failed" in content, (
             "total_actions() must have logger.debug for errors")
+
+
+class TestMicroStability:
+    """Micro-stability: HomePage, smoke labels, noise overlay."""
+
+    def test_home_page_does_not_silently_swallow_stats_errors(self):
+        content = _read(os.path.join(_root(), "ui", "hubs", "home_page.py"))
+        assert "except Exception:\n            pass" not in content
+        assert "Home stats unavailable" in content
+
+    def test_smoke_startup_step_labels_are_consistent(self):
+        content = _read(os.path.join(_root(), "scripts", "smoke_startup.py"))
+        assert "[1/8] Environment" in content
+        assert "[7/8] MainWindow" in content
+        assert "[8/8] Summary" in content
+        assert "[1/7]" not in content
+        assert "[7/7]" not in content
+
+    def test_noise_overlay_uses_cached_tiled_texture(self):
+        content = _read(os.path.join(_root(), "ui", "effects", "michi_glass.py"))
+        assert "drawTiledPixmap" in content
+        assert "_NOISE_TILE_CACHE" in content
+        assert "for y in range(h)" not in content
+        assert "for x in range(w)" not in content
