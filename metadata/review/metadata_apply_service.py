@@ -11,10 +11,14 @@ logger = logging.getLogger("michi.metadata.apply_service")
 
 
 class MetadataApplyService:
-    def __init__(self, db: Any, repository: MetadataReviewRepository,
+    def __init__(self, db, repository: MetadataReviewRepository,
                  apply_to_db: bool = True,
                  apply_to_files: bool = False,
                  require_confirmation: bool = True):
+        if not hasattr(db, 'update_media_item_field'):
+            raise TypeError("db object must implement update_media_item_field()")
+        if not hasattr(db, 'get_media_item_by_id'):
+            raise TypeError("db object must implement get_media_item_by_id()")
         self._db = db
         self._repo = repository
         self._apply_to_db = apply_to_db

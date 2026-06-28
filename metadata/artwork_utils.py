@@ -8,6 +8,16 @@ try:
 except ImportError:
     _pillow_available = False
 
+_art_logger = None
+
+
+def _log():
+    global _art_logger
+    if _art_logger is None:
+        import logging
+        _art_logger = logging.getLogger("michi.artwork")
+    return _art_logger
+
 PRESETS = {
     "300": 300,
     "600": 600,
@@ -36,7 +46,8 @@ def image_info(path_or_data) -> dict | None:
             "size_bytes": size_bytes,
             "size_mb": size_bytes / (1024 * 1024),
         }
-    except Exception:
+    except Exception as e:
+        _log().debug("image_info failed: %s", e)
         return None
 
 
@@ -99,7 +110,8 @@ def resize_artwork_bytes(
             "nf_mb": len(new_data) / (1024 * 1024),
         }
         return new_data, mime, info
-    except Exception:
+    except Exception as e:
+        _log().debug("resize_artwork_bytes failed: %s", e)
         return None
 
 
@@ -121,7 +133,8 @@ def make_artwork_pixmap(data: bytes, size: int = 220):
         pix = QPixmap()
         pix.loadFromData(data)
         return pix.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-    except Exception:
+    except Exception as e:
+        _log().debug("make_artwork_pixmap failed: %s", e)
         return None
 
 
@@ -136,9 +149,8 @@ def extract_artwork(filepath: str, dest_path: str) -> bool:
             with open(out, "wb") as f:
                 f.write(tags.artwork_data)
             return True
-    except Exception:
-        import logging
-    logging.getLogger("michi").debug("Artwork extraction failed")
+    except Exception as e:
+        _log().debug("extract_artwork failed: %s", e)
     return False
 
 
@@ -161,7 +173,8 @@ def set_artwork(filepath: str, image_path: str) -> bool:
         tags.artwork_data = data
         tags.mark_artwork_dirty()
         return write_tags(tags)
-    except Exception:
+    except Exception as e:
+        _log().debug("set_artwork failed: %s", e)
         return False
 
 
@@ -177,7 +190,8 @@ def remove_artwork(filepath: str) -> bool:
         tags.artwork_data = None
         tags.mark_artwork_dirty()
         return write_tags(tags)
-    except Exception:
+    except Exception as e:
+        _log().debug("remove_artwork failed: %s", e)
         return False
 
 
@@ -187,5 +201,6 @@ def load_image_as_bytes(image_path: str) -> bytes | None:
     try:
         with open(image_path, "rb") as f:
             return f.read()
-    except Exception:
+    except Exception as e:
+        _log().debug("load_image_as_bytes failed: %s", e)
         return None

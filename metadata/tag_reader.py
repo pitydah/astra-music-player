@@ -1,7 +1,10 @@
 """Tag reader — reads audio metadata using Mutagen."""
 import os
+import logging
 
 from metadata.tag_model import TrackTags
+
+logger = logging.getLogger("michi.tag_reader")
 
 _mutagen_available = False
 try:
@@ -81,9 +84,8 @@ def _read_artwork(f, kind: str) -> tuple[bool, str, bytes | None]:
             if covr:
                 fmt = "image/jpeg" if covr[0].imageformat == MP4Cover.FORMAT_JPEG else "image/png"
                 return True, fmt, bytes(covr[0])
-    except Exception:
-        import logging
-        logging.getLogger("michi").debug("Non-critical operation failed")
+    except Exception as e:
+        logger.debug("Artwork extraction failed: %s", e)
     return False, "", None
 
 
@@ -108,18 +110,16 @@ def _read_id3_tags(f, desc: TrackTags):
         comms = tags.getall("COMM")
         if comms:
             desc.comment = str(comms[0])
-    except Exception:
-        import logging
-        logging.getLogger("michi").debug("Non-critical operation failed")
+    except Exception as e:
+        logger.debug("COMM read failed: %s", e)
 
     # USLT → lyrics
     try:
         uslts = tags.getall("USLT")
         if uslts:
             desc.lyrics = str(uslts[0])
-    except Exception:
-        import logging
-        logging.getLogger("michi").debug("Non-critical operation failed")
+    except Exception as e:
+        logger.debug("USLT read failed: %s", e)
 
     # TXXX frames
     _txxx_map = {
@@ -137,9 +137,8 @@ def _read_id3_tags(f, desc: TrackTags):
                 mapped = _txxx_map.get(desc_key) or _txxx_map.get(desc_key.lower())
                 if mapped:
                     setattr(desc, mapped, str(tags[key]))
-    except Exception:
-        import logging
-        logging.getLogger("michi").debug("Non-critical operation failed")
+    except Exception as e:
+        logger.debug("TXXX map read failed: %s", e)
 
     # Track number — may contain "/N"
     if desc.tracknumber and "/" in desc.tracknumber:
@@ -183,7 +182,8 @@ def _read_mp4_tags(f, desc: TrackTags):
             else:
                 v = val[0] if isinstance(val, list) else val
                 setattr(desc, attr, str(v))
-        except Exception:
+        except Exception as e:
+            logger.debug("MP4 tag %s read failed: %s", mp4_key, e)
             continue
 
     # Also check alt encoding
@@ -193,7 +193,8 @@ def _read_mp4_tags(f, desc: TrackTags):
             if val and not getattr(desc, attr):
                 v = val[0] if isinstance(val, list) else val
                 setattr(desc, attr, str(v))
-        except Exception:
+        except Exception as e:
+            logger.debug("MP4 alt tag %s read failed: %s", mp4_key, e)
             continue
 
     # ISRC
@@ -201,9 +202,8 @@ def _read_mp4_tags(f, desc: TrackTags):
         isrc = tags.get("----:com.apple.iTunes:ISRC")
         if isrc:
             desc.isrc = str(isrc[0])
-    except Exception:
-        import logging
-        logging.getLogger("michi").debug("Non-critical operation failed")
+    except Exception as e:
+        logger.debug("ISRC read failed: %s", e)
 
     # MusicBrainz via Xtra
     try:
@@ -265,7 +265,8 @@ def read_tags(filepath: str) -> TrackTags:
                 if val:
                     v = val[0] if isinstance(val, list) else str(val)
                     setattr(desc, attr, str(v))
-            except Exception:
+            except Exception as e:
+                logger.debug("Vorbis tag %s read failed: %s", attr, e)
                 continue
 
     # Artwork
