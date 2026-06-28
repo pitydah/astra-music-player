@@ -402,9 +402,11 @@ class NavigationController(QObject):
             section_key = "playlists"
         self.configure_header(section_key, route_key=key)
 
-        # Sincronizar _current_section_key + sidebar activo para sub-rutas
+        # State explícito: ruta real, sidebar activo, alias legacy
         sidebar_key = resolve_sidebar_active_key(key)
-        w._current_section_key = sidebar_key
+        w._current_route_key = key
+        w._current_sidebar_key = sidebar_key
+        w._current_section_key = sidebar_key  # legacy alias
         if hasattr(w, '_sidebar_controller'):
             w._sidebar_controller.set_active(sidebar_key)
 

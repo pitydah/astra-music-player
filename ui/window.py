@@ -843,8 +843,9 @@ class MainWindow(QMainWindow):
 
         # Restaurar sidebar activo tras rebuild (sub-secciones mapean al hub padre)
         from ui.controllers.navigation_controller import resolve_sidebar_active_key
-        current = getattr(self, '_current_section_key', None) or "home"
-        current = resolve_sidebar_active_key(current)
+        current = getattr(self, "_current_sidebar_key", None)
+        if not current:
+            current = resolve_sidebar_active_key(getattr(self, "_current_route_key", "home"))
         self._sidebar_controller.set_active(current)
 
         # Sidebar shadow — solo si no tiene uno ya

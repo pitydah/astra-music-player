@@ -35,68 +35,74 @@ def _check_main_window():
 
     from ui.window import MainWindow
     w = MainWindow()
+    try:
+        controllers = [
+            '_nav_ctrl', '_lib_ctrl', '_home_ctrl', '_services',
+            '_view_registry', '_cf_ctrl', '_smart_ctrl', '_srv_ctrl',
+            '_id_handlers', '_sidebar_menu_ctrl', '_search_router',
+            '_view_router', '_album_sort_menu', '_playback_ctrl',
+            '_album_ctrl', '_artist_ctrl', '_genre_ctrl', '_playlist_ctrl',
+            '_file_actions', '_expanded_ctrl', '_cast_ctrl',
+            '_transmit_ctrl', '_audio_output_ctrl', '_ctx',
+        ]
+        for attr in controllers:
+            v = getattr(w, attr, None)
+            assert v is not None, f"MainWindow missing {attr}"
+        print(f"  ✓ {len(controllers)} controllers confirmed")
 
-    controllers = [
-        '_nav_ctrl', '_lib_ctrl', '_home_ctrl', '_services',
-        '_view_registry', '_cf_ctrl', '_smart_ctrl', '_srv_ctrl',
-        '_id_handlers', '_sidebar_menu_ctrl', '_search_router',
-        '_view_router', '_album_sort_menu', '_playback_ctrl',
-        '_album_ctrl', '_artist_ctrl', '_genre_ctrl', '_playlist_ctrl',
-        '_file_actions', '_expanded_ctrl', '_cast_ctrl',
-        '_transmit_ctrl', '_audio_output_ctrl', '_ctx',
-    ]
-    for attr in controllers:
-        v = getattr(w, attr, None)
-        assert v is not None, f"MainWindow missing {attr}"
-    print(f"  ✓ {len(controllers)} controllers confirmed")
+        sections = [
+            'home', 'library_hub', 'mix_hub', 'playlist_hub', 'playback_hub',
+            'connections_hub', 'radio', 'audio_lab', 'home_audio', 'identifier',
+            'assistant', 'discover', 'settings_hub', 'devices_page',
+            'michi_disc_lab', 'metadata_editor', 'albums', 'artists', 'genres',
+            'folders', 'favs', 'recent',
+        ]
+        for key in sections:
+            w._nav_ctrl.dispatch(key)
+        print(f"  ✓ {len(sections)} sections navigable")
 
-    sections = [
-        'home', 'library_hub', 'mix_hub', 'playlist_hub', 'playback_hub',
-        'connections_hub', 'radio', 'audio_lab', 'home_audio', 'identifier',
-        'assistant', 'discover', 'settings_hub', 'devices_page',
-        'michi_disc_lab', 'metadata_editor', 'albums', 'artists', 'genres',
-        'folders', 'favs', 'recent',
-    ]
-    for key in sections:
-        w._nav_ctrl.dispatch(key)
-    print(f"  ✓ {len(sections)} sections navigable")
+        # Verify search history preservation
+        w._nav_ctrl.dispatch("library_hub")
+        w._search_text = "beatles"
+        w._nav_ctrl.dispatch("albums")
+        w._nav_ctrl.dispatch("library_hub")
+        assert w._nav_ctrl._history._history[-1][1] == "", "history search mismatch"
+        w._nav_ctrl.navigate_back()
+        assert w._nav_ctrl._history.current_key == "albums", "navigate back failed"
+        print("  ✓ nav history preserves search text")
 
-    # Verify search history preservation
-    w._nav_ctrl.dispatch("library_hub")
-    w._search_text = "beatles"
-    w._nav_ctrl.dispatch("albums")
-    w._nav_ctrl.dispatch("library_hub")
-    assert w._nav_ctrl._history._history[-1][1] == "", "history search mismatch"
-    w._nav_ctrl.navigate_back()
-    assert w._nav_ctrl._history.current_key == "albums", "navigate back failed"
-    print("  ✓ nav history preserves search text")
+        # View mode switching
+        w._nav_ctrl.dispatch("albums")
+        w._view_router.on_mode_changed("grid")
+        assert w._view_mode == "grid", f"Expected grid, got {w._view_mode}"
+        w._view_router.on_mode_changed("coverflow")
+        cf = getattr(w, '_coverflow', None)
+        if cf:
+            assert callable(cf.count), "CoverFlow has count"
+        print("  ✓ view mode switching (grid/coverflow)")
 
-    # View mode switching
-    w._nav_ctrl.dispatch("albums")
-    w._view_router.on_mode_changed("grid")
-    assert w._view_mode == "grid", f"Expected grid, got {w._view_mode}"
-    w._view_router.on_mode_changed("coverflow")
-    cf = getattr(w, '_coverflow', None)
-    if cf:
-        assert callable(cf.count), "CoverFlow has count"
-    print("  ✓ view mode switching (grid/coverflow)")
-
-    # Route vs sidebar separation
-    if hasattr(w, '_current_route_key') and hasattr(w, '_current_sidebar_key'):
+        # Route vs sidebar separation — mandatory
         w._nav_ctrl.dispatch("albums")
         assert w._current_route_key == "albums"
         assert w._current_sidebar_key == "library_hub"
+
         w._nav_ctrl.dispatch("pl:123")
         assert w._current_route_key == "pl:123"
         assert w._current_sidebar_key == "playlist_hub"
-        print("  ✓ route/sidebar separation (albums, playlists)")
-    else:
-        print("  · route/sidebar attributes not yet on MainWindow (skip)")
 
-    w.close()
-    w.deleteLater()
-    app.processEvents()
-    return 0
+        # Verify resolve_sidebar_active_key logic for srv:/dev: prefixes
+        from ui.controllers.navigation_controller import resolve_sidebar_active_key
+        assert resolve_sidebar_active_key("srv:navidrome") == "connections_hub"
+        assert resolve_sidebar_active_key("dev:usb") == "devices_page"
+        print("  ✓ route/sidebar separation (albums, playlists, servers, devices)")
+
+        return 0
+    finally:
+        w.close()
+        w.deleteLater()
+        app.quit()
+        import os as _os
+        _os._exit(0)
 
 
 def _run_step(label, fn):

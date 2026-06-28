@@ -147,14 +147,17 @@ MICHI_TEST_CONFIG_DIR="$TMPDIR/michi-smoke-config" \
 python3 scripts/smoke_ui_routes.py || { echo "  UI ROUTE SMOKE FAILED"; exit 1; }
 echo "  OK"
 
-# [8/10] Lint + compile
+# [8/10] Lint
 echo "[8/10] Running lint..."
-
+python3 -m ruff check . --output-format concise || { echo "  LINT FAILED"; exit 1; }
 echo "  OK"
+
+# [9/10] Compile
+echo "[9/10] Running compileall..."
 python3 -m compileall -q -x '.venv/|\.tmpl\.' . || { echo "  COMPILE FAILED"; exit 1; }
 echo "  COMPILE OK"
 
-# [9/10] Pytest
+# [10/10] Pytest
 echo "[9/10] Running pytest..."
 cd "$REPO_DIR"
 QT_QPA_PLATFORM=offscreen \
@@ -166,8 +169,17 @@ MICHI_TEST_CONFIG_DIR="$TMPDIR/michi-test-config" \
 python3 -m pytest -q || { echo "  TEST FAILED"; exit 1; }
 echo "  OK"
 
-# [10/10] Summary
-echo "[10/10] Summary"
+# [10/10] Pytest
+echo "[10/10] Running pytest..."
+cd "$REPO_DIR"
+QT_QPA_PLATFORM=offscreen \
+PYTHONUNBUFFERED=1 \
+MICHI_SAFE_MODE=1 \
+MICHI_TEST_DATA_DIR="$TMPDIR/michi-test-data" \
+MICHI_TEST_CACHE_DIR="$TMPDIR/michi-test-cache" \
+MICHI_TEST_CONFIG_DIR="$TMPDIR/michi-test-config" \
+python3 -m pytest -q || { echo "  TEST FAILED"; exit 1; }
+echo "  OK"
 
 echo
 echo "=== All CI checks passed ==="

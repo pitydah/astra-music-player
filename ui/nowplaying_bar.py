@@ -342,8 +342,8 @@ class NowPlayingBar(QWidget):
         left_widget.setGraphicsEffect(card_shadow)
 
         card_layout = QHBoxLayout(left_widget)
-        card_layout.setContentsMargins(12, 8, 14, 8)
-        card_layout.setSpacing(14)
+        card_layout.setContentsMargins(LEFT_MARGIN_L, 8, LEFT_MARGIN_R, 8)
+        card_layout.setSpacing(LEFT_SPACING)
 
         # Cover button — high-quality paint
         self._cover = CoverButton()
@@ -661,7 +661,7 @@ class NowPlayingBar(QWidget):
             if not pix.isNull():
                 rounded = _rounded_cover_pixmap(pix, 64, 13)
                 self._cover_pixmap = rounded
-                self._cover.set_cover_pixmap(rounded)
+                self._cover.set_cover_pixmap(rounded, has_track=self._has_track)
                 self.cover_loaded.emit(pix)
                 self._apply_elide()
                 return
@@ -760,7 +760,7 @@ class NowPlayingBar(QWidget):
         self._raw_meta = ""
         self._duration = 0.0
         self._source_quality = ""
-        self._source_type = "local_file"
+        self._source_type = ""
         self._transmitting = False
         self._transmit_device_name = ""
 
@@ -983,9 +983,11 @@ class CoverButton(QPushButton):
         self.setFlat(True)
         self.clicked.connect(self._on_click)
 
-    def set_cover_pixmap(self, pixmap: QPixmap):
+    def set_cover_pixmap(self, pixmap: QPixmap, has_track: bool = True):
         self._pixmap = pixmap
         self._has_cover = not pixmap.isNull()
+        self._has_track = has_track
+        self.setCursor(Qt.PointingHandCursor if has_track else Qt.ArrowCursor)
         self.update()
 
     def set_placeholder(self, pixmap: QPixmap, has_track: bool):

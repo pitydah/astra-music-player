@@ -1,5 +1,16 @@
 # Performance Testing
 
+Current status: **preliminary synthetic suite**.
+
+The generator creates empty placeholder files and uses `LibraryDB.add_file()`.
+This is useful for smoke-level performance checks, but it also measures file creation,
+metadata fallback and indexing overhead. It is **not** yet a pure database benchmark.
+
+Future improvement:
+- replace file-based generation with `BatchWriter` or direct synthetic DB insert helper;
+- add 10k/50k datasets;
+- separate generation time from query timings.
+
 ## Running
 
 ```bash
@@ -10,21 +21,21 @@ pytest tests/perf/ -m perf -v
 pytest tests/perf/test_library_perf.py -m perf -v -k test_get_all_tracks
 ```
 
-## Thresholds
+## Thresholds (5,000 tracks)
 
-| Operation | Threshold | Notes |
-|-----------|-----------|-------|
-| `get_all_tracks` (10k) | < 2.5s | Ordered by title |
-| `search_tracks` (10k) | < 1.0s | FTS5 prefix search |
-| `get_stats` (10k) | < 1.0s | Counts, durations |
-| `cleanup_missing` | < 0.2s | Non-existent root |
-| `get_albums` (10k) | < 2.0s | All albums |
+| Operation | Threshold |
+|---:|---:|
+| get_all | < 2.5s |
+| search_advanced | < 1.0s |
+| get_stats | < 1.0s |
+| cleanup_missing_under_root | < 0.2s |
 
 ## Generating Synthetic Data
 
 ```python
 from tests.perf.generate_library import generate
 from library.library_db import LibraryDB
+import tempfile
 db = LibraryDB(":memory:")
-generate(db, count=10_000)
+generate(db, root=str(tempfile.mkdtemp()), count=5_000)
 ```

@@ -28,7 +28,7 @@ class LibraryController(QObject):
         if getattr(self._win, '_safe_mode', False):
             return
         from core.settings_manager import get_bool
-        if not get_bool("library/auto_backfill_enabled", False):
+        if not get_bool("library/auto_backfill_enabled"):
             logger.debug("Backfill skipped: auto_backfill_enabled is False")
             return
         workers = self._win._workers

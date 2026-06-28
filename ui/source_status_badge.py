@@ -69,7 +69,7 @@ class SourceStatusBadge(QPushButton):
                 font-weight: 700;
                 letter-spacing: 0.35px;
                 min-height: 24px;
-                min-width: 124px;
+                min-width: 88px;
                 max-width: 176px;
             }}
             QPushButton#sourceStatusBadge:hover {{
@@ -133,55 +133,44 @@ class SourceStatusBadge(QPushButton):
         service = ctx.get("service", "")
         codec = ctx.get("codec", "")
         bitrate = ctx.get("bitrate", "")
-        sample_rate = ctx.get("sample_rate", "")
-        bit_depth = ctx.get("bit_depth", "")
         filepath = ctx.get("filepath", "")
         audio_output = ctx.get("audio_output", "")
         transmitting = ctx.get("transmitting", False)
         transmit_device = ctx.get("transmit_device", "")
-        identifier_state = ctx.get("identifier_state", "")
         replaygain = ctx.get("replaygain", "")
 
         if not source_type:
-            pages = ["SIN REPRODUCCIÓN"]
+            pages = [""]
+        elif transmitting and transmit_device:
+            pages.append(f"TRANSMITIENDO · {transmit_device[:18]}")
+        elif source_type == "radio":
+            pages.append("RADIO · STREAMING")
+            if quality:
+                pages.append(quality[:22])
+            elif service:
+                pages.append(service[:22])
+        elif source_type in ("navidrome", "jellyfin"):
+            label = source_type.upper()
+            q = quality or ""
+            if q:
+                pages.append(f"{label} · {q}")
+            elif service:
+                pages.append(f"{label} · {service[:22]}")
+            else:
+                pages.append(label)
         elif source_type == "local_file":
             if quality:
                 pages.append(f"LOCAL · {quality}")
+            elif codec and bitrate:
+                pages.append(f"LOCAL · {codec.upper()} {bitrate}")
+            elif codec:
+                pages.append(f"LOCAL · {codec.upper()}")
             else:
                 pages.append("LOCAL")
-            if codec and sample_rate:
-                detail = f"{codec}"
-                if bit_depth:
-                    detail += f" · {bit_depth}-bit"
-                detail += f" · {sample_rate}"
-                pages.append(detail)
-            elif bitrate:
-                pages.append(f"{codec} · {bitrate}" if codec else f"{bitrate}")
-            if filepath:
-                import os
-                pages.append(f"ARCHIVO · {os.path.basename(filepath)[:20]}")
-        elif source_type == "radio":
-            pages.append("STREAMING · RADIO")
-            if service:
-                pages.append(service[:22])
-            if quality:
-                pages.append(quality[:22])
-            if identifier_state:
-                pages.append(f"IDENTIFICADOR · {identifier_state}")
-        elif source_type in ("navidrome", "jellyfin"):
-            label = source_type.upper()
-            pages.append(f"STREAMING · {label}")
-            if service:
-                pages.append(f"SERVIDOR · {service[:22]}")
-            if quality:
-                pages.append(quality[:22])
         elif source_type == "remote_stream":
             pages.append("STREAMING")
             if quality:
                 pages.append(quality[:22])
-
-        if transmitting and transmit_device:
-            pages.append(f"TRANSMITIENDO · {transmit_device[:18]}")
 
         if audio_output:
             pages.append(f"SALIDA · {audio_output[:22]}")
@@ -192,8 +181,13 @@ class SourceStatusBadge(QPushButton):
         if not pages:
             pages = [""]
 
-        self.setProperty("source", "streaming" if source_type in ("radio", "navidrome", "jellyfin", "remote_stream") else
-                         "transmitting" if transmitting else "")
+        if transmitting:
+            source_prop = "transmitting"
+        elif source_type in ("radio", "navidrome", "jellyfin", "remote_stream"):
+            source_prop = "streaming"
+        else:
+            source_prop = ""
+        self.setProperty("source", source_prop)
         self.style().unpolish(self)
         self.style().polish(self)
 

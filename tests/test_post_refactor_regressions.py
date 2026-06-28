@@ -424,6 +424,66 @@ class TestCiLocalNumbering:
         assert "scripts/smoke_startup.py" in content
         assert "scripts/smoke_ui_routes.py" in content
 
+    def test_ci_local_runs_ruff_check(self):
+        content = _read(os.path.join(_root(), "scripts", "ci_local.sh"))
+        assert "python3 -m ruff check ." in content, (
+            "ci_local.sh must run ruff check, not only print lint OK")
+
+
+class TestSmokeStartupIsRuntimeBase:
+    """smoke_startup.py must not contain deep UI smoke."""
+
+    def test_smoke_startup_is_runtime_base_only(self):
+        content = _read(os.path.join(_root(), "scripts", "smoke_startup.py"))
+        forbidden = [
+            "from ui.window import MainWindow",
+            "_check_main_window",
+            "w._nav_ctrl.dispatch",
+            "sections = [",
+            "_view_router.on_mode_changed",
+        ]
+        for pattern in forbidden:
+            assert pattern not in content, (
+                f"smoke_startup.py must not contain deep UI smoke: {pattern}")
+
+
+class TestSmokeUiRoutesHardening:
+    """smoke_ui_routes.py must close MainWindow in finally and enforce route/sidebar."""
+
+    def test_smoke_ui_routes_closes_mainwindow_in_finally(self):
+        content = _read(os.path.join(_root(), "scripts", "smoke_ui_routes.py"))
+        assert "finally:" in content
+        assert "w.close()" in content
+        assert "w.deleteLater()" in content
+        assert "app.processEvents()" in content
+
+    def test_smoke_ui_route_sidebar_is_mandatory(self):
+        content = _read(os.path.join(_root(), "scripts", "smoke_ui_routes.py"))
+        assert "route/sidebar attributes not yet" not in content
+        assert "hasattr(w, '_current_route_key')" not in content
+        assert "hasattr(w, '_current_sidebar_key')" not in content
+        assert 'assert w._current_route_key == "pl:123"' in content
+        assert 'assert w._current_sidebar_key == "playlist_hub"' in content
+        assert 'resolve_sidebar_active_key("srv:navidrome") == "connections_hub"' in content
+        assert 'resolve_sidebar_active_key("dev:usb") == "devices_page"' in content
+
+    def test_smoke_ui_asserts_route_and_sidebar(self):
+        content = _read(os.path.join(_root(), "scripts", "smoke_ui_routes.py"))
+        assert "_current_route_key" in content
+        assert "_current_sidebar_key" in content
+
+
+class TestRebuildSidebarUsesCurrentSidebarKey:
+    """_rebuild_sidebar() must use _current_sidebar_key as primary source."""
+
+    def test_rebuild_sidebar_uses_current_sidebar_key(self):
+        content = _read(os.path.join(_root(), "ui", "window.py"))
+        marker = "def _rebuild_sidebar"
+        assert marker in content
+        section = content.split(marker, 1)[1].split("\n    def ", 1)[0]
+        assert "_current_sidebar_key" in section
+        assert 'resolve_sidebar_active_key(getattr(self, "_current_route_key", "home"))' in section
+
 
 class TestBackfillGuard:
     """Backfill must be guarded by both safe mode and settings."""

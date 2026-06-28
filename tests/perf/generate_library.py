@@ -25,10 +25,6 @@ def generate(db, root: str, count: int = 10_000):
 
         db.add_file(fp)
 
-        if (i + 1) % 1000 == 0:
-            print(f"  generated {i + 1} / {count}")
-            db.rebuild_indexes()
-
     db.rebuild_indexes()
     elapsed = time.perf_counter() - start
     print(f"  done in {elapsed:.2f}s")
