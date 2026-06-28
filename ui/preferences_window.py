@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QMessageBox,
 )
 
+from ui.central.central_styles import glass_button_qss
 from ui.settings_pages import (
     GeneralPage, AppearancePage, LibraryPage, PlaybackPage,
     AudioPage, EqualizerPage, MetadataPage, PlaylistPage,
@@ -48,24 +49,6 @@ PAGE_DEFS = [
     ("Acerca de", "about", "warm_settings"),
 ]
 
-_FOOTER_BTN_CSS = f"""
-    QPushButton {{
-        background: rgba(255,255,255,0.055); color: {_TEXT2};
-        border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
-        padding: 7px 16px; font-size: 12px; font-weight: 600;
-    }}
-    QPushButton:hover {{
-        background: rgba(255,255,255,0.090); color: {_TEXT};
-        border: 1px solid rgba(255,255,255,0.13);
-    }}
-    QPushButton#applyBtn {{
-        background: rgba(255,255,255,0.11); color: {_TEXT};
-        border: 1px solid rgba(255,255,255,0.15);
-    }}
-    QPushButton#applyBtn:hover {{
-        background: rgba(255,255,255,0.16);
-    }}
-"""
 
 
 class PreferencesWindow(QDialog):
@@ -161,43 +144,43 @@ class PreferencesWindow(QDialog):
         footer.setSpacing(8)
 
         restore_page_btn = QPushButton("Restaurar página")
-        restore_page_btn.setStyleSheet(_FOOTER_BTN_CSS)
+        restore_page_btn.setStyleSheet(glass_button_qss("ghost"))
         restore_page_btn.clicked.connect(self._restore_page)
         footer.addWidget(restore_page_btn)
 
         restore_all_btn = QPushButton("Restaurar todo")
-        restore_all_btn.setStyleSheet(_FOOTER_BTN_CSS)
+        restore_all_btn.setStyleSheet(glass_button_qss("ghost"))
         restore_all_btn.clicked.connect(self._restore_all)
         footer.addWidget(restore_all_btn)
 
         footer.addSpacing(8)
 
         export_btn = QPushButton("Exportar")
-        export_btn.setStyleSheet(_FOOTER_BTN_CSS)
+        export_btn.setStyleSheet(glass_button_qss("secondary"))
         export_btn.clicked.connect(self._do_export)
         footer.addWidget(export_btn)
 
         import_btn = QPushButton("Importar")
-        import_btn.setStyleSheet(_FOOTER_BTN_CSS)
+        import_btn.setStyleSheet(glass_button_qss("secondary"))
         import_btn.clicked.connect(self._do_import)
         footer.addWidget(import_btn)
 
         footer.addStretch()
 
         cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setStyleSheet(_FOOTER_BTN_CSS)
+        cancel_btn.setStyleSheet(glass_button_qss("ghost"))
         cancel_btn.clicked.connect(self._on_cancel)
         footer.addWidget(cancel_btn)
 
         apply_btn = QPushButton("Aplicar")
         apply_btn.setObjectName("applyBtn")
-        apply_btn.setStyleSheet(_FOOTER_BTN_CSS)
+        apply_btn.setStyleSheet(glass_button_qss("accent"))
         apply_btn.clicked.connect(self._apply_all)
         footer.addWidget(apply_btn)
 
         save_btn = QPushButton("Guardar")
         save_btn.setObjectName("applyBtn")
-        save_btn.setStyleSheet(_FOOTER_BTN_CSS)
+        save_btn.setStyleSheet(glass_button_qss("accent"))
         save_btn.clicked.connect(self._on_save)
         footer.addWidget(save_btn)
 

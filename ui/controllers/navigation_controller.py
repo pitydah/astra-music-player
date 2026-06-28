@@ -95,10 +95,10 @@ SECTION_CONFIG: dict[str, dict] = {
                        "subtitle": "Importación Hi-Fi y ripeo seguro de CDs",
                        "icon": "sidebar_mix", "views": [],
                        "search": False, "default": None},
-    "home":           {"title": "Inicio",
-                        "subtitle": "Tu música en un solo lugar",
-                        "icon": "sidebar_library", "views": [],
-                        "search": False, "default": None},
+     "home":           {"title": "Inicio",
+                         "subtitle": "Estado general, continuidad y acciones rápidas",
+                         "icon": "sidebar_home", "views": [],
+                         "search": False, "default": None},
     "library_hub":    {"title": "Biblioteca",
                         "subtitle": "Música local, servidores y archivos offline",
                         "icon": "sidebar_library", "views": [],
@@ -128,6 +128,9 @@ SECTION_CONFIG: dict[str, dict] = {
                         "icon": "sidebar_devices", "views": [],
                         "search": False, "default": None},
 }
+
+# Ruta inicial de la aplicación — Inicio como landing page
+INITIAL_ROUTE: str = "home"
 
 # Navigation routes — maps sidebar keys to window handler methods
 NAV_ROUTES: dict[str, str] = {

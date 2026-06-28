@@ -99,7 +99,8 @@ class MainWindow(QMainWindow):
         self._current_ref = None
         self._all_items: list[MediaItem] = []
         self._items_index: dict[str, MediaItem] = {}
-        self._current_section_key: str = "library"
+        self._current_section_key: str = "home"
+        self._initial_route_applied: bool = False
         self._kind_filter: str | None = None
         self._search_text = ""
         self._current_playlist: int | None = None
@@ -441,6 +442,11 @@ class MainWindow(QMainWindow):
                     self._artist_repo.groups, limit=20)
 
         self._setup_tray()
+        if not self._initial_route_applied:
+            self._initial_route_applied = True
+            from PySide6.QtCore import QTimer
+            from ui.controllers.navigation_controller import INITIAL_ROUTE
+            QTimer.singleShot(0, lambda: self._nav_ctrl.dispatch(INITIAL_ROUTE))
 
     # ── Safe init helper ──
 

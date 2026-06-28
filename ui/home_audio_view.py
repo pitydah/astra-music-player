@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.central.central_styles import (
-    glass_button_qss, glass_card_qss, transparent_scrollbar_qss,
+    glass_button_qss, glass_card_qss, transparent_scrollbar_qss, glass_tab_qss,
 )
 
 
@@ -149,7 +149,7 @@ class HomeAudioView(QWidget):
         for key, label in self._tab_keys:
             btn = QPushButton(label)
             btn.setCheckable(True)
-            btn.setStyleSheet(_TAB_QSS)
+            btn.setStyleSheet(glass_tab_qss())
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(lambda checked, k=key: self._on_tab(k))
             btn.setChecked(key == "resumen")
@@ -804,17 +804,7 @@ class StatusPill(QFrame):
             f"font-size: 11px; font-weight: 600; color: {color};")
 
 
-_TAB_QSS = (
-    "QPushButton { font-size: 11px; font-weight: 600;"
-    "  color: rgba(255,255,255,0.56);"
-    "  background: rgba(255,255,255,0.03);"
-    "  border: 1px solid rgba(255,255,255,0.05);"
-    "  border-radius: 9px; padding: 6px 14px; }"
-    "QPushButton:checked { color: rgba(255,255,255,0.92);"
-    "  background: rgba(143,183,255,0.14);"
-    "  border: 1px solid rgba(143,183,255,0.28); }"
-    "QPushButton:hover { background: rgba(255,255,255,0.06);"
-    "  border: 1px solid rgba(255,255,255,0.10); }")
+
 
 
 

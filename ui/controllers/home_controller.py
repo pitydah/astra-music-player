@@ -86,6 +86,8 @@ class HomeController(QObject):
 
     def _on_add_music(self, filepaths: list[str]):
         """Import selected files and refresh library."""
+        # TODO: migrate HomeController mutations to AppServices once
+        #       library import service is available via AppContext.
         w = self._win
         from library.library_db import AUDIO_EXTS
         added = 0
@@ -101,6 +103,7 @@ class HomeController(QObject):
 
     def _on_add_folder(self, path: str):
         """Scan a folder for music files."""
+        # TODO: migrate to AppServices.scan_path once available via AppContext.
         w = self._win
         w._scan_path(path)
         self.refresh()

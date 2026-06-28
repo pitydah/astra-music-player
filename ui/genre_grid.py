@@ -7,26 +7,13 @@ from PySide6.QtWidgets import (
 
 from metadata.genre_grouping import GenreGroup
 from library.album_art import load_cover_pixmap
+from ui.central.central_styles import grid_card_qss
 
 _BG = "#090B11"
-_PANEL = "rgba(255,255,255,0.025)"
-_TEXT = "#FFFFFF"
+_TEXT = "rgba(255,255,255,0.95)"
 _TEXT2 = "rgba(255,255,255,0.78)"
 _TEXT3 = "rgba(255,255,255,0.62)"
 _ACCENT = "#8FB7FF"
-
-_CARD_QSS = """
-    QFrame#genreCard {
-        background: rgba(255,255,255,0.025);
-        border: 1px solid rgba(255,255,255,0.045);
-        border-radius: 16px;
-    }
-    QFrame#genreCard:hover {
-        background: rgba(255,255,255,0.048);
-        border: 1px solid rgba(143,183,255,0.10);
-    }
-    QFrame#genreCard QLabel { background: transparent; border: none; }
-"""
 
 
 def _format_dur(secs: float) -> str:
@@ -246,7 +233,7 @@ class _GenreCard(QFrame):
         self.setObjectName("genreCard")
         self.setFixedSize(240, 200)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet(_CARD_QSS)
+        self.setStyleSheet(grid_card_qss("genreCard"))
 
         v = QVBoxLayout(self)
         v.setContentsMargins(12, 10, 12, 10)

@@ -22,7 +22,7 @@ from metadata.artwork_utils import (
     _pillow_available,
 )
 
-from ui.central.central_styles import clean_table_qss, clean_table_header_qss, tab_bar_qss
+from ui.central.central_styles import clean_table_qss, clean_table_header_qss, tab_bar_qss, glass_button_qss
 
 # ═══════════════════════════════════════════════════════════
 # Style tokens
@@ -37,20 +37,6 @@ _TEXT2     = "rgba(255,255,255,0.72)"
 _TEXT3     = "rgba(255,255,255,0.56)"
 _TEXT_DIM  = "rgba(255,255,255,0.48)"
 
-
-_BTN_CSS = f"""
-    QPushButton {{
-        background: rgba(255,255,255,0.045); color: {_TEXT};
-        border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
-        padding: 8px 13px; font-size: 12.5px; font-weight: 600;
-    }}
-    QPushButton:hover {{
-        background: rgba(255,255,255,0.085);
-        border: 1px solid rgba(255,255,255,0.14);
-    }}
-    QPushButton:pressed {{ background: rgba(255,255,255,0.11); }}
-    QPushButton:disabled {{ color: {_TEXT_DIM}; background: rgba(255,255,255,0.020); }}
-"""
 
 _FIELD_CSS = f"""
     background: rgba(255,255,255,0.060); color: {_TEXT};
@@ -100,7 +86,7 @@ class MetadataEditorWidget(QWidget):
         ]:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(_BTN_CSS)
+            btn.setStyleSheet(glass_button_qss("secondary"))
             btn.clicked.connect(slot)
             header_row.addWidget(btn)
         header_row.addStretch()
@@ -235,7 +221,7 @@ class MetadataEditorWidget(QWidget):
         ]:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(_BTN_CSS.replace("8px 13px", "5px 10px").replace("12.5px", "11px"))
+            btn.setStyleSheet(glass_button_qss("ghost"))
             btn.clicked.connect(slot)
             bar.addWidget(btn)
         bar.addStretch()
@@ -310,7 +296,7 @@ class MetadataEditorWidget(QWidget):
 
             if tag.error:
                 status = "Error"
-                status_color = QColor("#FF6B6B")
+                status_color = QColor(255, 100, 100)
             elif tag.dirty:
                 status = "Modificado"
                 status_color = QColor("#FFE066")
@@ -376,7 +362,7 @@ class MetadataEditorWidget(QWidget):
         ]:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(_BTN_CSS.replace("8px 13px", "4px 7px").replace("12.5px", "10.5px"))
+            btn.setStyleSheet(glass_button_qss("ghost"))
             btn.clicked.connect(slot)
             art_btns.addWidget(btn)
         v.addLayout(art_btns)
@@ -898,7 +884,7 @@ class MetadataEditorWidget(QWidget):
 
         # Preview button
         prev_btn = QPushButton("Vista previa")
-        prev_btn.setStyleSheet(_BTN_CSS)
+        prev_btn.setStyleSheet(glass_button_qss("secondary"))
         dv.addWidget(prev_btn)
 
         # Preview table
@@ -939,8 +925,8 @@ class MetadataEditorWidget(QWidget):
         btn_box = QDialogButtonBox()
         cancel_btn = btn_box.addButton("Cancelar", QDialogButtonBox.RejectRole)
         apply_btn = btn_box.addButton("Renombrar", QDialogButtonBox.AcceptRole)
-        apply_btn.setStyleSheet(_BTN_CSS)
-        cancel_btn.setStyleSheet(_BTN_CSS)
+        apply_btn.setStyleSheet(glass_button_qss("accent"))
+        cancel_btn.setStyleSheet(glass_button_qss("ghost"))
         btn_box.accepted.connect(lambda: self._do_rename(items, dlg))
         btn_box.rejected.connect(dlg.reject)
         dv.addWidget(btn_box)

@@ -260,3 +260,57 @@ class TestNavigationController:
         assert ctrl._history.current_key == "albums", "back should return to albums"
         win._search.setText.assert_any_call("rock")
 
+
+    def test_dispatch_home_calls_show_home_page(self, ctrl, win):
+        ctrl.dispatch("home")
+        win._show_home_page.assert_called_with("home")
+
+    def test_dispatch_home_calls_configure_header(self, ctrl, win):
+        with patch.object(ctrl, 'configure_header') as mock_cfg:
+            ctrl.dispatch("home")
+            mock_cfg.assert_called_with("home")
+
+    def test_configure_header_home_sets_icon(self, ctrl, win):
+        ctrl.configure_header("home")
+        win._section_title.setText.assert_called_with("Inicio")
+
+    def test_configure_header_home_hides_search(self, ctrl, win):
+        ctrl.configure_header("home")
+        win._search.setVisible.assert_called_with(False)
+
+    def test_configure_header_home_hides_album_controls(self, ctrl, win):
+        ctrl.configure_header("home")
+        win._album_sort_btn.setVisible.assert_called_with(False)
+        win._album_filter_btn.setVisible.assert_called_with(False)
+
+    def test_dispatch_home_pushes_to_history(self, ctrl, win):
+        ctrl.dispatch("home")
+        assert ctrl._history.current_key == "home"
+
+    def test_back_from_library_to_home(self, ctrl, win):
+        ctrl.dispatch("home")
+        ctrl.dispatch("library")
+        win._on_sidebar_navigate.reset_mock()
+        ctrl.navigate_back()
+        win._on_sidebar_navigate.assert_called_with("home")
+
+    def test_forward_from_home_to_library(self, ctrl, win):
+        ctrl.dispatch("home")
+        ctrl.dispatch("library")
+        ctrl.navigate_back()
+        win._on_sidebar_navigate.reset_mock()
+        ctrl.navigate_forward()
+        win._on_sidebar_navigate.assert_called_with("library")
+
+    def test_home_section_config(self):
+        cfg = SECTION_CONFIG["home"]
+        assert cfg["icon"] == "sidebar_home", f"icon={cfg['icon']}"
+        assert cfg["search"] is False
+        assert cfg["views"] == []
+        assert cfg["default"] is None
+        assert cfg["title"] == "Inicio"
+        assert "continuidad" in cfg["subtitle"]
+
+    def test_home_nav_route(self):
+        assert NAV_ROUTES["home"] == "_show_home_page"
+

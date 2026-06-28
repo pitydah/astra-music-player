@@ -1,5 +1,4 @@
-"""HomePage — clean dashboard: library status, assistant, last session, connections."""
-
+"""HomePage — clean dashboard: library status, suggestions, continuity, ecosystem."""
 from __future__ import annotations
 
 import os
@@ -11,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.central.central_styles import (
-    glass_button_qss, card_title_qss,
+    glass_button_qss, card_title_qss, card_desc_qss,
 )
 from ui.effects.michi_glass import AcrylicGlassFrame
 
@@ -19,8 +18,8 @@ from ui.effects.michi_glass import AcrylicGlassFrame
 class HomePage(QWidget):
     navigation_requested = Signal(str)
     refresh_requested = Signal()
-    add_music_requested = Signal(list)   # filepaths to add
-    add_folder_requested = Signal(str)   # directory path to scan
+    add_music_requested = Signal(list)
+    add_folder_requested = Signal(str)
 
     def __init__(self, db=None, playback=None, window=None,
                  parent: QWidget | None = None):
@@ -31,17 +30,13 @@ class HomePage(QWidget):
         self._win = window
         self._build_ui()
 
-    # ── Public API ──
-
     def refresh(self, items=None, servers=None, devices=None):
-        """Update all sections with fresh data."""
         stats = self._get_stats()
         self._update_library_status(stats)
-        self._update_assistant(stats, items or [])
+        self._update_add_music(stats)
+        self._update_suggestions(stats)
         self._update_last_session()
         self._update_connections(servers or [], devices or [])
-
-    # ── Stats ──
 
     def _get_stats(self) -> dict:
         stats = {"total_songs": 0, "total_artists": 0, "total_albums": 0,
@@ -77,7 +72,6 @@ class HomePage(QWidget):
 
         # ── 1. Library Status ──
         self._lib_card = AcrylicGlassFrame("homeLibCard", hover_shine=True)
-        self._lib_card.setObjectName("homeLibCard")
         lc = QVBoxLayout(self._lib_card)
         lc.setContentsMargins(24, 20, 24, 20)
         lc.setSpacing(4)
@@ -88,25 +82,24 @@ class HomePage(QWidget):
             "  font-weight: 600; background: transparent; border: none; }")
         lc.addWidget(self._lib_status_msg)
         self._lib_counts = QLabel("")
-        self._lib_counts.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px;"
-            "  background: transparent; border: none; }")
+        self._lib_counts.setStyleSheet(card_desc_qss())
         lc.addWidget(self._lib_counts)
         cl.addWidget(self._lib_card)
 
-        # ── 1b. Añadir música ──
+        # ── 2. Añadir música (contextual) ──
         self._add_music_card = AcrylicGlassFrame("homeAddMusicCard", hover_shine=True)
+        self._add_music_card.setVisible(False)
         amc = QVBoxLayout(self._add_music_card)
         amc.setContentsMargins(24, 16, 24, 16)
         amc.setSpacing(8)
-        add_title = QLabel("Añadir música")
-        add_title.setStyleSheet(card_title_qss())
-        amc.addWidget(add_title)
-        add_desc = QLabel("Agrega archivos o carpetas a tu biblioteca.")
-        add_desc.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px;"
-            "  background: transparent; border: none; }")
-        amc.addWidget(add_desc)
+
+        self._add_music_title = QLabel("Añadir música")
+        self._add_music_title.setStyleSheet(card_title_qss())
+        amc.addWidget(self._add_music_title)
+
+        self._add_music_desc = QLabel("Agrega archivos o carpetas a tu biblioteca.")
+        self._add_music_desc.setStyleSheet(card_desc_qss())
+        amc.addWidget(self._add_music_desc)
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
@@ -124,7 +117,7 @@ class HomePage(QWidget):
         btn_row.addStretch()
         amc.addLayout(btn_row)
 
-        # Preview section (hidden by default)
+        # Preview section
         self._preview_widget = QWidget()
         self._preview_widget.setVisible(False)
         self._preview_widget.setStyleSheet("background: transparent;")
@@ -154,48 +147,45 @@ class HomePage(QWidget):
         preview_btn_row.addStretch()
         pw_layout.addLayout(preview_btn_row)
         amc.addWidget(self._preview_widget)
-
         cl.addWidget(self._add_music_card)
 
-        # ── 2. Michi Assistant ──
-        self._asst_card = AcrylicGlassFrame("homeAsstCard", hover_shine=True)
-        ac = QVBoxLayout(self._asst_card)
-        ac.setContentsMargins(24, 16, 24, 16)
-        ac.setSpacing(8)
-        asst_title = QLabel("Michi Asistente")
-        asst_title.setStyleSheet(card_title_qss())
-        ac.addWidget(asst_title)
-        self._asst_content = QVBoxLayout()
-        self._asst_content.setSpacing(4)
-        ac.addLayout(self._asst_content)
-        cl.addWidget(self._asst_card)
+        # ── 3. Sugerencias de Michi ──
+        self._sugg_card = AcrylicGlassFrame("homeSuggCard", hover_shine=True)
+        sc = QVBoxLayout(self._sugg_card)
+        sc.setContentsMargins(24, 16, 24, 16)
+        sc.setSpacing(8)
+        sugg_title = QLabel("Sugerencias de Michi")
+        sugg_title.setStyleSheet(card_title_qss())
+        sc.addWidget(sugg_title)
+        self._sugg_content = QVBoxLayout()
+        self._sugg_content.setSpacing(4)
+        sc.addLayout(self._sugg_content)
+        cl.addWidget(self._sugg_card)
 
-        # ── 3. Last Session + Connections (side by side) ──
+        # ── 4. Last Session + Connections (side by side) ──
         bottom = QHBoxLayout()
         bottom.setSpacing(16)
 
         # Last session
         self._session_card = AcrylicGlassFrame("homeSessionCard", hover_shine=True)
-        sc = QVBoxLayout(self._session_card)
-        sc.setContentsMargins(20, 16, 20, 16)
-        sc.setSpacing(8)
-        session_title = QLabel("Última sesión")
+        sc2 = QVBoxLayout(self._session_card)
+        sc2.setContentsMargins(20, 16, 20, 16)
+        sc2.setSpacing(8)
+        session_title = QLabel("Última reproducción")
         session_title.setStyleSheet(card_title_qss())
-        sc.addWidget(session_title)
+        sc2.addWidget(session_title)
         self._session_track = QLabel("Sin reproducción reciente")
-        self._session_track.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px;"
-            "  background: transparent; border: none; }")
+        self._session_track.setStyleSheet(card_desc_qss())
         self._session_track.setWordWrap(True)
-        sc.addWidget(self._session_track)
-        sc.addStretch()
+        sc2.addWidget(self._session_track)
+        sc2.addStretch()
         self._continue_btn = QPushButton("Continuar")
         self._continue_btn.setObjectName("homeContinueBtn")
         self._continue_btn.setCursor(Qt.PointingHandCursor)
         self._continue_btn.setStyleSheet(glass_button_qss("ghost"))
         self._continue_btn.clicked.connect(
             lambda: self.navigation_requested.emit("playback_hub"))
-        sc.addWidget(self._continue_btn)
+        sc2.addWidget(self._continue_btn)
         bottom.addWidget(self._session_card, 1)
 
         # Connections
@@ -207,9 +197,7 @@ class HomePage(QWidget):
         conn_title.setStyleSheet(card_title_qss())
         cc.addWidget(conn_title)
         self._conn_status = QLabel("")
-        self._conn_status.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px;"
-            "  background: transparent; border: none; }")
+        self._conn_status.setStyleSheet(card_desc_qss())
         self._conn_status.setWordWrap(True)
         cc.addWidget(self._conn_status)
         cc.addStretch()
@@ -227,7 +215,7 @@ class HomePage(QWidget):
         scroll.setWidget(content)
         layout.addWidget(scroll)
         self._apply_qss()
-        # State
+
         self._selected_files: list[str] = []
 
     # ── Add Music handlers ──
@@ -280,11 +268,24 @@ class HomePage(QWidget):
         else:
             self._lib_status_msg.setText("Tu biblioteca está lista")
         self._lib_counts.setText(
-            f"{songs:,} canciones · {stats['total_albums']:,} álbumes"
-            f" · {stats['total_artists']:,} artistas")
+            f"{songs:,} canciones · {stats.get('total_albums', 0):,} álbumes"
+            f" · {stats.get('total_artists', 0):,} artistas")
 
-    def _update_assistant(self, stats: dict, _items=None):
-        _clear_layout(self._asst_content)
+    def _update_add_music(self, stats: dict):
+        songs = stats.get("total_songs", 0)
+        if songs == 0:
+            self._add_music_card.setVisible(True)
+            self._add_music_title.setText("Añadir música")
+            self._add_music_desc.setText(
+                "Tu biblioteca está vacía. Agrega archivos o carpetas para empezar.")
+        else:
+            self._add_music_card.setVisible(True)
+            self._add_music_title.setText("Añadir más música")
+            self._add_music_desc.setText(
+                "Importa nuevos archivos o carpetas a tu biblioteca.")
+
+    def _update_suggestions(self, stats: dict):
+        _clear_layout(self._sugg_content)
         actions = []
 
         missing = stats.get("missing_metadata", 0)
@@ -295,14 +296,14 @@ class HomePage(QWidget):
         songs = stats.get("total_songs", 0)
         if songs == 0:
             actions.append(("Añadir carpeta de música",
-                            "library", "primary"))
+                            "library_hub", "primary"))
 
         if not actions:
             no_op = QLabel("No hay tareas importantes pendientes.")
             no_op.setStyleSheet(
-                "QLabel { color: rgba(255,255,255,0.42); font-size: 12px;"
+                "QLabel { color: rgba(255,255,255,0.48); font-size: 12px;"
                 "  background: transparent; border: none; padding: 4px 0; }")
-            self._asst_content.addWidget(no_op)
+            self._sugg_content.addWidget(no_op)
         else:
             for text, target, kind in actions[:3]:
                 btn = QPushButton(text)
@@ -310,12 +311,20 @@ class HomePage(QWidget):
                 btn.setStyleSheet(glass_button_qss(kind))
                 btn.clicked.connect(
                     lambda c=None, t=target: self.navigation_requested.emit(t))
-                self._asst_content.addWidget(btn)
+                self._sugg_content.addWidget(btn)
+
+        open_asst = QPushButton("Abrir Asistente")
+        open_asst.setCursor(Qt.PointingHandCursor)
+        open_asst.setStyleSheet(glass_button_qss("ghost"))
+        open_asst.clicked.connect(
+            lambda: self.navigation_requested.emit("assistant"))
+        self._sugg_content.addWidget(open_asst)
 
     def _update_last_session(self):
         w = self._win or self.window()
         ref = getattr(w, '_current_ref', None) if w else None
-        if ref and (ref.title or ref.uri):
+        has_track = ref and (ref.title or ref.uri)
+        if has_track:
             name = ref.title or os.path.basename(ref.uri)
             artist = getattr(ref, "artist", "") or ""
             text = f"{artist} — {name}" if artist else name
@@ -324,22 +333,20 @@ class HomePage(QWidget):
         else:
             self._session_track.setText("Sin reproducción reciente")
             self._continue_btn.setVisible(False)
-        if hasattr(self, '_last_playback_state') and self._last_playback_state == "playing":
-            self._continue_btn.setText("Continuar")
 
     def _update_connections(self, servers: list, devices: list):
         lines = []
         if servers:
-            lines.append(f"Servidor: {servers[0].name if hasattr(servers[0], 'name') else 'Conectado'}")
+            srv = servers[0]
+            srv_name = getattr(srv, 'name', None) or getattr(srv, 'server_type', 'Conectado')
+            lines.append(f"Servidores: {len(servers)} ({srv_name})")
         else:
-            lines.append("Servidor: no configurado")
+            lines.append("Sin servidores configurados")
         if devices:
             lines.append(f"Dispositivos: {len(devices)} detectado(s)")
         else:
-            lines.append("Dispositivos: no detectados")
-        self._conn_status.setText("\n".join(lines))
-
-    # ── QSS ──
+            lines.append("Sin dispositivos detectados")
+        self._conn_status.setText(" · ".join(lines))
 
     def _apply_qss(self):
         self.setStyleSheet("""
@@ -356,4 +363,3 @@ def _clear_layout(layout):
             item.widget().deleteLater()
         elif item.layout():
             _clear_layout(item.layout())
-

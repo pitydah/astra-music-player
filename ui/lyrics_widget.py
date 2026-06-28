@@ -43,7 +43,7 @@ class LyricsWidget(QWidget):
                 background: rgba(255,255,255,0.05);
             }
             QProgressBar::chunk {
-                background: rgba(255,122,0,0.6); border-radius: 1px;
+                background: rgba(143,183,255,0.5); border-radius: 1px;
             }
         """)
         layout.addWidget(self._progress)

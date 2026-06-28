@@ -953,3 +953,25 @@ def card_separator_qss() -> str:
             border: none;
         }}
     """
+
+
+def glass_tab_qss() -> str:
+    """Glass toggle tab — for section tabs like Home Audio views."""
+    return """
+        QPushButton {
+            font-size: 11px; font-weight: 600;
+            color: rgba(255,255,255,0.56);
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 9px; padding: 6px 14px;
+        }
+        QPushButton:checked {
+            color: rgba(255,255,255,0.92);
+            background: rgba(143,183,255,0.14);
+            border: 1px solid rgba(143,183,255,0.28);
+        }
+        QPushButton:hover {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.10);
+        }
+    """

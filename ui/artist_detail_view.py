@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from library.artist_grouping import ArtistGroup, ArtistAlbumGroup
 from library.album_art import load_cover_pixmap
+from ui.central.central_styles import glass_button_qss
 
 _BG = "#090B11"
 _PANEL = "rgba(255,255,255,0.025)"
@@ -21,18 +22,6 @@ _TEXT3 = "rgba(255,255,255,0.62)"
 _ACCENT = "#8FB7FF"
 _ACCENT_BG = "rgba(143,183,255,0.12)"
 _ACCENT_BORDER = "rgba(143,183,255,0.18)"
-
-_BTN_CSS = f"""
-    QPushButton {{
-        background: rgba(255,255,255,0.05); color: {_TEXT2};
-        border: 1px solid rgba(255,255,255,0.04); border-radius: 12px;
-        padding: 8px 14px; font-size: 12.5px; font-weight: 600;
-    }}
-    QPushButton:hover {{
-        background: rgba(255,255,255,0.08); color: {_TEXT};
-        border: 1px solid rgba(255,255,255,0.07);
-    }}
-"""
 
 _MAX_CHIPS = 6
 _MAX_CHIP_LEN = 22
@@ -299,7 +288,7 @@ class ArtistDetailView(QWidget):
         ]:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(_BTN_CSS)
+            btn.setStyleSheet(glass_button_qss("secondary"))
             btn.clicked.connect(slot)
             row.addWidget(btn)
 
@@ -308,7 +297,7 @@ class ArtistDetailView(QWidget):
         refresh_btn = QPushButton("↻ Actualizar metadatos externos")
         refresh_btn.setCursor(Qt.PointingHandCursor)
         refresh_btn.setStyleSheet(
-            _BTN_CSS.replace("8px 14px", "6px 12px").replace("12.5px", "11px"))
+            glass_button_qss("ghost"))
         refresh_btn.clicked.connect(lambda: self.artist_enrich_requested.emit(artist.key))
         row.addWidget(refresh_btn)
 
@@ -366,7 +355,7 @@ class ArtistDetailView(QWidget):
         bl.addWidget(t)
         btn = QPushButton("Actualizar metadatos externos")
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet(_BTN_CSS.replace("8px 14px", "6px 12px").replace("12.5px", "11px"))
+        btn.setStyleSheet(glass_button_qss("ghost"))
         btn.clicked.connect(lambda: self.artist_enrich_requested.emit(artist.key))
         bl.addWidget(btn)
         self._layout.addWidget(card)
