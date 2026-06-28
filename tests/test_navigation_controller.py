@@ -6,6 +6,7 @@ import pytest
 from ui.controllers.navigation_controller import (
     NavigationController, NavigationHistory, resolve_section_config,
     SECTION_CONFIG, NAV_ROUTES, INITIAL_ROUTE,
+    resolve_sidebar_active_key,
 )
 
 
@@ -158,6 +159,11 @@ class TestNavigationController:
         w._view_mode = ""
         w._restore_central_opacity = MagicMock()
         w._on_sidebar_navigate = MagicMock()
+        w._sidebar_controller = MagicMock()
+        w._show_playlist_detail = MagicMock()
+        w._show_server = MagicMock()
+        w._show_device = MagicMock()
+        w._show_devices_page = MagicMock()
         return w
 
     @pytest.fixture
@@ -316,4 +322,46 @@ class TestNavigationController:
 
     def test_initial_route_is_home(self):
         assert INITIAL_ROUTE == "home"
+
+
+    def test_dispatch_playlist_sets_sidebar_to_playlist_hub(self, ctrl, win):
+        ctrl.dispatch("pl:123")
+        win._sidebar_controller.set_active.assert_called_with("playlist_hub")
+
+    def test_dispatch_server_sets_sidebar_to_connections_hub(self, ctrl, win):
+        ctrl.dispatch("srv:navidrome")
+        win._sidebar_controller.set_active.assert_called_with("connections_hub")
+
+    def test_dispatch_device_sets_sidebar_to_devices_page(self, ctrl, win):
+        ctrl.dispatch("dev:usb")
+        win._sidebar_controller.set_active.assert_called_with("devices_page")
+
+
+class TestResolveSidebarActiveKey:
+    def test_home(self):
+        assert resolve_sidebar_active_key("home") == "home"
+
+    def test_library_children(self):
+        for key in ("albums", "artists", "genres", "folders", "favs", "recent"):
+            assert resolve_sidebar_active_key(key) == "library_hub", f"Failed for {key}"
+
+    def test_mix_children(self):
+        assert resolve_sidebar_active_key("mix_daily") == "mix_hub"
+        assert resolve_sidebar_active_key("mix_unplayed") == "mix_hub"
+        assert resolve_sidebar_active_key("mix_popular") == "mix_hub"
+        assert resolve_sidebar_active_key("mix_hub") == "mix_hub"
+
+    def test_playlist_routes(self):
+        assert resolve_sidebar_active_key("pl:123") == "playlist_hub"
+        assert resolve_sidebar_active_key("playlist:123") == "playlist_hub"
+        assert resolve_sidebar_active_key("playlist:new") == "playlist_hub"
+
+    def test_server_routes(self):
+        assert resolve_sidebar_active_key("srv:navidrome") == "connections_hub"
+
+    def test_device_routes(self):
+        assert resolve_sidebar_active_key("dev:usb") == "devices_page"
+        assert resolve_sidebar_active_key("dev:sync:phone") == "devices_page"
+        assert resolve_sidebar_active_key("devices") == "devices_page"
+        assert resolve_sidebar_active_key("devices_page") == "devices_page"
 

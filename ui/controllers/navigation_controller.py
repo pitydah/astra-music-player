@@ -400,8 +400,11 @@ class NavigationController(QObject):
             section_key = "playlists"
         self.configure_header(section_key)
 
-        # Sincronizar _current_section_key con el sidebar para sub-rutas
-        w._current_section_key = resolve_sidebar_active_key(key)
+        # Sincronizar _current_section_key + sidebar activo para sub-rutas
+        sidebar_key = resolve_sidebar_active_key(key)
+        w._current_section_key = sidebar_key
+        if hasattr(w, '_sidebar_controller'):
+            w._sidebar_controller.set_active(sidebar_key)
 
         if not self._history.is_restoring:
             self._history.push(key, previous_search)
@@ -436,17 +439,6 @@ class NavigationController(QObject):
                 _log.warning("Navigation handler %s failed for key=%s: %s", method_name, key, e)
         elif not method_name and not any(key.startswith(p) for p in ("playlist:", "pl:", "srv:", "dev:", "mix_")):
             _log.warning("No navigation handler for key: %s", key)
-
-        # Sincronizar sidebar activo con sub-secciones de hubs
-        if key in ("albums", "artists", "genres", "folders", "favs", "recent"):
-            sidebar_key = "library_hub"
-        elif key.startswith("mix_") and key != "mix_hub":
-            sidebar_key = "mix_hub"
-        else:
-            sidebar_key = key.split(":")[0] if ":" in key else key
-            sidebar_key = {"srv": "servers", "dev": "devices"}.get(sidebar_key, sidebar_key)
-        if hasattr(w, '_sidebar_controller'):
-            w._sidebar_controller.set_active(sidebar_key)
 
     def _build_breadcrumb(self, subtitle: str, section_key: str) -> str:
         prev_key = self._history.current_key
