@@ -100,6 +100,8 @@ class MainWindow(QMainWindow):
         self._all_items: list[MediaItem] = []
         self._items_index: dict[str, MediaItem] = {}
         self._current_section_key: str = "home"
+        self._current_route_key: str = "home"
+        self._current_sidebar_key: str = "home"
         self._initial_route_applied: bool = False
         self._kind_filter: str | None = None
         self._search_text = ""

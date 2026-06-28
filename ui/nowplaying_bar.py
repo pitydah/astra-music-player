@@ -8,6 +8,17 @@ from PySide6.QtWidgets import (
 )
 
 from ui.icons import get_icon
+from ui.central.central_tokens import (
+    NOWPLAYING_SLIDER_GRADIENT_START,
+    NOWPLAYING_SLIDER_GRADIENT_MID_A,
+    NOWPLAYING_SLIDER_GRADIENT_MID_B,
+    NOWPLAYING_SLIDER_GRADIENT_END,
+    NOWPLAYING_SLIDER_THUMB_DEFAULT,
+    NOWPLAYING_SLIDER_THUMB_HOVER,
+    NOWPLAYING_SLIDER_THUMB_PRESSED,
+    NOWPLAYING_SLIDER_DISABLED_FILL,
+    NOWPLAYING_SLIDER_DISABLED_BORDER,
+)
 
 # ── Technical tokens for left-side filtering ──
 _TECHNICAL_TOKENS = (
@@ -1113,10 +1124,10 @@ class PremiumSlider(QSlider):
                 track_rect.left(), track_rect.center().y(),
                 track_rect.right(), track_rect.center().y(),
             )
-            gradient.setColorAt(0.0, QColor("#8FB7FF"))
-            gradient.setColorAt(0.35, QColor("#7AA7FF"))
-            gradient.setColorAt(0.68, QColor("#6B9AF0"))
-            gradient.setColorAt(1.0, QColor("#5A8AE0"))
+            gradient.setColorAt(0.0, QColor(NOWPLAYING_SLIDER_GRADIENT_START))
+            gradient.setColorAt(0.35, QColor(NOWPLAYING_SLIDER_GRADIENT_MID_A))
+            gradient.setColorAt(0.68, QColor(NOWPLAYING_SLIDER_GRADIENT_MID_B))
+            gradient.setColorAt(1.0, QColor(NOWPLAYING_SLIDER_GRADIENT_END))
 
             progress_rect = QRectF(track_rect.left(), track_rect.top(),
                                    progress_w, track_rect.height())
@@ -1130,7 +1141,7 @@ class PremiumSlider(QSlider):
             progress_rect = QRectF(track_rect.left(), track_rect.top(),
                                    progress_w, track_rect.height())
             painter.setPen(Qt.NoPen)
-            painter.setBrush(QColor("#525866"))
+            painter.setBrush(QColor(NOWPLAYING_SLIDER_DISABLED_FILL))
             painter.drawRect(progress_rect)
             painter.restore()
 
@@ -1147,16 +1158,16 @@ class PremiumSlider(QSlider):
             thumb_rect = QRectF(thumb_x - thumb_r, thumb_y - thumb_r, thumb_d, thumb_d)
 
             if not self.isEnabled():
-                fill = QColor("#525866")
-                bd = QColor("#747986")
+                fill = QColor(NOWPLAYING_SLIDER_DISABLED_FILL)
+                bd = QColor(NOWPLAYING_SLIDER_DISABLED_BORDER)
             elif self._pressed:
-                fill = QColor("#8FB7FF")
+                fill = QColor(NOWPLAYING_SLIDER_THUMB_PRESSED)
                 bd = QColor("#F5F5F7")
             elif self._hovered:
-                fill = QColor("#7AA7FF")
+                fill = QColor(NOWPLAYING_SLIDER_THUMB_HOVER)
                 bd = QColor("#F5F5F7")
             else:
-                fill = QColor("#8FB7FF")
+                fill = QColor(NOWPLAYING_SLIDER_THUMB_DEFAULT)
                 bd = QColor("#F5F5F7")
 
             painter.setPen(QPen(bd, 1.6))

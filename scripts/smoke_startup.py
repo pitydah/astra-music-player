@@ -161,71 +161,6 @@ def _check_qt():
     return 0
 
 
-def _check_main_window():
-    """Create MainWindow in safe mode to validate all controllers and navigation."""
-    from PySide6.QtWidgets import QApplication
-
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-
-    os.environ.setdefault("MICHI_SAFE_MODE", "1")
-
-    from ui.window import MainWindow
-    w = MainWindow()
-
-    checks = [
-        '_nav_ctrl', '_lib_ctrl', '_home_ctrl', '_services',
-        '_view_registry', '_ha_handlers', '_cf_ctrl', '_smart_ctrl',
-        '_srv_ctrl', '_id_handlers', '_sidebar_menu_ctrl',
-        '_search_router', '_view_router', '_album_sort_menu',
-        '_playback_ctrl', '_album_ctrl', '_artist_ctrl', '_genre_ctrl',
-        '_playlist_ctrl', '_file_actions', '_expanded_ctrl',
-        '_cast_ctrl', '_transmit_ctrl', '_audio_output_ctrl', '_ctx',
-    ]
-    for attr in checks:
-        v = getattr(w, attr, None)
-        assert v is not None, f"MainWindow missing {attr}"
-
-    # Navigate all sections to verify routing
-    sections = [
-        'home', 'library_hub', 'mix_hub', 'playlist_hub', 'playback_hub',
-        'connections_hub', 'radio', 'audio_lab', 'home_audio', 'identifier',
-        'assistant', 'discover', 'settings_hub', 'devices_page',
-        'michi_disc_lab', 'metadata_editor', 'albums', 'artists', 'genres',
-        'folders', 'favs', 'recent',
-    ]
-    for key in sections:
-        w._nav_ctrl.dispatch(key)
-
-    # Verify navigation history preserves search text
-    w._nav_ctrl.dispatch("library_hub")
-    w._search_text = "search query"
-    w._nav_ctrl.dispatch("albums")
-    w._nav_ctrl.dispatch("library_hub")
-    nav_ctrl = w._nav_ctrl
-    assert nav_ctrl._history._history[-1][0] == "library_hub", "history key mismatch"
-    assert nav_ctrl._history._history[-1][1] == "", "search should be empty after navigate"
-
-    # Verify view mode switching (navigate to albums section first)
-    w._nav_ctrl.dispatch("albums")
-    w._view_router.on_mode_changed("grid")
-    assert w._view_mode == "grid", f"Expected grid, got {w._view_mode}"
-    w._view_router.on_mode_changed("coverflow")
-    cf = getattr(w, '_coverflow', None)
-    if cf is not None:
-        assert callable(cf.count), "CoverFlow has count method"
-        assert callable(cf.item_at), "CoverFlow has item_at"
-        assert callable(cf.set_cover), "CoverFlow has set_cover"
-
-    print("  ✓ MainWindow created (safe mode)")
-    print(f"  ✓ {len(checks)} controllers confirmed")
-    print(f"  ✓ {len(sections)} sections navigable")
-    print("  ✓ nav history preserves search text")
-    print("  ✓ view mode switching (list/grid/coverflow)")
-    return 0
-
-
 def main():
     errors = 0
     tmp_root = None
@@ -237,29 +172,26 @@ def main():
         print("=== Michi Music Player — Smoke Startup ===")
         print()
 
-        print("[1/8] Environment")
+        print("[1/7] Environment")
         _diagnostics()
         print()
 
-        errors += _run_step("[2/8] Python imports", _check_imports)
+        errors += _run_step("[2/7] Python imports", _check_imports)
         print()
 
-        errors += _run_step("[3/8] PyGObject / GStreamer", _check_gst)
+        errors += _run_step("[3/7] PyGObject / GStreamer", _check_gst)
         print()
 
-        errors += _run_step("[4/8] XDG paths", _check_paths)
+        errors += _run_step("[4/7] XDG paths", _check_paths)
         print()
 
-        errors += _run_step("[5/8] SQLite database", _check_db)
+        errors += _run_step("[5/7] SQLite database", _check_db)
         print()
 
-        errors += _run_step("[6/8] Qt widgets", _check_qt)
+        errors += _run_step("[6/7] Qt widgets", _check_qt)
         print()
 
-        errors += _run_step("[7/8] MainWindow", _check_main_window)
-        print()
-
-        print("[8/8] Summary")
+        print("[7/7] Summary")
         if errors:
             print(f"  ✗ {errors} error(s) detected")
         else:

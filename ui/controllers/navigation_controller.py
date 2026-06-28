@@ -337,9 +337,11 @@ class NavigationController(QObject):
             w._forward_btn.setToolTip("Adelante" if can_fwd else "Sin historial")
 
     # ── Header config ──
-    def configure_header(self, section_key: str):
+    def configure_header(self, section_key: str, route_key: str | None = None):
         w = self._win
         w._current_section_key = section_key
+        w._current_route_key = route_key if route_key is not None else section_key
+        w._current_sidebar_key = resolve_sidebar_active_key(route_key or section_key)
         config = resolve_section_config(section_key)
         title = config.get("title", "Todas las canciones")
         subtitle = config.get("subtitle", "")
@@ -398,7 +400,7 @@ class NavigationController(QObject):
             section_key = "devices"
         elif key.startswith("pl:") or key.startswith("playlist:"):
             section_key = "playlists"
-        self.configure_header(section_key)
+        self.configure_header(section_key, route_key=key)
 
         # Sincronizar _current_section_key + sidebar activo para sub-rutas
         sidebar_key = resolve_sidebar_active_key(key)

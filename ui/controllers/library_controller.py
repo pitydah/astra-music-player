@@ -23,9 +23,13 @@ class LibraryController(QObject):
     # ── Public entry points ──
 
     def load(self):
-        """Full library load with backfill tasks scheduled (guarded by safe mode)."""
+        """Full library load with backfill tasks scheduled (guarded by safe mode + setting)."""
         self.reload_after_change(reason="load")
         if getattr(self._win, '_safe_mode', False):
+            return
+        from core.settings_manager import get_bool
+        if not get_bool("library/auto_backfill_enabled", False):
+            logger.debug("Backfill skipped: auto_backfill_enabled is False")
             return
         workers = self._win._workers
         if workers:

@@ -363,11 +363,10 @@ class TestMicroStability:
 
     def test_smoke_startup_step_labels_are_consistent(self):
         content = _read(os.path.join(_root(), "scripts", "smoke_startup.py"))
-        assert "[1/8] Environment" in content
-        assert "[7/8] MainWindow" in content
-        assert "[8/8] Summary" in content
-        assert "[1/7]" not in content
-        assert "[7/7]" not in content
+        assert "[1/7] Environment" in content
+        assert "[7/7] Summary" in content
+        assert "[1/8]" not in content
+        assert "[8/8]" not in content
 
     def test_noise_overlay_uses_cached_tiled_texture(self):
         content = _read(os.path.join(_root(), "ui", "effects", "michi_glass.py"))
@@ -375,3 +374,70 @@ class TestMicroStability:
         assert "_NOISE_TILE_CACHE" in content
         assert "for y in range(h)" not in content
         assert "for x in range(w)" not in content
+
+
+class TestRouteSidebarSeparation:
+    """Route/sidebar state separation must be maintained."""
+
+    def test_window_has_route_key(self):
+        content = _read(os.path.join(_root(), "ui", "window.py"))
+        assert "_current_route_key: str = " in content
+
+    def test_window_has_sidebar_key(self):
+        content = _read(os.path.join(_root(), "ui", "window.py"))
+        assert "_current_sidebar_key: str = " in content
+
+    def test_nav_configure_header_sets_route_and_sidebar(self):
+        content = _read(os.path.join(_root(), "ui", "controllers",
+                                     "navigation_controller.py"))
+        assert "w._current_route_key = " in content
+        assert "w._current_sidebar_key = " in content
+        assert "resolve_sidebar_active_key" in content
+
+    def test_dispatch_passes_route_key_to_configure_header(self):
+        content = _read(os.path.join(_root(), "ui", "controllers",
+                                     "navigation_controller.py"))
+        assert "self.configure_header(section_key, route_key=key)" in content
+
+    def test_smoke_ui_route_asserts_route_and_sidebar(self):
+        content = _read(os.path.join(_root(), "scripts", "smoke_ui_routes.py"))
+        assert "_current_route_key" in content
+        assert "_current_sidebar_key" in content
+
+
+class TestCiLocalNumbering:
+    """ci_local.sh must have consistent [1/10]-[10/10] labels."""
+
+    def test_ci_local_labels_are_1_to_10(self):
+        content = _read(os.path.join(_root(), "scripts", "ci_local.sh"))
+        for i in range(1, 11):
+            assert f"[{i}/10]" in content, f"Missing label [{i}/10]"
+        assert "[1/8]" not in content
+        assert "[9/9]" not in content
+
+    def test_ci_local_michi_safe_mode_count(self):
+        content = _read(os.path.join(_root(), "scripts", "ci_local.sh"))
+        assert content.count("MICHI_SAFE_MODE=1") >= 2
+
+    def test_ci_local_has_both_smoke_scripts(self):
+        content = _read(os.path.join(_root(), "scripts", "ci_local.sh"))
+        assert "scripts/smoke_startup.py" in content
+        assert "scripts/smoke_ui_routes.py" in content
+
+
+class TestBackfillGuard:
+    """Backfill must be guarded by both safe mode and settings."""
+
+    def test_load_guards_by_safe_mode(self):
+        content = _read(os.path.join(_root(), "ui", "controllers",
+                                     "library_controller.py"))
+        assert "_safe_mode" in content, (
+            "LibraryController.load() must check safe mode before backfill")
+
+    def test_load_guards_by_setting(self):
+        content = _read(os.path.join(_root(), "ui", "controllers",
+                                     "library_controller.py"))
+        assert "get_bool" in content, (
+            "LibraryController.load() must check get_bool setting")
+        assert "auto_backfill_enabled" in content, (
+            "LibraryController.load() must check auto_backfill_enabled setting")

@@ -130,9 +130,9 @@ michi-music-player/
 
 ### Colors
 ```
-Accent:            #8FB7FF (cool blue only)
+Accent:            #8FB7FF (primary cool blue)
 Accent faint:      rgba(143,183,255,0.34)
-FORBIDDEN:         #FF7A00, magenta, pink, red, neon, orange
+NowPlaying accent: #FF7A00 (warm palette for player bar sliders and EQ bands)
 ```
 
 ### Glassmorphism
@@ -249,10 +249,11 @@ PySide6 mutagen numpy shazamio pyaudio requests
 - QStackedWidget global structure
 
 ### Visual
-- No orange, pink, magenta, red, neon anywhere
-- No `QIcon(path)` / `QPixmap(path)` for SVGs — use `get_qicon()` / `get_pixmap()`
+- `QIcon(path)` / `QPixmap(path)` bypasses alpha-safe renderer — always use `get_qicon()` / `get_pixmap()` for SVGs
 - No inline QSS in `window.py` or widget files — use `central_styles.py` / `sidebar_styles.py`
 - No text opacity below 0.78 for navigation
+- Warm palette (`#FF7A00` naranja, fucsia, magenta) is reserved for NowPlayingBar sliders and EQ bands only. Do not use warm colors for sidebar, cards, buttons, headers or navigation.
+- Cool blue `#8FB7FF` is the primary accent for all other UI (navigation, cards, buttons, headers, selection, focus).
 
 ## 9. Current State
 
