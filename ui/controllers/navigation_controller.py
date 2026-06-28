@@ -132,6 +132,26 @@ SECTION_CONFIG: dict[str, dict] = {
 # Ruta inicial de la aplicación — Inicio como landing page
 INITIAL_ROUTE: str = "home"
 
+
+def resolve_sidebar_active_key(key: str) -> str:
+    """Mapea una clave de navegación a la clave del sidebar que debe quedar activa.
+
+    Subsecciones (playlists, servidores, dispositivos, etc.) se agrupan
+    bajo el hub/section padre del sidebar.
+    """
+    if key in ("albums", "artists", "genres", "folders", "favs", "recent"):
+        return "library_hub"
+    if key.startswith("mix_") and key != "mix_hub":
+        return "mix_hub"
+    if key.startswith("pl:") or key.startswith("playlist:"):
+        return "playlist_hub"
+    if key.startswith("srv:"):
+        return "connections_hub"
+    if key.startswith("dev:") or key in ("devices_page", "devices"):
+        return "devices_page"
+    prefix = key.split(":")[0] if ":" in key else key
+    return prefix or "home"
+
 # Navigation routes — maps sidebar keys to window handler methods
 NAV_ROUTES: dict[str, str] = {
     "library": "_show_library_hub_page", "albums": "_show_albums",
@@ -381,12 +401,7 @@ class NavigationController(QObject):
         self.configure_header(section_key)
 
         # Sincronizar _current_section_key con el sidebar para sub-rutas
-        if key.startswith("pl:") or key.startswith("playlist:"):
-            w._current_section_key = "playlist_hub"
-        elif key.startswith("srv:"):
-            w._current_section_key = "connections_hub"
-        elif key.startswith("dev:"):
-            w._current_section_key = "devices_page"
+        w._current_section_key = resolve_sidebar_active_key(key)
 
         if not self._history.is_restoring:
             self._history.push(key, previous_search)
