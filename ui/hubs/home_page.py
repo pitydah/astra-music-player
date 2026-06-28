@@ -7,11 +7,11 @@ import os
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QScrollArea, QPushButton,
+    QScrollArea, QPushButton, QFileDialog,
 )
 
 from ui.central.central_styles import (
-    glass_button_qss, card_title_qss, page_title_qss, page_subtitle_qss,
+    glass_button_qss, card_title_qss,
 )
 from ui.effects.michi_glass import AcrylicGlassFrame
 
@@ -19,6 +19,8 @@ from ui.effects.michi_glass import AcrylicGlassFrame
 class HomePage(QWidget):
     navigation_requested = Signal(str)
     refresh_requested = Signal()
+    add_music_requested = Signal(list)   # filepaths to add
+    add_folder_requested = Signal(str)   # directory path to scan
 
     def __init__(self, db=None, playback=None, window=None,
                  parent: QWidget | None = None):
@@ -70,13 +72,8 @@ class HomePage(QWidget):
         content = QWidget()
         content.setObjectName("homeContent")
         cl = QVBoxLayout(content)
-        cl.setContentsMargins(40, 32, 40, 40)
+        cl.setContentsMargins(40, 16, 40, 40)
         cl.setSpacing(20)
-
-        # Title
-        title = QLabel("Inicio")
-        title.setObjectName("homeTitle")
-        cl.addWidget(title)
 
         # ── 1. Library Status ──
         self._lib_card = AcrylicGlassFrame("homeLibCard", hover_shine=True)
@@ -96,6 +93,69 @@ class HomePage(QWidget):
             "  background: transparent; border: none; }")
         lc.addWidget(self._lib_counts)
         cl.addWidget(self._lib_card)
+
+        # ── 1b. Añadir música ──
+        self._add_music_card = AcrylicGlassFrame("homeAddMusicCard", hover_shine=True)
+        amc = QVBoxLayout(self._add_music_card)
+        amc.setContentsMargins(24, 16, 24, 16)
+        amc.setSpacing(8)
+        add_title = QLabel("Añadir música")
+        add_title.setStyleSheet(card_title_qss())
+        amc.addWidget(add_title)
+        add_desc = QLabel("Agrega archivos o carpetas a tu biblioteca.")
+        add_desc.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px;"
+            "  background: transparent; border: none; }")
+        amc.addWidget(add_desc)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+        self._add_folder_btn = QPushButton("📁 Añadir carpeta")
+        self._add_folder_btn.setCursor(Qt.PointingHandCursor)
+        self._add_folder_btn.setStyleSheet(glass_button_qss("secondary"))
+        self._add_folder_btn.clicked.connect(self._on_add_folder_clicked)
+        btn_row.addWidget(self._add_folder_btn)
+
+        self._add_files_btn = QPushButton("🎵 Añadir archivos")
+        self._add_files_btn.setCursor(Qt.PointingHandCursor)
+        self._add_files_btn.setStyleSheet(glass_button_qss("accent"))
+        self._add_files_btn.clicked.connect(self._on_add_files_clicked)
+        btn_row.addWidget(self._add_files_btn)
+        btn_row.addStretch()
+        amc.addLayout(btn_row)
+
+        # Preview section (hidden by default)
+        self._preview_widget = QWidget()
+        self._preview_widget.setVisible(False)
+        self._preview_widget.setStyleSheet("background: transparent;")
+        pw_layout = QVBoxLayout(self._preview_widget)
+        pw_layout.setContentsMargins(0, 4, 0, 0)
+        pw_layout.setSpacing(6)
+        self._preview_label = QLabel("")
+        self._preview_label.setWordWrap(True)
+        self._preview_label.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.72); font-size: 12px;"
+            "  background: transparent; border: none; }")
+        pw_layout.addWidget(self._preview_label)
+
+        preview_btn_row = QHBoxLayout()
+        preview_btn_row.setSpacing(10)
+        self._cancel_preview_btn = QPushButton("✕ Cancelar")
+        self._cancel_preview_btn.setCursor(Qt.PointingHandCursor)
+        self._cancel_preview_btn.setStyleSheet(glass_button_qss("ghost"))
+        self._cancel_preview_btn.clicked.connect(self._clear_selection)
+        preview_btn_row.addWidget(self._cancel_preview_btn)
+
+        self._confirm_btn = QPushButton("✓ Importar")
+        self._confirm_btn.setCursor(Qt.PointingHandCursor)
+        self._confirm_btn.setStyleSheet(glass_button_qss("accent"))
+        self._confirm_btn.clicked.connect(self._on_confirm)
+        preview_btn_row.addWidget(self._confirm_btn)
+        preview_btn_row.addStretch()
+        pw_layout.addLayout(preview_btn_row)
+        amc.addWidget(self._preview_widget)
+
+        cl.addWidget(self._add_music_card)
 
         # ── 2. Michi Assistant ──
         self._asst_card = AcrylicGlassFrame("homeAsstCard", hover_shine=True)
@@ -167,6 +227,49 @@ class HomePage(QWidget):
         scroll.setWidget(content)
         layout.addWidget(scroll)
         self._apply_qss()
+        # State
+        self._selected_files: list[str] = []
+
+    # ── Add Music handlers ──
+
+    def _on_add_folder_clicked(self):
+        path = QFileDialog.getExistingDirectory(
+            self, "Añadir carpeta", os.path.expanduser("~"))
+        if path:
+            self.add_folder_requested.emit(path)
+
+    def _on_add_files_clicked(self):
+        from library.library_db import AUDIO_EXTS
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Añadir archivos", os.path.expanduser("~"),
+            f"Audio ({' '.join('*' + e for e in AUDIO_EXTS)})")
+        if paths:
+            self._selected_files = paths
+            self._update_preview()
+            self._preview_widget.setVisible(True)
+
+    def _clear_selection(self):
+        self._selected_files = []
+        self._preview_widget.setVisible(False)
+
+    def _on_confirm(self):
+        if self._selected_files:
+            self.add_music_requested.emit(self._selected_files)
+            self._clear_selection()
+
+    def _update_preview(self):
+        n = len(self._selected_files)
+        if n == 0:
+            self._preview_label.setText("")
+            self._confirm_btn.setText("✓ Importar")
+            return
+        lines = [f"{n} archivos seleccionados:"]
+        for fp in self._selected_files[:3]:
+            lines.append(f"  • {os.path.basename(fp)}")
+        if n > 3:
+            lines.append(f"  ... y {n - 3} más")
+        self._preview_label.setText("\n".join(lines))
+        self._confirm_btn.setText(f"✓ Importar {n} canciones")
 
     # ── Update sections ──
 
@@ -239,12 +342,10 @@ class HomePage(QWidget):
     # ── QSS ──
 
     def _apply_qss(self):
-        self.setStyleSheet(
-            page_title_qss() + page_subtitle_qss() + """
+        self.setStyleSheet("""
             QWidget#homePage { background: #090B11; }
             QScrollArea#homeScroll { background: transparent; border: none; }
             QWidget#homeContent { background: transparent; }
-            QLabel#homeTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
         """)
 
 

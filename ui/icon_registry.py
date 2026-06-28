@@ -206,6 +206,14 @@ ICON_REGISTRY: dict[str, IconSpec] = {
         key="warm_settings", path="icons/warm_settings.svg",
         family="action", symbolic=True,
         description="Configuración"),
+    "nav_back": IconSpec(
+        key="nav_back", path="icons/nav_back.svg",
+        family="action", symbolic=True,
+        description="Navegación atrás"),
+    "nav_forward": IconSpec(
+        key="nav_forward", path="icons/nav_forward.svg",
+        family="action", symbolic=True,
+        description="Navegación adelante"),
 
     # ── View modes ──
     "warm_view_grid": IconSpec(

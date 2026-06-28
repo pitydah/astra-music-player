@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
 from ui.central.central_styles import (
     glass_card_qss, glass_button_qss,
     card_title_qss, card_desc_qss,
-    page_title_qss, page_subtitle_qss,
 )
 
 if TYPE_CHECKING:
@@ -50,19 +49,8 @@ class MixHubPage(QWidget):
         content = QWidget()
         content.setObjectName("mixHubContent")
         cl = QVBoxLayout(content)
-        cl.setContentsMargins(40, 32, 40, 40)
+        cl.setContentsMargins(40, 16, 40, 40)
         cl.setSpacing(20)
-
-        # ── Title ──
-        title = QLabel("Mix")
-        title.setObjectName("mixHubTitle")
-        cl.addWidget(title)
-
-        subtitle = QLabel(
-            "Smart mixes, escucha inmediata y combinaciones de fuentes locales y remotas.")
-        subtitle.setObjectName("mixHubSubtitle")
-        subtitle.setWordWrap(True)
-        cl.addWidget(subtitle)
 
         # ── Dynamic mix cards (2-column grid) ──
         self._mix_cards_grid = QGridLayout()
@@ -271,11 +259,8 @@ class MixHubPage(QWidget):
     # ── QSS ──
 
     def _apply_qss(self):
-        self.setStyleSheet(
-            page_title_qss() + page_subtitle_qss() + """
+        self.setStyleSheet("""
             QWidget#mixHubPage { background: #090B11; }
             QScrollArea#mixHubScroll { background: transparent; border: none; }
             QWidget#mixHubContent { background: transparent; }
-            QLabel#mixHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
-            QLabel#mixHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
         """)

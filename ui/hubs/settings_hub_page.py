@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
 from ui.central.central_styles import (
     glass_card_qss, glass_button_qss,
     card_title_qss, card_desc_qss,
-    page_title_qss, page_subtitle_qss,
 )
 
 
@@ -34,19 +33,8 @@ class SettingsHubPage(QWidget):
         content = QWidget()
         content.setObjectName("settingsHubContent")
         content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(40, 32, 40, 32)
+        content_layout.setContentsMargins(40, 16, 40, 32)
         content_layout.setSpacing(20)
-
-        title = QLabel("Configuración")
-        title.setObjectName("settingsHubTitle")
-        content_layout.addWidget(title)
-
-        subtitle = QLabel(
-            "General, apariencia, biblioteca, reproducción, conexiones y ajustes avanzados."
-        )
-        subtitle.setObjectName("settingsHubSubtitle")
-        subtitle.setWordWrap(True)
-        content_layout.addWidget(subtitle)
 
         sections = [
             ("general", "General", "Inicio, carpetas y comportamiento."),
@@ -98,13 +86,10 @@ class SettingsHubPage(QWidget):
             w._show_preferences(target)
 
     def _apply_qss(self):
-        self.setStyleSheet(
-            page_title_qss() + page_subtitle_qss() + """
+        self.setStyleSheet("""
             QWidget#settingsHubPage { background: #090B11; }
             QScrollArea#settingsHubScroll { background: transparent; border: none; }
             QWidget#settingsHubContent { background: transparent; }
-            QLabel#settingsHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
-            QLabel#settingsHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
         """)
         for key in ("general", "appearance", "library", "playback", "audio", "connections", "advanced"):
             card = self.findChild(QFrame, f"settingsCard_{key}")

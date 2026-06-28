@@ -69,7 +69,7 @@ def section_icon_box_qss() -> str:
         QFrame#sectionIconBox {
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 13px;
+            border-radius: 12px;
         }
     """
 
@@ -136,7 +136,7 @@ def tool_button_qss(kind: str = "default") -> str:
             border: 1px solid rgba(255,255,255,0.05);
             border-radius: 10px;
             padding: 5px 14px;
-            color: rgba(255,255,255,0.82);
+            color: rgba(255,255,255,0.86);
             font-size: 12px;
             font-weight: 500;
         }

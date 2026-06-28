@@ -4,7 +4,7 @@ import os
 
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from library.album_art import load_cover_pixmap, load_covers_for_albums
 from library.coverflow import CoverFlowWidget
@@ -83,6 +83,8 @@ class CoverFlowController:
             self._win._album_banner.play_requested.connect(self.on_banner_play)
             self._win._album_banner.queue_requested.connect(self.on_banner_queue)
             self._win._album_banner.details_requested.connect(self.on_banner_details)
+            self._win._album_banner.track_clicked.connect(self.on_banner_track_clicked)
+            self._win._album_banner.open_external_link.connect(self.on_banner_open_link)
 
             coverflow_page = QWidget()
             coverflow_page.setStyleSheet("background: #090B11;")
@@ -193,7 +195,6 @@ class CoverFlowController:
         if not cf or index >= cf.count():
             return
 
-        # Update album info banner using repository
         if hasattr(self._win, '_album_banner') and hasattr(self._win, '_album_repo'):
             item = cf.item_at(index)
             tracks = item.data.get("tracks", []) if item and item.data else []
@@ -201,21 +202,23 @@ class CoverFlowController:
             summary = self._win._album_repo.get_summary(key, fallback_data=tracks)
             if summary:
                 self._win._album_banner.set_album_summary(summary)
+                self._win._album_banner.set_track_list(tracks)
             elif item:
-                # Fallback: build minimal summary from CoverFlow item data
-                self._win._album_banner.set_album_summary(
-                    self._build_minimal_summary(item, tracks, key))
+                minimal = self._build_minimal_summary(item, tracks, key)
+                self._win._album_banner.set_album_summary(minimal)
+                self._win._album_banner.set_track_list(tracks)
 
-            # Trigger MusicBrainz album enrichment for external metadata
+            cover_pix = cf.center_pixmap()
+            if cover_pix and not cover_pix.isNull():
+                self._win._album_banner.set_cover_pixmap(cover_pix)
+
             self.enrich_album_background(key, item, tracks)
 
-            # Trigger artist enrichment for CoverFlow-navigated artist
             if hasattr(self._win, '_artist_enrich') and item and item.subtitle:
                 from library.artist_grouping import normalize_artist_name
                 artist_key = normalize_artist_name(item.subtitle)
                 self._win._artist_enrich.enrich_artist_by_key(artist_key, item.subtitle)
 
-            # Precarga vecinos ±2
             for off in (-2, -1, 1, 2):
                 ni = index + off
                 n_item = cf.item_at(ni)
@@ -260,14 +263,20 @@ class CoverFlowController:
         if not item:
             return
         tracks = item.data.get("tracks", [])
-        count = len(tracks)
-        dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
-        dur_str = f"{int(dur // 60)}:{int(dur % 60):02d}" if dur > 0 else "—"
-        exts = set((getattr(t, 'ext', '') or '').upper().lstrip(".") for t in tracks if getattr(t, 'ext', ''))
-        fmt_str = ", ".join(sorted(exts)) or "—"
-        msg = (f"Álbum: {item.title}\nArtista: {item.subtitle or '—'}\n"
-               f"Canciones: {count}\nDuración: {dur_str}\nFormatos: {fmt_str}")
-        QMessageBox.information(self._win, "Detalles del álbum", msg)
+        key = _album_key(item, tracks)
+        summary = self._win._album_repo.get_summary(key, fallback_data=tracks) if hasattr(
+            self._win, '_album_repo') else None
+        if not summary:
+            summary = self._build_minimal_summary(item, tracks, key)
+        if summary and summary.source == "local":
+            self.enrich_album_background(key, item, tracks)
+        from ui.album_detail_dialog import AlbumDetailDialog
+        self._active_detail_dlg = AlbumDetailDialog(summary, self._win)
+        self._active_detail_dlg.finished.connect(lambda: self._on_detail_dlg_closed())
+        self._active_detail_dlg.exec()
+
+    def _on_detail_dlg_closed(self):
+        self._active_detail_dlg = None
 
     def on_search_cover(self, idx: int):
         tracks = self.album_tracks(idx)
@@ -292,6 +301,17 @@ class CoverFlowController:
     def on_banner_details(self, album_key: str = ""):
         self.on_details_album(self._snapped_index)
 
+    def on_banner_track_clicked(self, filepath: str):
+        if filepath:
+            import os as _os
+            if _os.path.isfile(filepath):
+                self._win._play_filepaths([filepath], play_now=True)
+
+    def on_banner_open_link(self, url: str):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl(url))
+
     # ── Cover lazy-load ──
 
     def on_cover_request(self, idx: int, item):
@@ -309,18 +329,14 @@ class CoverFlowController:
 
         filepath = tracks[0].filepath
         size = self._win._coverflow.cover_size()
-        cache_key = self._win._coverflow_cache_key
 
-        if self._win._workers:
-            self._win._workers.run_task(
-                f"cf_cover_{idx}",
-                lambda fp=filepath, sz=size: load_cover_pixmap(fp, sz),
-                on_done=lambda pix: self._on_cover_loaded(
-                    idx, pix, key, cache_key))
-        else:
-            pix = load_cover_pixmap(filepath, size)
-            if pix and not pix.isNull():
-                self._win._coverflow.set_cover(idx, pix)
+        pix = load_cover_pixmap(filepath, size)
+        if pix and not pix.isNull():
+            self._win._coverflow.set_cover(idx, pix)
+            if idx == self._win._coverflow.current_index() and hasattr(self._win, '_album_banner'):
+                self._win._album_banner.set_cover_pixmap(pix)
+            if hasattr(self, '_pending_cover_keys'):
+                self._pending_cover_keys.discard(key)
 
     def _on_cover_loaded(self, idx: int, pix, key: str, cache_key: str):
         if hasattr(self, '_pending_cover_keys'):
@@ -367,3 +383,10 @@ class CoverFlowController:
             summary = self._win._album_repo.get_cached(album_key)
             if summary:
                 self._win._album_banner.set_album_summary(summary)
+        # Live-update detail dialog if open
+        if (hasattr(self, '_active_detail_dlg') and self._active_detail_dlg is not None
+                and hasattr(self._active_detail_dlg, '_album_key')
+                and self._active_detail_dlg._album_key == album_key):
+            summary = self._win._album_repo.get_cached(album_key)
+            if summary:
+                self._active_detail_dlg.update_summary(summary)

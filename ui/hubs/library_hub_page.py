@@ -37,24 +37,6 @@ class LibraryHubPage(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        header = QFrame()
-        header.setObjectName("libraryHubHeader")
-        header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(20, 12, 20, 12)
-
-        title = QLabel("Biblioteca")
-        title.setObjectName("libraryHubTitle")
-        header_layout.addWidget(title)
-
-        subtitle = QLabel(
-            "Música local, archivos disponibles y estadísticas de tu colección."
-        )
-        subtitle.setObjectName("libraryHubSubtitle")
-        subtitle.setWordWrap(True)
-        header_layout.addWidget(subtitle)
-
-        layout.addWidget(header)
-
         sources = self._get_sources()
         if len(sources) > 1:
             src_bar = QFrame()
@@ -240,9 +222,6 @@ class LibraryHubPage(QWidget):
     def _apply_qss(self):
         self.setStyleSheet("""
             QWidget#libraryHubPage { background: #090B11; }
-            QFrame#libraryHubHeader { background: transparent; border-bottom: 1px solid rgba(255,255,255,0.03); }
-            QLabel#libraryHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
-            QLabel#libraryHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
             QTabWidget#libraryHubTabs::pane { border: none; background: transparent; }
             QTabBar::tab {
                 background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);

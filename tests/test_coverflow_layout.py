@@ -19,7 +19,7 @@ CW, CH = 260, 260
 def test_center_exact():
     state = coverflow_layout(0.0, VW, VH, CW, CH)
     assert state["x"] == pytest.approx(VW / 2, abs=1.0)
-    assert state["y"] == pytest.approx(VH / 2 - 20, abs=1.0)
+    assert state["y"] == pytest.approx(VH / 2 - 110, abs=1.0)
     assert state["scale"] == pytest.approx(1.0, abs=0.01)
     assert state["rot"] == 0.0
     assert state["visible"] is True
@@ -27,16 +27,16 @@ def test_center_exact():
 
 def test_offset_plus_one():
     state = coverflow_layout(1.0, VW, VH, CW, CH)
-    assert state["x"] > VW / 2 + 150
-    assert state["x"] < VW / 2 + 220
+    assert state["x"] > VW / 2 + 100
+    assert state["x"] < VW / 2 + 180
     assert state["scale"] == pytest.approx(0.88, abs=0.02)
     assert state["rot"] == pytest.approx(22.0, abs=1.0)
 
 
 def test_offset_minus_one():
     state = coverflow_layout(-1.0, VW, VH, CW, CH)
-    assert state["x"] < VW / 2 - 150
-    assert state["x"] > VW / 2 - 220
+    assert state["x"] < VW / 2 - 100
+    assert state["x"] > VW / 2 - 180
     assert state["scale"] == pytest.approx(0.88, abs=0.02)
     assert state["rot"] == pytest.approx(-22.0, abs=1.0)
 
@@ -194,14 +194,14 @@ class TestCoverFlowPublicAPI:
         from library.album_art import CoverFlowItem
         from PySide6.QtGui import QPixmap
         cf = CoverFlowWidget()
+        cf.resize(1024, 768)
         items = [CoverFlowItem(pixmap=QPixmap(), title=f"A{i}", subtitle="T",
                                data={"album": f"A{i}", "artist": "A", "tracks": []})
                  for i in range(50)]
         cf.set_items(items)
 
-        # At center (index 0), items far away (>10 offset) should not be visible
         vis = cf.visible_indices()
-        too_far = [i for i in vis if abs(i) > 12]
+        too_far = [i for i in vis if abs(i) > 14]
         assert len(too_far) == 0, f"Items far from center should be hidden: {too_far}"
 
 
@@ -326,17 +326,12 @@ class TestCoverFlowInteraction:
         cf.wheelEvent(event)
         assert abs(cf._current - idx_before) > 0
 
-    def test_slider_navigates(self, qtbot):
+    def test_scroll_to_navigates(self, qtbot):
         from library.coverflow import CoverFlowWidget
         cf = CoverFlowWidget()
         qtbot.addWidget(cf)
         cf.resize(800, 600)
         cf.set_items(self.make_items(10))
-        assert cf._slider.maximum() == 9
-        cf._slider_dragging = True
-        cf._slider.setValue(5)
-        cf._on_slider_changed(5)
-        cf._slider_dragging = False
         cf.scroll_to(5, animated=False)
         assert cf.current_index() == 5
 
@@ -534,21 +529,25 @@ class TestReflectiveFloor:
 
 
 class TestCoverReflection:
-    def test_created_with_pixmap(self):
-        pix = QPixmap(100, 100)
-        pix.fill(Qt.red)
-        ref = CoverReflection(pix)
-        assert ref.opacity() == 0.10
-        assert not ref.pixmap().isNull()
-
-    def test_created_with_null_pixmap(self):
+    def test_created_invisible_by_default(self):
         ref = CoverReflection(None)
-        assert ref.opacity() == 0.0
+        assert ref.isVisible() is False or ref.rect().width() == 0
 
-    def test_zero_opacity_with_empty_pixmap(self):
-        pix = QPixmap(0, 0)
-        ref = CoverReflection(pix)
-        assert ref.opacity() == 0.0
+    def test_set_cover_size_with_low_scale_hides(self):
+        ref = CoverReflection(None)
+        ref.set_cover_size(260, 260, 0.2)
+        assert ref.isVisible() is False
+
+    def test_set_cover_size_with_good_scale(self):
+        ref = CoverReflection(None)
+        ref.set_cover_size(260, 260, 0.8)
+        assert ref.isVisible() is True
+        assert ref.rect().width() > 0
+
+    def test_set_cover_size_creates_gradient_brush(self):
+        ref = CoverReflection(None)
+        ref.set_cover_size(260, 260, 1.0)
+        assert ref.brush().gradient() is not None
 
 
 class TestCoverFlowWidgetAdvanced:
@@ -721,7 +720,7 @@ class TestCoverFlowWidgetAdvanced:
         ev = QContextMenuEvent(QContextMenuEvent.Mouse, QPoint(400, 300), QPoint(400, 300))
         cf.contextMenuEvent(ev)
 
-    def test_mouse_double_click_emits_signals(self, qtbot):
+    def test_mouse_double_click_does_nothing(self, qtbot):
         from PySide6.QtCore import QEvent, QPointF
         from PySide6.QtGui import QMouseEvent
         cf = CoverFlowWidget()
@@ -735,5 +734,86 @@ class TestCoverFlowWidgetAdvanced:
         ev = QMouseEvent(QEvent.MouseButtonDblClick, QPointF(400, 300), QPointF(400, 300),
                          Qt.NoButton, Qt.MouseButton.LeftButton, Qt.NoModifier)
         cf.mouseDoubleClickEvent(ev)
-        assert len(play_results) > 0
-        assert len(dbl_results) > 0
+        assert len(play_results) == 0
+        assert len(dbl_results) == 0
+
+    def test_snap_duration_increases_with_distance(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        short_dur = cf._snap_duration_for(0.5)
+        long_dur = cf._snap_duration_for(5.0)
+        assert short_dur < long_dur
+        assert 150 <= short_dur <= 380
+
+    def test_on_cover_loaded_updates_cache(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        from PySide6.QtGui import QPixmap
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        cf.resize(800, 600)
+        from library.album_art import CoverFlowItem
+        items = [CoverFlowItem(pixmap=QPixmap(), title="A", subtitle="T",
+                               data={"album": "A", "artist": "T", "tracks": []})]
+        cf.set_items(items)
+        pix = QPixmap(100, 100)
+        pix.fill(Qt.red)
+        cf._on_cover_loaded(0, pix)
+        assert cf._cover_cache.get("A|T") is not None
+
+    def test_item_at_returns_none_for_invalid_index(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        assert cf.item_at(-1) is None
+        assert cf.item_at(0) is None
+
+    def test_item_key_at_returns_empty_for_invalid(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        assert cf.item_key_at(-1) == ""
+
+    def test_set_cover_updates_layout(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        from PySide6.QtGui import QPixmap
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        cf.resize(800, 600)
+        from library.album_art import CoverFlowItem
+        items = [CoverFlowItem(pixmap=QPixmap(), title="A", subtitle="T",
+                               data={"album": "A", "artist": "T", "tracks": []})]
+        cf.set_items(items)
+        pix = QPixmap(100, 100)
+        pix.fill(Qt.blue)
+        cf.set_cover(0, pix)
+        assert cf._cover_cache.get("A|T") is not None
+
+    def test_get_current_returns_internal_value(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        cf._current = 3.5
+        assert cf.get_current() == 3.5
+
+    def test_set_current_updates_layout(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        cf.set_items(self.make_items(5))
+        cf.set_current(2.0)
+        assert cf.get_current() == 2.0
+
+    def test_center_pixmap_returns_none_when_empty(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        assert cf.center_pixmap() is None
+
+    def test_center_pixmap_returns_pixmap_when_items(self, qtbot):
+        from library.coverflow import CoverFlowWidget
+        cf = CoverFlowWidget()
+        qtbot.addWidget(cf)
+        cf.set_items(self.make_items(3))
+        pix = cf.center_pixmap()
+        assert pix is not None

@@ -123,6 +123,7 @@ class TestParametricPresets:
 
     def test_load_parametric_returns_copy(self):
         bands = load_parametric_preset("Rock")
+        bands[0] = dict(bands[0])
         bands[0]["gain"] = 999
         assert PARAMETRIC_PRESETS["Rock"][0]["gain"] != 999
 
@@ -180,11 +181,14 @@ class TestCustomPresets:
         with tempfile.TemporaryDirectory() as d:
             from audio import eq_presets
             old_path = eq_presets.PRESETS_PATH
-            eq_presets.SETTINGS_DIR = d
-            eq_presets.PRESETS_PATH = os.path.join(d, "sub", "eq_presets.json")
+            old_dir = eq_presets.SETTINGS_DIR
+            sub = os.path.join(d, "sub")
+            eq_presets.SETTINGS_DIR = sub
+            eq_presets.PRESETS_PATH = os.path.join(sub, "eq_presets.json")
             save_custom_presets({"test": [0.0]})
             assert os.path.exists(eq_presets.PRESETS_PATH)
             eq_presets.PRESETS_PATH = old_path
+            eq_presets.SETTINGS_DIR = old_dir
 
     def test_custom_presets_round_trip_types(self):
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:

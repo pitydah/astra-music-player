@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu,
     QSplitter, QStackedWidget, QTableView, QToolButton, QVBoxLayout,
@@ -68,26 +68,26 @@ class UIBuilder:
         header.setObjectName("headerBar")
         header.setStyleSheet(header_qss())
         hl = QHBoxLayout(header)
-        hl.setContentsMargins(14, 10, 14, 10)
-        hl.setSpacing(12)
+        hl.setContentsMargins(16, 8, 16, 8)
+        hl.setSpacing(10)
 
         # Section icon capsule
         w._section_icon_box = QFrame()
         w._section_icon_box.setObjectName("sectionIconBox")
-        w._section_icon_box.setFixedSize(42, 42)
+        w._section_icon_box.setFixedSize(40, 40)
         w._section_icon_box.setStyleSheet(section_icon_box_qss())
         icon_box_inner = QVBoxLayout(w._section_icon_box)
         icon_box_inner.setContentsMargins(0, 0, 0, 0)
         icon_box_inner.setAlignment(Qt.AlignCenter)
 
         w._section_icon = QLabel()
-        w._section_icon.setFixedSize(26, 26)
+        w._section_icon.setFixedSize(24, 24)
         w._section_icon.setAlignment(Qt.AlignCenter)
         w._section_icon.setStyleSheet("background: transparent; border: none;")
         icon_box_inner.addWidget(w._section_icon)
 
         title_box = QVBoxLayout()
-        title_box.setSpacing(1)
+        title_box.setSpacing(2)
         w._section_title = QLabel("Todas las canciones")
         w._section_title.setObjectName("sectionTitle")
         w._section_title.setStyleSheet(section_title_qss())
@@ -102,21 +102,25 @@ class UIBuilder:
         title_wrap.setSpacing(6)
 
         w._back_btn = QToolButton()
-        w._back_btn.setText("←")
+        w._back_btn.setObjectName("navBackBtn")
+        w._back_btn.setIcon(get_qicon("nav_back"))
+        w._back_btn.setIconSize(QSize(18, 18))
         w._back_btn.setToolTip("Atrás (Alt+Izquierda)")
         w._back_btn.setCursor(Qt.PointingHandCursor)
         w._back_btn.setStyleSheet(tool_button_qss("icon"))
-        w._back_btn.setFixedSize(36, 36)
+        w._back_btn.setFixedSize(38, 38)
         w._back_btn.setEnabled(False)
         w._back_btn.clicked.connect(lambda _w=w: _w._nav_ctrl.navigate_back())
         title_wrap.addWidget(w._back_btn)
 
         w._forward_btn = QToolButton()
-        w._forward_btn.setText("→")
+        w._forward_btn.setObjectName("navForwardBtn")
+        w._forward_btn.setIcon(get_qicon("nav_forward"))
+        w._forward_btn.setIconSize(QSize(18, 18))
         w._forward_btn.setToolTip("Adelante (Alt+Derecha)")
         w._forward_btn.setCursor(Qt.PointingHandCursor)
         w._forward_btn.setStyleSheet(tool_button_qss("icon"))
-        w._forward_btn.setFixedSize(36, 36)
+        w._forward_btn.setFixedSize(38, 38)
         w._forward_btn.setEnabled(False)
         w._forward_btn.clicked.connect(lambda _w=w: _w._nav_ctrl.navigate_forward())
         title_wrap.addWidget(w._forward_btn)
@@ -124,28 +128,35 @@ class UIBuilder:
         title_wrap.addWidget(w._section_icon_box)
         title_wrap.addLayout(title_box)
         hl.addLayout(title_wrap)
-        hl.addSpacing(16)
+        hl.addSpacing(12)
 
         w._search = QLineEdit()
         w._search.setPlaceholderText("Buscar canciones...")
         w._search.setClearButtonEnabled(True)
-        w._search.setFixedWidth(240)
+        w._search.setMinimumWidth(160)
+        w._search.setMaximumWidth(300)
         w._search.textChanged.connect(lambda text, _w=w: _w._search_router.on_search(text))
         w._search.setStyleSheet(search_qss())
-        w._count = QLabel("0 elementos")
+        w._count = QLabel("")
         w._count.setObjectName("countBadge")
         w._count.setStyleSheet(count_badge_qss())
+        w._count.setVisible(False)
 
         # View selector (segmented capsule)
         w._view_switcher = SegmentedViewSwitcher(get_icon)
         w._view_switcher.view_changed.connect(lambda mode, _w=w: _w._view_router.on_mode_changed(mode))
         w._view_mode = "list"
 
+        # Responsive: actualizar view switcher al redimensionar el header
+        header._orig_resize = header.resizeEvent
+        def _header_resize(event, _self=header, _vs=w._view_switcher):
+            _self._orig_resize(event)
+            _vs.update_for_width(_self.width())
+        header.resizeEvent = _header_resize
+
         w._settings_btn = QToolButton()
         w._settings_btn.setObjectName("settingsButton")
         w._settings_btn.setIcon(get_qicon("warm_settings", size=24))
-        w._settings_btn.setIconSize(w._settings_btn.iconSize() or w._settings_btn.size())
-        from PySide6.QtCore import QSize
         w._settings_btn.setIconSize(QSize(24, 24))
         w._settings_btn.setFixedSize(44, 44)
         w._settings_btn.setToolTip("Configuración y acciones")
@@ -264,8 +275,6 @@ class UIBuilder:
 
         w._album_grid = AlbumGridWidget()
         w._album_grid.set_worker_manager(w._workers)
-        w._album_grid.album_double_clicked.connect(
-            lambda fps, _w=w: _w._play_filepaths(fps, play_now=True))
         w._album_grid.queue_requested.connect(
             lambda fps, _w=w: _w._play_filepaths(fps, play_now=False))
         w._album_grid.playlist_requested.connect(
@@ -277,6 +286,11 @@ class UIBuilder:
         w._album_grid.details_requested.connect(
             lambda group, _w=w: _w._album_ctrl.show_details(group))
         w._album_grid.add_folder_requested.connect(w._add_folder)
+        import contextlib
+        with contextlib.suppress(TypeError, RuntimeError):
+            w._album_grid.album_selected.disconnect()
+        w._album_grid.album_selected.connect(
+            lambda group, _w=w: _w._show_album_detail(group))
 
         w._song_grid = SongGridWidget()
         w._song_grid.song_double_clicked.connect(
@@ -295,25 +309,17 @@ class UIBuilder:
         w._songs_stack.addWidget(w._song_grid)
         w._songs_stack.setCurrentIndex(0)
 
-        # Build albums stacked widget: grid (carátulas) + list (table) inside Álbumes tab
-        w._album_list_table = QTableView()
-        w._album_list_table.setShowGrid(False)
-        w._album_list_table.setAlternatingRowColors(True)
-        w._album_list_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        w._album_list_table.setSelectionMode(QAbstractItemView.SingleSelection)
-        w._album_list_table.setFrameShape(QFrame.NoFrame)
-        w._album_list_table.horizontalHeader().setStretchLastSection(True)
-        w._album_list_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        w._album_list_table.verticalHeader().setVisible(False)
-        w._album_list_table.verticalHeader().setDefaultSectionSize(30)
-        w._album_list_table.setSortingEnabled(True)
-        w._album_list_table.setStyleSheet(table_qss() + scrollbar_qss())
+        # Build albums: grid (carátulas) + detail view inside Álbumes tab
+        from ui.album_detail_view import AlbumDetailView
+        w._album_detail_view = AlbumDetailView()
+        w._album_detail_view.back_requested.connect(w._show_album_grid)
+        w._album_detail_view.track_play_requested.connect(w._play_file)
 
         w._albums_stack = QStackedWidget()
         w._albums_stack.setObjectName("albumsStack")
         w._albums_stack.setStyleSheet("background: transparent; border: none;")
         w._albums_stack.addWidget(w._album_grid)
-        w._albums_stack.addWidget(w._album_list_table)
+        w._albums_stack.addWidget(w._album_detail_view)
         w._albums_stack.setCurrentIndex(0)
 
         # Generic tracks table for playlists/favs/recent (separate from Canciones table)
@@ -504,7 +510,7 @@ class UIBuilder:
             "}")
         cl = QVBoxLayout(cw)
         cl.setContentsMargins(0, 0, 0, 0)
-        cl.setSpacing(0)
+        cl.setSpacing(6)
         cl.addWidget(header)
         cl.addWidget(w._content)
 

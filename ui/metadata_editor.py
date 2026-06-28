@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap, QColor, QDragEnterEvent, QDropEvent
@@ -90,33 +89,6 @@ class MetadataEditorWidget(QWidget):
         header_row.setContentsMargins(0, 0, 0, 0)
         header_row.setSpacing(10)
 
-        icons_path = Path(__file__).parent.parent / "icons/sidebar/metadata.svg"
-        if icons_path.exists():
-            from ui.icons import get_pixmap
-            icon_lbl = QLabel()
-            icon_pix = get_pixmap("metadata", size=40)
-            if not icon_pix.isNull():
-                icon_lbl.setPixmap(icon_pix)
-            else:
-                icon_pix = QPixmap(str(icons_path))
-                if not icon_pix.isNull():
-                    icon_pix = icon_pix.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    icon_lbl.setPixmap(icon_pix)
-            icon_lbl.setFixedSize(40, 40)
-            icon_lbl.setStyleSheet("background: transparent; border: none;")
-            header_row.addWidget(icon_lbl)
-
-        title_box = QVBoxLayout()
-        title_box.setSpacing(2)
-        t = QLabel("Editor de metadatos")
-        t.setStyleSheet(f"color: {_TEXT}; font-size: 24px; font-weight: 700; background: transparent; border: none;")
-        title_box.addWidget(t)
-        s = QLabel("Limpia, completa y normaliza la información de tus archivos")
-        s.setStyleSheet(f"color: {_TEXT2}; font-size: 13px; font-weight: 500; background: transparent; border: none;")
-        title_box.addWidget(s)
-        header_row.addLayout(title_box)
-        header_row.addStretch()
-
         for label, slot in [
             ("Abrir archivos", self._open_files),
             ("Abrir carpeta", self._open_folder),
@@ -131,19 +103,7 @@ class MetadataEditorWidget(QWidget):
             btn.setStyleSheet(_BTN_CSS)
             btn.clicked.connect(slot)
             header_row.addWidget(btn)
-
-        header = QFrame()
-        header.setObjectName("metadataHero")
-        header.setStyleSheet(
-            "QFrame#metadataHero {"
-            "  background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "    stop:0 rgba(255,255,255,0.065),"
-            "    stop:0.55 rgba(255,255,255,0.045),"
-            "    stop:1 rgba(143,183,255,0.030));"
-            "  border: 1px solid rgba(255,255,255,0.050);"
-            "  border-radius: 22px; }")
-        header.setContentsMargins(24, 20, 24, 20)
-        header.setLayout(header_row)
+        header_row.addStretch()
 
         # ── Splitter (3 panels) ──
         self._splitter = QSplitter(Qt.Horizontal)
@@ -160,9 +120,8 @@ class MetadataEditorWidget(QWidget):
 
         # ── Main layout ──
         main = QVBoxLayout(self)
-        main.setContentsMargins(24, 20, 24, 20)
+        main.setContentsMargins(24, 16, 24, 20)
         main.setSpacing(16)
-        main.addWidget(header)
         main.addWidget(self._splitter)
 
         # ── Smart Tagging + Library Doctor tools ──

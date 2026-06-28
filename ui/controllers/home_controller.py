@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject
@@ -36,6 +37,8 @@ class HomeController(QObject):
             )
             self._page.navigation_requested.connect(
                 self._win._on_sidebar_navigate)
+            self._page.add_music_requested.connect(self._on_add_music)
+            self._page.add_folder_requested.connect(self._on_add_folder)
         return self._page
 
     def show(self):
@@ -78,3 +81,26 @@ class HomeController(QObject):
             except Exception:
                 return []
         return []
+
+    # ── Add Music handlers ──
+
+    def _on_add_music(self, filepaths: list[str]):
+        """Import selected files and refresh library."""
+        w = self._win
+        from library.library_db import AUDIO_EXTS
+        added = 0
+        for fp in filepaths:
+            ext = os.path.splitext(fp)[1].lower()
+            if ext in AUDIO_EXTS and os.path.isfile(fp):
+                w._db.add_file(fp)
+                added += 1
+        if added:
+            w._reload_library_after_change(reason="home_add_music")
+        w._toast_svc.show(f"{added} canciones añadidas a la biblioteca", "success")
+        self.refresh()
+
+    def _on_add_folder(self, path: str):
+        """Scan a folder for music files."""
+        w = self._win
+        w._scan_path(path)
+        self.refresh()

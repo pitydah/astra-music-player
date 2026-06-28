@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
 from ui.central.central_styles import (
     glass_card_qss, glass_button_qss,
     card_title_qss, card_desc_qss,
-    page_title_qss, page_subtitle_qss,
 )
 
 
@@ -36,22 +35,10 @@ class PlaybackHubPage(QWidget):
         content = QWidget()
         content.setObjectName("playbackHubContent")
         content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(40, 32, 40, 32)
+        content_layout.setContentsMargins(40, 16, 40, 32)
         content_layout.setSpacing(20)
 
-        title = QLabel("Reproducción")
-        title.setObjectName("playbackHubTitle")
-        content_layout.addWidget(title)
-
         stats = self._get_stats()
-        subtitle = QLabel(
-            f"Cola actual, historial, favoritos ({stats.get('fav_count', 0)}), "
-            f"radio y letras."
-        )
-        subtitle.setObjectName("playbackHubSubtitle")
-        subtitle.setWordWrap(True)
-        content_layout.addWidget(subtitle)
-
         actions = [
             ("favs", "Favoritos", f"{stats.get('fav_count', 0)} canciones marcadas como favoritas."),
             ("recent", "Historial", "Canciones reproducidas recientemente."),
@@ -112,13 +99,10 @@ class PlaybackHubPage(QWidget):
             w._on_sidebar_navigate(target)
 
     def _apply_qss(self):
-        self.setStyleSheet(
-            page_title_qss() + page_subtitle_qss() + """
+        self.setStyleSheet("""
             QWidget#playbackHubPage { background: #090B11; }
             QScrollArea#playbackHubScroll { background: transparent; border: none; }
             QWidget#playbackHubContent { background: transparent; }
-            QLabel#playbackHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
-            QLabel#playbackHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
         """)
         for key, act in [("favs", "secondary"), ("recent", "secondary"), ("radio", "secondary")]:
             card = self.findChild(QFrame, f"playbackCard_{key}")

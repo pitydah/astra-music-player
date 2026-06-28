@@ -294,7 +294,10 @@ class AlbumGridWidget(QWidget):
             card.set_active(i == idx)
         self._selected_index = idx
         if 0 <= idx < len(self._groups):
-            self.album_selected.emit(self._groups[idx])
+            group = self._groups[idx]
+            if group.data is None:
+                group.data = {}
+            self.album_selected.emit(group)
 
     def _handle_context(self, action: str, idx: int):
         if idx < 0 or idx >= len(self._groups):

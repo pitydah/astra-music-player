@@ -49,30 +49,13 @@ class DevicesPage(QWidget):
         content = QWidget()
         content.setObjectName("devicesContent")
         cl = QVBoxLayout(content)
-        cl.setContentsMargins(40, 32, 40, 32)
+        cl.setContentsMargins(40, 16, 40, 32)
         cl.setSpacing(20)
 
-        # Icon + title row
-        from ui.icons import get_pixmap
-        icon_row = QHBoxLayout()
-        icon_row.setSpacing(12)
-        icon_lbl = QLabel()
-        pix = get_pixmap("michi_sync", size=40)
-        if pix and not pix.isNull():
-            icon_lbl.setPixmap(pix)
-        icon_lbl.setFixedSize(40, 40)
-        icon_lbl.setStyleSheet("background: transparent; border: none;")
-        icon_row.addWidget(icon_lbl)
-
-        title = QLabel("Michi Sync Suite")
-        title.setObjectName("devicesTitle")
-        icon_row.addWidget(title)
-        icon_row.addStretch()
-        cl.addLayout(icon_row)
-
-        self._subtitle = QLabel("Sincroniza tu música con tus dispositivos.")
+        self._subtitle = QLabel("")
         self._subtitle.setObjectName("devicesSubtitle")
         self._subtitle.setWordWrap(True)
+        self._subtitle.setVisible(False)
         cl.addWidget(self._subtitle)
 
         # ── Server summary ──
@@ -482,7 +465,6 @@ class DevicesPage(QWidget):
             QWidget#devicesPage { background: #090B11; }
             QScrollArea#devicesScroll { background: transparent; border: none; }
             QWidget#devicesContent { background: transparent; }
-            QLabel#devicesTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
             QLabel#devicesSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
             QComboBox {
                 background: rgba(255,255,255,0.045);

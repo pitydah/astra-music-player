@@ -5,7 +5,12 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Callable
 
+import logging
+
 from PySide6.QtCore import QObject
+from ui.icons import get_qicon
+
+_log = logging.getLogger("michi.nav")
 
 if TYPE_CHECKING:
     from ui.window import MainWindow
@@ -15,9 +20,9 @@ SECTION_CONFIG: dict[str, dict] = {
     "library":    {"title": "Biblioteca", "subtitle": "Música local, archivos disponibles y estadísticas de tu colección",
                    "icon": "sidebar_library", "views": ["list", "grid"],
                    "search": True, "default": "list"},
-    "albums":     {"title": "Álbumes", "subtitle": "Carátulas y navegación visual",
-                   "icon": "sidebar_albums", "views": ["list", "grid", "coverflow"],
-                   "search": True, "default": "grid"},
+     "albums":     {"title": "Álbumes", "subtitle": "Carátulas y navegación visual",
+                    "icon": "sidebar_albums", "views": ["grid", "coverflow"],
+                    "search": True, "default": "grid"},
     "artists":    {"title": "Artistas", "subtitle": "Explora tu biblioteca por artista y álbumes",
                    "icon": "sidebar_artist", "views": ["grid", "list"],
                    "search": True, "default": "grid"},
@@ -151,10 +156,12 @@ NAV_ROUTES: dict[str, str] = {
 # Search placeholders per section
 _SEARCH_PLACEHOLDERS: dict[str, str] = {
     "library": "Buscar canciones...", "albums": "Buscar álbumes...",
-    "artists": "Buscar artistas...", "playlists": "Buscar en playlist...",
+    "artists": "Buscar artistas...", "genres": "Buscar géneros...",
+    "playlists": "Buscar en playlist...",
     "folders": "Buscar carpeta...", "radio": "Buscar emisoras...",
     "playlist_hub": "Buscar playlists...", "favs": "Buscar favoritos...",
-    "recent": "Buscar recientes...", "mix_unplayed": "Buscar canciones...",
+    "recent": "Buscar recientes...",
+    "mix_unplayed": "Buscar canciones...", "mix_favorites": "Buscar favoritos...",
 }
 
 
@@ -297,10 +304,14 @@ class NavigationController(QObject):
 
     def _update_buttons(self):
         w = self._win
+        can_back = self._history.can_go_back
+        can_fwd = self._history.can_go_forward
         if hasattr(w, '_back_btn'):
-            w._back_btn.setEnabled(self._history.can_go_back)
+            w._back_btn.setEnabled(can_back)
+            w._back_btn.setToolTip("Atrás" if can_back else "Sin historial")
         if hasattr(w, '_forward_btn'):
-            w._forward_btn.setEnabled(self._history.can_go_forward)
+            w._forward_btn.setEnabled(can_fwd)
+            w._forward_btn.setToolTip("Adelante" if can_fwd else "Sin historial")
 
     # ── Header config ──
     def configure_header(self, section_key: str):
@@ -317,11 +328,11 @@ class NavigationController(QObject):
         w._section_title.setText(title)
         w._section_subtitle.setText(self._build_breadcrumb(subtitle, section_key))
 
-        from ui.icons import get_pixmap
-        pix = get_pixmap(icon_name, size=26)
-        if not pix.isNull():
-            w._section_icon.setPixmap(pix)
+        icon_pix = get_qicon(icon_name, size=24).pixmap(24, 24)
+        if not icon_pix.isNull():
+            w._section_icon.setPixmap(icon_pix)
         else:
+            _log.warning("Icon pixmap is null for key=%s icon=%s", section_key, icon_name)
             w._section_icon.clear()
 
         w._search.setPlaceholderText(_SEARCH_PLACEHOLDERS.get(section_key, "Buscar..."))
@@ -333,9 +344,6 @@ class NavigationController(QObject):
         if w._view_mode not in views and default:
             w._view_mode = default
             w._view_switcher.set_view(default, emit=False)
-
-        if not search:
-            w._search.hide()
 
         # Album-specific controls
         show_album_ctrl = (section_key == "albums")
@@ -399,13 +407,20 @@ class NavigationController(QObject):
             try:
                 getattr(w, method_name)(key)
             except Exception as e:
-                import logging
-                logging.getLogger("michi.nav").warning(
-                    "Navigation handler %s failed for key=%s: %s", method_name, key, e)
+                _log.warning("Navigation handler %s failed for key=%s: %s", method_name, key, e)
         elif not method_name and not any(key.startswith(p) for p in ("playlist:", "pl:", "srv:", "dev:", "mix_")):
-            import logging
-            logging.getLogger("michi.nav").warning(
-                "No navigation handler for key: %s", key)
+            _log.warning("No navigation handler for key: %s", key)
+
+        # Sincronizar sidebar activo con sub-secciones de hubs
+        if key in ("albums", "artists", "genres", "folders", "favs", "recent"):
+            sidebar_key = "library_hub"
+        elif key.startswith("mix_") and key != "mix_hub":
+            sidebar_key = "mix_hub"
+        else:
+            sidebar_key = key.split(":")[0] if ":" in key else key
+            sidebar_key = {"srv": "servers", "dev": "devices"}.get(sidebar_key, sidebar_key)
+        if hasattr(w, '_sidebar_controller'):
+            w._sidebar_controller.set_active(sidebar_key)
 
     def _build_breadcrumb(self, subtitle: str, section_key: str) -> str:
         prev_key = self._history.current_key

@@ -30,26 +30,14 @@ class MetadataReviewPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        header = QFrame()
-        header.setObjectName("reviewHeader")
-        header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(20, 16, 20, 12)
-
-        self._title_label = QLabel("Revisión de metadata")
-        self._title_label.setObjectName("reviewTitle")
-        header_layout.addWidget(self._title_label)
-
-        self._subtitle_label = QLabel("Compara los datos actuales con las sugerencias antes de aplicar cambios.")
-        self._subtitle_label.setObjectName("reviewSubtitle")
-        self._subtitle_label.setWordWrap(True)
-        header_layout.addWidget(self._subtitle_label)
-
         self._warning_label = QLabel("Las sugerencias externas pueden contener errores. Revisa cada campo antes de aplicar.")
         self._warning_label.setObjectName("reviewWarning")
         self._warning_label.setWordWrap(True)
-        header_layout.addWidget(self._warning_label)
-
-        layout.addWidget(header)
+        self._warning_label.setStyleSheet(
+            "QLabel#reviewWarning { color: rgba(255,183,77,0.78); font-size: 12px;"
+            "  font-weight: 500; padding: 8px 16px 8px 16px;"
+            "  background: rgba(255,183,77,0.06); border-bottom: 1px solid rgba(255,183,77,0.10);}")
+        layout.addWidget(self._warning_label)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)

@@ -10,8 +10,7 @@ from PySide6.QtWidgets import (
 
 from ui.central.central_styles import (
     glass_card_qss, glass_button_qss, glass_chip_button_qss, glass_progress_qss,
-    card_title_qss, card_desc_qss, card_meta_qss,
-    page_title_qss, page_subtitle_qss, section_label_qss,
+    card_title_qss, card_desc_qss, card_meta_qss, section_label_qss,
 )
 
 _SERVICE_DEFS = [
@@ -45,21 +44,10 @@ class ConnectionsHubPage(QWidget):
         content = QWidget()
         content.setObjectName("connectionsHubContent")
         cl = QVBoxLayout(content)
-        cl.setContentsMargins(40, 32, 40, 32)
+        cl.setContentsMargins(40, 16, 40, 32)
         cl.setSpacing(24)
 
-        title = QLabel("Conexiones")
-        title.setObjectName("connectionsHubTitle")
-        cl.addWidget(title)
-
         servers = self._get_servers()
-        subtitle = QLabel(
-            "Conecta servidores musicales, servicios de red "
-            "y dispositivos locales sin salir de Michi."
-        )
-        subtitle.setObjectName("connectionsHubSubtitle")
-        subtitle.setWordWrap(True)
-        cl.addWidget(subtitle)
 
         # ── Saved servers ──
         if servers:
@@ -282,11 +270,8 @@ class ConnectionsHubPage(QWidget):
             w._on_sidebar_navigate(target)
 
     def _apply_qss(self):
-        self.setStyleSheet(
-            page_title_qss() + page_subtitle_qss() + """
+        self.setStyleSheet("""
             QWidget#connectionsHubPage { background: #090B11; }
             QScrollArea#connectionsHubScroll { background: transparent; border: none; }
             QWidget#connectionsHubContent { background: transparent; }
-            QLabel#connectionsHubTitle { color: rgba(255,255,255,0.92); font-size: 22px; font-weight: 700; }
-            QLabel#connectionsHubSubtitle { color: rgba(255,255,255,0.56); font-size: 13px; }
         """)

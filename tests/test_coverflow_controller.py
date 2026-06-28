@@ -2,7 +2,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6.QtWidgets import QMessageBox
 
 from ui.controllers.coverflow_controller import _album_key, CoverFlowController
 
@@ -248,12 +247,14 @@ class TestCoverFlowControllerActions:
         ctrl._win._db.create_playlist.assert_called_once()
         ctrl._win._toast_svc.show.assert_called_once()
 
-    def test_details_shows_message_box(self, ctrl):
+    def test_details_opens_dialog(self, ctrl):
         item, tracks = _make_item()
         ctrl._win._coverflow.item_at = MagicMock(return_value=item)
-        with patch.object(QMessageBox, 'information') as mock_info:
+        with patch("ui.album_detail_dialog.AlbumDetailDialog") as mock_dlg:
+            dlg = MagicMock()
+            mock_dlg.return_value = dlg
             ctrl.on_details_album(0)
-            mock_info.assert_called_once()
+            mock_dlg.assert_called_once()
 
     def test_details_does_nothing_without_item(self, ctrl):
         ctrl._win._coverflow.item_at = MagicMock(return_value=None)
@@ -302,10 +303,15 @@ class TestCoverFlowControllerCoverLoading:
         win._workers = MagicMock()
         return CoverFlowController(win)
 
-    def test_cover_request_uses_worker_manager(self, ctrl):
+    def test_cover_request_loads_sync(self, ctrl):
         item, tracks = _make_item()
-        ctrl.on_cover_request(0, item)
-        ctrl._win._workers.run_task.assert_called_once()
+        ctrl._win._coverflow.cover_size.return_value = 260
+        with patch("ui.controllers.coverflow_controller.load_cover_pixmap") as mock_load:
+            mock_load.return_value = MagicMock()
+            mock_load.return_value.isNull.return_value = False
+            ctrl.on_cover_request(0, item)
+        mock_load.assert_called_once()
+        ctrl._win._coverflow.set_cover.assert_called_once()
 
     def test_cover_request_dedup_by_key(self, ctrl):
         item, tracks = _make_item()

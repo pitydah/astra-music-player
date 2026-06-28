@@ -194,7 +194,7 @@ class TestEdgeCases:
 
     def test_dot_file(self):
         info = probe_format("/music/.hidden")
-        assert info.container == "hidden"
+        assert info.container == ""
 
     def test_long_path(self):
         info = probe_format("/a/very/long/path/to/a/music/file/with-a-name.flac")

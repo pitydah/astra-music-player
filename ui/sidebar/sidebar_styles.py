@@ -109,7 +109,7 @@ def item_qss(state: str) -> str:
         )
     if state == "hover":
         return (
-            "background: rgba(255,255,255,0.05);"
+            "background: transparent;"
             "border: none;"
             "border-radius: 12px; margin: 1px 6px;"
         )

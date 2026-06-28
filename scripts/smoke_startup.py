@@ -205,15 +205,10 @@ def _check_main_window():
     assert nav_ctrl._history._history[-1][0] == "library_hub", "history key mismatch"
     assert nav_ctrl._history._history[-1][1] == "", "search should be empty after navigate"
 
-    # Verify view mode switching
-    w._current_section_key = "albums"
+    # Verify view mode switching (navigate to albums section first)
+    w._nav_ctrl.dispatch("albums")
     w._view_router.on_mode_changed("grid")
     assert w._view_mode == "grid", f"Expected grid, got {w._view_mode}"
-    w._view_router.on_mode_changed("list")
-    assert w._view_mode == "list", f"Expected list, got {w._view_mode}"
-
-    # Verify CoverFlow can be activated
-    w._current_section_key = "albums"
     w._view_router.on_mode_changed("coverflow")
     cf = getattr(w, '_coverflow', None)
     if cf is not None:

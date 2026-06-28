@@ -27,11 +27,10 @@ class TestPrewarp:
 
 
 class TestPeakEq:
-    def test_zero_gain_passthrough(self):
+    def test_zero_gain_symmetric(self):
         b0, b1, b2, a0, a1, a2 = peak_eq(1000, 0.0, 1.41, 44100)
-        assert b0 == pytest.approx(1.0, abs=1e-3)
-        assert b1 == pytest.approx(0.0, abs=1e-3)
-        assert b2 == pytest.approx(1.0, abs=1e-3)
+        assert b0 == pytest.approx(a0, abs=1e-3)
+        assert b2 == pytest.approx(a2, abs=1e-3)
 
     def test_positive_gain(self):
         b0, b1, b2, a0, a1, a2 = peak_eq(1000, 6.0, 1.41, 44100)

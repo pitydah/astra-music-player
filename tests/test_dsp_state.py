@@ -47,3 +47,13 @@ class TestDspState:
     def test_replaygain_db_field(self):
         dsp = DspState(replaygain_enabled=True, replaygain_db=-4.5)
         assert dsp.replaygain_db == -4.5
+
+    def test_eq_bands_31_default(self):
+        dsp = DspState()
+        assert len(dsp.eq_bands_31) == 31
+        assert all(b == 0.0 for b in dsp.eq_bands_31)
+
+    def test_eq_bands_31_custom(self):
+        bands = [float(i) for i in range(31)]
+        dsp = DspState(eq_bands_31=bands)
+        assert dsp.eq_bands_31 == bands

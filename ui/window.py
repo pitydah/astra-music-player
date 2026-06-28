@@ -837,14 +837,25 @@ class MainWindow(QMainWindow):
                 logging.getLogger("michi").debug("Failed to get sync peers for sidebar")
         self._sidebar_controller.rebuild(load_servers(), sync_peers)
 
-        # Sidebar shadow
-        from PySide6.QtWidgets import QGraphicsDropShadowEffect
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(18)
-        shadow.setXOffset(3)
-        shadow.setYOffset(0)
-        shadow.setColor(QColor(0, 0, 0, 40))
-        self._sidebar.setGraphicsEffect(shadow)
+        # Restaurar sidebar activo tras rebuild (sub-secciones mapean al hub padre)
+        current = getattr(self, '_current_section_key', None) or "home"
+        if current in ("albums", "artists", "genres", "folders", "favs", "recent"):
+            current = "library_hub"
+        elif current.startswith("mix_") and current != "mix_hub":
+            current = "mix_hub"
+        else:
+            current = current.split(":")[0] if ":" in current else current
+        self._sidebar_controller.set_active(current)
+
+        # Sidebar shadow — solo si no tiene uno ya
+        if not self._sidebar.graphicsEffect():
+            from PySide6.QtWidgets import QGraphicsDropShadowEffect
+            shadow = QGraphicsDropShadowEffect()
+            shadow.setBlurRadius(18)
+            shadow.setXOffset(3)
+            shadow.setYOffset(0)
+            shadow.setColor(QColor(0, 0, 0, 40))
+            self._sidebar.setGraphicsEffect(shadow)
 
     # ── Static route handlers ──
 
@@ -1283,8 +1294,45 @@ class MainWindow(QMainWindow):
         self._song_grid.set_items(items, card_size=170)
         self._count.setText(f"{len(items)} canciones")
 
-    def _show_album_list(self):
-        self._view_router._show_album_list()
+    def _show_album_detail(self, cover_item):
+        try:
+            import traceback
+            album = getattr(cover_item, 'title', '') or ''
+            artist = getattr(cover_item, 'subtitle', '') or ''
+            tracks = []
+            data = getattr(cover_item, 'data', None)
+            if isinstance(data, dict):
+                tracks = data.get("tracks", [])
+            if not tracks and hasattr(self, '_all_items'):
+                from library.album_art import group_by_album
+                import unicodedata
+                def _norm(s):
+                    s = (s or '').strip().lower()
+                    return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii')
+                for a, ar, tr in group_by_album(self._filtered_album_items()):
+                    if _norm(album) == _norm(a) or (album and _norm(album) in _norm(a)):
+                        tracks = tr
+                        album = a
+                        artist = ar
+                        break
+            if not tracks:
+                self._count.setText("Selecciona un álbum")
+                return
+            dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
+            mins = int(dur // 60)
+            dur_str = f"{mins // 60} h {mins % 60} min" if mins >= 60 else f"{mins} min"
+            year = str(tracks[0].year) if tracks and getattr(tracks[0], 'year', 0) else ""
+            exts = set((getattr(t, 'ext', '') or '').upper().lstrip(".") for t in tracks if getattr(t, 'ext', ''))
+            fmt = " · ".join(sorted(exts)) if exts else ""
+            self._album_detail_view.set_album(
+                title=album, artist=artist, year=year,
+                cover_pixmap=getattr(cover_item, 'pixmap', None),
+                tracks=tracks, total_duration=dur_str, format_info=fmt)
+            self._albums_stack.setCurrentIndex(1)
+            self._count.setText(album)
+        except Exception:
+            traceback.print_exc()
+            self._count.setText("Error al abrir detalles")
     def _show_coverflow(self):
         self._cf_ctrl.show()
     def _on_metadata_saved(self, filepaths: list):

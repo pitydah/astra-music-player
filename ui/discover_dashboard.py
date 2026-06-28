@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 
 from ui.icons import get_pixmap
 from ui.central.central_styles import (
-    glass_card_qss, glass_icon_slot_qss, card_title_qss, card_desc_qss, page_title_qss, page_subtitle_qss,
+    glass_card_qss, glass_icon_slot_qss, card_title_qss, card_desc_qss,
 )
 
 
@@ -25,17 +25,8 @@ class DiscoverDashboard(QWidget):
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(32, 24, 32, 24)
+        layout.setContentsMargins(32, 8, 32, 24)
         layout.setSpacing(20)
-
-        title = QLabel("Descubrir")
-        title.setStyleSheet(page_title_qss())
-        layout.addWidget(title)
-
-        subtitle = QLabel("Explora, descubre y redescubre tu música")
-        subtitle.setStyleSheet(page_subtitle_qss())
-        layout.addWidget(subtitle)
-        layout.addSpacing(8)
 
         grid = QGridLayout()
         grid.setSpacing(16)

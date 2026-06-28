@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from library.trackref_model import TrackRef
+
 
 if TYPE_CHECKING:
     from ui.window import MainWindow
@@ -53,16 +53,16 @@ class ViewModeRouter:
                 w._fade_content("library_hub")
 
         elif section == "albums":
-            if mode == "list":
-                w._albums_stack.setCurrentIndex(1)
-                self._show_album_list()
-                w._fade_content("library_hub")
-            elif mode == "grid":
+            if mode == "grid":
                 w._albums_stack.setCurrentIndex(0)
                 w._show_album_grid()
                 w._fade_content("library_hub")
             elif mode == "coverflow":
                 w._show_coverflow()
+            else:
+                w._albums_stack.setCurrentIndex(0)
+                w._show_album_grid()
+                w._fade_content("library_hub")
 
         elif section == "artists":
             w._show_artists_view(mode)
@@ -109,31 +109,5 @@ class ViewModeRouter:
                 w._generic_song_grid.set_items(refs, card_size=170)
                 w._fade_content("library_hub")
 
-    def _show_album_list(self):
-        w = self._win
-        from library.album_art import group_by_album
-        items = w._filtered_album_items()
-        groups = group_by_album(items)
-        refs = []
-        for album, artist, tracks in groups:
-            dur = sum(getattr(t, 'duration', 0) or 0 for t in tracks)
-            year = tracks[0].year if tracks else ""
-            refs.append(TrackRef(
-                uri=album, title=album,
-                artist=artist, album=album,
-                duration=float(dur),
-                genre=f"{len(tracks)} canciones",
-                year=year,
-                cover_path="",
-            ))
-        w._model.populate(refs)
-        w._album_list_table.setModel(w._model)
-        w._album_list_table.setColumnHidden(7, True)
-        w._album_list_table.setColumnWidth(0, 72)
-        w._album_list_table.setColumnWidth(1, 240)
-        w._album_list_table.setColumnWidth(2, 170)
-        w._album_list_table.setColumnWidth(3, 170)
-        w._album_list_table.setColumnWidth(4, 55)
-        w._album_list_table.setColumnWidth(5, 110)
-        w._album_list_table.setColumnWidth(6, 75)
-        w._count.setText(f"{len(groups)} álbumes")
+    def _do_nothing(self):
+        pass

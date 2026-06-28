@@ -7,6 +7,7 @@ class DspState:
     eq_enabled: bool = False
     eq_mode: str = "bypass"
     eq_bands_parametric: list = field(default_factory=list)
+    eq_bands_31: list = field(default_factory=lambda: [0.0] * 31)
     eq_preamp_db: float = 0.0
     replaygain_enabled: bool = False
     replaygain_mode: str = "track"

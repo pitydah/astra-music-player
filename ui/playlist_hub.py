@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap, QColor
@@ -13,10 +12,8 @@ from PySide6.QtWidgets import (
 
 from ui.icons import get_pixmap
 from ui.central.central_styles import (
-    glass_card_qss, glass_button_qss, glass_hero_qss,
+    glass_card_qss, glass_button_qss,
 )
-
-HERE = Path(__file__).parent.parent
 
 
 # ═══════════════════════════════════════════════════════════
@@ -166,48 +163,30 @@ class PlaylistHubWidget(QWidget):
     def _build_hero(self):
         card = QFrame()
         card.setObjectName("heroCard")
-        card.setStyleSheet(glass_hero_qss("heroCard"))
-        card.setFixedHeight(152)
+        card.setStyleSheet(glass_card_qss("heroCard", "accent"))
+        card.setFixedHeight(100)
 
         h = QHBoxLayout(card)
-        h.setContentsMargins(28, 24, 28, 24)
-        h.setSpacing(20)
+        h.setContentsMargins(24, 18, 24, 18)
+        h.setSpacing(16)
 
         # Icon
         icon_lbl = QLabel()
-        icon_pix = get_pixmap("sidebar_playlists", size=56)
+        icon_pix = get_pixmap("sidebar_playlists", size=40)
         if not icon_pix.isNull():
             icon_lbl.setPixmap(icon_pix)
-            icon_lbl.setFixedSize(56, 56)
+            icon_lbl.setFixedSize(40, 40)
         icon_lbl.setStyleSheet("background: transparent; border: none;")
         h.addWidget(icon_lbl)
-
-        v = QVBoxLayout()
-        v.setSpacing(4)
-
-        title = QLabel("Playlist")
-        title.setObjectName("heroTitle")
-        title.setStyleSheet(
-            "QLabel#heroTitle { color: #FFFFFF; font-size: 26px; font-weight: 800;"
-            "  background: transparent; border: none; }")
-        v.addWidget(title)
-
-        sub = QLabel("Organiza, mezcla e importa tus listas de reproducción")
-        sub.setObjectName("heroSubtitle")
-        sub.setStyleSheet(
-            "QLabel#heroSubtitle { color: rgba(255,255,255,0.76); font-size: 13px;"
-            "  font-weight: 500; background: transparent; border: none; }")
-        v.addWidget(sub)
 
         pl_count = len(self._playlists)
         total_tracks = sum(len(p.get("tracks", []) or []) for p in self._playlists) if self._playlists else 0
         info = QLabel(f"{pl_count} playlists · {total_tracks} canciones")
         info.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.58); font-size: 11.5px;"
+            "QLabel { color: rgba(255,255,255,0.58); font-size: 12px;"
             "  background: transparent; border: none; }")
-        v.addWidget(info)
+        h.addWidget(info)
 
-        h.addLayout(v)
         h.addStretch()
         self._layout.addWidget(card)
 
