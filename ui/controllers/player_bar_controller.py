@@ -27,7 +27,7 @@ class PlayerBarController:
         """Set quality badge with category-colored styling."""
         self._player_bar.set_quality_info(label, category, tooltip)
         if self._context_svc and label:
-            self._context_svc.record_event(AppEvent.TRACK_PLAYED,
+            self._context_svc.record_event(AppEvent.QUALITY_UPDATED,
                 {"quality": label, "quality_category": category})
 
     def set_state(self, state: str):
@@ -48,8 +48,8 @@ class PlayerBarController:
             self._player_bar.set_position(0)
             self._player_bar.set_duration(0)
         if self._context_svc:
-            self._context_svc.record_event(AppEvent.APP_CLOSED,
-                {"reason": "playback_stopped"})
+            self._context_svc.record_event(AppEvent.PLAYBACK_STOPPED,
+                {"reason": "player_bar_reset"})
 
     def set_transmit_active(self, active: bool, device_name: str = ""):
         self._player_bar.set_transmit_active(active, device_name)

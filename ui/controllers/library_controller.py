@@ -49,9 +49,21 @@ class LibraryController(QObject):
         self.refresh_all_tabs(force=True)
         self.refresh_active_tab(force=True)
 
-        ctx = getattr(w, '_context_svc', None)
-        if ctx:
-            ctx.record_scan_finished({"reason": reason, "tracks": len(w._all_items)})
+        self._record_reload_context(reason, len(w._all_items))
+
+    def _record_reload_context(self, reason: str, track_count: int) -> None:
+        ctx = getattr(self._win, "_context_svc", None)
+        if not ctx:
+            return
+        reason = reason or "reload"
+        if reason in {"scan_finished", "folder_scan", "watcher_scan"}:
+            ctx.record_scan_finished({"reason": reason, "tracks": track_count})
+        elif reason == "metadata_saved":
+            ctx.record_metadata_saved(track_count)
+        elif reason.startswith("home_add_music") or reason in {"import_files", "import_playlist"}:
+            ctx.record_import_finished(reason=reason, count=track_count)
+        else:
+            ctx.record_library_reloaded(reason=reason, count=track_count)
 
     def apply_filters(self):
         self._win._search_ctrl.search(self._win._search_text)

@@ -21,6 +21,43 @@ _EVENT_DIRTY_MAP: dict[str, set[str]] = {
     AppEvent.MIX_PREVIEW_GENERATED: {"mix_preview"},
     AppEvent.METADATA_REPAIR_FINISHED: {"home_snapshot", "assistant_snapshot", "library_health"},
     AppEvent.APP_STARTED: {"home_snapshot", "assistant_snapshot", "library_health", "playback_context", "sync_context"},
+
+    AppEvent.ASSISTANT_OPENED: {"assistant_snapshot"},
+    AppEvent.ASSISTANT_ACTION_CONFIRMED: {"assistant_snapshot", "home_snapshot", "mix_preview"},
+
+    AppEvent.LIBRARY_RELOADED: {"home_snapshot", "assistant_snapshot", "mix_preview", "library_health"},
+    AppEvent.IMPORT_STARTED: {"assistant_snapshot"},
+    AppEvent.IMPORT_FINISHED: {"home_snapshot", "assistant_snapshot", "mix_preview", "library_health"},
+    AppEvent.SCAN_STARTED: {"assistant_snapshot"},
+
+    AppEvent.METADATA_SAVED: {"home_snapshot", "assistant_snapshot", "library_health"},
+
+    AppEvent.PLAYBACK_STARTED: {"home_snapshot", "assistant_snapshot", "playback_context"},
+    AppEvent.PLAYBACK_STOPPED: {"home_snapshot", "assistant_snapshot", "playback_context"},
+    AppEvent.NOW_PLAYING_UPDATED: {"home_snapshot", "assistant_snapshot", "playback_context"},
+    AppEvent.QUALITY_UPDATED: {"assistant_snapshot", "playback_context"},
+    AppEvent.AUDIO_ROUTE_CHANGED: {"assistant_snapshot", "playback_context"},
+
+    AppEvent.PLAYLIST_OPENED: {"assistant_snapshot"},
+    AppEvent.PLAYLIST_CREATED: {"home_snapshot", "assistant_snapshot", "mix_preview"},
+    AppEvent.PLAYLIST_DELETED: {"home_snapshot", "assistant_snapshot", "mix_preview"},
+    AppEvent.PLAYLIST_PLAYED: {"home_snapshot", "assistant_snapshot", "playback_context"},
+    AppEvent.PLAYLIST_QUEUED: {"assistant_snapshot", "playback_context"},
+    AppEvent.PLAYLIST_IMPORTED: {"home_snapshot", "assistant_snapshot", "library_health"},
+    AppEvent.PLAYLIST_EXPORTED: {"assistant_snapshot"},
+    AppEvent.TRACK_ADDED_TO_PLAYLIST: {"assistant_snapshot"},
+
+    AppEvent.MIX_OPENED: {"assistant_snapshot", "mix_preview"},
+    AppEvent.MIX_PLAYED: {"home_snapshot", "assistant_snapshot", "playback_context"},
+    AppEvent.MIX_QUEUED: {"assistant_snapshot", "playback_context"},
+
+    AppEvent.FOLDER_SELECTED: {"assistant_snapshot"},
+    AppEvent.FOLDER_SCANNED: {"home_snapshot", "assistant_snapshot", "library_health"},
+    AppEvent.FOLDER_QUEUED: {"assistant_snapshot", "playback_context"},
+
+    AppEvent.SEARCH_STARTED: {"assistant_snapshot"},
+    AppEvent.SEARCH_PERFORMED: {"assistant_snapshot"},
+    AppEvent.SEARCH_CLEARED: {"assistant_snapshot"},
 }
 
 _DIRTY_FLAG_KEYS: set[str] = set()
@@ -29,14 +66,12 @@ for flags in _EVENT_DIRTY_MAP.values():
 
 
 def invalidate_for_event(event_type: str) -> None:
-    """Mark all dirty flags associated with an event type."""
     flags = _EVENT_DIRTY_MAP.get(event_type, set())
     for key in flags:
         repo.mark_dirty(key)
 
 
 def invalidate_all() -> None:
-    """Mark all known dirty flags."""
     for key in _DIRTY_FLAG_KEYS:
         repo.mark_dirty(key)
 

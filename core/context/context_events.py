@@ -23,3 +23,43 @@ class AppEvent:
     SYNC_FINISHED = "sync_finished"
     ASSISTANT_OPENED = "assistant_opened"
     ASSISTANT_ACTION_CONFIRMED = "assistant_action_confirmed"
+
+    # Library lifecycle
+    LIBRARY_RELOADED = "library_reloaded"
+    IMPORT_STARTED = "import_started"
+    IMPORT_FINISHED = "import_finished"
+
+    # Metadata
+    METADATA_SAVED = "metadata_saved"
+
+    # Playback / Now Playing
+    PLAYBACK_STARTED = "playback_started"
+    PLAYBACK_STOPPED = "playback_stopped"
+    NOW_PLAYING_UPDATED = "now_playing_updated"
+    QUALITY_UPDATED = "quality_updated"
+    AUDIO_ROUTE_CHANGED = "audio_route_changed"
+
+    # Playlist
+    PLAYLIST_OPENED = "playlist_opened"
+    PLAYLIST_CREATED = "playlist_created"
+    PLAYLIST_DELETED = "playlist_deleted"
+    PLAYLIST_PLAYED = "playlist_played"
+    PLAYLIST_QUEUED = "playlist_queued"
+    PLAYLIST_IMPORTED = "playlist_imported"
+    PLAYLIST_EXPORTED = "playlist_exported"
+    TRACK_ADDED_TO_PLAYLIST = "track_added_to_playlist"
+
+    # Mix / Smart views
+    MIX_OPENED = "mix_opened"
+    MIX_PLAYED = "mix_played"
+    MIX_QUEUED = "mix_queued"
+
+    # Folder browser
+    FOLDER_SELECTED = "folder_selected"
+    FOLDER_SCANNED = "folder_scanned"
+    FOLDER_QUEUED = "folder_queued"
+
+    # Search
+    SEARCH_STARTED = "search_started"
+    SEARCH_PERFORMED = "search_performed"
+    SEARCH_CLEARED = "search_cleared"

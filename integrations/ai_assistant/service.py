@@ -84,6 +84,7 @@ from integrations.ai_assistant.tools.audio_analysis_tools import (
     list_tracks_missing_features,
 )
 from integrations.ai_assistant.schemas import PendingAction, ToolResult
+from core.context.context_events import AppEvent
 
 
 def _inject_context_snapshot(messages: list, context_service=None) -> list:
@@ -285,15 +286,29 @@ class AIAssistantService:
         self._pending.remove(action_id)
 
         if result.success:
+            affected_count = 0
+            if isinstance(result.data, dict):
+                affected_count = result.data.get(
+                    "track_count",
+                    result.data.get(
+                        "changed_count",
+                        result.data.get("queued_count", 0),
+                    ),
+                )
             self._action_log.register(
                 tool_name=pending.tool_name,
                 summary=pending.title,
                 status="confirmed",
-                affected_count=result.data.get("track_count", result.data.get("changed_count", result.data.get("queued_count", 0))) if isinstance(result.data, dict) else 0,
+                affected_count=affected_count,
                 permission_level=pending.permission_level,
                 metadata=result.data if isinstance(result.data, dict) else {},
             )
             reply = self._format_confirmed_result(pending.tool_name, result)
+            if self._context_svc:
+                self._context_svc.record_event(
+                    AppEvent.ASSISTANT_ACTION_CONFIRMED,
+                    {"tool_name": pending.tool_name, "affected_count": affected_count},
+                )
         else:
             reply = f"No se pudo completar: {result.error}"
 
