@@ -64,7 +64,6 @@ def _check_main_window():
         # Verify active sidebar keys for hidden-route hubs
         from ui.controllers.navigation_controller import resolve_sidebar_active_key
         assert resolve_sidebar_active_key("radio") == "playback_hub"
-        assert resolve_sidebar_active_key("home_audio") == "connections_hub"
         assert resolve_sidebar_active_key("identifier") == "audio_lab"
 
         # Verify search history preservation

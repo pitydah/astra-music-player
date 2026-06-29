@@ -595,7 +595,7 @@ class MainWindow(QMainWindow):
         self._artist_enrich.artist_image_loaded.connect(
             self._artist_ctrl.on_artist_image_loaded)
         self._artist_enrich.enrichment_failed.connect(
-            self._artist_ctrl.on_enrichment_failed)
+            self._artist_ctrl.on_artist_enrichment_failed)
 
     def _setup_actions(self):
         from ui.controllers.action_controller import ActionController
@@ -631,15 +631,6 @@ class MainWindow(QMainWindow):
         self._sync_mgr.peer_lost.connect(
             lambda a: self._rebuild_sidebar())
         return self._sync_mgr
-
-    def _toggle_sync(self):
-        mgr = self._ensure_sync_manager()
-        if mgr.is_active:
-            mgr.stop()
-            self._sync_action.setChecked(False)
-        else:
-            mgr.start()
-            self._sync_action.setChecked(True)
 
     def _show_preferences(self, section: str = ""):
         from ui.preferences_window import PreferencesWindow, PAGE_DEFS

@@ -19,85 +19,80 @@ class HubRouteController:
     def __init__(self, window: MainWindow):
         self._win = window
 
-    def lazy_hub(self, name: str, factory: Callable):
+    def _lazy(self, name: str, factory: Callable):
         w = self._win
         if not w._views.widget(name):
             w._views.register(name, factory())
+        w._fade_content(name)
 
     def show_audio_lab(self, key: str = ""):
-        self.lazy_hub("audio_lab", lambda: __import__(
-            "ui.audio_lab.audio_lab_page", fromlist=["AudioLabPage"]
-        ).AudioLabPage(self._win._db, w=self._win))
-        self._fade("audio_lab")
+        def _build():
+            from ui.audio_lab.audio_lab_page import AudioLabPage
+            page = AudioLabPage()
+            page.navigate_requested.connect(self._win._on_sidebar_navigate)
+            return page
+        self._lazy("audio_lab", _build)
 
     def show_michi_disc_lab(self, key: str = ""):
-        self.lazy_hub("michi_disc_lab", lambda: __import__(
-            "ui.audio_lab.michi_disc_lab_page", fromlist=["MichiDiscLabPage"]
-        ).MichiDiscLabPage(self._win._db, self._win))
-        self._fade("michi_disc_lab")
+        def _build():
+            from ui.audio_lab.michi_disc_lab_page import MichiDiscLabPage
+            return MichiDiscLabPage()
+        self._lazy("michi_disc_lab", _build)
 
     def show_library_hub(self, key: str = ""):
-        self.lazy_hub("library_hub", self._make_library_hub_page)
-        self._fade("library_hub")
+        def _build():
+            w = self._win
+            from ui.hubs.library_hub_page import LibraryHubPage
+            page = LibraryHubPage(
+                db=w._db,
+                window=w,
+                songs_widget=w._songs_stack,
+                albums_widget=w._albums_stack,
+                artists_widget=w._artists_stack,
+                genres_widget=w._genres_stack,
+                folders_widget=w._folder_browser,
+            )
+            page.tab_changed.connect(w._on_library_tab_changed)
+            return page
+        self._lazy("library_hub", _build)
 
     def show_mix_hub(self, key: str = ""):
-        self.lazy_hub("mix_hub", lambda: __import__(
-            "ui.mix_hub_page", fromlist=["MixHubPage"]
-        ).MixHubPage(self._win))
-        self._fade("mix_hub")
+        def _build():
+            w = self._win
+            from ui.hubs.mix_hub_page import MixHubPage
+            return MixHubPage(preview=w._smart_preview)
+        self._lazy("mix_hub", _build)
 
     def show_playback_hub(self, key: str = ""):
-        self.lazy_hub("playback_hub", self._make_playback_hub_page)
-        self._fade("playback_hub")
+        def _build():
+            w = self._win
+            from ui.hubs.playback_hub_page import PlaybackHubPage
+            return PlaybackHubPage(db=w._db, playback=w._playback)
+        self._lazy("playback_hub", _build)
 
     def show_connections_hub(self, key: str = ""):
-        self.lazy_hub("connections_hub", self._make_connections_hub_page)
-        self._fade("connections_hub")
+        def _build():
+            w = self._win
+            from ui.hubs.connections_hub_page import ConnectionsHubPage
+            return ConnectionsHubPage(db=w._db)
+        self._lazy("connections_hub", _build)
 
     def show_settings_hub(self, key: str = ""):
-        w = self._win
-        if not w._views.widget("settings_hub"):
+        def _build():
             from ui.hubs.settings_hub_page import SettingsHubPage
-            w._views.register("settings_hub", SettingsHubPage())
-        self._fade("settings_hub")
+            return SettingsHubPage()
+        self._lazy("settings_hub", _build)
 
     def show_devices_page(self, key: str = ""):
-        w = self._win
-        if key and key.startswith("dev:sync:"):
-            parts = key.split(":", 2)
-            target = parts[2] if len(parts) > 2 else ""
-            self.lazy_hub("devices_page", lambda: __import__(
-                "ui.devices_page", fromlist=["DevicesPage"]
-            ).DevicesPage(w, sync_target=target))
-        elif not w._views.widget("devices_page"):
-            w._views.register("devices_page", self._make_devices_page())
-        self._fade("devices_page")
+        def _build():
+            w = self._win
+            from ui.devices_page import DevicesPage
+            sync_mgr = w._ensure_sync_manager()
+            return DevicesPage(db=w._db, sync_manager=sync_mgr)
+        self._lazy("devices_page", _build)
 
     def show_metadata_review(self, key: str = ""):
-        w = self._win
-        if not w._views.widget("metadata_review"):
+        def _build():
             from ui.metadata_review_panel import MetadataReviewPanel
-            w._views.register("metadata_review", MetadataReviewPanel(w._db, parent=w))
-        self._fade("metadata_review")
-
-    # ── Internal helpers ──
-
-    def _fade(self, name: str):
-        self._win._fade_content(name)
-
-    def _make_library_hub_page(self):
-        from ui.hubs.library_hub_page import LibraryHubPage
-        return LibraryHubPage(self._win._db, self._win._playback)
-
-    def _make_playback_hub_page(self):
-        from ui.hubs.playback_hub_page import PlaybackHubPage
-        return PlaybackHubPage(self._win._db, self._win._playback,
-                               self._win._playback_ctrl, self._win._search_ctrl)
-
-    def _make_connections_hub_page(self):
-        from ui.hubs.connections_hub_page import ConnectionsHubPage
-        return ConnectionsHubPage(self._win._db, self._win._playback)
-
-    def _make_devices_page(self):
-        from ui.devices_page import DevicesPage
-        return DevicesPage(self._win)
+            return MetadataReviewPanel()
+        self._lazy("metadata_review", _build)

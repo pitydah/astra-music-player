@@ -584,7 +584,7 @@ class TestArtistEnrichmentWiring:
         assert "self._artist_enrich.enrichment_failed.connect" in content
         assert "self._artist_ctrl.on_artist_enriched" in content
         assert "self._artist_ctrl.on_artist_image_loaded" in content
-        assert "self._artist_ctrl.on_enrichment_failed" in content
+        assert "self._artist_ctrl.on_artist_enrichment_failed" in content
 
     def test_wire_enrichment_signals_called_after_controllers(self):
         content = _read(os.path.join(_root(), "ui", "window.py"))
