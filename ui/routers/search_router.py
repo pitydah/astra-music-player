@@ -14,21 +14,24 @@ class SearchRouter:
     def __init__(self, window: MainWindow):
         self._win = window
 
+    @staticmethod
+    def _section_key(w) -> str:
+        """Use route key for section-level decisions, fallback to section_key."""
+        return getattr(w, '_current_route_key', None) or w._current_section_key
+
     def on_search(self, text: str):
         w = self._win
         w._search_text = text.strip()
-        if w._current_section_key == "albums":
+        sec = self._section_key(w)
+        if sec in ("albums", "genres"):
             w._refresh_active_library_tab(force=True)
             return
-        if w._current_section_key == "genres":
-            w._refresh_active_library_tab(force=True)
-            return
-        if w._current_section_key == "folders":
+        if sec == "folders":
             w._folder_browser.set_filter(w._search_text)
             return
-        if w._current_section_key in ("favs", "recent", "mix_unplayed"):
+        if sec in ("favs", "recent", "mix_unplayed"):
             return
-        if w._current_section_key == "artists" and not w._artist_repo.current_key:
+        if sec == "artists" and not w._artist_repo.current_key:
             query = w._search_text.lower()
             if not query:
                 filtered = w._artist_repo.groups
@@ -43,7 +46,7 @@ class SearchRouter:
             w._artist_grid.set_artists(filtered)
             w._count.setText(f"{len(filtered)} artistas")
             return
-        if w._current_section_key == "radio":
+        if sec == "radio":
             w._radio_widget.set_filter(w._search_text)
             return
         w._apply_filters()

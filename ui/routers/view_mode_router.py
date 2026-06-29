@@ -16,13 +16,18 @@ class ViewModeRouter:
     def __init__(self, window: MainWindow):
         self._win = window
 
+    @staticmethod
+    def _section_key(w) -> str:
+        return getattr(w, '_current_route_key', None) or w._current_section_key
+
     def on_mode_changed(self, mode: str):
         w = self._win
         w._restore_central_opacity()
         available = w._current_available_views()
         if mode not in available:
             return
-        if mode == "coverflow" and w._current_section_key != "albums":
+        sec = self._section_key(w)
+        if mode == "coverflow" and sec != "albums":
             return
         w._view_mode = mode
         self._show_current_section_view(mode)
@@ -40,7 +45,7 @@ class ViewModeRouter:
 
     def _show_current_section_view(self, mode: str):
         w = self._win
-        section = w._current_section_key
+        section = self._section_key(w)
 
         if section == "library":
             if mode == "list":
