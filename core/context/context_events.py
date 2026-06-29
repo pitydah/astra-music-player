@@ -7,6 +7,7 @@ class AppEvent:
     SECTION_CHANGED = "section_changed"
     LIBRARY_TAB_CHANGED = "library_tab_changed"
     TRACK_SELECTED = "track_selected"
+    SELECTION_CHANGED = "selection_changed"
     TRACK_PLAYED = "track_played"
     TRACK_PAUSED = "track_paused"
     TRACK_FAVORITED = "track_favorited"

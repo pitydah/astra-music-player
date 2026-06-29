@@ -151,6 +151,16 @@ class PlaylistController:
         summary += f"<p>Total entradas en playlist: <b>{len(entries)}</b></p>"
         QMessageBox.information(parent, "Importar playlist", summary)
 
+        ctx = self._context()
+        if ctx:
+            from core.context.context_events import AppEvent
+            ctx.record_event(AppEvent.PLAYLIST_IMPORTED, {
+                "name": os.path.basename(path),
+                "count": len(valid_files),
+                "missing": missing,
+                "remote_ignored": remote,
+            })
+
     def export_queue(self, parent, playback):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
         queue = playback.get_queue()
@@ -167,6 +177,15 @@ class PlaylistController:
         export_m3u(path, [q["filepath"] for q in queue])
         QMessageBox.information(
             parent, "Exportar", f"Playlist exportada a {path}")
+
+        ctx = self._context()
+        if ctx:
+            from core.context.context_events import AppEvent
+            ctx.record_event(AppEvent.PLAYLIST_EXPORTED, {
+                "name": os.path.basename(path),
+                "count": len(queue),
+                "source": "queue",
+            })
 
     # ── Playlist from folder ──
 
@@ -380,20 +399,32 @@ class PlaylistController:
         )
 
     def create_playlist(self, name: str) -> int:
-        """Create a new playlist and refresh the sidebar. Returns playlist id."""
         pid = self._ctx.db.create_playlist(name.strip())
         self._ctx.rebuild_sidebar()
+        self._record_playlist_created(pid, name.strip(), 0)
         return pid
 
     def delete_playlist(self, pid: int):
-        """Delete a playlist and refresh the sidebar + library."""
+        pl = self.get_playlist_by_id(pid)
+        name = pl.get("name", "") if pl else ""
         self._ctx.db.delete_playlist(pid)
         self._ctx.rebuild_sidebar()
         self._ctx.load_library()
+        ctx = self._context()
+        if ctx:
+            from core.context.context_events import AppEvent
+            ctx.record_event(AppEvent.PLAYLIST_DELETED,
+                {"playlist_id": pid, "name": name})
 
     def add_track_to_playlist(self, pid: int, fp: str):
-        """Add a single filepath to an existing playlist."""
         self._ctx.db.add_to_playlist(pid, fp)
+        ctx = self._context()
+        if ctx:
+            pl = self.get_playlist_by_id(pid)
+            name = pl.get("name", "") if pl else ""
+            from core.context.context_events import AppEvent
+            ctx.record_event(AppEvent.TRACK_ADDED_TO_PLAYLIST,
+                {"playlist_id": pid, "name": name, "count": 1})
 
     def create_playlist_from_tracks(self, tracks: list, name: str) -> int:
         """Create a playlist from a list of MediaItem-like objects or filepaths.
@@ -409,6 +440,7 @@ class PlaylistController:
                 self._ctx.db.add_to_playlist(pid, fp)
         self._ctx.rebuild_sidebar()
         self._toast(f"Playlist creada: {name[:48]} ({len(tracks)} temas)", "success")
+        self._record_playlist_created(pid, name.strip(), len(tracks))
         return pid
 
     def metadata_saved(self, filepaths: list):

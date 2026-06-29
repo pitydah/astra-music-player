@@ -1,16 +1,39 @@
 """Smart mix controller — Daily, Unplayed, Popular, Favorites recent."""
 import os
 
+from core.context.context_events import AppEvent
 from sources.base_source import TrackRef
+
+
+def _ctx_svc(win):
+    return (
+        getattr(getattr(win, "_services", None), "context_svc", None)
+        or getattr(getattr(win, "_ctx", None), "context_svc", None)
+    )
 
 
 class SmartMixController:
     def __init__(self, window):
         self._win = window
 
+    def _record_mix_opened(self, key: str, count: int):
+        ctx = _ctx_svc(self._win)
+        if not ctx:
+            return
+        ctx.update_selection(
+            scope="mix",
+            mix_key=key,
+            album="",
+            artist="",
+            genre="",
+            playlist_id=None,
+            playlist_name="",
+            folder_name="",
+            search_query="",
+        )
+        ctx.record_event(AppEvent.MIX_OPENED, {"key": key, "count": count})
+
     def show_smart_mix(self, key):
-        """Show mix results — display list, never auto-play.
-        Auto-play is handled by MixHubPage's 'Reproducir' button."""
         from library.smart_mixes import (get_daily_mix, get_unplayed,
                                         get_popular, get_favorites_recent)
         self._win._section_title.setText({
@@ -50,6 +73,7 @@ class SmartMixController:
             self._win._table.setColumnWidth(7, 260)
         else:
             self._win._views.show("empty")
+        self._record_mix_opened(key, len(refs))
 
     def show_favs(self, key):
         favs = self._win._db.get_favorites()
@@ -74,6 +98,7 @@ class SmartMixController:
         else:
             self._win._views.show("empty")
         self._win._search.show()
+        self._record_mix_opened("favs", len(refs))
 
     def show_recent(self, key):
         history = self._win._db.get_play_history()
@@ -99,9 +124,9 @@ class SmartMixController:
         else:
             self._win._views.show("empty")
         self._win._search.show()
+        self._record_mix_opened("recent", len(refs))
 
     def resolve_track_ids(self, track_ids: list) -> list:
-        """Resolve track_id strings (filepath/id/track_uid) to MediaItem objects."""
         if not self._win._all_items and self._win._db:
             self._win._all_items = self._win._db.get_all()
             self._win._items_index = {i.filepath: i for i in self._win._all_items}

@@ -18,6 +18,7 @@ _EVENT_DIRTY_MAP: dict[str, set[str]] = {
     AppEvent.SECTION_CHANGED: {"assistant_snapshot"},
     AppEvent.LIBRARY_TAB_CHANGED: {"assistant_snapshot"},
     AppEvent.TRACK_SELECTED: {"assistant_snapshot"},
+    AppEvent.SELECTION_CHANGED: {"assistant_snapshot"},
     AppEvent.MIX_PREVIEW_GENERATED: {"mix_preview"},
     AppEvent.METADATA_REPAIR_FINISHED: {"home_snapshot", "assistant_snapshot", "library_health"},
     AppEvent.APP_STARTED: {"home_snapshot", "assistant_snapshot", "library_health", "playback_context", "sync_context"},

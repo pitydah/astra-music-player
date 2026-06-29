@@ -1,12 +1,13 @@
 """ImportToServerService — import tracks/artwork/playlists from Player to Micro Server.
 
-Phase 3: Player sends selected tracks or playlists to a paired Micro Server.
-Supports session-based import with commit/rollback, progress tracking,
-hash verification, and artwork transfer.
+Supports preflight (check what Micro Server already has), session-based import
+with commit/rollback, progress tracking, hash verification with X-Checksum,
+and returns local_track_id → remote_track_id mapping.
 """
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import urllib.error
@@ -16,6 +17,9 @@ from typing import Callable
 
 from integrations.michi_link.client import RemoteServerInfo
 from integrations.michi_link.services.result import Result
+from integrations.michi_link.services.track_identity_service import (
+    TrackIdentity, TrackIdentityService,
+)
 
 logger = logging.getLogger("michi.service.import_to_server")
 
@@ -32,6 +36,7 @@ class ImportSession:
     artwork_uploaded: int = 0
     playlists_uploaded: int = 0
     track_ids: list[str] = field(default_factory=list)
+    mapping: dict[str, str] = field(default_factory=dict)  # local → remote
 
     @property
     def progress(self) -> float:
@@ -43,11 +48,65 @@ class ImportSession:
 class ImportToServerService:
     """Manages importing tracks/artwork/playlists from Player to Micro Server."""
 
-    def __init__(self):
+    def __init__(self, identity_service: TrackIdentityService | None = None):
         self._sessions: dict[str, ImportSession] = {}
+        self._identity = identity_service or TrackIdentityService()
+
+    def _call_preflight(self, server: RemoteServerInfo,
+                        identities: list[dict]) -> dict | None:
+        """Try preflight. Returns response or None if endpoint missing."""
+        try:
+            body = json.dumps({"tracks": identities}).encode()
+            headers = {"Content-Type": "application/json"}
+            if server.device_token:
+                headers["Authorization"] = f"Bearer {server.device_token}"
+                headers["X-Michi-Device-Id"] = server.device_id
+            req = urllib.request.Request(
+                f"http://{server.host}:{server.port}/api/v1/import/preflight",
+                data=body, method="POST", headers=headers,
+            )
+            with urllib.request.urlopen(req, timeout=15) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                logger.info("Micro Server does not support /api/v1/import/preflight")
+                return None
+            logger.warning("Preflight HTTP %d: %s", e.code, e.reason)
+            return None
+        except Exception as e:
+            logger.warning("Preflight failed: %s", e)
+            return None
+
+    def preflight(self, server: RemoteServerInfo,
+                  identities: list[TrackIdentity]) -> Result:
+        """Check which tracks Micro Server already has.
+
+        Returns mapping: local_track_id → {"exists": bool, "remote_id": str}.
+        Falls back to empty mapping if Micro Server does not support preflight.
+        """
+        preflight_data = {
+            "tracks": [self._identity.identity_to_preflight(i) for i in identities]
+        }
+        response = self._call_preflight(server, preflight_data["tracks"])
+        if response is None:
+            # Fallback: mark everything as needing upload
+            mapping = {i.local_track_id: {"exists": False, "remote_id": ""}
+                       for i in identities}
+            return Result.success(mapping, "Preflight not supported — all tracks need upload")
+
+        mapping = {}
+        for item in response.get("results", []):
+            local_id = item.get("local_track_id", "")
+            exists = item.get("exists", False)
+            mapping[local_id] = {
+                "exists": exists,
+                "remote_id": item.get("remote_track_id", ""),
+            }
+        return Result.success(mapping, f"Preflight checked {len(identities)} tracks")
 
     def create_session(self, server: RemoteServerInfo,
-                       track_ids: list[str]) -> Result:
+                       track_ids: list[str],
+                       identities: list[TrackIdentity] | None = None) -> Result:
         import uuid
         session = ImportSession(
             session_id=str(uuid.uuid4())[:12],
@@ -55,10 +114,30 @@ class ImportToServerService:
             total=len(track_ids),
             track_ids=track_ids,
         )
+
+        mapping: dict[str, str] = {}
+
+        # Try preflight if identities provided
+        if identities:
+            preflight_result = self._call_preflight(
+                server,
+                [self._identity.identity_to_preflight(i) for i in identities],
+            )
+            if preflight_result:
+                for item in preflight_result.get("results", []):
+                    local_id = item.get("local_track_id", "")
+                    remote_id = item.get("remote_track_id", "")
+                    if remote_id:
+                        mapping[local_id] = remote_id
+                logger.info("Preflight returned %d existing tracks", len(mapping))
+                session.mapping = mapping
+
         self._sessions[session.session_id] = session
         return Result.success({
             "session_id": session.session_id,
             "total_tracks": session.total,
+            "existing": len(mapping),
+            "needs_upload": session.total - len(mapping),
         }, f"Import session {session.session_id} created")
 
     def upload_track(self, session_id: str, track_id: str,
@@ -128,12 +207,17 @@ class ImportToServerService:
                 progress_cb(session.uploaded, session.total, track_id)
             return Result.fail("UPLOAD_FAILED", str(e))
 
+        # Resolve remote_track_id from response
+        remote_track_id = track_id
+        session.mapping[track_id] = remote_track_id
+
         session.uploaded += 1
         if progress_cb:
             progress_cb(session.uploaded, session.total, track_id)
 
         return Result.success({
             "track_id": track_id,
+            "remote_track_id": remote_track_id,
             "bytes": len(track_data),
             "local_hash": local_hash[:16] + "..." if local_hash else "",
         }, f"Track {track_id} uploaded ({len(track_data)} bytes)")
@@ -186,6 +270,7 @@ class ImportToServerService:
             "total": session.total,
             "artwork": session.artwork_uploaded,
             "playlists": session.playlists_uploaded,
+            "mapping": session.mapping,
         }, f"Import committed: {session.uploaded}/{session.total} tracks")
 
     def rollback(self, session_id: str) -> Result:

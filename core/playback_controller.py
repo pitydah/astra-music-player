@@ -220,6 +220,16 @@ class PlaybackController:
         track = self._trackref_from_filepath(filepath)
         self.play_trackref(track)
 
+    def play_filepaths(self, filepaths: list[str], play_now: bool = True):
+        if not filepaths:
+            return
+        if play_now:
+            self.play_file(filepaths[0])
+            for fp in filepaths[1:]:
+                self._win._ctx.playback.enqueue([fp], play_now=False)
+        else:
+            self._win._ctx.playback.enqueue(filepaths, play_now=False)
+
     def on_state(self, state: PlaybackState):
         s = ("playing" if state == PlaybackState.PLAYING else
              "paused" if state == PlaybackState.PAUSED else "stopped")

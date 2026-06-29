@@ -157,7 +157,10 @@ class ContextService:
             payload["track_album"] = getattr(track, "album", None)
 
         repo.set_state("selection", payload)
-        self.record_event(AppEvent.TRACK_SELECTED, payload)
+        if inferred_scope == "track":
+            self.record_event(AppEvent.TRACK_SELECTED, payload)
+        else:
+            self.record_event(AppEvent.SELECTION_CHANGED, payload)
 
     def clear_selection_for_scope(self, scope: str) -> dict:
         base = {

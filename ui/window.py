@@ -1136,15 +1136,7 @@ class MainWindow(QMainWindow):
     # Extracted to core/playback_controller.py — play/pause/queue logic
     def _play_filepaths(self, filepaths: list[str], play_now: bool = True):
         """Centralized playback entry point — ensures all tracks go through _play_trackref."""
-        if not filepaths:
-            return
-        if play_now:
-            track = TrackRef(uri=filepaths[0], title=os.path.basename(filepaths[0]))
-            self._play_trackref(track)
-            for fp in filepaths[1:]:
-                self._playback.enqueue([fp], play_now=False)
-        else:
-            self._playback.enqueue(filepaths, play_now=False)
+        self._playback_ctrl.play_filepaths(filepaths, play_now=play_now)
 
     def _on_folder_selected(self, fps: list[str]):
         ctx = self._context_svc

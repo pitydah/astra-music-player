@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.context.context_events import AppEvent
+
 if TYPE_CHECKING:
     from ui.window import MainWindow
 
@@ -14,15 +16,44 @@ class SearchRouter:
     def __init__(self, window: MainWindow):
         self._win = window
 
+    def _context(self):
+        return (
+            getattr(getattr(self._win, "_services", None), "context_svc", None)
+            or getattr(getattr(self._win, "_ctx", None), "context_svc", None)
+        )
+
     @staticmethod
     def _section_key(w) -> str:
-        """Use route key for section-level decisions, fallback to section_key."""
         return getattr(w, '_current_route_key', None) or w._current_section_key
 
     def on_search(self, text: str):
         w = self._win
         w._search_text = text.strip()
         sec = self._section_key(w)
+
+        ctx = self._context()
+        query = w._search_text
+
+        if ctx:
+            if query:
+                ctx.update_selection(
+                    scope="search",
+                    search_query=query[:80],
+                    album="",
+                    artist="",
+                    genre="",
+                    playlist_id=None,
+                    playlist_name="",
+                    folder_name="",
+                    mix_key="",
+                )
+            else:
+                ctx.update_selection(
+                    scope="search",
+                    search_query="",
+                )
+                ctx.record_event(AppEvent.SEARCH_CLEARED, {"section": sec})
+
         if sec in ("albums", "genres"):
             w._lib_ctrl.refresh_active_tab(force=True)
             return
@@ -74,3 +105,10 @@ class SearchRouter:
             w._table.setColumnWidth(7, 260)
         else:
             w._views.show("empty")
+
+        ctx = self._context()
+        if ctx:
+            ctx.record_event(AppEvent.SEARCH_PERFORMED, {
+                "section": w._current_section_key,
+                "result_count": n,
+            })
