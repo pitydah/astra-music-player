@@ -38,9 +38,9 @@ SECTION_CONFIG: dict[str, dict] = {
     "identifier": {"title": "Identificador", "subtitle": "Detección musical",
                    "icon": "sidebar_identifier", "views": [],
                    "search": False, "default": None},
-    "playlists":  {"title": "Playlist", "subtitle": "Colecciones personalizadas",
-                   "icon": "sidebar_playlists", "views": ["list", "grid"],
-                   "search": True, "default": "list"},
+     "playlists":  {"title": "Playlists", "subtitle": "Colecciones personalizadas",
+                    "icon": "sidebar_playlists", "views": ["list", "grid"],
+                    "search": True, "default": "list"},
     "favs":       {"title": "Favoritos", "subtitle": "Canciones marcadas como favoritas",
                    "icon": "sidebar_popular", "views": ["list", "grid"],
                    "search": True, "default": "list"},
@@ -65,7 +65,7 @@ SECTION_CONFIG: dict[str, dict] = {
     "add_server": {"title": "Añadir servidor", "subtitle": "Conecta Navidrome o Jellyfin",
                    "icon": "sidebar_add", "views": [],
                    "search": False, "default": None},
-    "playlist_hub": {"title": "Playlist", "subtitle": "Organiza, mezcla e importa tus listas",
+     "playlist_hub": {"title": "Playlists", "subtitle": "Organiza, mezcla e importa tus listas",
                      "icon": "sidebar_playlists", "views": ["grid"],
                      "search": False, "default": "grid"},
     "metadata_editor": {"title": "Editor de metadatos",
@@ -147,8 +147,16 @@ def resolve_sidebar_active_key(key: str) -> str:
         return "playlist_hub"
     if key.startswith("srv:"):
         return "connections_hub"
-    if key.startswith("dev:") or key in ("devices_page", "devices"):
+    if key.startswith("dev:"):
         return "devices_page"
+    if key in ("devices_page", "devices"):
+        return "devices_page"
+    if key in ("settings_hub", "settings"):
+        return "settings_hub"
+    if key in ("assistant", "audio_lab", "identifier"):
+        return key
+    if key in ("metadata_editor", "metadata_review", "michi_disc_lab"):
+        return "audio_lab"
     prefix = key.split(":")[0] if ":" in key else key
     return prefix or "home"
 
@@ -180,7 +188,7 @@ NAV_ROUTES: dict[str, str] = {
 _SEARCH_PLACEHOLDERS: dict[str, str] = {
     "library": "Buscar canciones...", "albums": "Buscar álbumes...",
     "artists": "Buscar artistas...", "genres": "Buscar géneros...",
-    "playlists": "Buscar en playlist...",
+    "playlists": "Buscar en playlists...",
     "folders": "Buscar carpeta...", "radio": "Buscar emisoras...",
     "playlist_hub": "Buscar playlists...", "favs": "Buscar favoritos...",
     "recent": "Buscar recientes...",

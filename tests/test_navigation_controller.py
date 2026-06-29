@@ -377,3 +377,17 @@ class TestResolveSidebarActiveKey:
         assert resolve_sidebar_active_key("devices") == "devices_page"
         assert resolve_sidebar_active_key("devices_page") == "devices_page"
 
+    def test_settings_hub(self):
+        assert resolve_sidebar_active_key("settings_hub") == "settings_hub"
+        assert resolve_sidebar_active_key("settings") == "settings_hub"
+
+    def test_audio_lab_children(self):
+        assert resolve_sidebar_active_key("audio_lab") == "audio_lab"
+        assert resolve_sidebar_active_key("metadata_editor") == "audio_lab"
+        assert resolve_sidebar_active_key("metadata_review") == "audio_lab"
+        assert resolve_sidebar_active_key("michi_disc_lab") == "audio_lab"
+
+    def test_independent_hubs(self):
+        assert resolve_sidebar_active_key("assistant") == "assistant"
+        assert resolve_sidebar_active_key("identifier") == "identifier"
+
