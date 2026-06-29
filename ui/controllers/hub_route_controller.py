@@ -48,6 +48,12 @@ class HubRouteController:
         parts = [ref.title or "Desconocido"]
         if ref.artist:
             parts.append(ref.artist)
+
+        item = None
+        if hasattr(w, '_ctx') and hasattr(w._ctx, 'items_index'):
+            item = w._ctx.items_index.get(ref.uri)
+
+        # Format probe for container / sample rate / bit depth
         if ref.uri:
             try:
                 from audio.format_probe import probe_format
@@ -56,12 +62,40 @@ class HubRouteController:
                 sr = f"{fmt.sample_rate // 1000}" if fmt.sample_rate else ""
                 bd = str(fmt.bit_depth) if fmt.bit_depth else ""
                 if tech:
-                    quality = tech
+                    q = tech
                     if sr and bd:
-                        quality += f" {bd}/{sr}"
-                    parts.append(quality)
+                        q += f" {bd}/{sr}"
+                    parts.append(q)
             except Exception:
                 pass
+
+        # Quality classifier (lossless / hires / dsd)
+        try:
+            from audio.quality_classifier import classify_audio_quality
+            qc = classify_audio_quality(item or ref)
+            label = qc.get("label", "")
+            if label:
+                parts.append(label)
+        except Exception:
+            pass
+
+        # Bit-perfect / DAC status
+        try:
+            player = getattr(w, '_player', None)
+            if player and hasattr(player, 'get_audio_diagnostics'):
+                diag = player.get_audio_diagnostics()
+                if isinstance(diag, dict):
+                    bp = diag.get("bitperfect_status", "")
+                    if bp and bp.lower() == "yes":
+                        parts.append("Bit-perfect")
+                    elif bp and bp.lower() == "no":
+                        parts.append("DSP activo")
+                    profile = diag.get("profile", "")
+                    if profile:
+                        parts.append(profile)
+        except Exception:
+            pass
+
         page.set_status_text(" · ".join(parts))
 
     def show_michi_disc_lab(self, key: str = ""):
