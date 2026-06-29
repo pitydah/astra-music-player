@@ -13,7 +13,6 @@ import logging
 import os
 import subprocess
 import wave
-from typing import Any
 
 logger = logging.getLogger("michi.vinyl.exporter")
 
@@ -72,7 +71,7 @@ def split_wav(input_path: str, output_dir: str,
 
             created.append(out_path)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to split WAV: %s", input_path)
 
     return created
@@ -127,7 +126,7 @@ def encode_to_flac(wav_path: str, output_dir: str,
                        wav_path, result.stderr[:200])
         return None
 
-    except Exception as e:
+    except Exception:
         logger.exception("FLAC encoding failed: %s", wav_path)
         return None
 

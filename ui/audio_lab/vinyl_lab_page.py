@@ -9,20 +9,17 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-from typing import Any
 
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
-    QPushButton, QFrame, QComboBox, QSpinBox, QCheckBox,
-    QScrollArea, QFileDialog, QMessageBox, QProgressBar,
-    QListWidget, QListWidgetItem, QSlider, QSizePolicy,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QPushButton, QFrame, QComboBox, QScrollArea, QFileDialog, QMessageBox, QProgressBar,
+    QListWidget, QListWidgetItem,
 )
 
-from ui.icons import get_pixmap
 from ui.central.central_styles import (
     glass_card_qss, glass_button_qss, glass_combo_qss,
-    glass_progress_qss, glass_input_qss,
+    glass_progress_qss,
 )
 
 logger = logging.getLogger("michi.vinyl.ui")
@@ -532,10 +529,9 @@ class VinylLabPage(QWidget):
             if result:
                 exported.append(result)
             if os.path.exists(wav_path) and fmt != "wav":
-                try:
+                import contextlib
+                with contextlib.suppress(Exception):
                     os.remove(wav_path)
-                except Exception:
-                    pass
 
         self._export_progress.setValue(100)
 

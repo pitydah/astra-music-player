@@ -10,11 +10,11 @@ import logging
 import os
 import tempfile
 
-import gi
-gi.require_version("Gst", "1.0")
-from gi.repository import Gst
-
 from PySide6.QtCore import QObject, Signal
+
+import gi  # noqa: E402
+gi.require_version("Gst", "1.0")  # noqa: E402
+from gi.repository import Gst  # noqa: E402
 
 logger = logging.getLogger("michi.vinyl.capture")
 
@@ -102,9 +102,8 @@ class VinylCaptureService(QObject):
 
     def cleanup(self):
         if self._pipeline:
-            try:
+            import contextlib
+            with contextlib.suppress(Exception):
                 self._pipeline.set_state(Gst.State.NULL)
-            except Exception:
-                pass
             self._pipeline = None
         self._is_recording = False

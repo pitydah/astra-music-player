@@ -7,7 +7,6 @@ for waveform rendering in the UI.
 from __future__ import annotations
 
 import logging
-import math
 import wave
 from typing import Any
 
@@ -139,7 +138,7 @@ def detect_silences(filepath: str,
         with wave.open(filepath, "rb") as wf:
             frames = wf.getnframes()
             sr = wf.getframerate()
-            sampwidth = wf.getsampsize()
+            sampwidth = wf.getsampwidth()
             n_channels = wf.getnchannels()
 
             if frames == 0 or sr == 0:
@@ -189,7 +188,7 @@ def detect_silences(filepath: str,
                         "duration_sec": round(dur, 1),
                     })
 
-    except Exception as e:
+    except Exception:
         logger.exception("Silence detection failed for %s", filepath)
 
     return results
