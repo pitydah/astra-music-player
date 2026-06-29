@@ -49,6 +49,7 @@ class TestAudioAnalysisContext:
         svc = self._svc(tmp_path)
         svc.record_audio_analysis_started(count=5)
         assert is_dirty("assistant_snapshot")
+        assert is_dirty("home_snapshot")
 
     def test_analysis_failed_reason_truncated(self, tmp_path):
         svc = self._svc(tmp_path)

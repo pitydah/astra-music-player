@@ -47,7 +47,8 @@ class ContextService:
     # ── Events ──
 
     def record_event(self, event_type: str, payload: dict | None = None) -> None:
-        repo.record_event(event_type, payload)
+        safe_payload = sanitize_snapshot(payload or {})
+        repo.record_event(event_type, safe_payload)
         invalidate_for_event(event_type)
 
     def record_scan_finished(self, summary: dict | None = None) -> None:
@@ -376,39 +377,59 @@ class ContextService:
 
 def _contextual_action_hints(snapshot: dict) -> list[str]:
     """Generate brief contextual hints from an assistant snapshot."""
+    caps = snapshot.get("assistant_capabilities", {})
     scope = snapshot.get("selection_scope")
+    can_create = caps.get("can_create_playlist_from_selection", False)
+    can_queue = caps.get("can_queue_selection", False)
+    can_edit = caps.get("can_edit_metadata", False)
+    can_analyze = caps.get("can_analyze_selected_tracks", False)
     hints = []
     if scope == "track":
-        hints.append("Editar metadatos de la pista seleccionada")
-        hints.append("Agregar pista a una playlist")
-        hints.append("Analizar audio de la pista")
+        if can_edit:
+            hints.append("Editar metadatos de la pista seleccionada")
+        if can_create:
+            hints.append("Agregar pista a una playlist")
+        if can_analyze:
+            hints.append("Analizar audio de la pista")
         hints.append("Buscar información similar")
     elif scope == "album":
-        hints.append("Crear playlist con este álbum")
+        if can_create:
+            hints.append("Crear playlist con este álbum")
         hints.append("Revisar carátula del álbum")
-        hints.append("Completar metadatos del álbum")
+        if can_edit:
+            hints.append("Completar metadatos del álbum")
     elif scope == "artist":
         hints.append("Ver discografía completa")
-        hints.append("Crear playlist del artista")
-        hints.append("Revisar metadatos del artista")
+        if can_create:
+            hints.append("Crear playlist del artista")
+        if can_edit:
+            hints.append("Revisar metadatos del artista")
     elif scope == "genre":
-        hints.append("Crear playlist del género")
-        hints.append("Analizar distribución del género")
+        if can_create:
+            hints.append("Crear playlist del género")
+        if can_analyze:
+            hints.append("Analizar distribución del género")
     elif scope == "playlist":
         hints.append("Reproducir playlist")
-        hints.append("Encolar playlist")
+        if can_queue:
+            hints.append("Encolar playlist")
         hints.append("Exportar playlist")
         hints.append("Revisar duplicados en la playlist")
     elif scope == "mix":
-        hints.append("Guardar mix como playlist")
-        hints.append("Encolar mix")
+        if can_create:
+            hints.append("Guardar mix como playlist")
+        if can_queue:
+            hints.append("Encolar mix")
         hints.append("Refrescar mix")
     elif scope == "folder":
         hints.append("Escanear la carpeta")
-        hints.append("Crear playlist desde la carpeta")
-        hints.append("Encolar contenido de la carpeta")
+        if can_create:
+            hints.append("Crear playlist desde la carpeta")
+        if can_queue:
+            hints.append("Encolar contenido de la carpeta")
     elif scope == "search":
-        hints.append("Crear playlist con los resultados")
+        if can_create:
+            hints.append("Crear playlist con los resultados")
         hints.append("Refinar búsqueda")
     elif scope is None:
         hints.append("Escanear biblioteca musical")

@@ -272,7 +272,7 @@ def build_home_snapshot(db, playback=None, sync=None,
             "kind": "playback",
             "message": "Reproducir algo ahora",
         })
-    if health.get("recently_played_count", 0) < 5 and tc > 0:
+    if pb.get("recently_played_count", 0) < 5 and tc > 0:
         result["next_actions"].append({
             "kind": "explore",
             "message": "Descubrir nueva música",

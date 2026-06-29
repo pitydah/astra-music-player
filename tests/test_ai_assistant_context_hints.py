@@ -5,7 +5,7 @@ from core.context.context_service import _contextual_action_hints
 
 class TestAssistantContextHints:
 
-    def _snap(self, scope=None):
+    def _snap(self, scope=None, **overrides):
         caps = {
             "can_search_library": True,
             "can_create_playlist_from_selection": scope in {
@@ -22,6 +22,7 @@ class TestAssistantContextHints:
                 "mix", "search",
             },
         }
+        caps.update(overrides)
         return {"selection_scope": scope, "assistant_capabilities": caps}
 
     def test_hints_generated_for_all_scopes(self):
@@ -50,3 +51,23 @@ class TestAssistantContextHints:
     def test_no_empty_snapshot_crash(self):
         hints = _contextual_action_hints({})
         assert isinstance(hints, list)
+
+    def test_track_without_analyze_does_not_suggest_analyze(self):
+        hints = _contextual_action_hints(
+            self._snap("track", can_analyze_selected_tracks=False))
+        assert not any("Analizar" in h for h in hints)
+
+    def test_playlist_without_edit_does_not_suggest_edit(self):
+        hints = _contextual_action_hints(
+            self._snap("playlist", can_edit_metadata=False))
+        assert not any("Editar" in h or "duplicados" in h for h in hints)
+        assert any("Reproducir" in h for h in hints)
+
+    def test_none_scope_no_queue_create_edit_analyze(self):
+        hints = _contextual_action_hints(
+            self._snap(None,
+                       can_create_playlist_from_selection=False,
+                       can_queue_selection=False,
+                       can_edit_metadata=False,
+                       can_analyze_selected_tracks=False))
+        assert not any("Crear" in h or "Encolar" in h or "Editar" in h or "Analizar" in h for h in hints)

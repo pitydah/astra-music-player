@@ -1,41 +1,38 @@
 """Semantic audit: events, payloads, context_repository isolation."""
 
-import subprocess
+import os
 from pathlib import Path
 
 
 class TestContextSemanticAudit:
 
+    def teardown_method(self):
+        from core.context import context_repository as repo
+        repo.close()
+        repo.override_db_path(None)
+
+    def _path(self, tmp_path):
+        return os.path.join(str(tmp_path), "ctx.sqlite")
+
     def test_context_repository_not_imported_by_ui(self):
         src = Path(__file__).resolve().parent.parent
-        ui_dir = src / "ui"
-        result = subprocess.run(
-            ["rg", "-l", "context_repository", str(ui_dir)],
-            capture_output=True, text=True, timeout=30,
-        )
-        assert result.returncode in (0, 1), "ripgrep failed"
-        files = result.stdout.strip().splitlines()
-        files = [f for f in files if f and "__pycache__" not in f]
-        assert len(files) == 0, (
-            f"context_repository imported in UI files: {files}"
-        )
+        for p in (src / "ui").rglob("*.py"):
+            if "__pycache__" in str(p):
+                continue
+            text = p.read_text(encoding="utf-8", errors="ignore")
+            assert "context_repository" not in text, f"{p} imports context_repository"
 
-    def test_context_repository_not_imported_by_controllers(self):
+    def test_context_repository_not_imported_by_playback_controller(self):
         src = Path(__file__).resolve().parent.parent
-        ctrl_dir = src / "core"
-        result = subprocess.run(
-            ["rg", "-l", "context_repository", str(ctrl_dir / "playback_controller.py")],
-            capture_output=True, text=True, timeout=30,
-        )
-        files = result.stdout.strip().splitlines()
-        files = [f for f in files if f and "__pycache__" not in f]
-        assert len(files) == 0
+        text = (src / "core" / "playback_controller.py").read_text(
+            encoding="utf-8", errors="ignore")
+        assert "context_repository" not in text
 
-    def test_no_absolute_paths_in_event_payloads(self):
+    def test_no_absolute_paths_in_event_payloads(self, tmp_path):
         from core.context import context_repository as repo
         from core.context.context_service import ContextService
 
-        repo.override_db_path(":memory:")
+        repo.override_db_path(self._path(tmp_path))
         svc = ContextService()
 
         for fp in ("/home/user/file.flac", "/tmp/private/song.flac", "C:\\Users\\me\\file.flac"):
@@ -47,12 +44,24 @@ class TestContextSemanticAudit:
         assert "/tmp/" not in raw
         assert "C:\\" not in raw
 
-    def test_update_selection_includes_scope(self):
+    def test_record_event_sanitizes_payload(self, tmp_path):
         from core.context import context_repository as repo
         from core.context.context_service import ContextService
 
-        repo.override_db_path(":memory:")
-        repo.close()
+        repo.override_db_path(self._path(tmp_path))
+        svc = ContextService()
+
+        svc.record_event("x", {"filepath": "/home/user/a.flac", "safe": "ok"})
+        events = repo.recent_events(limit=5)
+        payload = events[0]["payload"]
+        assert "filepath" not in payload
+        assert payload.get("safe") == "ok"
+
+    def test_update_selection_includes_scope(self, tmp_path):
+        from core.context import context_repository as repo
+        from core.context.context_service import ContextService
+
+        repo.override_db_path(self._path(tmp_path))
         svc = ContextService()
 
         svc.update_selection(album="TestAlbum")

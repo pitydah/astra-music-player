@@ -60,3 +60,19 @@ class TestHomeContextSnapshot:
         for k, v in snap.items():
             if isinstance(v, list):
                 assert len(v) <= 10, f"{k} has {len(v)} items"
+
+    def test_recently_played_high_does_not_add_explore_action(self, tmp_path):
+        with_pb = type("_Pb", (), {"recent_count": 5, "current_track": None, "queue_length": 0,
+                                    "favorites_count": 0, "source_type": "local"})()
+        from core.context.context_snapshot import build_home_snapshot
+        snap = build_home_snapshot(None, playback=with_pb)
+        kinds = [a["kind"] for a in snap.get("next_actions", [])]
+        assert "explore" not in kinds
+
+    def test_recently_played_low_adds_explore_action(self, tmp_path):
+        with_pb = type("_Pb", (), {"recent_count": 0, "current_track": None, "queue_length": 0,
+                                    "favorites_count": 0, "source_type": "local"})()
+        from core.context.context_snapshot import build_home_snapshot
+        snap = build_home_snapshot(None, playback=with_pb)
+        kinds = [a["kind"] for a in snap.get("next_actions", [])]
+        assert "explore" in kinds

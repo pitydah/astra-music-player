@@ -73,7 +73,7 @@ _EVENT_DIRTY_MAP: dict[str, set[str]] = {
     AppEvent.TAGS_BATCH_UPDATED: {"home_snapshot", "assistant_snapshot", "library_health"},
 
     # Audio analysis extended
-    AppEvent.AUDIO_ANALYSIS_STARTED: {"assistant_snapshot"},
+    AppEvent.AUDIO_ANALYSIS_STARTED: {"assistant_snapshot", "home_snapshot"},
     AppEvent.AUDIO_ANALYSIS_FAILED: {"assistant_snapshot"},
     AppEvent.AUDIO_FEATURES_UPDATED: {"home_snapshot", "assistant_snapshot", "library_health"},
 
