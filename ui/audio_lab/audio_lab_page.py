@@ -38,14 +38,14 @@ _SECTIONS = [
         "title": "Perfiles de Salida",
         "subtitle": "Configura salida bit-perfect, upsampling,\n"
                      "corrección de sala y perfiles DAC.",
-        "status": "proximamente", "nav": "audio_lab_output",
+        "status": "experimental", "nav": "audio_lab_output",
     },
     {
         "key": "audio_lab_intelligence", "icon": "sidebar_mix",
         "title": "Inteligencia Local",
         "subtitle": "Extrae BPM, key y energía. Genera radio\n"
                      "local y recomendaciones musicales.",
-        "status": "proximamente", "nav": "audio_lab_intelligence",
+        "status": "experimental", "nav": "audio_lab_intelligence",
     },
 ]
 
