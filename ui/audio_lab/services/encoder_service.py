@@ -27,6 +27,14 @@ class EncoderService(QObject):
             "ffmpeg": shutil.which("ffmpeg") is not None,
         }
 
+    def _on_encoder_error(self, error: QProcess.ProcessError, input_path: str):
+        label = {
+            QProcess.FailedToStart: "Programa no encontrado. ¿Está instalado?",
+            QProcess.Crashed: "El proceso se detuvo inesperadamente.",
+            QProcess.Timedout: "El proceso tardó demasiado.",
+        }.get(error, f"Error de proceso ({error})")
+        self.encode_error.emit(input_path, label)
+
     def encode_to_flac(self, input_path: str, output_path: str,
                        compression: int = 8):
         if not os.path.exists(input_path):
@@ -38,6 +46,9 @@ class EncoderService(QObject):
         proc.finished.connect(
             lambda ec, es, ip=input_path, op=output_path:
             self._on_flac_done(ec, es, ip, op)
+        )
+        proc.errorOccurred.connect(
+            lambda err, ip=input_path: self._on_encoder_error(err, ip)
         )
         proc.start("flac", [
             "--best" if compression >= 8 else f"-{compression}",
@@ -55,6 +66,9 @@ class EncoderService(QObject):
             lambda ec, es, ip=input_path, op=output_path:
             self._on_encode_done(ec, es, ip, op)
         )
+        proc.errorOccurred.connect(
+            lambda err, ip=input_path: self._on_encoder_error(err, ip)
+        )
         proc.start("lame", [
             "-b", str(bitrate), "--quiet", input_path, output_path,
         ])
@@ -70,6 +84,9 @@ class EncoderService(QObject):
             lambda ec, es, ip=input_path, op=output_path:
             self._on_encode_done(ec, es, ip, op)
         )
+        proc.errorOccurred.connect(
+            lambda err, ip=input_path: self._on_encoder_error(err, ip)
+        )
         proc.start("opusenc", [
             "--bitrate", str(bitrate), "--quiet", input_path, output_path,
         ])
@@ -84,6 +101,9 @@ class EncoderService(QObject):
         proc.finished.connect(
             lambda ec, es, ip=input_path, op=output_path:
             self._on_encode_done(ec, es, ip, op)
+        )
+        proc.errorOccurred.connect(
+            lambda err, ip=input_path: self._on_encoder_error(err, ip)
         )
         proc.start("ffmpeg", [
             "-y", "-i", input_path, "-acodec", "alac", output_path,
