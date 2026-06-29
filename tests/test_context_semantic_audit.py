@@ -85,3 +85,40 @@ class TestContextSemanticAudit:
         svc.update_selection(album="TestAlbum")
         state = svc.get_selection_state()
         assert state.get("selection_scope") == "album"
+
+    def test_update_selection_sanitizes_folder_path(self, tmp_path):
+        from core.context import context_repository as repo
+        from core.context.context_service import ContextService
+
+        repo.override_db_path(self._path(tmp_path))
+        svc = ContextService()
+
+        svc.update_selection(scope="folder", folder_name="/home/user/Music/Rock")
+        state = svc.get_selection_state()
+        assert state.get("folder_name") == "Rock"
+        assert "/home/" not in str(state)
+
+    def test_selection_state_no_absolute_paths(self, tmp_path):
+        from core.context import context_repository as repo
+        from core.context.context_service import ContextService
+
+        repo.override_db_path(self._path(tmp_path))
+        svc = ContextService()
+
+        svc.update_selection(scope="folder", folder_name="/home/user/Music")
+        snap = svc.get_assistant_snapshot()
+        raw = str(snap)
+        assert "/home/" not in raw
+
+    def test_controllers_use_semantic_methods(self):
+        src = Path(__file__).resolve().parent.parent
+        violations = []
+        for p in (src / "ui" / "controllers").rglob("*.py"):
+            if _check_file(p, "context_repository"):
+                violations.append(f"{p}: context_repository")
+
+        for p in (src / "ui" / "routers").rglob("*.py"):
+            if _check_file(p, "context_repository"):
+                violations.append(f"{p}: context_repository")
+
+        assert not violations, "\n".join(violations)

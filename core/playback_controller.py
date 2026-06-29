@@ -288,6 +288,12 @@ class PlaybackController:
         if not playback or not ctx:
             return
 
+        if getattr(self, "_context_events_connected", False):
+            return
+        self._context_events_connected = True
+        self._context_queue_was_active = False
+        self._context_svc_for_events = ctx
+
         playback.track_changed.connect(
             lambda title, artist: (
                 ctx.record_now_playing_updated(title=title, artist=artist),
@@ -299,15 +305,46 @@ class PlaybackController:
             if state == "paused" else None
         )
 
-        playback.queue_changed.connect(
-            lambda q: ctx.record_queue_updated(count=len(q), source="playback")
+        playback.queue_changed.connect(self._on_queue_changed_for_context)
+
+    def _on_queue_changed_for_context(self, queue):
+        ctx = getattr(self, "_context_svc_for_events", None)
+        if not ctx:
+            return
+
+        count = len(queue or [])
+        was_active = getattr(self, "_context_queue_was_active", False)
+
+        if count <= 0:
+            if was_active:
+                ctx.record_queue_cleared(reason="queue_empty")
+            self._context_queue_was_active = False
+            return
+
+        self._context_queue_was_active = True
+        ctx.record_queue_updated(count=count, source="playback")
+
+    # ── Shuffle / Repeat context ═══
+
+    def _context(self):
+        return (
+            getattr(getattr(self._win, "_services", None), "context_svc", None)
+            or getattr(self._win._ctx, "context_svc", None)
         )
 
-        # Detect clear queue (empty queue emitted)
-        playback.queue_changed.connect(
-            lambda q: ctx.record_queue_cleared(reason="playback_end")
-            if len(q) == 0 else None
-        )
+    def toggle_shuffle_with_context(self):
+        self._win._playback.toggle_shuffle()
+        ctx = self._context()
+        if ctx:
+            ctx.record_playback_mode_changed(
+                shuffle=getattr(self._win._playback, "shuffle", None)
+            )
+
+    def toggle_repeat_with_context(self):
+        new_mode = self._win._playback.toggle_repeat()
+        ctx = self._context()
+        if ctx:
+            ctx.record_playback_mode_changed(repeat=new_mode)
 
     # ── Table selection context ═══
 

@@ -67,6 +67,22 @@ class TestAssistantContextHints:
         assert not any("Editar" in h for h in hints)
         assert any("Reproducir" in h for h in hints)
 
+    def test_playlist_without_can_play_does_not_suggest_reproducir(self):
+        hints = _contextual_action_hints(
+            self._snap("playlist", can_play_selection=False))
+        assert not any("Reproducir" in h for h in hints)
+
+    def test_none_scope_play_false(self):
+        hints = _contextual_action_hints(
+            self._snap(None, can_play_selection=False))
+        assert not any("Reproducir" in h for h in hints)
+
+    def test_all_supported_scopes_have_can_play_true(self):
+        for scope in ("track", "album", "artist", "genre",
+                      "playlist", "mix", "folder", "search"):
+            snap = self._snap(scope)
+            assert snap["assistant_capabilities"]["can_play_selection"] is True, f"scope={scope}"
+
     def test_none_scope_no_queue_create_edit_analyze(self):
         hints = _contextual_action_hints(
             self._snap(None,

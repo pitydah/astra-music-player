@@ -60,10 +60,6 @@ class LibraryDB:
     def _migrate_scan_roots_to_library_roots(self):
         Schema._migrate_scan_roots_to_library_roots(self._conn)
 
-    @staticmethod
-    def _compute_track_uid(filepath, artist, album, title, duration, mb_track_id):
-        return Schema._compute_track_uid(filepath, artist, album, title, duration, mb_track_id)
-
     def _populate_track_uids(self):
         """Populate track_uid for existing rows where it was not computed."""
         cursor = self._conn.execute(

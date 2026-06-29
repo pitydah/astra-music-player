@@ -6,6 +6,7 @@ Controllers and UI use this service, not repository or snapshot builders directl
 from __future__ import annotations
 
 import logging
+import os
 
 from core.context import context_repository as repo
 from core.context.context_events import AppEvent
@@ -266,11 +267,16 @@ class ContextService:
             payload["track_artist"] = getattr(track, "artist", None)
             payload["track_album"] = getattr(track, "album", None)
 
-        repo.set_state("selection", payload)
+        # Sanitize folder_name to basename only
+        if "folder_name" in payload and payload["folder_name"]:
+            payload["folder_name"] = os.path.basename(str(payload["folder_name"]))
+
+        safe_payload = sanitize_snapshot(payload)
+        repo.set_state("selection", safe_payload)
         if inferred_scope == "track":
-            self.record_event(AppEvent.TRACK_SELECTED, payload)
+            self.record_event(AppEvent.TRACK_SELECTED, safe_payload)
         else:
-            self.record_event(AppEvent.SELECTION_CHANGED, payload)
+            self.record_event(AppEvent.SELECTION_CHANGED, safe_payload)
 
     def clear_selection_for_scope(self, scope: str) -> dict:
         base = {
