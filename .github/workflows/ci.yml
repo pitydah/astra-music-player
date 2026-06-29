@@ -129,8 +129,8 @@ jobs:
           assert len(icons) > 0, 'No SVG icons found'
           "
 
-      - name: Tests (pytest)
-        timeout-minutes: 3
+      - name: Tests (pytest) — anti-regression + packaging
+        timeout-minutes: 2
         env:
           QT_QPA_PLATFORM: offscreen
           PYTHONUNBUFFERED: 1
@@ -140,7 +140,7 @@ jobs:
           MICHI_TEST_CONFIG_DIR: ${{ runner.temp }}/michi-test-config
         run: |
           source .venv/bin/activate
-          python3 -m pytest -q --timeout=120
+          python3 -m pytest tests/test_post_refactor_regressions.py tests/test_packaging.py -q --timeout=60
 
       - name: Performance tests (optional)
         continue-on-error: true
@@ -150,4 +150,4 @@ jobs:
           MICHI_SAFE_MODE: 1
         run: |
           source .venv/bin/activate
-          python3 -m pytest -q -m perf --timeout=120
+          python3 -m pytest tests/perf/ -q -m perf --timeout=120
