@@ -27,7 +27,7 @@ def sanitize_snapshot(value):
         return [sanitize_snapshot(v) for v in value[:10]]
     if isinstance(value, str):
         if value.startswith("/") or ":\\" in value:
-            return os.path.basename(value)
+            return os.path.basename(value.replace("\\", "/"))
         return value[:300]
     return value
 

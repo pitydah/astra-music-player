@@ -57,6 +57,66 @@ class TestAssistantSnapshotContract:
         assert "filepath" not in raw
         assert "uri" not in raw
 
+    def test_sanitizes_windows_paths(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(
+            scope="folder",
+            folder_name="C:\\Users\\me\\Music",
+        )
+        snap = svc.get_assistant_snapshot()
+        assert "C:\\" not in str(snap)
+        assert "Music" in str(snap)
+
+    def test_track_scope_capabilities(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="track", track=DummyTrack())
+        snap = svc.get_assistant_snapshot()
+        caps = snap.get("assistant_capabilities", {})
+        assert caps.get("can_edit_metadata") is True
+        assert caps.get("can_queue_selection") is True
+        assert caps.get("can_create_playlist_from_selection") is True
+        assert caps.get("can_analyze_selected_tracks") is True
+
+    def test_playlist_scope_capabilities(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="playlist", playlist_id=1, playlist_name="P")
+        snap = svc.get_assistant_snapshot()
+        caps = snap.get("assistant_capabilities", {})
+        assert caps.get("can_edit_metadata") is False
+        assert caps.get("can_queue_selection") is True
+        assert caps.get("can_create_playlist_from_selection") is True
+
+    def test_search_scope_capabilities(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="search", search_query="abc")
+        snap = svc.get_assistant_snapshot()
+        caps = snap.get("assistant_capabilities", {})
+        assert caps.get("can_create_playlist_from_selection") is True
+        assert caps.get("can_analyze_selected_tracks") is True
+        assert caps.get("can_edit_metadata") is False
+
+    def test_folder_scope_capabilities(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="folder", folder_name="Music")
+        snap = svc.get_assistant_snapshot()
+        caps = snap.get("assistant_capabilities", {})
+        assert caps.get("can_queue_selection") is True
+        assert caps.get("can_create_playlist_from_selection") is True
+
+    def test_no_scope_capabilities_default_false(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection()  # no scope
+        snap = svc.get_assistant_snapshot()
+        caps = snap.get("assistant_capabilities", {})
+        # When scope is None, only can_search_library is True
+        assert caps.get("can_search_library") is True
+
+    def test_scope_none_capabilities(self, tmp_path):
+        svc = self._svc(tmp_path)
+        snap = svc.get_assistant_snapshot()
+        caps = snap.get("assistant_capabilities", {})
+        assert "can_search_library" in caps
+
     def test_recent_events_max_10(self, tmp_path):
         svc = self._svc(tmp_path)
         for i in range(20):

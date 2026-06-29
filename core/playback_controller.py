@@ -88,7 +88,7 @@ class PlaybackController:
                     f"Todas las canciones de: {artist_name}")
                 self._win._ctx.count.setText(f"{len(refs)} canciones")
                 self._win._ctx.views.show("library")
-                self._win._ctx.table.setModel(self._win._ctx.model)
+                self.attach_track_table(self._win._ctx.table, self._win._ctx.model)
                 self._win._ctx.table.setColumnWidth(0, 72)
                 self._win._ctx.table.setColumnWidth(1, 260)
                 self._win._ctx.table.setColumnWidth(2, 170)
@@ -282,19 +282,34 @@ class PlaybackController:
 
     # ── Table selection context ═══
 
-    def connect_table_selection(self):
+    def attach_track_table(self, table=None, model=None):
+        """Attach a track table/model and connect selection context safely.
+
+        Returns the table for chaining.
+        """
+        table = table or self._win._ctx.table
+        if table is None:
+            return None
+        if model is not None:
+            table.setModel(model)
+        self.connect_table_selection(table=table)
+        return table
+
+    def connect_table_selection(self, table=None):
         """Connect table selection changes to ContextService without playing.
 
+        Only disconnects our slot; never clears unrelated currentChanged listeners.
         Call after each setModel() to keep signal wiring alive.
         """
-        table = self._win._ctx.table
+        table = table or self._win._ctx.table
         if not table:
             return
         sel = table.selectionModel()
         if not sel:
             return
+        # Disconnect only our slot; never clear unrelated currentChanged listeners.
         with contextlib.suppress(TypeError, RuntimeError):
-            sel.currentChanged.disconnect()
+            sel.currentChanged.disconnect(self._on_table_selection)
         sel.currentChanged.connect(self._on_table_selection)
 
     def _on_table_selection(self, current, previous):

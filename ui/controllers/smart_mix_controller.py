@@ -68,7 +68,11 @@ class SmartMixController:
         self._win._count.setText(f"{len(refs)} canciones")
         if refs:
             self._win._fade_content("library_hub")
-            self._win._table.setModel(self._win._model)
+            pc = getattr(self._win, "_playback_ctrl", None)
+            if pc:
+                pc.attach_track_table(self._win._table, self._win._model)
+            else:
+                self._win._table.setModel(self._win._model)
             self._win._table.setColumnWidth(0, 72)
             self._win._table.setColumnWidth(1, 260)
             self._win._table.setColumnWidth(2, 170)
@@ -93,7 +97,11 @@ class SmartMixController:
         self._win._count.setText(f"{len(refs)} canciones")
         if refs:
             self._win._fade_content("library_hub")
-            self._win._table.setModel(self._win._model)
+            pc = getattr(self._win, "_playback_ctrl", None)
+            if pc:
+                pc.attach_track_table(self._win._table, self._win._model)
+            else:
+                self._win._table.setModel(self._win._model)
             self._win._table.setColumnHidden(7, True)
             self._win._table.setColumnWidth(0, 72)
             self._win._table.setColumnWidth(1, 260)
@@ -102,7 +110,6 @@ class SmartMixController:
             self._win._table.setColumnWidth(4, 55)
             self._win._table.setColumnWidth(5, 110)
             self._win._table.setColumnWidth(6, 75)
-            _reconnect_table_selection(self._win)
         else:
             self._win._views.show("empty")
         self._win._search.show()
@@ -120,7 +127,11 @@ class SmartMixController:
         self._win._count.setText(f"{len(refs)} canciones")
         if refs:
             self._win._fade_content("library_hub")
-            self._win._table.setModel(self._win._model)
+            pc = getattr(self._win, "_playback_ctrl", None)
+            if pc:
+                pc.attach_track_table(self._win._table, self._win._model)
+            else:
+                self._win._table.setModel(self._win._model)
             self._win._table.setColumnHidden(7, True)
             self._win._table.setColumnWidth(0, 72)
             self._win._table.setColumnWidth(1, 260)

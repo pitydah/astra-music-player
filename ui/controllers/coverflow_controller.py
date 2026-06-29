@@ -178,7 +178,11 @@ class CoverFlowController:
         self._win._section_title.setText(album_name)
         self._win._section_subtitle.setText(artist_name)
 
-        self._win._table.setModel(self._win._model)
+        pc = getattr(self._win, "_playback_ctrl", None)
+        if pc:
+            pc.attach_track_table(self._win._table, self._win._model)
+        else:
+            self._win._table.setModel(self._win._model)
         self._win._table.setColumnHidden(7, True)
         self._win._table.setColumnWidth(0, 72)
         self._win._table.setColumnWidth(1, 260)

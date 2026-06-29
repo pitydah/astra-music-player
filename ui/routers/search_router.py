@@ -70,9 +70,14 @@ class SearchRouter:
         if sec == "folders":
             w._folder_browser.set_filter(w._search_text)
             if ctx and query:
-                visible = getattr(w._folder_browser, "visible_count", None)
-                if visible:
-                    self._record_search_performed(sec, visible())
+                visible_count = getattr(w._folder_browser, "visible_count", None)
+                if callable(visible_count):
+                    try:
+                        count = int(visible_count())
+                    except Exception:
+                        ctx.record_event(AppEvent.SEARCH_STARTED, {"section": sec})
+                    else:
+                        self._record_search_performed(sec, count)
                 else:
                     ctx.record_event(AppEvent.SEARCH_STARTED, {"section": sec})
             return
@@ -122,7 +127,7 @@ class SearchRouter:
             w._table.setColumnWidth(7, 260)
             pc = getattr(w, '_playback_ctrl', None)
             if pc:
-                pc.connect_table_selection()
+                pc.attach_track_table(w._table, w._model)
         else:
             w._views.show("empty")
 

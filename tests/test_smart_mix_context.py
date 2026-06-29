@@ -115,7 +115,7 @@ class TestSmartMixContext:
         from ui.controllers.smart_mix_controller import SmartMixController
         ctrl = SmartMixController(win)
         ctrl.show_favs("favs")
-        win._playback_ctrl.connect_table_selection.assert_called()
+        win._playback_ctrl.attach_track_table.assert_called()
 
     def test_show_recent_registers_mix_opened(self, tmp_path):
         win, ctx = _make_win()

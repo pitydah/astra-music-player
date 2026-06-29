@@ -877,9 +877,10 @@ class MainWindow(QMainWindow):
         self._fade_content("library_hub")
 
         self._model.populate([])
-        self._table.setModel(self._model)
         if hasattr(self, '_playback_ctrl') and self._playback_ctrl:
-            self._playback_ctrl.connect_table_selection()
+            self._playback_ctrl.attach_track_table(self._table, self._model)
+        else:
+            self._table.setModel(self._model)
 
         def _on_device_scanned(files: list[str]):
             if not hasattr(self, '_model') or self._current_section_key != "devices":

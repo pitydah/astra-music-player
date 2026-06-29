@@ -44,3 +44,45 @@ core/context/
 - Strings largos truncados a 300 caracteres.
 - Listas limitadas a 10 elementos.
 - Assistant snapshot pasa por `sanitize_snapshot()`.
+
+## Tablas de tracks y selección
+Todas las tablas de `TrackRef` (canciones) reconectan la señal `selectionModel().currentChanged`
+mediante `PlaybackController.attach_track_table(table, model)`. Esto garantiza que:
+
+- Al hacer click en una fila se actualiza `selection.scope == "track"` sin reproducir.
+- La conexión no interfiere con otros listeners (`disconnect` dirigido solo a `_on_table_selection`).
+- `setModel` y reconexión ocurren en un solo método.
+
+Ver `core/playback_controller.py:attach_track_table()` y `connect_table_selection()`.
+
+## Search semantics
+- `SEARCH_PERFORMED`: solo con conteo real de resultados.
+- `SEARCH_STARTED`: búsqueda activa sin conteo confiable.
+- `SEARCH_CLEARED`: query vacía.
+- No se inventan conteos falsos.
+
+## Assistant snapshot safety
+- El snapshot final se sanitiza en `ContextService.get_assistant_snapshot()`.
+- No se permiten `filepath`, `uri`, `path` ni rutas absolutas (Linux o Windows).
+- `assistant_capabilities` refleja el tipo de selección:
+  - `track`: puede editar metadatos, analizar, encolar, crear playlist.
+  - `playlist/album/artist/genre/mix/folder/search`: puede encolar y crear playlist.
+  - `folder/search`: puede analizar tracks seleccionados.
+
+## Event semantics
+| Evento | Significado |
+|--------|-------------|
+| `TRACK_SELECTED` | Selección de pista individual |
+| `SELECTION_CHANGED` | Selección no-track (album, artist, genre, playlist, folder, mix, search) |
+| `TRACK_PLAYED` | Reproducción real iniciada |
+| `QUALITY_UPDATED` | Cambio de calidad de audio |
+| `PLAYBACK_STOPPED` | Stop/reset de reproducción |
+| `METADATA_SAVED` | Metadatos guardados |
+| `SCAN_FINISHED` | Escaneo real de biblioteca |
+| `LIBRARY_RELOADED` | Recarga genérica de biblioteca |
+| `IMPORT_FINISHED` | Importación de archivos |
+| `PLAYLIST_CREATED` / `PLAYLIST_DELETED` / `PLAYLIST_PLAYED` / `PLAYLIST_QUEUED` / `PLAYLIST_IMPORTED` / `PLAYLIST_EXPORTED` | Acciones sobre playlists (sin filepaths en payload) |
+| `MIX_OPENED` | Vista de mix, favoritos o recientes |
+| `FOLDER_SELECTED` / `FOLDER_SCANNED` / `FOLDER_QUEUED` | Acciones sobre carpetas (solo basename) |
+| `SEARCH_PERFORMED` / `SEARCH_STARTED` / `SEARCH_CLEARED` | Búsqueda (conteo real solo en PERFORMED) |
+| `ASSISTANT_OPENED` / `ASSISTANT_ACTION_CONFIRMED` | Uso del asistente |

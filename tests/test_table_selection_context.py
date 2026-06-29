@@ -75,6 +75,39 @@ class TestTableSelectionContext:
         ctrl._on_table_selection(DummyIndex(), None)
         ctx_svc.update_selection.assert_not_called()
 
+    def test_attach_track_table_calls_setModel_and_connect(self):
+        win = MagicMock()
+        win._services = None
+        table = MagicMock()
+        sel = MagicMock()
+        table.selectionModel.return_value = sel
+        model = MagicMock()
+
+        from core.playback_controller import PlaybackController
+        ctrl = PlaybackController(win)
+
+        result = ctrl.attach_track_table(table, model)
+        assert result is table
+        table.setModel.assert_called_once_with(model)
+        sel.currentChanged.disconnect.assert_called_once()
+        sel.currentChanged.connect.assert_called_once()
+
+    def test_attach_track_table_calls_connect_with_correct_table(self):
+        win = MagicMock()
+        win._services = None
+        table = MagicMock()
+        sel = MagicMock()
+        table.selectionModel.return_value = sel
+        model = MagicMock()
+
+        from core.playback_controller import PlaybackController
+        ctrl = PlaybackController(win)
+
+        ctrl.attach_track_table(table, model)
+        # Verify the slot is connected to the correct table's selectionModel
+        connect_args = sel.currentChanged.connect.call_args
+        assert connect_args is not None
+
     def test_connect_table_selection_disconnects_before(self):
         win = MagicMock()
         win._services = None
@@ -85,7 +118,7 @@ class TestTableSelectionContext:
         from core.playback_controller import PlaybackController
         ctrl = PlaybackController(win)
 
-        ctrl.connect_table_selection()
+        ctrl.connect_table_selection(win._ctx.table)
         sel.currentChanged.connect.assert_called_once()
         sel.currentChanged.disconnect.assert_called_once()
 
@@ -101,7 +134,7 @@ class TestTableSelectionContext:
         from core.playback_controller import PlaybackController
         ctrl = PlaybackController(win)
 
-        ctrl.connect_table_selection()
+        ctrl.connect_table_selection(win._ctx.table)
         signal_handler = sel.currentChanged.connect.call_args[0][0]
         signal_handler(DummyIndex(), None)
 
