@@ -300,15 +300,32 @@ class AudioLabDiagnosticsPage(_PlaceholderPage):
         )
 
 
-class AudioLabOutputPage(_PlaceholderPage):
+class AudioLabOutputPage(QWidget):
+    navigate_requested = Signal(str)
+
     def __init__(self):
-        super().__init__(
-            "Perfiles de Salida",
-            "Configuración de salida bit-perfect, upsampling, "
-            "corrección de sala\n"
-            "y perfiles DAC. Disponible próximamente.",
-            "home_audio",
-        )
+        super().__init__()
+        self.setObjectName("audioLabOutputPage")
+        self._inner = None
+        self._build_ui()
+
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        try:
+            from ui.audio_lab.dsp_page import DSPPage
+            self._inner = DSPPage()
+            self._inner.navigate_requested.connect(self.navigate_requested.emit)
+            layout.addWidget(self._inner)
+        except Exception as e:
+            import logging
+            logging.getLogger("michi.audio_lab").warning(
+                "DSPPage not available: %s", e
+            )
+            lbl = QLabel("Perfiles de Salida no disponibles.")
+            lbl.setStyleSheet("color: rgba(255,255,255,0.62); font-size: 14px;")
+            lbl.setAlignment(Qt.AlignCenter)
+            layout.addWidget(lbl)
 
 
 class AudioLabIntelligencePage(_PlaceholderPage):
