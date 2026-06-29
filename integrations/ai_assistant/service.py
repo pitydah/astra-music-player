@@ -140,6 +140,14 @@ class AIAssistantService:
         self._last_metadata_review_id = ""
         self._register_tools()
 
+    def _on_favorite_result(self, tool_name: str, data: dict | None):
+        if not self._context_svc or not data:
+            return
+        changed = data.get("changed_count", 0)
+        if changed > 0:
+            self._context_svc.record_favorite_changed(
+                favorite=(tool_name == "mark_favorite"))
+
     def _register_tools(self):
         self._tools.register("search_library", search_library)
         self._tools.register("recommend_local_tracks", recommend_local_tracks)
@@ -149,8 +157,12 @@ class AIAssistantService:
         self._tools.register("create_playlist_from_draft", create_playlist_from_draft)
         self._tools.register("add_tracks_to_queue", add_tracks_to_queue)
         self._tools.register("play_track", play_track)
-        self._tools.register("mark_favorite", mark_favorite)
-        self._tools.register("unmark_favorite", unmark_favorite)
+        self._tools.register("mark_favorite",
+            lambda db, track_ids: mark_favorite(db, track_ids,
+                _on_result=self._on_favorite_result))
+        self._tools.register("unmark_favorite",
+            lambda db, track_ids: unmark_favorite(db, track_ids,
+                _on_result=self._on_favorite_result))
         self._tools.register("open_artist_view", open_artist_view)
         self._tools.register("open_album_view", open_album_view)
         self._tools.register("open_genre_view", open_genre_view)
@@ -203,7 +215,8 @@ class AIAssistantService:
         tool_result = None
         if tool_name:
             tool_result = self._tools.execute(
-                tool_name, db=self._db, limit=self._max_results, **tool_args,
+                tool_name, db=self._db, playback=self._playback,
+                limit=self._max_results, **tool_args,
             )
             if tool_result.success:
                 self._conversation.add(
@@ -218,6 +231,9 @@ class AIAssistantService:
                     rid = tool_result.data.get("review_id", "") if isinstance(tool_result.data, dict) else ""
                     if rid:
                         self._last_metadata_review_id = rid
+                if tool_name == "analyze_selected_tracks" and self._context_svc:
+                    self._context_svc.record_audio_analysis_finished(
+                        tool_result.data)
             elif tool_result.permission_denied and self._allow_reversible:
                 pending = self._create_pending_for(tool_name, tool_args, tool_result, text)
                 return {"reply": pending.description or pending.title, "pending": pending}

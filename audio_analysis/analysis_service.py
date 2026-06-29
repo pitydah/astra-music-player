@@ -7,6 +7,8 @@ import os
 import time
 from typing import Any
 
+from PySide6.QtCore import QObject, Signal
+
 from audio_analysis.acoustic_profile import to_safe_labels
 from audio_analysis.dependency_check import check_dependencies
 from audio_analysis.feature_extractor import extract_features, make_track_key
@@ -22,8 +24,10 @@ from core.settings_manager import get_bool, get_str, get_int
 logger = logging.getLogger("michi.audio_analysis.service")
 
 
-class AnalysisService:
+class AnalysisService(QObject):
+    analysis_batch_finished = Signal(str, object)  # batch_id, summary
     def __init__(self, db: Any, worker_mgr: Any = None):
+        super().__init__()
         self._db = db
         self._worker_mgr = worker_mgr
         self._repo = FeatureRepository()
@@ -35,6 +39,7 @@ class AnalysisService:
         self._sample_duration = get_int("audio_analysis/sample_duration") or 90
         self._paused = False
         self._active_jobs: dict[str, str] = {}
+        self._on_batch_finished = None
 
     @property
     def enabled(self) -> bool:
@@ -199,10 +204,18 @@ class AnalysisService:
         self._repo.update_job(job_id, result.get("status", "completed"))
         self._active_jobs.pop(job_id, None)
         self._process_queue()
+        if not self._active_jobs and not self._repo.get_pending_jobs(1):
+            self.analysis_batch_finished.emit("batch", {"status": "completed"})
+            if self._on_batch_finished:
+                self._on_batch_finished("completed")
 
     def _on_job_error(self, job_id: str, error: str):
         self._repo.update_job(job_id, "error", error)
         self._active_jobs.pop(job_id, None)
+        if not self._active_jobs and not self._repo.get_pending_jobs(1):
+            self.analysis_batch_finished.emit("batch", {"status": "error"})
+            if self._on_batch_finished:
+                self._on_batch_finished("error")
 
     def _resolve_filepath(self, track_id: int) -> str:
         try:

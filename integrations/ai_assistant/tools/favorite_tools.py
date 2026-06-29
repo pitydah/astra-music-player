@@ -20,7 +20,8 @@ def _resolve_filepaths(db: Any, track_ids: list[int]) -> list[str]:
     return filepaths
 
 
-def mark_favorite(db: Any, track_ids: list[int]) -> ToolResult:
+def mark_favorite(db: Any, track_ids: list[int],
+                   _on_result=None) -> ToolResult:
     try:
         if not track_ids:
             return ToolResult(
@@ -41,7 +42,7 @@ def mark_favorite(db: Any, track_ids: list[int]) -> ToolResult:
                     db.toggle_favorite(fp)
                     changed += 1
 
-        return ToolResult(
+        result = ToolResult(
             name="mark_favorite", success=True,
             data={
                 "changed_count": changed,
@@ -49,13 +50,17 @@ def mark_favorite(db: Any, track_ids: list[int]) -> ToolResult:
                 "status": "favorites_updated",
             },
         )
+        if _on_result:
+            _on_result("mark_favorite", result.data if result.success else None)
+        return result
     except Exception as e:
         return ToolResult(
             name="mark_favorite", success=False, error=str(e),
         )
 
 
-def unmark_favorite(db: Any, track_ids: list[int]) -> ToolResult:
+def unmark_favorite(db: Any, track_ids: list[int],
+                     _on_result=None) -> ToolResult:
     try:
         if not track_ids:
             return ToolResult(
@@ -76,7 +81,7 @@ def unmark_favorite(db: Any, track_ids: list[int]) -> ToolResult:
                     db.toggle_favorite(fp)
                     changed += 1
 
-        return ToolResult(
+        result = ToolResult(
             name="unmark_favorite", success=True,
             data={
                 "changed_count": changed,
@@ -84,6 +89,9 @@ def unmark_favorite(db: Any, track_ids: list[int]) -> ToolResult:
                 "status": "favorites_updated",
             },
         )
+        if _on_result:
+            _on_result("unmark_favorite", result.data if result.success else None)
+        return result
     except Exception as e:
         return ToolResult(
             name="unmark_favorite", success=False, error=str(e),
