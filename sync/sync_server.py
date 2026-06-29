@@ -157,6 +157,24 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/ping":
             self._send_json({"status": "ok", "version": "1.0"})
 
+        elif path == "/api/diag":
+            if srv is None:
+                return self._send_error("Server not ready", 503)
+            has_account = bool(srv._local_account and srv._local_account.exists())
+            device_count = len(srv._device_registry.list_all()) if srv._device_registry else 0
+            last_device = ""
+            if srv._device_registry:
+                devices = srv._device_registry.list_all()
+                if devices:
+                    last_device = devices[-1].device_id[:16] + "..."
+            self._send_json({
+                "server_alias": srv._alias,
+                "local_account": has_account,
+                "sync_active": self.server_ref.is_running if self.server_ref else False,
+                "paired_devices": device_count,
+                "last_device_seen": last_device,
+            })
+
         elif path == "/api/discovery/info":
             has_account = bool(srv and srv._local_account and srv._local_account.exists())
             self._send_json({
@@ -424,15 +442,15 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             # Register device if new
             registry = srv._device_registry
             if registry and not registry.get(client_id):
-                    registry.register(
-                        device_id=client_id,
-                        name=req.alias or client_id,
-                        host=client_ip,
-                        port=req.port or 0,
-                        device_type="android",
-                        device_model=req.device_model,
-                        client_version=req.client_version,
-                    )
+                registry.register(
+                    device_id=client_id,
+                    name=req.alias or client_id,
+                    host=client_ip,
+                    port=req.port or 0,
+                    device_type="android",
+                    device_model=req.device_model,
+                    client_version=req.client_version,
+                )
 
             # Generate persistent token
             token_str = secrets.token_hex(32)

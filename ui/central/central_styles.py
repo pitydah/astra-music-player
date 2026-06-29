@@ -9,7 +9,8 @@ from ui.central.central_tokens import (
     BADGE_DISCONNECTED_BG, BADGE_DISCONNECTED_TEXT,
     BADGE_ERROR_BG, BADGE_ERROR_TEXT,
     BADGE_EXPERIMENTAL_BG, BADGE_EXPERIMENTAL_TEXT,
-    SURFACE_CARD, SURFACE_CARD_HOVER, SURFACE_CARD_ELEVATED,
+    SURFACE_CARD, SURFACE_CARD_HOVER, SURFACE_CARD_ELEVATED, SURFACE_CARD_COMPACT,
+    SURFACE_CARD_ELEVATED_STRONG, SURFACE_FLOATING,
     SURFACE_CARD_ACCENT, BORDER_CARD, BORDER_CARD_ACCENT, BORDER_CARD_ELEVATED,
     BORDER_SEPARATOR,
     STATUS_INFO_BG, STATUS_INFO_TEXT,
@@ -280,20 +281,20 @@ def empty_state_qss() -> str:
         }
         QLabel#emptyIcon {
             font-size: 48px;
-            color: rgba(255,255,255,0.24);
+            color: rgba(255,255,255,0.30);
             background: transparent;
             border: none;
         }
         QLabel#emptyTitle {
             font-size: 17px;
             font-weight: 700;
-            color: rgba(255,255,255,0.72);
+            color: rgba(255,255,255,0.82);
             background: transparent;
             border: none;
         }
         QLabel#emptySubtitle {
             font-size: 13px;
-            color: rgba(255,255,255,0.42);
+            color: rgba(255,255,255,0.56);
             background: transparent;
             border: none;
         }
@@ -343,26 +344,29 @@ def secondary_action_button_qss() -> str:
 # ── Reusable premium glass styles ──
 
 def glass_card_qss(name: str, variant: str = "base") -> str:
-    """Premium glass card. variant: base | elevated | accent."""
-    if variant == "elevated":
-        bg = SURFACE_CARD_ELEVATED
-        bd = BORDER_CARD_ELEVATED
-    elif variant == "accent":
-        bg = SURFACE_CARD_ACCENT
-        bd = BORDER_CARD_ACCENT
-    else:
-        bg = SURFACE_CARD
-        bd = BORDER_CARD
+    """Premium glass card. variant: base | compact | elevated | accent | hero | floating | status | danger."""
+    variants = {
+        "base": (SURFACE_CARD, BORDER_CARD, SURFACE_CARD_HOVER, BORDER_CARD_ACCENT),
+        "compact": (SURFACE_CARD_COMPACT, BORDER_CARD, SURFACE_CARD_HOVER, BORDER_CARD_ACCENT),
+        "elevated": (SURFACE_CARD_ELEVATED, BORDER_CARD_ELEVATED, SURFACE_CARD_ELEVATED_STRONG, BORDER_CARD_ACCENT),
+        "accent": (SURFACE_CARD_ACCENT, BORDER_CARD_ACCENT, SURFACE_CARD_HOVER, BORDER_CARD_ACCENT),
+        "hero": (SURFACE_HERO, "rgba(143,183,255,0.08)", SURFACE_HERO, BORDER_FOCUS),
+        "floating": (SURFACE_FLOATING, "rgba(255,255,255,0.06)", SURFACE_FLOATING, BORDER_FOCUS),
+        "status": (STATUS_INFO_BG, "rgba(143,183,255,0.10)", STATUS_INFO_BG, BORDER_FOCUS),
+        "danger": (STATUS_ERROR_BG, "rgba(255,100,100,0.10)", STATUS_ERROR_BG, "rgba(255,100,100,0.18)"),
+    }
+    bg, bd, hover_bg, hover_bd = variants.get(variant, variants["base"])
+    radius = 24 if variant == "hero" else 18 if variant == "floating" else 16
 
     return f"""
         QFrame#{name} {{
             background: {bg};
             border: 1px solid {bd};
-            border-radius: 18px;
+            border-radius: {radius}px;
         }}
         QFrame#{name}:hover {{
-            background: {SURFACE_CARD_HOVER};
-            border: 1px solid {BORDER_CARD_ACCENT};
+            background: {hover_bg};
+            border: 1px solid {hover_bd};
         }}
         QFrame#{name} QLabel {{
             background: transparent;
@@ -615,6 +619,37 @@ def dialog_qss() -> str:
         QDialog QLabel {{
             background: transparent;
             border: none;
+        }}
+    """
+
+
+def glass_combo_qss() -> str:
+    """Premium QComboBox — glass button + glass dropdown."""
+    return f"""
+        QComboBox {{
+            background: {SURFACE_CARD};
+            border: 1px solid {BORDER_CARD};
+            border-radius: 10px;
+            padding: 6px 14px;
+            color: {TEXT_NORMAL};
+            font-size: 12px;
+            min-height: 20px;
+        }}
+        QComboBox:hover {{
+            background: {SURFACE_CARD_HOVER};
+            border: 1px solid {BORDER_CARD_ACCENT};
+        }}
+        QComboBox::drop-down {{
+            border: none;
+            width: 24px;
+        }}
+        QComboBox QAbstractItemView {{
+            background: {SURFACE_POPUP};
+            border: 1px solid {BORDER_SUBTLE};
+            border-radius: 8px;
+            selection-background-color: {ACCENT_SELECTION};
+            color: {TEXT_NORMAL};
+            outline: none;
         }}
     """
 

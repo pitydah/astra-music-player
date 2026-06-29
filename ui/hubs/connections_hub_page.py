@@ -18,8 +18,6 @@ _SERVICE_DEFS = [
     ("navidrome", "Navidrome", "Servidor de música Subsonic moderno.", "add_server"),
     ("jellyfin", "Jellyfin", "Centro multimedia completo.", "add_server"),
     ("subsonic", "Subsonic", "Servidor de música compatible Subsonic.", "add_server"),
-    ("home_assistant", "Home Assistant", "Domótica y multiroom.", "home_audio"),
-    ("snapcast", "Snapcast", "Audio sincronizado multiroom.", "home_audio"),
     ("michi_local", "Michi Local", "Servidor propio en esta máquina.", "add_server"),
     ("custom", "Servidor manual", "Conecta cualquier servidor Subsonic.", "add_server"),
 ]
@@ -73,6 +71,23 @@ class ConnectionsHubPage(QWidget):
             svc_grid.addWidget(
                 self._build_service_card(key, name, desc, nav), i // cols2, i % cols2, Qt.AlignTop)
         cl.addLayout(svc_grid)
+
+        # ── Otros servicios → Home Audio ──
+        other_row = QHBoxLayout()
+        other_row.setSpacing(10)
+        other_label = QLabel("Otros servicios de audio doméstico")
+        other_label.setStyleSheet(
+            "font-size: 11px; color: rgba(255,255,255,0.42); background: transparent; border: none;")
+        other_row.addWidget(other_label)
+        for _key, name in (("home_assistant", "Home Assistant"), ("snapcast", "Snapcast")):
+            chip = QPushButton(name)
+            chip.setCursor(Qt.PointingHandCursor)
+            chip.setStyleSheet(glass_chip_button_qss())
+            chip.clicked.connect(lambda c=None, k="home_audio": self._navigate(k))
+            other_row.addWidget(chip)
+        other_row.addStretch()
+        cl.addLayout(other_row)
+        cl.addSpacing(8)
 
         # ── Mounted devices ──
         devices = self._get_devices()

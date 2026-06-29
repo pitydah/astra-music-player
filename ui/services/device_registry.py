@@ -6,6 +6,7 @@ import contextlib
 import hashlib
 import logging
 import os
+import secrets
 import time
 from dataclasses import dataclass, field
 
@@ -121,7 +122,8 @@ class DeviceRegistry:
         d = self._devices.get(device_id)
         if not d or not d.token_hash or d.revoked_at:
             return False
-        return hashlib.sha256(token.encode()).hexdigest() == d.token_hash
+        calculated = hashlib.sha256(token.encode()).hexdigest()
+        return secrets.compare_digest(calculated, d.token_hash)
 
     def revoke(self, device_id: str):
         d = self._devices.get(device_id)

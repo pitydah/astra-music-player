@@ -101,6 +101,10 @@ class SyncManager(QObject):
     def local_account(self) -> LocalAccountManager:
         return self._local_account
 
+    def sync_auth_state(self):
+        """Synchronize auth_required in discovery with current local account state."""
+        self._discovery._auth_required = self._local_account.exists()
+
     def get_peer_info(self, alias: str) -> dict | None:
         """Return stored announce info for a discovered peer."""
         return self._discovery.get_peer_info(alias)

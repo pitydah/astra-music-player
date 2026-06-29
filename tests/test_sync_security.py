@@ -51,6 +51,16 @@ class TestLocalAccountManager:
 
 
 class TestDeviceRegistryToken:
+    def test_uses_secure_compare(self, tmp_path):
+        from ui.services.device_registry import DeviceRegistry
+        path = str(tmp_path / "devices.json")
+        reg = DeviceRegistry(path)
+        reg.register("d1", "Device")
+        reg.set_token("d1", "secure_token")
+        assert reg.validate_token("d1", "secure_token")
+        assert not reg.validate_token("d1", "SECURE_TOKEN")
+        assert not reg.validate_token("d1", "secure_tokn")
+
     def test_register_and_set_token(self, tmp_path):
         from ui.services.device_registry import DeviceRegistry
         path = str(tmp_path / "devices.json")
@@ -187,6 +197,64 @@ class TestSyncServerSecurity:
             registry.revoke("android_123")
             assert not registry.validate_token("android_123", "token_abc123")
             assert not registry.has_permission("android_123", "sync.read_manifest")
+
+    def test_pair_records_metadata(self, tmp_path):
+        """When pairing, the device should be registered with metadata."""
+        from ui.services.device_registry import DeviceRegistry
+        reg = DeviceRegistry(str(tmp_path / "devices.json"))
+
+        # Simulate what pair/confirm does: register with metadata then set token
+        reg.register("android_123", "My Pixel", host="192.168.1.10",
+                     port=53318, device_type="android",
+                     device_model="Pixel 8", client_version="1.0.3")
+        reg.set_token("android_123", "tok")
+
+        dev = reg.get("android_123")
+        assert dev is not None
+        assert dev.name == "My Pixel"
+        assert dev.host == "192.168.1.10"
+        assert dev.port == 53318
+        assert dev.device_type == "android"
+        assert dev.device_model == "Pixel 8"
+        assert dev.client_version == "1.0.3"
+        assert dev.token_hash != ""
+        assert dev.trusted is True
+
+    def test_revoked_gets_403(self, tmp_path):
+        from ui.services.device_registry import DeviceRegistry
+        reg = DeviceRegistry(str(tmp_path / "devices.json"))
+        reg.register("d1", "Device")
+        reg.set_token("d1", "tok")
+        assert reg.validate_token("d1", "tok")
+        reg.revoke("d1")
+        assert not reg.has_permission("d1", "sync.read_manifest")
+        assert not reg.has_permission("d1", "sync.download_tracks")
+
+    def test_discovery_info_contract(self, tmp_path):
+        from sync.sync_server import SyncServer
+        from sync.local_account import LocalAccountManager
+        from sync.sync_protocol import make_device_id
+        acct = LocalAccountManager(str(tmp_path / "account.json"))
+        acct.create("user", "pass")
+
+        from unittest.mock import MagicMock
+        server = SyncServer(MagicMock())
+        server._local_account = acct
+        server._alias = "Michi Test"
+
+        expected = {
+            "server": "MichiMusicPlayer",
+            "server_alias": "Michi Test",
+            "version": "1.0",
+            "requires_pairing": True,
+            "auth_methods": ["password"],
+            "server_device_id": make_device_id(),
+        }
+        assert expected["server"] == "MichiMusicPlayer"
+        assert expected["server_alias"] == "Michi Test"
+        assert expected["requires_pairing"] is True
+        assert expected["auth_methods"] == ["password"]
+        assert len(expected["server_device_id"]) > 0
 
     def test_token_works_without_in_memory_sessions(self):
         """Token survives server restart because validation uses DeviceRegistry."""

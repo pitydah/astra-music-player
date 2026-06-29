@@ -72,6 +72,7 @@ class HomeAudioView(QWidget):
 
         self._build_tabs()
         self._build_hero()
+        self._build_appartments()
         self._build_grid()
 
         self._layout.addStretch()
@@ -188,77 +189,45 @@ class HomeAudioView(QWidget):
         hero = QFrame()
         hero.setObjectName("hero")
         hero.setStyleSheet(glass_hero_qss("hero"))
-        hero.setMinimumHeight(150)
-        hero.setMaximumHeight(180)
+        hero.setMinimumHeight(140)
+        hero.setMaximumHeight(160)
 
         h_layout = QHBoxLayout(hero)
-        h_layout.setContentsMargins(24, 22, 24, 22)
-        h_layout.setSpacing(20)
+        h_layout.setContentsMargins(28, 20, 28, 20)
+        h_layout.setSpacing(24)
 
-        # Left: text + badges + buttons
         left = QVBoxLayout()
-        left.setSpacing(6)
+        left.setSpacing(8)
 
-        hero_title = QLabel("Centro de audio doméstico")
+        hero_title = QLabel("Home Audio")
         hero_title.setStyleSheet(
-            "font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.94);")
+            "font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.94);")
         left.addWidget(hero_title)
 
         hero_sub = QLabel(
-            "Conecta Home Assistant, Snapcast y tus parlantes para enviar música")
+            "Controla integraciones de audio doméstico, automatización y futuros receptores Michi.")
         hero_sub.setStyleSheet(
-            "font-size: 12px; color: rgba(255,255,255,0.48);")
+            "font-size: 12px; color: rgba(255,255,255,0.52);")
         left.addWidget(hero_sub)
 
-        left.addSpacing(6)
+        left.addSpacing(4)
 
         # Badges
         badges = QHBoxLayout()
         badges.setSpacing(8)
         self._hero_badge_ha = StatusPill("Home Assistant", "Desconectado", "error")
-        self._hero_badge_mr = StatusPill("Multiroom", "Inactivo", "warning")
-        self._hero_badge_snap = StatusPill("Snapserver", "Detenido", "error")
         self._hero_badge_dev = StatusPill("Receptores", "0", "neutral")
         self._hero_badge_tx = StatusPill("Transmitiendo", "Local", "neutral")
         badges.addWidget(self._hero_badge_ha)
-        badges.addWidget(self._hero_badge_mr)
-        badges.addWidget(self._hero_badge_snap)
         badges.addWidget(self._hero_badge_dev)
         badges.addWidget(self._hero_badge_tx)
         badges.addStretch()
         left.addLayout(badges)
 
-        left.addSpacing(4)
-
-        # Buttons
-        btns = QHBoxLayout()
-        btns.setSpacing(8)
-        btn_ha = _make_btn("Conectar Home Assistant", "primary")
-        btn_ha.clicked.connect(self.connect_requested.emit)
-        btn_mr = _make_btn("Activar Multiroom", "secondary")
-        self._hero_btn_mr = btn_mr
-        btn_mr.clicked.connect(
-            lambda: self.enable_multiroom_requested.emit(not self._multiroom_active))
-        btn_rf = _make_btn("Actualizar", "ghost")
-        btn_rf.clicked.connect(self.refresh_requested.emit)
-        btn_pref = _make_btn("Preferencias", "ghost")
-        btn_pref.clicked.connect(self.open_settings_requested.emit)
-
-        btns.addWidget(btn_ha)
-        btns.addWidget(btn_mr)
-        btns.addWidget(btn_rf)
-        btns.addWidget(btn_pref)
-        btns.addStretch()
-        left.addLayout(btns)
-
-        h_layout.addLayout(left)
-
-        # Right: abstract visual
-        visual = _HeroVisual()
-        h_layout.addWidget(visual)
+        h_layout.addLayout(left, 1)
 
         self._layout.addWidget(hero)
-        self._layout.addSpacing(4)
+        self._layout.addSpacing(8)
 
     def _refresh_badges(self):
         ha_state = "Conectado" if self._ha_connected else "Desconectado"
@@ -282,6 +251,94 @@ class HomeAudioView(QWidget):
         if hasattr(self, '_hero_btn_mr'):
             self._hero_btn_mr.setText(
                 "Detener" if self._multiroom_active else "Activar Multiroom")
+
+    # ── Two-apartment section: Home Assistant + Michi Music Stream ──
+
+    def _build_appartments(self):
+        row = QHBoxLayout()
+        row.setSpacing(14)
+
+        # Home Assistant card
+        ha_card = QFrame()
+        ha_card.setObjectName("haApartment")
+        ha_card.setStyleSheet(glass_card_qss("haApartment", "elevated"))
+        ha_card.setMinimumHeight(180)
+        ha_cl = QVBoxLayout(ha_card)
+        ha_cl.setContentsMargins(20, 16, 20, 16)
+        ha_cl.setSpacing(8)
+
+        ha_title = QLabel("Home Assistant")
+        ha_title.setStyleSheet(
+            "font-size: 17px; font-weight: 700; color: rgba(255,255,255,0.92);")
+        ha_cl.addWidget(ha_title)
+
+        ha_desc = QLabel(
+            "Controla zonas, reproductores y automatizaciones de audio "
+            "a través de tu instancia de Home Assistant.")
+        ha_desc.setWordWrap(True)
+        ha_desc.setStyleSheet(
+            "font-size: 12px; color: rgba(255,255,255,0.54); background: transparent; border: none;")
+        ha_cl.addWidget(ha_desc)
+        ha_cl.addStretch()
+
+        ha_btn_row = QHBoxLayout()
+        ha_btn_row.setSpacing(8)
+        self._btn_ha_connect = _make_btn("Conectar", "primary")
+        self._btn_ha_connect.clicked.connect(self.connect_requested.emit)
+        ha_btn_row.addWidget(self._btn_ha_connect)
+        self._btn_ha_diag = _make_btn("Diagnóstico", "ghost")
+        self._btn_ha_diag.clicked.connect(self.diagnostics_requested.emit)
+        ha_btn_row.addWidget(self._btn_ha_diag)
+        ha_btn_row.addStretch()
+        ha_cl.addLayout(ha_btn_row)
+
+        row.addWidget(ha_card, 1)
+
+        # Michi Music Stream card
+        ms_card = QFrame()
+        ms_card.setObjectName("msApartment")
+        ms_card.setStyleSheet(glass_card_qss("msApartment", "accent"))
+        ms_card.setMinimumHeight(180)
+        ms_cl = QVBoxLayout(ms_card)
+        ms_cl.setContentsMargins(20, 16, 20, 16)
+        ms_cl.setSpacing(8)
+
+        ms_header = QHBoxLayout()
+        ms_title = QLabel("Michi Music Stream")
+        ms_title.setStyleSheet(
+            "font-size: 17px; font-weight: 700; color: rgba(255,255,255,0.92);")
+        ms_header.addWidget(ms_title)
+        ms_badge = QLabel("Próximamente")
+        ms_badge.setStyleSheet(
+            "font-size: 10px; font-weight: 600; color: rgba(180,150,255,0.70);"
+            "background: rgba(180,150,255,0.08);"
+            "border: 1px solid rgba(180,150,255,0.08);"
+            "border-radius: 8px; padding: 2px 10px;")
+        ms_header.addWidget(ms_badge)
+        ms_header.addStretch()
+        ms_cl.addLayout(ms_header)
+
+        ms_desc = QLabel(
+            "Sistema propio de transmisión musical para enviar audio "
+            "a receptores, equipos de música y dispositivos compatibles "
+            "dentro de la red local.")
+        ms_desc.setWordWrap(True)
+        ms_desc.setStyleSheet(
+            "font-size: 12px; color: rgba(255,255,255,0.50); background: transparent; border: none;")
+        ms_cl.addWidget(ms_desc)
+        ms_cl.addStretch()
+
+        ms_btn_row = QHBoxLayout()
+        ms_btn_row.setSpacing(8)
+        ms_btn_concept = _make_btn("Ver concepto", "ghost")
+        ms_btn_row.addWidget(ms_btn_concept)
+        ms_btn_row.addStretch()
+        ms_cl.addLayout(ms_btn_row)
+
+        row.addWidget(ms_card, 1)
+
+        self._layout.addLayout(row)
+        self._layout.addSpacing(6)
 
     # ── Grid layout ──
 
