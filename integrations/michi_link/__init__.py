@@ -17,10 +17,16 @@ from integrations.michi_link.models import (
     ServerInfo, PlaybackStateDto, QueueDto, TrackDto,
 )
 from integrations.michi_link.permissions import V1_PERMISSIONS
+from integrations.michi_link.micro_server_client import MicroServerClient
+from integrations.michi_link.import_client import ImportClient
+from integrations.michi_link.remote_library_provider import RemoteLibraryProvider
 
 __all__ = [
     "MichiLinkServer",
     "MichiLinkClient",
+    "MicroServerClient",
+    "ImportClient",
+    "RemoteLibraryProvider",
     "ServerInfo",
     "PlaybackStateDto",
     "QueueDto",

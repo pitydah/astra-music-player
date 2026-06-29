@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from unittest.mock import MagicMock
 
 
@@ -196,8 +198,6 @@ class TestStreamAlias:
 
     def test_stream_200_without_range(self):
         from integrations.michi_link.server import V1_MIXIN
-        import os
-        import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             f.write(b"x" * 1024)
@@ -226,8 +226,6 @@ class TestStreamAlias:
 
     def test_stream_206_with_range(self):
         from integrations.michi_link.server import V1_MIXIN
-        import os
-        import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
             f.write(b"x" * 65536)
@@ -712,6 +710,45 @@ class TestServerIntegration:
         SyncServer(db)
         MichiLinkServer.mount(SyncRequestHandler)
         assert hasattr(SyncRequestHandler, "_v1_mixin")
+
+
+class TestPlaybackStateEndpoint:
+    def test_state_returns_queue_id(self):
+        from integrations.michi_link.models import PlaybackStateDto
+        dto = PlaybackStateDto(
+            state="playing",
+            position_ms=5000.0,
+            duration_ms=200000.0,
+            volume=80,
+            queue_id="q_abc",
+        )
+        d = dto.to_dict()
+        assert d["queue_id"] == "q_abc"
+        assert d["state"] == "playing"
+
+    def test_state_with_null_current_track(self):
+        from integrations.michi_link.models import PlaybackStateDto
+        dto = PlaybackStateDto(state="stopped")
+        d = dto.to_dict()
+        assert d["current_track"] is None
+        assert d["position_ms"] == 0.0
+
+
+class TestMicroServerStubs:
+    def test_micro_server_client_imports(self):
+        from integrations.michi_link.micro_server_client import MicroServerClient
+        client = MicroServerClient()
+        assert client is not None
+
+    def test_import_client_imports(self):
+        from integrations.michi_link.import_client import ImportClient
+        client = ImportClient()
+        assert client is not None
+
+    def test_remote_library_provider_imports(self):
+        from integrations.michi_link.remote_library_provider import RemoteLibraryProvider
+        provider = RemoteLibraryProvider()
+        assert provider is not None
 
 
 class TestLegacyCompat:
