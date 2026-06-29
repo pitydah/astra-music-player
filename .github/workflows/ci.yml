@@ -61,6 +61,7 @@ jobs:
           source .venv/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install -e ".[dev]"
+          python3 -m pip install pytest-timeout
 
       - name: Verify PyGObject / GStreamer
         run: |
@@ -129,7 +130,7 @@ jobs:
           "
 
       - name: Tests (pytest)
-        timeout-minutes: 5
+        timeout-minutes: 3
         env:
           QT_QPA_PLATFORM: offscreen
           PYTHONUNBUFFERED: 1
