@@ -1153,7 +1153,7 @@ class MetadataEditorWidget(QWidget):
         self._doctor_panel.set_loading(True)
         try:
             from ui.audio_lab.services.library_doctor import LibraryDoctor
-            from library.library_db import LibraryDB, DB_PATH
+            from library.library_db import LibraryDB
             db = self._get_db() or LibraryDB()
             doctor = LibraryDoctor(db)
             scan = doctor.scan_all()

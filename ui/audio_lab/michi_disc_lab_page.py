@@ -161,7 +161,7 @@ class MichiDiscLabPage(QWidget):
         self._profile_data: list[str] = []
         for p in RIP_PROFILES:
             if p.available:
-                idx = self._profile_combo.addItem(p.name)
+                self._profile_combo.addItem(p.name)
                 self._profile_data.append(p.format)
             else:
                 self._profile_combo.addItem(f"{p.name} (próximamente)")
