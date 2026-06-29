@@ -375,11 +375,18 @@ class PlaylistController:
         fps = [i.filepath for i in items]
         self._ctx.playback.enqueue(fps, play_now=False)
         self._toast("Playlist anadida a la cola", "success")
+
+        pl = self.get_playlist_by_id(pid)
+        name = pl.get("name", "") if pl else ""
+        self._select_playlist(pid, name)
         ctx = self._context()
         if ctx:
             from core.context.context_events import AppEvent
-            ctx.record_event(AppEvent.PLAYLIST_QUEUED,
-                {"playlist_id": pid, "count": len(fps)})
+            ctx.record_event(AppEvent.PLAYLIST_QUEUED, {
+                "playlist_id": pid,
+                "name": name,
+                "count": len(fps),
+            })
 
     # ── CRUD helpers ──
 
@@ -427,20 +434,18 @@ class PlaylistController:
                 {"playlist_id": pid, "name": name, "count": 1})
 
     def create_playlist_from_tracks(self, tracks: list, name: str) -> int:
-        """Create a playlist from a list of MediaItem-like objects or filepaths.
-
-        Returns the new playlist id, or 0 on failure.
-        """
         if not tracks or not name:
             return 0
         pid = self._ctx.db.create_playlist(name.strip())
+        valid_count = 0
         for t in tracks:
             fp = t.filepath if hasattr(t, 'filepath') else str(t)
             if os.path.isfile(fp):
                 self._ctx.db.add_to_playlist(pid, fp)
+                valid_count += 1
         self._ctx.rebuild_sidebar()
-        self._toast(f"Playlist creada: {name[:48]} ({len(tracks)} temas)", "success")
-        self._record_playlist_created(pid, name.strip(), len(tracks))
+        self._toast(f"Playlist creada: {name[:48]} ({valid_count} temas)", "success")
+        self._record_playlist_created(pid, name.strip(), valid_count)
         return pid
 
     def metadata_saved(self, filepaths: list):

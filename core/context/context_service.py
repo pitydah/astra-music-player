@@ -16,6 +16,7 @@ from core.context.context_snapshot import (
     build_library_health_snapshot,
     build_mix_snapshot,
     build_playback_snapshot,
+    sanitize_snapshot,
 )
 
 logger = logging.getLogger("michi.context_service")
@@ -251,7 +252,7 @@ class ContextService:
                     "mix", "search",
                 },
             }
-            return snap
+            return sanitize_snapshot(snap)
         return self._rebuild_if_dirty("assistant_snapshot", _build)
 
     def get_mix_snapshot(self) -> dict:

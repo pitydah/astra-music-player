@@ -1140,22 +1140,44 @@ class MainWindow(QMainWindow):
 
     def _on_folder_selected(self, fps: list[str]):
         ctx = self._context_svc
+        folder_name = "Carpeta seleccionada"
+        try:
+            if fps:
+                common = os.path.commonpath(fps)
+                folder_name = os.path.basename(common.rstrip("/")) or folder_name
+        except Exception:
+            pass
         if ctx:
             from core.context.context_events import AppEvent
             ctx.update_selection(
-                scope="folder", folder_name="Carpeta seleccionada",
+                scope="folder", folder_name=folder_name,
                 album="", artist="", genre="",
                 playlist_id=None, playlist_name="",
                 mix_key="", search_query="",
             )
-            ctx.record_event(AppEvent.FOLDER_SELECTED, {"count": len(fps)})
+            ctx.record_event(AppEvent.FOLDER_SELECTED, {
+                "folder_name": folder_name, "count": len(fps)})
         self._play_filepaths(fps, play_now=True)
 
     def _on_folder_queued(self, fps: list[str]):
         ctx = self._context_svc
+        folder_name = "Carpeta seleccionada"
+        try:
+            if fps:
+                common = os.path.commonpath(fps)
+                folder_name = os.path.basename(common.rstrip("/")) or folder_name
+        except Exception:
+            pass
         if ctx:
             from core.context.context_events import AppEvent
-            ctx.record_event(AppEvent.FOLDER_QUEUED, {"count": len(fps)})
+            ctx.update_selection(
+                scope="folder", folder_name=folder_name,
+                album="", artist="", genre="",
+                playlist_id=None, playlist_name="",
+                mix_key="", search_query="",
+            )
+            ctx.record_event(AppEvent.FOLDER_QUEUED, {
+                "folder_name": folder_name, "count": len(fps)})
         self._play_filepaths(fps, play_now=False)
 
     def _on_folder_scan_requested(self, path: str):

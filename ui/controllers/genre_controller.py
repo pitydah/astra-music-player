@@ -14,6 +14,14 @@ class GenreController:
         self._metadata_editor = metadata_editor
 
     @property
+    def _context_svc(self):
+        return (
+            getattr(self._svc, "context_svc", None)
+            or getattr(self._ctx, "context_svc", None)
+            or getattr(self._win, "_context_svc", None)
+        )
+
+    @property
     def _genre_repo(self):
         return self._repo or self._ctx.genre_repo
 
@@ -62,9 +70,19 @@ class GenreController:
         self._ctx.set_genre_stack(1)
         self._ctx.fade_to("library_hub")
 
-        ctx = getattr(self._win, '_context_svc', None)
+        ctx = self._context_svc
         if ctx:
-            ctx.update_selection(genre=g.name)
+            ctx.update_selection(
+                scope="genre",
+                genre=g.name,
+                album="",
+                artist="",
+                playlist_id=None,
+                playlist_name="",
+                folder_name="",
+                mix_key="",
+                search_query="",
+            )
 
     def back_to_overview(self):
         self._genre_repo.current_key = None

@@ -9,6 +9,14 @@ class ArtistController:
         self._ctx = window._ctx
         self._svc = services
 
+    @property
+    def _context_svc(self):
+        return (
+            getattr(self._svc, "context_svc", None)
+            or getattr(self._ctx, "context_svc", None)
+            or getattr(self._win, "_context_svc", None)
+        )
+
     def show_artists_view(self, mode: str):
         self._ctx.artist_grid.set_view_mode(mode)
         self._ctx.show_library_hub()
@@ -36,9 +44,19 @@ class ArtistController:
         self._ctx.set_artist_stack(1)
         self._ctx.fade_to("library_hub")
 
-        ctx = getattr(self._win, '_context_svc', None)
+        ctx = self._context_svc
         if ctx:
-            ctx.update_selection(artist=group.display_name)
+            ctx.update_selection(
+                scope="artist",
+                artist=group.display_name,
+                album="",
+                genre="",
+                playlist_id=None,
+                playlist_name="",
+                folder_name="",
+                mix_key="",
+                search_query="",
+            )
 
     def show_artists_overview(self):
         self._ctx.artist_repo.clear_current()

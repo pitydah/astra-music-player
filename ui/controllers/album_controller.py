@@ -12,6 +12,14 @@ class AlbumController:
         self._svc = services
         self._refresh_grid = refresh_grid or (lambda: None)
 
+    @property
+    def _context_svc(self):
+        return (
+            getattr(self._svc, "context_svc", None)
+            or getattr(self._ctx, "context_svc", None)
+            or getattr(self._win, "_context_svc", None)
+        )
+
     def _toast(self, text: str, level: str = "info"):
         self._ctx.toast.show(text, level)
 
@@ -105,7 +113,17 @@ class AlbumController:
             tracks=tracks, total_duration=dur_str, format_info=fmt)
         w._albums_stack.setCurrentIndex(1)
 
-        ctx = getattr(w, '_context_svc', None)
+        ctx = self._context_svc
         if ctx:
-            ctx.update_selection(album=album, artist=artist)
+            ctx.update_selection(
+                scope="album",
+                album=album,
+                artist=artist,
+                genre="",
+                playlist_id=None,
+                playlist_name="",
+                folder_name="",
+                mix_key="",
+                search_query="",
+            )
         w._count.setText(album)

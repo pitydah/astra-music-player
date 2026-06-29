@@ -79,12 +79,13 @@ def build_library_health_snapshot(db) -> dict:
 def _count_tracks_without_audio_features(conn) -> int:
     try:
         rows = conn.execute(
-            "SELECT COALESCE(NULLIF(track_uid,''), filepath) "
-            "FROM media_items WHERE deleted_at IS NULL AND kind='audio'"
+            "SELECT filepath FROM media_items WHERE deleted_at IS NULL AND kind='audio'"
         ).fetchall()
-        track_keys = [r[0] for r in rows if r and r[0]]
-        if not track_keys:
+        filepaths = [r[0] for r in rows if r and r[0]]
+        if not filepaths:
             return 0
+        from audio_analysis.feature_extractor import make_track_key
+        track_keys = [make_track_key(fp) for fp in filepaths]
         from audio_analysis.feature_repository import FeatureRepository
         repo = FeatureRepository()
         try:

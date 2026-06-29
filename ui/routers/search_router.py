@@ -26,6 +26,14 @@ class SearchRouter:
     def _section_key(w) -> str:
         return getattr(w, '_current_route_key', None) or w._current_section_key
 
+    def _record_search_performed(self, section: str, result_count: int):
+        ctx = self._context()
+        if ctx:
+            ctx.record_event(AppEvent.SEARCH_PERFORMED, {
+                "section": section,
+                "result_count": result_count,
+            })
+
     def on_search(self, text: str):
         w = self._win
         w._search_text = text.strip()
@@ -76,6 +84,7 @@ class SearchRouter:
                 ]
             w._artist_grid.set_artists(filtered)
             w._count.setText(f"{len(filtered)} artistas")
+            self._record_search_performed(sec, len(filtered))
             return
         if sec == "radio":
             w._radio_widget.set_filter(w._search_text)
