@@ -14,7 +14,7 @@ from ui.icons import app_icon
 from audio.player import PlayerEngine
 from library.library_db import (
     LibraryDB, DB_PATH, MediaItem,
-    AUDIO_EXTS, ALL_EXTS,
+    AUDIO_EXTS,
 )
 from ui.folder_browser import FolderBrowserWidget
 from ui.search_controller import SearchController
@@ -81,6 +81,7 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         self._wire_home_audio_signals()
         self._wire_identifier_signals()
+        self._wire_enrichment_signals()
         self._connect_signals()
         _log.info("Phase signals: %.0f ms", (perf_counter() - _t0) * 1000)
         self._load_initial_data()
@@ -303,6 +304,9 @@ class MainWindow(QMainWindow):
         from ui.routers.view_mode_router import ViewModeRouter
         self._view_router = ViewModeRouter(self)
 
+        from ui.controllers.hub_route_controller import HubRouteController
+        self._hub_route_ctrl = HubRouteController(self)
+
         # FileWatcher + LibraryWatcherController (needs _lib_ctrl, created above)
         from library.file_watcher import FileWatcher
         from ui.controllers.library_watcher_controller import LibraryWatcherController
@@ -392,13 +396,6 @@ class MainWindow(QMainWindow):
             enabled=sm.get_bool("artist_enrichment/enabled") and not self._safe_mode)
         self._artist_enrich = self._safe_init("enrichment",
             lambda: self._make_artist_enrichment())
-        if self._artist_enrich:
-            self._artist_enrich.artist_enriched.connect(
-                self._artist_ctrl.on_artist_enriched)
-            self._artist_enrich.artist_image_loaded.connect(
-                self._artist_ctrl.on_artist_image_loaded)
-            self._artist_enrich.enrichment_failed.connect(
-                self._artist_ctrl.on_artist_enrichment_failed)
 
         # Album info repository
         from metadata.album_info_repository import AlbumInfoRepository
@@ -589,101 +586,38 @@ class MainWindow(QMainWindow):
     def _wire_identifier_signals(self):
         if getattr(self, '_id_handlers', None):
             self._id_handlers.wire_signals()
+
+    def _wire_enrichment_signals(self):
+        if not getattr(self, '_artist_enrich', None) or not getattr(self, '_artist_ctrl', None):
+            return
+        self._artist_enrich.artist_enriched.connect(
+            self._artist_ctrl.on_artist_enriched)
+        self._artist_enrich.artist_image_loaded.connect(
+            self._artist_ctrl.on_artist_image_loaded)
+        self._artist_enrich.enrichment_failed.connect(
+            self._artist_ctrl.on_enrichment_failed)
+
     def _setup_actions(self):
-        from PySide6.QtGui import QAction
+        from ui.controllers.action_controller import ActionController
+        self._action_ctrl = ActionController(self)
+        self._action_ctrl.setup()
 
-        self._open_file_action = QAction("Abrir archivo...", self)
-        self._open_file_action.setShortcut("Ctrl+O")
-        self._open_file_action.triggered.connect(
-            lambda: self._file_actions.open_files(ALL_EXTS))
-        self.addAction(self._open_file_action)
-
-        self._add_folder_action = QAction("Añadir carpeta...", self)
-        self._add_folder_action.setShortcut("Ctrl+D")
-        self._add_folder_action.triggered.connect(
-            lambda: self._library_import.add_folder(self))
-        self.addAction(self._add_folder_action)
-
-        self._import_playlist_action = QAction("Importar playlist...", self)
-        self._import_playlist_action.triggered.connect(
-            lambda: self._playlist_ctrl.import_playlist(
-                self, self._db, self._playback, self._player_bar_ctrl, self._load_library))
-        self.addAction(self._import_playlist_action)
-
-        self._export_playlist_action = QAction("Exportar playlist...", self)
-        self._export_playlist_action.triggered.connect(
-            lambda: self._playlist_ctrl.export_queue(self, self._playback))
-        self.addAction(self._export_playlist_action)
-
-        self._sync_action = QAction("Activar sincronización Android", self)
-        self._sync_action.setCheckable(True)
-        self._sync_action.triggered.connect(self._toggle_sync)
-        self.addAction(self._sync_action)
-
-        self._preferences_action = QAction("Preferencias...", self)
-        self._preferences_action.setShortcut("Ctrl+P")
-        self._preferences_action.triggered.connect(self._show_preferences)
-        self.addAction(self._preferences_action)
-
-        back_action = QAction(self)
-        back_action.setShortcut("Alt+Left")
-        back_action.triggered.connect(lambda: self._nav_ctrl.navigate_back())
-        self.addAction(back_action)
-
-        forward_action = QAction(self)
-        forward_action.setShortcut("Alt+Right")
-        forward_action.triggered.connect(lambda: self._nav_ctrl.navigate_forward())
-        self.addAction(forward_action)
-
-        self._add_transmit_device_action = QAction("Añadir dispositivo...", self)
-        self._add_transmit_device_action.triggered.connect(
-            lambda: self._transmit_ctrl.add_device())
-        self.addAction(self._add_transmit_device_action)
-
-        self._manage_transmit_devices_action = QAction("Administrar dispositivos...", self)
-        self._manage_transmit_devices_action.triggered.connect(
-            lambda: self._transmit_ctrl.manage_devices())
-        self.addAction(self._manage_transmit_devices_action)
-
-        self._shortcuts_action = QAction("Atajos de teclado", self)
-        self._shortcuts_action.triggered.connect(self._show_shortcuts)
-        self.addAction(self._shortcuts_action)
-
-        self._about_action = QAction("Acerca de", self)
-        self._about_action.triggered.connect(self._show_about)
-        self.addAction(self._about_action)
-
-        self._duplicates_action = QAction("Buscar duplicados...", self)
-        self._duplicates_action.triggered.connect(
-            lambda: (lambda d: d.exec())(
-                __import__("ui.dialogs.duplicate_dialog",
-                           fromlist=["DuplicateDialog"]).DuplicateDialog(self._db, self)))
-        self.addAction(self._duplicates_action)
-
-        self._quit_action = QAction("Salir", self)
-        self._quit_action.setShortcut("Ctrl+Q")
-        self._quit_action.triggered.connect(self.close)
-        self.addAction(self._quit_action)
-
-        self.menuBar().hide()
-
-    def _lazy_hub(self, name: str, factory):
-        """Lazy-init a hub page. Calls factory() if not yet registered."""
-        if not self._views.widget(name):
-            self._views.register(name, factory())
+    # _lazy_hub removed — migrated to HubRouteController
 
     def _ensure_sync_manager(self):
         """Lazy-create SyncManager with all signal wiring."""
         if hasattr(self, '_sync_mgr'):
             return self._sync_mgr
         from sync.sync_manager import SyncManager
+        sync_action = getattr(getattr(self, '_action_ctrl', None), '_sync_action', None)
         self._sync_mgr = SyncManager(self._db, self)
-        self._sync_mgr.sync_started.connect(
-            lambda p: self._sync_action.setText(
-                f"✓ Sincronización activa (puerto {p})"))
-        self._sync_mgr.sync_stopped.connect(
-            lambda: self._sync_action.setText(
-                "Activar sincronización Android"))
+        if sync_action:
+            self._sync_mgr.sync_started.connect(
+                lambda p: sync_action.setText(
+                    f"✓ Sincronización activa (puerto {p})"))
+            self._sync_mgr.sync_stopped.connect(
+                lambda: sync_action.setText(
+                    "Activar sincronización Android"))
         self._sync_mgr.error_occurred.connect(
             lambda m: (self._toast_svc.show(f"Sync error: {m}", "error")
                        if self._toast_svc else None))
@@ -1000,42 +934,13 @@ class MainWindow(QMainWindow):
             self._assistant_panel.add_message_r(str(response))
 
     def _show_metadata_review(self, key=None):
-        if self._metadata_review_panel is None:
-            from ui.metadata_review_panel import MetadataReviewPanel
-            from ui.controllers.metadata_review_controller import MetadataReviewController
-            self._metadata_review_panel = MetadataReviewPanel()
-            self._metadata_review_ctrl = MetadataReviewController(
-                db=self._db, parent=self,
-            )
-            self._metadata_review_panel.review_apply_requested.connect(
-                lambda rid, af: self._metadata_review_ctrl.apply_review(rid, af),
-            )
-            self._metadata_review_panel.review_reject_requested.connect(
-                self._metadata_review_ctrl.reject_review,
-            )
-            self._metadata_review_ctrl.apply_result.connect(
-                lambda r: self._toast_svc.show(
-                    f"Metadata: {r.get('applied',0)} cambios aplicados, "
-                    f"{r.get('skipped',0)} omitidos", "info",
-                ) if self._toast_svc else None,
-            )
-        self._lazy_hub("metadata_review", lambda: self._metadata_review_panel)
-        self._fade_content("metadata_review")
+        self._hub_route_ctrl.show_metadata_review(key)
 
     def _show_audio_lab(self, key=None):
-        if self._audio_lab_page is None:
-            from ui.audio_lab.audio_lab_page import AudioLabPage
-            self._audio_lab_page = AudioLabPage()
-            self._audio_lab_page.navigate_requested.connect(self._on_sidebar_navigate)
-        self._lazy_hub("audio_lab", lambda: self._audio_lab_page)
-        self._fade_content("audio_lab")
+        self._hub_route_ctrl.show_audio_lab(key)
 
     def _show_michi_disc_lab(self, key=None):
-        if self._michi_disc_lab_page is None:
-            from ui.audio_lab.michi_disc_lab_page import MichiDiscLabPage
-            self._michi_disc_lab_page = MichiDiscLabPage()
-        self._lazy_hub("michi_disc_lab", lambda: self._michi_disc_lab_page)
-        self._fade_content("michi_disc_lab")
+        self._hub_route_ctrl.show_michi_disc_lab(key)
 
     def _show_home_page(self, key=None):
         self._home_ctrl.show()
@@ -1052,7 +957,8 @@ class MainWindow(QMainWindow):
                 folders_widget=self._folder_browser)
             self._library_hub_page.tab_changed.connect(
                 self._on_library_tab_changed)
-        self._lazy_hub("library_hub", lambda: self._library_hub_page)
+        if not self._views.widget("library_hub"):
+            self._views.register("library_hub", self._library_hub_page)
         self._fade_content("library_hub")
 
     def _on_library_tab_changed(self, section_key: str, force: bool = False):
@@ -1079,50 +985,25 @@ class MainWindow(QMainWindow):
             self._apply_filters()
 
     def _show_mix_hub_page(self, key=None):
-        if self._mix_hub_page is None:
-            from ui.hubs.mix_hub_page import MixHubPage
-            self._mix_hub_page = MixHubPage(preview=self._smart_preview)
-        self._lazy_hub("mix_hub", lambda: self._mix_hub_page)
-        self._mix_hub_page.refresh()
-        self._fade_content("mix_hub")
+        self._hub_route_ctrl.show_mix_hub(key)
 
     def _show_playback_hub_page(self, key=None):
-        if self._playback_hub_page is None:
-            from ui.hubs.playback_hub_page import PlaybackHubPage
-            self._playback_hub_page = PlaybackHubPage(db=self._db, playback=self._playback)
-        self._lazy_hub("playback_hub", lambda: self._playback_hub_page)
-        self._fade_content("playback_hub")
+        self._hub_route_ctrl.show_playback_hub(key)
 
     def _show_connections_hub_page(self, key=None):
-        if self._connections_hub_page is None:
-            from ui.hubs.connections_hub_page import ConnectionsHubPage
-            self._connections_hub_page = ConnectionsHubPage()
-        self._lazy_hub("connections_hub", lambda: self._connections_hub_page)
-        self._fade_content("connections_hub")
+        self._hub_route_ctrl.show_connections_hub(key)
 
     def _show_settings_hub_page(self, key=None):
-        if self._settings_hub_page is None:
-            from ui.hubs.settings_hub_page import SettingsHubPage
-            self._settings_hub_page = SettingsHubPage()
-        self._lazy_hub("settings_hub", lambda: self._settings_hub_page)
-        self._fade_content("settings_hub")
+        self._hub_route_ctrl.show_settings_hub(key)
 
     def _show_devices_page(self, key=None):
-        self._lazy_hub("devices_page", self._init_devices_page)
-        self._fade_content("devices_page")
-
-    def _init_devices_page(self):
-        from ui.devices_page import DevicesPage
-        sync_mgr = self._ensure_sync_manager()
-        self._devices_page = DevicesPage(db=self._db, sync_manager=sync_mgr)
-        return self._devices_page
+        self._hub_route_ctrl.show_devices_page(key)
 
     def _show_new_playlist(self, key):
         self._sidebar_menu_ctrl.create_playlist()
 
     # ── Michi API Bridge handlers ──
 
-    @staticmethod
     @staticmethod
     def state_to_str(state) -> str:
         if state is None:
