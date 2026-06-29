@@ -282,6 +282,11 @@ class PlaybackController:
 
     # ── Table selection context ═══
 
+    def _ensure_table_model_registry(self):
+        if not hasattr(self, "_track_table_models"):
+            self._track_table_models = {}
+        return self._track_table_models
+
     def attach_track_table(self, table=None, model=None):
         """Attach a track table/model and connect selection context safely.
 
@@ -290,8 +295,15 @@ class PlaybackController:
         table = table or self._win._ctx.table
         if table is None:
             return None
+
         if model is not None:
             table.setModel(model)
+            self._ensure_table_model_registry()[id(table)] = model
+        else:
+            current_model = table.model() if hasattr(table, "model") else None
+            if current_model is not None:
+                self._ensure_table_model_registry()[id(table)] = current_model
+
         self.connect_table_selection(table=table)
         return table
 
@@ -304,10 +316,10 @@ class PlaybackController:
         table = table or self._win._ctx.table
         if not table:
             return
+        self._active_context_table = table
         sel = table.selectionModel()
         if not sel:
             return
-        # Disconnect only our slot; never clear unrelated currentChanged listeners.
         with contextlib.suppress(TypeError, RuntimeError):
             sel.currentChanged.disconnect(self._on_table_selection)
         sel.currentChanged.connect(self._on_table_selection)
@@ -315,9 +327,32 @@ class PlaybackController:
     def _on_table_selection(self, current, previous):
         if not current or not current.isValid():
             return
-        model = self._win._ctx.model
-        if not model:
+
+        model = None
+        if current is not None and hasattr(current, "model"):
+            try:
+                model = current.model()
+            except Exception:
+                model = None
+
+        if model is None:
+            table = getattr(self, "_active_context_table", None)
+            if table is not None:
+                model = self._ensure_table_model_registry().get(id(table))
+
+        if model is None:
+            model = getattr(self._win._ctx, "model", None)
+
+        if model is None:
             return
+
+        if not hasattr(model, "get_trackref"):
+            source_model = getattr(model, "sourceModel", lambda: None)()
+            if source_model is not None and hasattr(source_model, "get_trackref"):
+                model = source_model
+            else:
+                return
+
         track = model.get_trackref(current.row())
         if not track:
             return

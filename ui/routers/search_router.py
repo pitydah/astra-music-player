@@ -116,7 +116,11 @@ class SearchRouter:
             if w._library_hub_page:
                 w._library_hub_page.set_current_section("library")
             w._songs_stack.setCurrentIndex(0)
-            w._table.setModel(w._model)
+            pc = getattr(w, '_playback_ctrl', None)
+            if pc:
+                pc.attach_track_table(w._table, w._model)
+            else:
+                w._table.setModel(w._model)
             w._table.setColumnWidth(0, 72)
             w._table.setColumnWidth(1, 260)
             w._table.setColumnWidth(2, 170)
@@ -125,9 +129,6 @@ class SearchRouter:
             w._table.setColumnWidth(5, 130)
             w._table.setColumnWidth(6, 80)
             w._table.setColumnWidth(7, 260)
-            pc = getattr(w, '_playback_ctrl', None)
-            if pc:
-                pc.attach_track_table(w._table, w._model)
         else:
             w._views.show("empty")
 

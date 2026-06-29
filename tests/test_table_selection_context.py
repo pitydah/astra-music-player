@@ -3,30 +3,54 @@
 from unittest.mock import MagicMock
 
 
-class DummyTrack:
-    uri = "/music/song.flac"
-    title = "Song"
-    artist = "Artist"
-    album = "Album"
+class DummyTrackA:
+    uri = "/music/song_a.flac"
+    title = "Song A"
+    artist = "Artist A"
+    album = "Album A"
     genre = "Rock"
     duration = 180
 
 
+class DummyTrackB:
+    uri = "/music/song_b.flac"
+    title = "Song B"
+    artist = "Artist B"
+    album = "Album B"
+    genre = "Jazz"
+    duration = 200
+
+
 class DummyModel:
+    def __init__(self, track=None):
+        self._track = track or DummyTrackA()
+
     def get_trackref(self, row):
-        return DummyTrack()
+        return self._track
+
+
+class DummyProxyModel:
+    def __init__(self, source=None):
+        self._source = source or DummyModel(DummyTrackB())
+
+    def sourceModel(self):
+        return self._source
 
 
 class DummyIndex:
-    def __init__(self, row=0):
+    def __init__(self, row=0, model=None):
         self._row = row
         self._valid = True
+        self._model = model
 
     def isValid(self):
         return self._valid
 
     def row(self):
         return self._row
+
+    def model(self):
+        return self._model
 
 
 class TestTableSelectionContext:
@@ -45,7 +69,7 @@ class TestTableSelectionContext:
         ctx_svc.update_selection.assert_called_once()
         kwargs = ctx_svc.update_selection.call_args[1]
         assert kwargs["scope"] == "track"
-        assert kwargs["track"].title == "Song"
+        assert kwargs["track"].title == "Song A"
 
     def test_does_nothing_if_index_invalid(self):
         ctx_svc = MagicMock()
@@ -92,7 +116,7 @@ class TestTableSelectionContext:
         sel.currentChanged.disconnect.assert_called_once()
         sel.currentChanged.connect.assert_called_once()
 
-    def test_attach_track_table_calls_connect_with_correct_table(self):
+    def test_attach_track_table_registers_model_by_table(self):
         win = MagicMock()
         win._services = None
         table = MagicMock()
@@ -104,11 +128,9 @@ class TestTableSelectionContext:
         ctrl = PlaybackController(win)
 
         ctrl.attach_track_table(table, model)
-        # Verify the slot is connected to the correct table's selectionModel
-        connect_args = sel.currentChanged.connect.call_args
-        assert connect_args is not None
+        assert ctrl._track_table_models[id(table)] is model
 
-    def test_connect_table_selection_disconnects_before(self):
+    def test_connect_table_selection_disconnects_with_specific_slot(self):
         win = MagicMock()
         win._services = None
         win._ctx.table = MagicMock()
@@ -119,8 +141,10 @@ class TestTableSelectionContext:
         ctrl = PlaybackController(win)
 
         ctrl.connect_table_selection(win._ctx.table)
-        sel.currentChanged.connect.assert_called_once()
-        sel.currentChanged.disconnect.assert_called_once()
+        sel.currentChanged.disconnect.assert_called_once_with(
+            ctrl._on_table_selection)
+        sel.currentChanged.connect.assert_called_once_with(
+            ctrl._on_table_selection)
 
     def test_connect_table_selection_does_not_play(self):
         win = MagicMock()
@@ -140,3 +164,60 @@ class TestTableSelectionContext:
 
         win._ctx.playback.enqueue.assert_not_called()
         win._ctx.playback.play.assert_not_called()
+
+    def test_on_selection_uses_current_model_before_global(self):
+        ctx_svc = MagicMock()
+        win = MagicMock()
+        win._services = None
+        win._ctx.context_svc = ctx_svc
+        win._ctx.model = DummyModel(DummyTrackA())
+
+        from core.playback_controller import PlaybackController
+        ctrl = PlaybackController(win)
+
+        local_model = DummyModel(DummyTrackB())
+        idx = DummyIndex(model=local_model)
+        ctrl._on_table_selection(idx, None)
+
+        kwargs = ctx_svc.update_selection.call_args[1]
+        assert kwargs["track"].title == "Song B"
+
+    def test_on_selection_fallback_to_registered_table_model(self):
+        ctx_svc = MagicMock()
+        win = MagicMock()
+        win._services = None
+        win._ctx.context_svc = ctx_svc
+        win._ctx.model = DummyModel(DummyTrackA())
+
+        from core.playback_controller import PlaybackController
+        ctrl = PlaybackController(win)
+
+        table = MagicMock()
+        sel = MagicMock()
+        table.selectionModel.return_value = sel
+        registered_model = DummyModel(DummyTrackB())
+        ctrl.attach_track_table(table, registered_model)
+        ctrl._active_context_table = table
+
+        idx = DummyIndex(model=None)
+        ctrl._on_table_selection(idx, None)
+
+        kwargs = ctx_svc.update_selection.call_args[1]
+        assert kwargs["track"].title == "Song B"
+
+    def test_on_selection_uses_proxy_source_model(self):
+        ctx_svc = MagicMock()
+        win = MagicMock()
+        win._services = None
+        win._ctx.context_svc = ctx_svc
+        win._ctx.model = DummyModel(DummyTrackA())
+
+        from core.playback_controller import PlaybackController
+        ctrl = PlaybackController(win)
+
+        proxy = DummyProxyModel(DummyModel(DummyTrackB()))
+        idx = DummyIndex(model=proxy)
+        ctrl._on_table_selection(idx, None)
+
+        kwargs = ctx_svc.update_selection.call_args[1]
+        assert kwargs["track"].title == "Song B"

@@ -136,3 +136,91 @@ class TestAssistantSnapshotContract:
         playback = {"now_playing": None, "recently_played_count": 0, "favorites_count": 0}
         actions = _suggested_actions(health, playback)
         assert len(actions) <= 5
+
+    @staticmethod
+    def _assert_caps(caps, search=True, create=True, queue=True, edit=False, analyze=True):
+        assert caps.get("can_search_library") is search
+        assert caps.get("can_create_playlist_from_selection") is create
+        assert caps.get("can_queue_selection") is queue
+        assert caps.get("can_edit_metadata") is edit
+        assert caps.get("can_analyze_selected_tracks") is analyze
+
+    def test_caps_scope_none(self, tmp_path):
+        svc = self._svc(tmp_path)
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=False, queue=False, edit=False, analyze=False,
+        )
+
+    def test_caps_scope_track(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="track", track=DummyTrack())
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=True, queue=True, edit=True, analyze=True,
+        )
+
+    def test_caps_scope_album(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="album", album="Album")
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=True, queue=True, edit=True, analyze=True,
+        )
+
+    def test_caps_scope_artist(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="artist", artist="Artist")
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=True, queue=True, edit=True, analyze=True,
+        )
+
+    def test_caps_scope_genre(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="genre", genre="Rock")
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=True, queue=True, edit=True, analyze=True,
+        )
+
+    def test_caps_scope_playlist(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="playlist", playlist_id=1, playlist_name="P")
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=True, queue=True, edit=False, analyze=True,
+        )
+
+    def test_caps_scope_mix(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="mix", mix_key="daily")
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=True, queue=True, edit=False, analyze=True,
+        )
+
+    def test_caps_scope_folder(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="folder", folder_name="Music")
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=True, queue=True, edit=False, analyze=False,
+        )
+
+    def test_caps_scope_search(self, tmp_path):
+        svc = self._svc(tmp_path)
+        svc.update_selection(scope="search", search_query="abc")
+        snap = svc.get_assistant_snapshot()
+        self._assert_caps(
+            snap.get("assistant_capabilities", {}),
+            search=True, create=True, queue=True, edit=False, analyze=True,
+        )

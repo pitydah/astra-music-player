@@ -201,6 +201,25 @@ class ContextService:
         return self._rebuild_if_dirty(
             "home_snapshot", lambda: build_home_snapshot(self._db, self._playback, self._sync))
 
+    @staticmethod
+    def _assistant_capabilities_for_scope(scope):
+        return {
+            "can_search_library": True,
+            "can_create_playlist_from_selection": scope in {
+                "track", "album", "artist", "genre", "playlist",
+                "mix", "folder", "search",
+            },
+            "can_queue_selection": scope in {
+                "track", "album", "artist", "genre", "playlist",
+                "mix", "folder", "search",
+            },
+            "can_edit_metadata": scope in {"track", "album", "artist", "genre"},
+            "can_analyze_selected_tracks": scope in {
+                "track", "album", "artist", "genre", "playlist",
+                "mix", "search",
+            },
+        }
+
     def get_assistant_snapshot(self) -> dict:
         def _build():
             nav = repo.get_state("navigation", {})
@@ -236,22 +255,7 @@ class ContextService:
             snap["selected_artist"] = selection["artist"]
             snap["selected_genre"] = selection["genre"]
 
-            snap["assistant_capabilities"] = {
-                "can_search_library": True,
-                "can_create_playlist_from_selection": scope in {
-                    "track", "album", "artist", "genre", "playlist",
-                    "mix", "folder", "search",
-                },
-                "can_queue_selection": scope in {
-                    "track", "album", "artist", "genre", "playlist",
-                    "mix", "folder", "search",
-                },
-                "can_edit_metadata": scope in {"track", "album", "artist", "genre"},
-                "can_analyze_selected_tracks": scope in {
-                    "track", "album", "artist", "genre", "playlist",
-                    "mix", "search",
-                },
-            }
+            snap["assistant_capabilities"] = self._assistant_capabilities_for_scope(scope)
             return sanitize_snapshot(snap)
         return self._rebuild_if_dirty("assistant_snapshot", _build)
 

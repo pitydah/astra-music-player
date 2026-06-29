@@ -1,4 +1,4 @@
-"""Tests: SmartMix context — MIX_OPENED, scope=mix, connect_table_selection."""
+"""Tests: SmartMix context — MIX_OPENED, scope=mix, attach_track_table, no duplicates."""
 
 from unittest.mock import MagicMock
 from core.context.context_events import AppEvent
@@ -65,7 +65,7 @@ class TestSmartMixContext:
         finally:
             sm.get_daily_mix = original
 
-    def test_show_smart_mix_reconnects_table_selection(self, tmp_path):
+    def test_show_smart_mix_uses_attach_track_table(self, tmp_path):
         win, ctx = _make_win()
         audio_file = tmp_path / "a.flac"
         audio_file.write_text("")
@@ -82,7 +82,31 @@ class TestSmartMixContext:
         try:
             ctrl = SmartMixController(win)
             ctrl.show_smart_mix("mix_daily")
-            win._playback_ctrl.connect_table_selection.assert_called()
+            win._playback_ctrl.attach_track_table.assert_called_once()
+            win._playback_ctrl.connect_table_selection.assert_not_called()
+            win._table.setModel.assert_not_called()
+        finally:
+            sm.get_daily_mix = original
+
+    def test_show_smart_mix_no_pc_fallback(self, tmp_path):
+        win, ctx = _make_win()
+        win._playback_ctrl = None
+        audio_file = tmp_path / "a.flac"
+        audio_file.write_text("")
+        str_path = str(audio_file)
+        item = DummyItem()
+        item.filepath = str_path
+        win._items_index[str_path] = item
+
+        import library.smart_mixes as sm
+        original = sm.get_daily_mix
+        sm.get_daily_mix = lambda: [str_path]
+
+        from ui.controllers.smart_mix_controller import SmartMixController
+        try:
+            ctrl = SmartMixController(win)
+            ctrl.show_smart_mix("mix_daily")
+            win._table.setModel.assert_called_once()
         finally:
             sm.get_daily_mix = original
 
@@ -104,7 +128,7 @@ class TestSmartMixContext:
         )
         assert called
 
-    def test_show_favs_reconnects_table_selection(self, tmp_path):
+    def test_show_favs_uses_attach_track_table(self, tmp_path):
         win, ctx = _make_win()
         audio_file = tmp_path / "fav.flac"
         audio_file.write_text("")
@@ -115,7 +139,8 @@ class TestSmartMixContext:
         from ui.controllers.smart_mix_controller import SmartMixController
         ctrl = SmartMixController(win)
         ctrl.show_favs("favs")
-        win._playback_ctrl.attach_track_table.assert_called()
+        win._playback_ctrl.attach_track_table.assert_called_once()
+        win._playback_ctrl.connect_table_selection.assert_not_called()
 
     def test_show_recent_registers_mix_opened(self, tmp_path):
         win, ctx = _make_win()
@@ -134,3 +159,17 @@ class TestSmartMixContext:
             for c in ctx.record_event.call_args_list
         )
         assert called
+
+    def test_show_recent_uses_attach_track_table(self, tmp_path):
+        win, ctx = _make_win()
+        audio_file = tmp_path / "rec.flac"
+        audio_file.write_text("")
+        fp = str(audio_file)
+        win._db.get_play_history.return_value = [{"track_id": fp}]
+        win._items_index[fp] = DummyItem()
+
+        from ui.controllers.smart_mix_controller import SmartMixController
+        ctrl = SmartMixController(win)
+        ctrl.show_recent("recent")
+        win._playback_ctrl.attach_track_table.assert_called_once()
+        win._playback_ctrl.connect_table_selection.assert_not_called()

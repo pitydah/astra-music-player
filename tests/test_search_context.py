@@ -1,4 +1,4 @@
-"""Tests: Search context — SEARCH_PERFORMED, SEARCH_STARTED, SELECTION_CHANGED."""
+"""Tests: Search context — SEARCH_PERFORMED, SEARCH_STARTED, SEARCH_CLEARED, SELECTION_CHANGED."""
 
 import os
 from unittest.mock import MagicMock
@@ -64,6 +64,78 @@ class TestSearchContext:
         )
         assert called
 
+    def test_search_genres_records_search_started(self, tmp_path):
+        router, ctx_svc = self._make_router(tmp_path)
+        router._win._current_route_key = "genres"
+        router._win._lib_ctrl = MagicMock()
+
+        router.on_search("test")
+
+        called = any(
+            c[0][0] == AppEvent.SEARCH_STARTED
+            for c in ctx_svc.record_event.call_args_list
+        )
+        assert called
+        for call in ctx_svc.record_event.call_args_list:
+            if call[0][0] == AppEvent.SEARCH_PERFORMED:
+                assert False, "SEARCH_PERFORMED should not be emitted for genres"
+
+    def test_search_folders_callable_count(self, tmp_path):
+        router, ctx_svc = self._make_router(tmp_path)
+        router._win._current_route_key = "folders"
+        router._win._folder_browser = MagicMock()
+        router._win._folder_browser.visible_count = lambda: 7
+
+        router.on_search("test")
+
+        called = any(
+            c[0][0] == AppEvent.SEARCH_PERFORMED and c[0][1].get("result_count") == 7
+            for c in ctx_svc.record_event.call_args_list
+        )
+        assert called
+
+    def test_search_folders_non_callable_count(self, tmp_path):
+        router, ctx_svc = self._make_router(tmp_path)
+        router._win._current_route_key = "folders"
+        router._win._folder_browser = MagicMock()
+        router._win._folder_browser.visible_count = 7
+
+        router.on_search("test")
+
+        called_performed = any(
+            c[0][0] == AppEvent.SEARCH_PERFORMED
+            for c in ctx_svc.record_event.call_args_list
+        )
+        assert not called_performed
+        called_started = any(
+            c[0][0] == AppEvent.SEARCH_STARTED
+            for c in ctx_svc.record_event.call_args_list
+        )
+        assert called_started
+
+    def test_search_folders_exception_in_callable(self, tmp_path):
+        router, ctx_svc = self._make_router(tmp_path)
+        router._win._current_route_key = "folders"
+        router._win._folder_browser = MagicMock()
+
+        def broken():
+            raise ValueError("boom")
+
+        router._win._folder_browser.visible_count = broken
+
+        router.on_search("test")
+
+        called_performed = any(
+            c[0][0] == AppEvent.SEARCH_PERFORMED
+            for c in ctx_svc.record_event.call_args_list
+        )
+        assert not called_performed
+        called_started = any(
+            c[0][0] == AppEvent.SEARCH_STARTED
+            for c in ctx_svc.record_event.call_args_list
+        )
+        assert called_started
+
     def test_search_folders_no_false_count(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
         router._win._current_route_key = "folders"
@@ -75,6 +147,24 @@ class TestSearchContext:
         for call in ctx_svc.record_event.call_args_list:
             if call[0][0] == AppEvent.SEARCH_PERFORMED:
                 assert False, "SEARCH_PERFORMED should not be emitted for folders without visible_count"
+
+    def test_empty_query_clears_search(self, tmp_path):
+        router, ctx_svc = self._make_router(tmp_path)
+        router._win._search_text = ""
+        router._win._current_route_key = "library"
+        router._win._lib_ctrl = MagicMock()
+
+        router.on_search("")
+
+        called = any(
+            c[0][0] == AppEvent.SEARCH_CLEARED
+            for c in ctx_svc.record_event.call_args_list
+        )
+        assert called
+
+        state = repo.get_state("selection", {})
+        query = state.get("search_query", "")
+        assert query == ""
 
     def test_query_truncated(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
