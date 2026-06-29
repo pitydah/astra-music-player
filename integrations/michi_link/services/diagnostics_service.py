@@ -12,6 +12,12 @@ import urllib.request
 
 from integrations.michi_link.client import MichiLinkClient
 
+CONTRACT_OK = "CONTRACT_OK"
+CONTRACT_PARTIAL = "CONTRACT_PARTIAL"
+CONTRACT_MISMATCH = "CONTRACT_MISMATCH"
+ENDPOINT_MISSING = "ENDPOINT_MISSING"
+FALLBACK_AVAILABLE = "FALLBACK_AVAILABLE"
+
 logger = logging.getLogger("michi.service.diagnostics")
 
 

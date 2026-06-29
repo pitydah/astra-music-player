@@ -87,22 +87,22 @@ class ImportToServerService:
             lid = identity.local_track_id
             match = None
 
-            # Try exact local_track_id match
             for item in raw_results:
+                # Try michi_track_id (new contract)
+                if item.get("michi_track_id") == lid:
+                    match = item
+                    break
+                # Try local_track_id (legacy contract)
                 if item.get("local_track_id") == lid:
                     match = item
                     break
-
-            # Try content_hash match
-            if match is None and identity.content_hash:
-                for item in raw_results:
+                # Try content_hash
+                if match is None and identity.content_hash:
                     if item.get("content_hash") == identity.content_hash:
                         match = item
                         break
-
-            # Try legacy quick_hash match
-            if match is None and identity.quick_hash:
-                for item in raw_results:
+                # Try quick_hash
+                if match is None and identity.quick_hash:
                     if item.get("quick_hash") == identity.quick_hash or \
                        item.get("sha256_prefix") == identity.quick_hash:
                         match = item
@@ -110,9 +110,10 @@ class ImportToServerService:
 
             if match:
                 status = match.get("status", "exists" if match.get("exists") else "missing")
-                remote_id = match.get("remote_track_id", "")
+                remote_id = (match.get("server_track_id", "") or
+                             match.get("remote_track_id", ""))
                 mapping[lid] = {
-                    "exists": status in ("exists", "matched"),
+                    "exists": status in ("exists", "matched", "already_present"),
                     "remote_id": remote_id,
                     "status": status,
                 }
@@ -238,15 +239,15 @@ class ImportToServerService:
             progress_cb and progress_cb(session.uploaded, session.total, track_id)
             return Result.fail("UPLOAD_FAILED", str(e))
 
-        # Extract remote_track_id from response
-        remote_track_id = resp_json.get("remote_track_id", "")
+        remote_track_id = (resp_json.get("server_track_id", "") or
+                           resp_json.get("remote_track_id", ""))
         if remote_track_id:
             session.mapping[track_id] = remote_track_id
             mapping_status = "confirmed"
         else:
-            session.mapping[track_id] = track_id  # fallback
+            session.mapping[track_id] = track_id
             mapping_status = "MAPPING_UNCONFIRMED"
-            logger.warning("Upload response missing remote_track_id for %s", track_id)
+            logger.warning("Upload response missing server_track_id for %s", track_id)
 
         session.uploaded += 1
         progress_cb and progress_cb(session.uploaded, session.total, track_id)
@@ -312,9 +313,15 @@ class ImportToServerService:
             )
             with urllib.request.urlopen(req, timeout=15) as r:
                 resp = json.loads(r.read().decode())
-                remote_mapping = resp.get("mapping", {})
-                if remote_mapping:
-                    session.mapping.update(remote_mapping)
+                remote_mapping_raw = resp.get("mapping", {})
+                if isinstance(remote_mapping_raw, list):
+                    for entry in remote_mapping_raw:
+                        local_id = entry.get("michi_track_id") or entry.get("local_track_id", "")
+                        remote_id = entry.get("server_track_id") or entry.get("remote_track_id", "")
+                        if local_id and remote_id:
+                            session.mapping[local_id] = remote_id
+                elif isinstance(remote_mapping_raw, dict):
+                    session.mapping.update(remote_mapping_raw)
         except (urllib.error.HTTPError, OSError, json.JSONDecodeError) as e:
             logger.warning("Micro commit endpoint failed (non-fatal): %s", e)
 

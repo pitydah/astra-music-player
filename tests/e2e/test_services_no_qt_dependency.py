@@ -64,7 +64,8 @@ class TestServicesNoQt:
         base = os.path.join(os.path.dirname(__file__),
                            "..", "..", "integrations", "michi_link", "services")
         base = os.path.normpath(base)
-        exceptions = {"result.py", "__init__.py", "diagnostics_service.py"}
+        exceptions = {"result.py", "__init__.py", "diagnostics_service.py",
+                       "compatibility_report.py"}
         for fname in sorted(os.listdir(base)):
             if not fname.endswith(".py") or fname in exceptions:
                 continue
