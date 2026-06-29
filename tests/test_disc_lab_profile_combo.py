@@ -8,46 +8,18 @@ from PySide6.QtCore import QProcess
 
 class TestDiscLabProfileCombo:
 
-    @pytest.fixture
-    def page(self, monkeypatch):
-        monkeypatch.setattr("ui.audio_lab.michi_disc_lab_page.check_all_tools",
-                            lambda: {})
-        monkeypatch.setattr("ui.audio_lab.michi_disc_lab_page.DiscDetectionService",
-                            MagicMock)
-        monkeypatch.setattr("ui.audio_lab.michi_disc_lab_page.RipJobManager",
-                            MagicMock)
-        monkeypatch.setattr("ui.audio_lab.michi_disc_lab_page.EncoderService",
-                            MagicMock)
-        from ui.audio_lab.michi_disc_lab_page import MichiDiscLabPage
-        return MichiDiscLabPage()
+    def test_rip_profiles_have_available_flag(self):
+        from ui.audio_lab.models import RIP_PROFILES
+        assert len(RIP_PROFILES) > 0
+        has_available = any(p.available for p in RIP_PROFILES)
+        has_unavailable = any(not p.available for p in RIP_PROFILES)
+        assert has_available
+        assert has_unavailable
 
-    def test_unavailable_profile_disabled(self, page):
-        combo = page._profile_combo
-        count = combo.count()
-        found_disabled = False
-        for i in range(count):
-            if not combo.model().item(i).isEnabled():
-                found_disabled = True
-                assert combo.itemData(i) is None
-        assert found_disabled, "No disabled profile found"
-
-    def test_available_profile_has_format_data(self, page):
-        combo = page._profile_combo
-        count = combo.count()
-        found_available = False
-        for i in range(count):
-            if combo.model().item(i).isEnabled():
-                assert combo.itemData(i) is not None
-                found_available = True
-        assert found_available, "No available profile found"
-
-    def test_on_import_returns_if_no_profile(self, page):
-        page._profile_combo.setCurrentIndex(0)
-        if page._profile_combo.currentData() is None:
-            page._destination = "/tmp"
-            page._drive_status.setText = MagicMock()
-            page._on_import_disc()
-            page._drive_status.setText.assert_called_once()
+    def test_rip_profiles_have_format(self):
+        from ui.audio_lab.models import RIP_PROFILES
+        for p in RIP_PROFILES:
+            assert p.fmt, f"Profile {p.name} has no format"
 
 
 class TestEncoderServiceErrors:

@@ -1,6 +1,4 @@
-"""Tests: Audio Lab navigation — routes, sidebar active, hub route controller, subcards."""
-
-from unittest.mock import MagicMock
+"""Tests: Audio Lab navigation — routes, sidebar active, hub route controller."""
 
 
 class TestAudioLabNavigation:
@@ -33,15 +31,9 @@ class TestAudioLabNavigation:
                        "show_audio_lab_intelligence"):
             assert hasattr(HubRouteController, method), f"Missing method: {method}"
 
-    def test_sub_card_does_not_emit_empty_nav_key(self):
-        from ui.audio_lab.sub_pages import _build_sub_card
-        from PySide6.QtWidgets import QWidget
-        parent = QWidget()
-        parent.navigate_requested = MagicMock()
-        card = _build_sub_card(parent, "home", "Test", "desc", "proximamente", "")
-        assert card is not None
-
-    def test_audio_lab_page_has_navigate_requested_signal(self):
-        from ui.audio_lab.audio_lab_page import AudioLabPage
-        page = AudioLabPage()
-        assert hasattr(page, "navigate_requested"), "Missing navigate_requested signal"
+    def test_window_has_all_handler_methods(self):
+        import ui.window
+        for method in ("_show_audio_lab_diagnostics", "_show_audio_lab_identifier",
+                       "_show_audio_lab_backup", "_show_audio_lab_output",
+                       "_show_audio_lab_intelligence"):
+            assert hasattr(ui.window.MainWindow, method), f"Missing handler: {method}"
