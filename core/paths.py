@@ -124,5 +124,9 @@ def playlist_covers_dir() -> str:
     return os.path.join(app_data_dir(), "playlist-covers")
 
 
+def context_db_path() -> str:
+    return os.path.join(app_data_dir(), "context.sqlite")
+
+
 def transmit_devices_path() -> str:
     return os.path.join(app_data_dir(), "transmit_devices.json")
