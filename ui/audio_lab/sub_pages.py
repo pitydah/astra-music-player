@@ -328,12 +328,29 @@ class AudioLabOutputPage(QWidget):
             layout.addWidget(lbl)
 
 
-class AudioLabIntelligencePage(_PlaceholderPage):
+class AudioLabIntelligencePage(QWidget):
+    navigate_requested = Signal(str)
+
     def __init__(self):
-        super().__init__(
-            "Inteligencia Local",
-            "Extracción de BPM, key, energía, similitud local y "
-            "radio inteligente.\n"
-            "Disponible próximamente.",
-            "sidebar_mix",
-        )
+        super().__init__()
+        self.setObjectName("audioLabIntelligencePage")
+        self._inner = None
+        self._build_ui()
+
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        try:
+            from ui.audio_lab.intelligence_page import IntelligencePage
+            self._inner = IntelligencePage()
+            self._inner.navigate_requested.connect(self.navigate_requested.emit)
+            layout.addWidget(self._inner)
+        except Exception as e:
+            import logging
+            logging.getLogger("michi.audio_lab").warning(
+                "IntelligencePage not available: %s", e
+            )
+            lbl = QLabel("Inteligencia Local no disponible.")
+            lbl.setStyleSheet("color: rgba(255,255,255,0.62); font-size: 14px;")
+            lbl.setAlignment(Qt.AlignCenter)
+            layout.addWidget(lbl)
