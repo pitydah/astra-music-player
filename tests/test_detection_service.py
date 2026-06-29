@@ -23,7 +23,10 @@ def provider_mgr():
 
 @pytest.fixture
 def service(qapp, db, provider_mgr):
-    return DetectionService(db, provider_mgr)
+    svc = DetectionService(db, provider_mgr)
+    svc._capture = MagicMock()
+    svc._capture.is_available = True
+    return svc
 
 
 class TestInitialization:

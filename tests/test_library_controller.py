@@ -9,6 +9,7 @@ from ui.controllers.library_controller import LibraryController
 @pytest.fixture
 def win():
     w = MagicMock()
+    w._safe_mode = False
     w._workers = MagicMock()
     w._db = MagicMock()
     w._all_items = []
@@ -52,7 +53,8 @@ class TestLibraryController:
             mock_reload.assert_called_with(reason="load")
 
     def test_load_schedules_backfill_tasks(self, ctrl, win):
-        with patch.object(ctrl, 'reload_after_change'):
+        with patch.object(ctrl, 'reload_after_change'), \
+             patch("core.settings_manager.get_bool", return_value=True):
             ctrl.load()
             win._workers.run_task.assert_any_call("backfill_meta",
                 win._db.backfill_missing_metadata, on_done=ctrl._on_backfill_done)

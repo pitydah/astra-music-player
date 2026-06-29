@@ -97,13 +97,13 @@ class TestSmartMixPreview:
 class TestFavFilepaths:
     def test_with_db_returns_filepaths(self):
         db = MagicMock()
-        db._conn.execute.return_value.fetchall.return_value = [("/path/fav.flac",)]
+        db.conn.execute.return_value.fetchall.return_value = [("/path/fav.flac",)]
         result = _get_fav_filepaths(db=db)
         assert result == ["/path/fav.flac"]
 
     def test_with_db_exception_returns_empty(self):
         db = MagicMock()
-        db._conn.execute.side_effect = Exception("db error")
+        db.conn.execute.side_effect = Exception("db error")
         result = _get_fav_filepaths(db=db)
         assert result == []
 
@@ -111,12 +111,12 @@ class TestFavFilepaths:
 class TestRecentFilepaths:
     def test_with_db_returns_filepaths(self):
         db = MagicMock()
-        db._conn.execute.return_value.fetchall.return_value = [("/path/recent.flac",)]
+        db.conn.execute.return_value.fetchall.return_value = [("/path/recent.flac",)]
         result = _get_recent_filepaths(db=db)
         assert result == ["/path/recent.flac"]
 
     def test_with_db_exception_returns_empty(self):
         db = MagicMock()
-        db._conn.execute.side_effect = Exception("db error")
+        db.conn.execute.side_effect = Exception("db error")
         result = _get_recent_filepaths(db=db)
         assert result == []
