@@ -24,14 +24,14 @@ _SECTIONS = [
         "title": "Identificador de Audios",
         "subtitle": "Edita metadatos, identifica con MusicBrainz,\n"
                      "gestiona carátulas y letras.",
-        "status": "disponible", "nav": "audio_lab_identifier",
+        "status": "experimental", "nav": "audio_lab_identifier",
     },
     {
         "key": "audio_lab_backup", "icon": "sidebar_devices",
         "title": "Respaldar",
         "subtitle": "Ripea CDs, digitaliza vinilos, convierte\n"
                      "formatos y organiza tus archivos.",
-        "status": "disponible", "nav": "audio_lab_backup",
+        "status": "experimental", "nav": "audio_lab_backup",
     },
     {
         "key": "audio_lab_output", "icon": "home_audio",

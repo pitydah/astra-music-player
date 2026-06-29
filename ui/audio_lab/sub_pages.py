@@ -192,15 +192,15 @@ class AudioLabIdentifierPage(QWidget):
             ("sidebar_identifier", "MusicBrainz",
              "Identifica discos, canciones y artistas usando\n"
              "la base de datos MusicBrainz.",
-             "disponible", "audio_lab_musicbrainz"),
+             "experimental", "audio_lab_musicbrainz"),
             ("sidebar_albums", "Carátulas",
              "Busca, reemplaza e incrusta carátulas en tus\n"
              "archivos de música.",
-             "disponible", "audio_lab_artwork"),
+             "experimental", "audio_lab_artwork"),
             ("sidebar_mix", "Letras",
              "Edita letras sincronizadas o simples para tus\n"
              "canciones.",
-             "disponible", "audio_lab_lyrics"),
+             "experimental", "audio_lab_lyrics"),
         ]
         for idx, (icon, title_t, desc, status, nav) in enumerate(cards):
             card = _build_sub_card(self, icon, title_t, desc, status, nav)
@@ -266,15 +266,15 @@ class AudioLabBackupPage(QWidget):
             ("home_audio", "Digitalizar Vinilo",
              "Captura desde tu ADC/platina, separa pistas\n"
              "y exporta a FLAC de alta resolución.",
-             "disponible", "audio_lab_vinyl_lab"),
+             "experimental", "audio_lab_vinyl_lab"),
              ("sidebar_mix", "Convertir Formatos",
               "Convierte entre formatos preservando\n"
               "metadatos y carátulas.",
-              "disponible", "audio_lab_conversion"),
+              "experimental", "audio_lab_conversion"),
              ("sidebar_folders", "Organizar Archivos",
               "Renombra y reorganiza tu biblioteca por\n"
               "plantillas personalizadas.",
-              "disponible", "audio_lab_organize"),
+              "experimental", "audio_lab_organize"),
         ]
         for idx, (icon, title_t, desc, status, nav) in enumerate(cards):
             card = _build_sub_card(self, icon, title_t, desc, status, nav)
