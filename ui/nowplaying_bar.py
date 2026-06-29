@@ -21,10 +21,11 @@ from ui.central.central_tokens import (
 )
 
 # ── Technical tokens for left-side filtering ──
-_TECHNICAL_TOKENS = (
-    "LOCAL", "FLAC", "MP3", "AAC", "OGG", "OPUS",
-    "RADIO", "STREAMING", "NAVIDROME", "JELLYFIN",
-    "TRANSMITIENDO", "KBPS", "KHZ", "BIT", "DSD",
+# Only exact matches or space-prefixed to avoid filtering artist names like "Radiohead", "Rabbit"
+import re
+_TECHNICAL_PATTERN = re.compile(
+    r'\b(?:LOCAL|FLAC|MP3|AAC|OGG|OPUS|RADIO|STREAMING|'
+    r'NAVIDROME|JELLYFIN|TRANSMITIENDO|KBPS|KHZ|BIT|DSD)\b'
 )
 
 
@@ -141,6 +142,8 @@ def _make_btn(icon_name: str, icon_size: int, button_size: int | None = None,
 
 
 def _set_button_active(btn: QPushButton, active: bool):
+    """Set active visual state on a button. Also available as method.
+    The instance method self._set_button_active() delegates here for consistency."""
     btn.setProperty("active", "true" if active else "false")
     btn.style().unpolish(btn)
     btn.style().polish(btn)
@@ -524,7 +527,7 @@ class NowPlayingBar(QWidget):
         self._vol.setValue(70)
         self._vol.setFixedWidth(96)
         self._vol.setFixedHeight(32)
-        self._vol.valueChanged.connect(lambda v: self.volume_changed.emit(v))
+        self._vol.valueChanged.connect(self._on_volume_slider_changed)
 
         self._eq_btn = _make_btn("warm_eq", 24, 40, role="utility")
         self._eq_btn.setToolTip("Ecualizador")
@@ -562,23 +565,17 @@ class NowPlayingBar(QWidget):
 
         right_layout.addLayout(right_controls)
 
-        # Row 1 — badge aligned with volume slider
-        badge_container = QWidget()
-        badge_container.setStyleSheet("background: transparent;")
-        badge_container.setFixedWidth(178)
-        badge_row = QHBoxLayout(badge_container)
+        # Row 1 — badge aligned directly under volume slider
+        badge_row = QHBoxLayout()
         badge_row.setContentsMargins(0, 0, 0, 0)
-        badge_row.setSpacing(0)
+        badge_row.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         badge_row.addStretch()
-        badge_row.addWidget(self._quality_badge)
-        badge_row.addStretch()
-
-        badge_outer = QHBoxLayout()
-        badge_outer.setContentsMargins(0, 0, 0, 0)
-        badge_outer.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        badge_outer.addStretch()
-        badge_outer.addWidget(badge_container)
-        right_layout.addLayout(badge_outer)
+        badge_row.addSpacing(40)                    # matches vol_btn width
+        badge_row.addWidget(self._quality_badge)    # badge sits under vol slider
+        badge_row.addSpacing(4)                     # matches gap after vol
+        badge_row.addSpacing(40)                    # matches eq_btn width
+        badge_row.addSpacing(40)                    # matches transmit_btn width
+        right_layout.addLayout(badge_row)
 
         layout.addWidget(right_widget, 0)
 
@@ -658,7 +655,7 @@ class NowPlayingBar(QWidget):
             parts = self._raw_artist.split(" · ")
             self._raw_artist = parts[0]
             extra = parts[1].strip() if len(parts) > 1 else ""
-            if extra and not any(tok in extra.upper() for tok in _TECHNICAL_TOKENS):
+            if extra and not _TECHNICAL_PATTERN.search(extra.upper()):
                 self._raw_meta = extra
 
         self._title_lbl.setText(self._raw_title)
@@ -724,6 +721,13 @@ class NowPlayingBar(QWidget):
         self._vol.blockSignals(True)
         self._vol.setValue(vol)
         self._vol.blockSignals(False)
+        self._update_volume_visual(vol)
+
+    def _on_volume_slider_changed(self, v: int):
+        self.volume_changed.emit(v)
+        self._update_volume_visual(v)
+
+    def _update_volume_visual(self, vol: int):
         self._vol_muted = (vol <= 0)
         if vol <= 0:
             name = "warm_mute"
@@ -742,7 +746,7 @@ class NowPlayingBar(QWidget):
 
     def _on_mute_toggle(self):
         if self._vol_muted:
-            vol = self._vol_level_before_mute
+            vol = self._vol_level_before_mute if self._vol_level_before_mute > 0 else 70
             self._vol_muted = False
             self.set_volume(vol)
             self.volume_changed.emit(vol)
@@ -770,7 +774,16 @@ class NowPlayingBar(QWidget):
         self._raw_meta = ""
         self._duration = 0.0
         self._source_quality = ""
+        self._source_label = ""
         self._source_type = ""
+        self._codec = ""
+        self._bitrate = ""
+        self._sample_rate = ""
+        self._bit_depth = ""
+        self._filepath = ""
+        self._audio_output_label = ""
+        self._identifier_state = ""
+        self._replaygain = ""
         self._transmitting = False
         self._transmit_device_name = ""
 
@@ -786,15 +799,19 @@ class NowPlayingBar(QWidget):
         self._repeat = "none"
         self._update_info_card_state()
 
-        self._cover.set_placeholder(_placeholder_cover_pixmap(64, 13, active=False), False)
+        if hasattr(self, '_info_card'):
+            self._info_card.setProperty("playing", "false")
+            self._info_card.style().unpolish(self._info_card)
+            self._info_card.style().polish(self._info_card)
+
+        self._cover.set_placeholder(_placeholder_cover_pixmap(COVER_SIZE, COVER_RADIUS, active=False), False)
         self._cover_pixmap = QPixmap()
         self._play_btn.setIcon(QIcon(get_icon("warm_play")))
         _set_button_active(self._shuffle_btn, False)
         _set_button_active(self._repeat_btn, False)
         _set_button_active(self._transmit_btn, False)
 
-        self._quality_badge.set_text("")
-        self._quality_badge.setToolTip("")
+        self._quality_badge.set_empty(True)
         self._refresh_source_badge()
         self._apply_elide()
     def _build_left_meta(self) -> str:
@@ -920,10 +937,8 @@ class NowPlayingBar(QWidget):
         self._refresh_source_badge()
 
     def _set_button_active(self, btn, active: bool):
-        """Toggle active visual state on a button via property (consistent string)."""
-        btn.setProperty("active", "true" if active else "false")
-        btn.style().unpolish(btn)
-        btn.style().polish(btn)
+        """Toggle active visual state — delegates to global helper."""
+        _set_button_active(btn, active)
 
     def transmit_button(self):
         """Returns the transmit QPushButton for menu positioning."""
@@ -979,15 +994,16 @@ class CoverButton(QPushButton):
     """High-quality cover art button with hover overlay."""
     clicked_preview = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, size: int = COVER_SIZE, radius: int = COVER_RADIUS):
         super().__init__(parent)
+        self._size = size
+        self._radius = float(radius)
         self._pixmap = QPixmap()
         self._placeholder = QPixmap()
         self._hovered = False
         self._has_track = False
         self._has_cover = False
-        self._radius = 13.0
-        self.setFixedSize(64, 64)
+        self.setFixedSize(size, size)
         self.setMouseTracking(True)
         self.setCursor(Qt.PointingHandCursor)
         self.setFlat(True)
@@ -1025,23 +1041,25 @@ class CoverButton(QPushButton):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
 
-        rect = QRectF(0, 0, 64, 64)
+        s = self._size
+        r = self._radius
+        rect = QRectF(0, 0, s, s)
         path = QPainterPath()
-        path.addRoundedRect(rect, self._radius, self._radius)
+        path.addRoundedRect(rect, r, r)
         painter.setClipPath(path)
 
         # Background
         painter.setBrush(QColor(255, 255, 255, 15))
         painter.setPen(Qt.NoPen)
-        painter.drawRoundedRect(rect, self._radius, self._radius)
+        painter.drawRoundedRect(rect, r, r)
 
         # Pixmap or placeholder
         src = self._pixmap if self._has_cover else self._placeholder
         if not src.isNull():
-            scaled = src.scaled(64, 64, Qt.KeepAspectRatioByExpanding,
+            scaled = src.scaled(s, s, Qt.KeepAspectRatioByExpanding,
                                 Qt.SmoothTransformation)
-            x = (scaled.width() - 64) // 2
-            y = (scaled.height() - 64) // 2
+            x = (scaled.width() - s) // 2
+            y = (scaled.height() - s) // 2
             painter.drawPixmap(-x, -y, scaled)
 
         # Hover overlay — darken

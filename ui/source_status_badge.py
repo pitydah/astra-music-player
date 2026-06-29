@@ -46,8 +46,6 @@ class SourceStatusBadge(QPushButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setFlat(True)
         self._quality_cat = "unknown"
-        self._apply_style()
-
         self._pages: list[str] = []
         self._page_index = 0
         self._source = ""
@@ -55,6 +53,9 @@ class SourceStatusBadge(QPushButton):
         self._timer.setInterval(5000)
         self._timer.timeout.connect(self._show_next_page)
         self._hovering = False
+        self._empty = True
+        self._apply_style()
+        self.setVisible(False)
 
     def _apply_style(self):
         s = _CATEGORY_STYLES.get(self._quality_cat, _CATEGORY_STYLES["unknown"])
@@ -94,7 +95,6 @@ class SourceStatusBadge(QPushButton):
         """)
 
     def set_quality_category(self, category: str):
-        """Set the quality category for color styling."""
         if category in _CATEGORY_STYLES:
             self._quality_cat = category
             self._apply_style()
@@ -102,18 +102,27 @@ class SourceStatusBadge(QPushButton):
             self.style().polish(self)
 
     def set_text(self, text: str):
-        """Set badge text with a colored dot prefix."""
-        prefix = "\u25cf "  # ● unicode bullet — visible for ALL categories
-        display = prefix + text.strip()
+        if not text:
+            self.setText("")
+            return
+        display = "\u25cf " + text.strip()
         self.setText(display)
 
+    def set_empty(self, empty: bool = True):
+        self._empty = empty
+        self._timer.stop()
+        self._pages = []
+        self._page_index = 0
+        self.setText("")
+        self.setToolTip("")
+        self.setVisible(not empty)
+        self.setEnabled(not empty)
+
     def set_context(self, **kwargs):
-        """Set all context at once."""
         self._context = kwargs
         self._build_pages()
 
     def set_route_tooltip(self, diag):
-        """Set tooltip from audio route diagnostics."""
         lines = [str(self.text()).strip()]
         if diag:
             if hasattr(diag, 'to_tooltip'):
@@ -133,6 +142,8 @@ class SourceStatusBadge(QPushButton):
         service = ctx.get("service", "")
         codec = ctx.get("codec", "")
         bitrate = ctx.get("bitrate", "")
+        sample_rate = ctx.get("sample_rate", "")
+        bit_depth = ctx.get("bit_depth", "")
         filepath = ctx.get("filepath", "")
         audio_output = ctx.get("audio_output", "")
         transmitting = ctx.get("transmitting", False)
@@ -140,24 +151,34 @@ class SourceStatusBadge(QPushButton):
         replaygain = ctx.get("replaygain", "")
 
         if not source_type:
-            pages = [""]
-        elif transmitting and transmit_device:
+            self.set_empty(True)
+            return
+
+        if transmitting and transmit_device:
             pages.append(f"TRANSMITIENDO · {transmit_device[:18]}")
-        elif source_type == "radio":
+
+        if source_type == "radio":
             pages.append("RADIO · STREAMING")
-            if quality:
-                pages.append(quality[:22])
-            elif service:
-                pages.append(service[:22])
         elif source_type in ("navidrome", "jellyfin"):
             label = source_type.upper()
-            q = quality or ""
-            if q:
-                pages.append(f"{label} · {q}")
-            elif service:
-                pages.append(f"{label} · {service[:22]}")
+            if quality:
+                pages.append(f"{label} · {quality}")
+            elif bitrate:
+                pages.append(f"{label} · {bitrate}")
+            elif codec:
+                pages.append(f"{label} · {codec.upper()}")
             else:
                 pages.append(label)
+            if sample_rate or bit_depth:
+                detail = []
+                if codec:
+                    detail.append(codec.upper())
+                if bit_depth:
+                    detail.append(f"{bit_depth}-bit")
+                if sample_rate:
+                    detail.append(sample_rate)
+                if detail:
+                    pages.append(" · ".join(detail))
         elif source_type == "local_file":
             if quality:
                 pages.append(f"LOCAL · {quality}")
@@ -169,8 +190,9 @@ class SourceStatusBadge(QPushButton):
                 pages.append("LOCAL")
         elif source_type == "remote_stream":
             pages.append("STREAMING")
-            if quality:
-                pages.append(quality[:22])
+
+        if transmitting and transmit_device and source_type not in ("radio",):
+            pages.append(f"TRANSMITIENDO · {transmit_device[:18]}")
 
         if audio_output:
             pages.append(f"SALIDA · {audio_output[:22]}")
@@ -179,7 +201,8 @@ class SourceStatusBadge(QPushButton):
             pages.append(f"REPLAYGAIN · {replaygain}")
 
         if not pages:
-            pages = [""]
+            self.set_empty(True)
+            return
 
         if transmitting:
             source_prop = "transmitting"
@@ -193,6 +216,7 @@ class SourceStatusBadge(QPushButton):
 
         self._pages = pages
         self._page_index = 0
+        self.set_empty(False)
 
         if pages:
             self.set_text(pages[0])
@@ -202,7 +226,6 @@ class SourceStatusBadge(QPushButton):
         else:
             self._timer.stop()
 
-        # Tooltip
         parts = []
         if source_type == "local_file":
             parts.append("Fuente: Archivo local")
@@ -240,5 +263,6 @@ class SourceStatusBadge(QPushButton):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
-        self.clicked_details.emit()
+        if not self._empty and self._pages:
+            self.clicked_details.emit()
         super().mousePressEvent(event)
