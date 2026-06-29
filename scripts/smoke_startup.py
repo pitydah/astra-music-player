@@ -191,6 +191,8 @@ def _check_main_window():
         'connections_hub', 'radio', 'audio_lab', 'home_audio', 'identifier',
         'assistant', 'discover', 'settings_hub', 'devices_page',
         'michi_disc_lab', 'metadata_editor', 'albums', 'artists', 'genres',
+        'audio_lab_diagnostics', 'audio_lab_identifier', 'audio_lab_backup',
+        'audio_lab_output', 'audio_lab_intelligence',
         'folders', 'favs', 'recent',
     ]
     for key in sections:

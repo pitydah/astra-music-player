@@ -147,6 +147,11 @@ class MainWindow(QMainWindow):
         self._metadata_review_ctrl = None
         self._album_repo = None
         self._audio_lab_page = None
+        self._audio_lab_diagnostics_page = None
+        self._audio_lab_identifier_page = None
+        self._audio_lab_backup_page = None
+        self._audio_lab_output_page = None
+        self._audio_lab_intelligence_page = None
         self._michi_disc_lab_page = None
         self._library_hub_page = None
         self._mix_hub_page = None
@@ -1075,6 +1080,51 @@ class MainWindow(QMainWindow):
         if not self._views.widget("audio_lab"):
             self._views.register("audio_lab", self._audio_lab_page)
         self._fade_content("audio_lab")
+
+    def _show_audio_lab_diagnostics(self, key=None):
+        if self._audio_lab_diagnostics_page is None:
+            from ui.audio_lab.sub_pages import AudioLabDiagnosticsPage
+            self._audio_lab_diagnostics_page = AudioLabDiagnosticsPage()
+            self._audio_lab_diagnostics_page.navigate_requested.connect(self._on_sidebar_navigate)
+        if not self._views.widget("audio_lab_diagnostics"):
+            self._views.register("audio_lab_diagnostics", self._audio_lab_diagnostics_page)
+        self._fade_content("audio_lab_diagnostics")
+
+    def _show_audio_lab_identifier(self, key=None):
+        if self._audio_lab_identifier_page is None:
+            from ui.audio_lab.sub_pages import AudioLabIdentifierPage
+            self._audio_lab_identifier_page = AudioLabIdentifierPage()
+            self._audio_lab_identifier_page.navigate_requested.connect(self._on_sidebar_navigate)
+        if not self._views.widget("audio_lab_identifier"):
+            self._views.register("audio_lab_identifier", self._audio_lab_identifier_page)
+        self._fade_content("audio_lab_identifier")
+
+    def _show_audio_lab_backup(self, key=None):
+        if self._audio_lab_backup_page is None:
+            from ui.audio_lab.sub_pages import AudioLabBackupPage
+            self._audio_lab_backup_page = AudioLabBackupPage()
+            self._audio_lab_backup_page.navigate_requested.connect(self._on_sidebar_navigate)
+        if not self._views.widget("audio_lab_backup"):
+            self._views.register("audio_lab_backup", self._audio_lab_backup_page)
+        self._fade_content("audio_lab_backup")
+
+    def _show_audio_lab_output(self, key=None):
+        if self._audio_lab_output_page is None:
+            from ui.audio_lab.sub_pages import AudioLabOutputPage
+            self._audio_lab_output_page = AudioLabOutputPage()
+            self._audio_lab_output_page.navigate_requested.connect(self._on_sidebar_navigate)
+        if not self._views.widget("audio_lab_output"):
+            self._views.register("audio_lab_output", self._audio_lab_output_page)
+        self._fade_content("audio_lab_output")
+
+    def _show_audio_lab_intelligence(self, key=None):
+        if self._audio_lab_intelligence_page is None:
+            from ui.audio_lab.sub_pages import AudioLabIntelligencePage
+            self._audio_lab_intelligence_page = AudioLabIntelligencePage()
+            self._audio_lab_intelligence_page.navigate_requested.connect(self._on_sidebar_navigate)
+        if not self._views.widget("audio_lab_intelligence"):
+            self._views.register("audio_lab_intelligence", self._audio_lab_intelligence_page)
+        self._fade_content("audio_lab_intelligence")
 
     def _show_michi_disc_lab(self, key=None):
         if self._michi_disc_lab_page is None:
