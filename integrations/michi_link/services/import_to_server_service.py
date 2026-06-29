@@ -97,16 +97,16 @@ class ImportToServerService:
                     match = item
                     break
                 # Try content_hash
-                if match is None and identity.content_hash:
-                    if item.get("content_hash") == identity.content_hash:
-                        match = item
-                        break
+                if match is None and identity.content_hash and \
+                   item.get("content_hash") == identity.content_hash:
+                    match = item
+                    break
                 # Try quick_hash
-                if match is None and identity.quick_hash:
-                    if item.get("quick_hash") == identity.quick_hash or \
-                       item.get("sha256_prefix") == identity.quick_hash:
-                        match = item
-                        break
+                if match is None and identity.quick_hash and \
+                   (item.get("quick_hash") == identity.quick_hash or
+                    item.get("sha256_prefix") == identity.quick_hash):
+                    match = item
+                    break
 
             if match:
                 status = match.get("status", "exists" if match.get("exists") else "missing")
