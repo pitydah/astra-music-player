@@ -137,13 +137,36 @@ def clear_graphics_effect_safely(widget: QWidgetType):
 
 
 class AcrylicGlassFrame(QFrame):
-    """Glass surface with tint, noise, specular, shadow, and optional hover shine."""
+    """Glass surface with tint, noise, specular, shadow, and optional hover shine.
 
-    def __init__(self, parent=None, brush: AcrylicBrush | None = None,
-                 clip_radius: int = 18):
+    Supports legacy callers: AcrylicGlassFrame(name, parent, tint_opacity=..., ...)
+    and new callers: AcrylicGlassFrame(parent, brush, clip_radius=...)
+    """
+
+    def __init__(self, name_or_parent: str | QWidget | None = None,
+                 parent_or_brush: QWidget | AcrylicBrush | None = None,
+                 tint_opacity: float = 0.06,
+                 specular_opacity: float = 24,
+                 clip_radius: int = 18,
+                 hover_shine: bool = False):
+        name = ""
+        parent: QWidget | None = None
+        brush: AcrylicBrush | None = None
+
+        if isinstance(name_or_parent, str):
+            name = name_or_parent
+            parent = parent_or_brush if isinstance(parent_or_brush, QWidget) else None
+        else:
+            parent = name_or_parent
+            brush = parent_or_brush if isinstance(parent_or_brush, AcrylicBrush) else None
+
         super().__init__(parent)
-        self._brush = brush or AcrylicBrush()
+        self.setObjectName(name)
         self._clip_radius = clip_radius
+        self._brush = brush or AcrylicBrush(
+            tint_opacity=tint_opacity,
+            specular_opacity=specular_opacity,
+        )
         self._noise = NoiseOverlay(self)
         self.setAttribute(Qt.WA_StyledBackground, True)
         apply_card_shadow(self)
