@@ -43,9 +43,16 @@ if TYPE_CHECKING:
 def _nav_button_qss() -> str:
     return """
         QToolButton {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.04);
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.06);
             border-radius: 10px;
+        }
+        QToolButton:hover {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.10);
+        }
+        QToolButton:pressed {
+            background: rgba(255,255,255,0.03);
         }
         QToolButton:disabled {
             background: transparent;
@@ -63,6 +70,12 @@ class UIBuilder:
 
     def __init__(self, window: MainWindow):
         self._win = window
+
+    def _nav_back(self):
+        self._win._nav_ctrl.navigate_back()
+
+    def _nav_forward(self):
+        self._win._nav_ctrl.navigate_forward()
 
     def build(self):
         w = self._win
@@ -124,7 +137,7 @@ class UIBuilder:
         w._back_btn.setStyleSheet(_nav_button_qss())
         w._back_btn.setFixedSize(38, 38)
         w._back_btn.setEnabled(False)
-        w._back_btn.clicked.connect(lambda _w=w: _w._nav_ctrl.navigate_back())
+        w._back_btn.clicked.connect(self._nav_back)
         title_wrap.addWidget(w._back_btn)
 
         w._forward_btn = QToolButton()
@@ -136,7 +149,7 @@ class UIBuilder:
         w._forward_btn.setStyleSheet(_nav_button_qss())
         w._forward_btn.setFixedSize(38, 38)
         w._forward_btn.setEnabled(False)
-        w._forward_btn.clicked.connect(lambda _w=w: _w._nav_ctrl.navigate_forward())
+        w._forward_btn.clicked.connect(self._nav_forward)
         title_wrap.addWidget(w._forward_btn)
 
         title_wrap.addWidget(w._section_icon_box)
