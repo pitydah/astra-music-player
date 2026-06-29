@@ -144,6 +144,13 @@ class ConversionPage(QWidget):
         cl.addWidget(fmt_card)
 
         # Convert button + progress
+        self._encoder_warning = QLabel("")
+        self._encoder_warning.setStyleSheet(
+            "color: rgba(255,180,60,0.85); font-size: 11px; "
+            "background: transparent;"
+        )
+        cl.addWidget(self._encoder_warning)
+
         self._convert_btn = QPushButton("Iniciar conversión")
         self._convert_btn.setCursor(Qt.PointingHandCursor)
         self._convert_btn.setStyleSheet(glass_button_qss("primary"))
@@ -167,6 +174,26 @@ class ConversionPage(QWidget):
         cl.addStretch()
         scroll.setWidget(content)
         layout.addWidget(scroll)
+
+        self._check_encoders()
+
+    def _check_encoders(self):
+        import shutil
+        missing = []
+        if not shutil.which("flac"):
+            missing.append("FLAC")
+        if not shutil.which("lame"):
+            missing.append("MP3")
+        if not shutil.which("opusenc"):
+            missing.append("Opus")
+        if not shutil.which("ffmpeg"):
+            missing.append("ALAC")
+        if missing:
+            self._encoder_warning.setText(
+                "⚠ Algunos formatos requieren herramientas del sistema "
+                f"no instaladas: {', '.join(missing)}. "
+                "WAV está siempre disponible."
+            )
 
     def _add_files(self):
         files, _ = QFileDialog.getOpenFileNames(
@@ -219,6 +246,17 @@ class ConversionPage(QWidget):
             return
 
         target = self._target_combo.currentData()
+        if target != "wav":
+            import shutil
+            tool_map = {"flac": "flac", "mp3": "lame", "opus": "opusenc", "alac": "ffmpeg"}
+            tool = tool_map.get(target)
+            if tool and not shutil.which(tool):
+                self._status_label.setText(
+                    f"Herramienta '{tool}' no instalada. "
+                    "Instálala o selecciona WAV."
+                )
+                return
+
         dest = getattr(self, '_dest', None)
         if not dest:
             dest = os.path.dirname(self._files[0])
@@ -233,25 +271,46 @@ class ConversionPage(QWidget):
         self._convert_btn.setEnabled(False)
         self._progress.setVisible(True)
         self._progress.setValue(0)
-        self._total = len(self._files)
+        self._queue = list(self._files)
+        self._target_fmt = target
+        self._dest_dir = dest
+        self._total = len(self._queue)
         self._done = 0
         self._status_label.setText(f"Convirtiendo 0/{self._total}...")
+        self._convert_next()
 
-        for fp in self._files:
-            base = os.path.splitext(os.path.basename(fp))[0]
-            out = os.path.join(dest, f"{base}.{target}")
-            if target == "flac":
-                self._encoder.encode_to_flac(fp, out)
-            elif target == "mp3":
-                self._encoder.encode_to_mp3(fp, out, 320)
-            elif target == "opus":
-                self._encoder.encode_to_opus(fp, out, 192)
-            elif target == "alac":
-                self._encoder.encode_to_alac(fp, out)
-            elif target == "wav":
-                import shutil
+    def _convert_next(self):
+        if not self._queue:
+            self._convert_btn.setEnabled(True)
+            self._status_label.setText(
+                f"Conversión completada: {self._done} archivos."
+            )
+            return
+
+        fp = self._queue.pop(0)
+        base = os.path.splitext(os.path.basename(fp))[0]
+        out = os.path.join(self._dest_dir, f"{base}.{self._target_fmt}")
+        tgt = self._target_fmt
+
+        if tgt == "wav":
+            import shutil
+            try:
                 shutil.copy2(fp, out)
                 self._on_encode_finished(fp, out)
+            except Exception as e:
+                self._on_encode_error(fp, str(e))
+            return
+
+        if tgt == "flac":
+            self._encoder.encode_to_flac(fp, out)
+        elif tgt == "mp3":
+            self._encoder.encode_to_mp3(fp, out, 320)
+        elif tgt == "opus":
+            self._encoder.encode_to_opus(fp, out, 192)
+        elif tgt == "alac":
+            self._encoder.encode_to_alac(fp, out)
+        else:
+            self._on_encode_error(fp, f"Formato no soportado: {tgt}")
 
     def _on_encode_finished(self, input_path: str, output_path: str):
         self._done += 1
@@ -261,11 +320,7 @@ class ConversionPage(QWidget):
             f"Convertidos {self._done}/{self._total}: "
             f"{os.path.basename(output_path)}"
         )
-        if self._done >= self._total:
-            self._convert_btn.setEnabled(True)
-            self._status_label.setText(
-                f"Conversión completada: {self._done} archivos."
-            )
+        self._convert_next()
 
     def _on_encode_error(self, input_path: str, error: str):
         self._done += 1
@@ -273,5 +328,4 @@ class ConversionPage(QWidget):
         self._status_label.setText(
             f"Error en {os.path.basename(input_path)}: {error}"
         )
-        if self._done >= self._total:
-            self._convert_btn.setEnabled(True)
+        self._convert_next()
