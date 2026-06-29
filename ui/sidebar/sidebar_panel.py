@@ -1,5 +1,5 @@
 """SidebarPanel — dark glass sidebar panel using AcrylicGlassFrame."""
-from ui.effects.michi_glass import AcrylicGlassFrame
+from ui.effects.michi_glass import AcrylicGlassFrame, apply_sidebar_shadow
 
 
 class SidebarPanel(AcrylicGlassFrame):
@@ -12,3 +12,4 @@ class SidebarPanel(AcrylicGlassFrame):
             specular_opacity=14,
             clip_radius=24,
         )
+        apply_sidebar_shadow(self)

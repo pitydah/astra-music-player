@@ -131,6 +131,15 @@ def apply_dialog_shadow(widget: QWidgetType):
     widget.setGraphicsEffect(_shadow(blur=40, offset=10, opacity=85))
 
 
+def apply_sidebar_shadow(widget: QWidgetType):
+    e = QGraphicsDropShadowEffect()
+    e.setBlurRadius(18)
+    e.setXOffset(3)
+    e.setYOffset(0)
+    e.setColor(QColor(0, 0, 0, 40))
+    widget.setGraphicsEffect(e)
+
+
 def clear_graphics_effect_safely(widget: QWidgetType):
     with contextlib.suppress(RuntimeError):
         widget.setGraphicsEffect(None)

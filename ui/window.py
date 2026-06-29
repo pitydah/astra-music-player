@@ -756,16 +756,6 @@ class MainWindow(QMainWindow):
             current = resolve_sidebar_active_key(getattr(self, "_current_route_key", "home"))
         self._sidebar_controller.set_active(current)
 
-        # Sidebar shadow — solo si no tiene uno ya
-        if not self._sidebar.graphicsEffect():
-            from PySide6.QtWidgets import QGraphicsDropShadowEffect
-            shadow = QGraphicsDropShadowEffect()
-            shadow.setBlurRadius(18)
-            shadow.setXOffset(3)
-            shadow.setYOffset(0)
-            shadow.setColor(QColor(0, 0, 0, 40))
-            self._sidebar.setGraphicsEffect(shadow)
-
     # ── Static route handlers ──
 
     def _show_playlist_hub(self, key):
@@ -1068,27 +1058,10 @@ class MainWindow(QMainWindow):
     def _on_sidebar_navigate(self, key):
         self._nav_ctrl.dispatch(key)
     def _show_album_grid(self):
-        items = self._lib_ctrl.filtered_album_items()
-        self._album_grid.set_items(items, 200,
-                                   sort_key=getattr(self, '_album_sort_key', 'title'),
-                                   filter_mode=getattr(self, '_album_filter_mode', 'all'))
-        from library.album_art import group_by_album
-        groups = group_by_album(items)
-        self._count.setText(f"{len(groups)} álbumes")
+        self._lib_ctrl.show_album_grid()
 
     def _show_song_grid(self):
-        items = self._all_items
-        if self._search_text:
-            q = self._search_text.lower()
-            items = [
-                i for i in items
-                if q in (i.title or "").lower()
-                or q in (i.artist or "").lower()
-                or q in (i.album or "").lower()
-                or q in (i.filepath or "").lower()
-            ]
-        self._song_grid.set_items(items, card_size=170)
-        self._count.setText(f"{len(items)} canciones")
+        self._lib_ctrl.show_song_grid()
 
 
     def _show_coverflow(self):

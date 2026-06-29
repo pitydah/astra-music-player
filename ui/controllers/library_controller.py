@@ -145,6 +145,32 @@ class LibraryController(QObject):
             or q in str(getattr(i, "year", "") or "").lower()
         ]
 
+    # ── Grid display helpers — moved from MainWindow ──
+
+    def show_album_grid(self):
+        w = self._win
+        items = self.filtered_album_items()
+        w._album_grid.set_items(items, 200,
+            sort_key=getattr(w, '_album_sort_key', 'title'),
+            filter_mode=getattr(w, '_album_filter_mode', 'all'))
+        from library.album_art import group_by_album
+        groups = group_by_album(items)
+        w._count.setText(f"{len(groups)} álbumes")
+
+    def show_song_grid(self):
+        w = self._win
+        items = w._all_items
+        text = getattr(w, '_search_text', "")
+        if text:
+            q = text.lower()
+            items = [i for i in items
+                     if q in (i.title or "").lower()
+                     or q in (i.artist or "").lower()
+                     or q in (i.album or "").lower()
+                     or q in (i.filepath or "").lower()]
+        w._song_grid.set_items(items, card_size=170)
+        w._count.setText(f"{len(items)} canciones")
+
     # ── Callbacks ──
 
     def _on_backfill_done(self, count: int):
