@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import secrets
 import urllib.parse
 
@@ -223,20 +224,87 @@ class V1_MIXIN:
                 return
             handler._send_json(cls._build_queue(srv))
 
-        # ── Stream & Artwork (alias to legacy implementation) ──
+        # ── Stream & Artwork (explicit wrapper, no handler.path mutation) ──
         elif path.startswith("/api/v1/stream/"):
             if not cls._check_v1_permission(handler, "GET", "/api/v1/stream"):
                 return
-            handler.path = handler.path.replace("/api/v1/stream", "/api/stream", 1)
-            from sync.sync_server import SyncRequestHandler
-            SyncRequestHandler.do_GET(handler)
+            if srv is None:
+                return _send_v1_error(handler, "SERVER_NOT_READY", "Server not ready", 503)
+            track_hash = path.split("/")[-1]
+            filepath = srv._resolve_track(track_hash)
+            if not filepath or not os.path.exists(filepath):
+                return _send_v1_error(handler, "TRACK_NOT_FOUND", "Track not found", 404)
+            # Stream the file directly with range support
+            size = os.path.getsize(filepath)
+            ext = os.path.splitext(filepath)[1].lower()
+            mime_map = {
+                ".mp3": "audio/mpeg", ".flac": "audio/flac",
+                ".ogg": "audio/ogg", ".opus": "audio/ogg",
+                ".wav": "audio/wav", ".m4a": "audio/mp4",
+                ".aac": "audio/aac", ".wma": "audio/x-ms-wma",
+                ".dsf": "audio/x-dsf", ".dff": "audio/x-dff",
+            }
+            content_type = mime_map.get(ext, "application/octet-stream")
+            range_header = handler.headers.get("Range", "")
+            if range_header.startswith("bytes="):
+                start, end = 0, size - 1
+                parts = range_header[6:].split("-")
+                if parts[0]:
+                    start = int(parts[0])
+                if len(parts) > 1 and parts[1]:
+                    end = min(int(parts[1]), size - 1)
+                if end < start:
+                    end = size - 1
+                handler.send_response(206)
+                handler.send_header("Content-Type", content_type)
+                handler.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+                handler.send_header("Content-Length", end - start + 1)
+                handler.send_header("Accept-Ranges", "bytes")
+                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler.end_headers()
+                with open(filepath, "rb") as f:
+                    f.seek(start)
+                    remaining = end - start + 1
+                    chunk = 65536
+                    while remaining > 0:
+                        data = f.read(min(chunk, remaining))
+                        if not data:
+                            break
+                        handler.wfile.write(data)
+                        remaining -= len(data)
+            else:
+                handler.send_response(200)
+                handler.send_header("Content-Type", content_type)
+                handler.send_header("Content-Length", size)
+                handler.send_header("Accept-Ranges", "bytes")
+                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler.end_headers()
+                with open(filepath, "rb") as f:
+                    while True:
+                        data = f.read(65536)
+                        if not data:
+                            break
+                        handler.wfile.write(data)
 
         elif path.startswith("/api/v1/artwork/"):
             if not cls._check_v1_permission(handler, "GET", "/api/v1/artwork"):
                 return
-            handler.path = handler.path.replace("/api/v1/artwork", "/api/cover", 1)
-            from sync.sync_server import SyncRequestHandler
-            SyncRequestHandler.do_GET(handler)
+            if srv is None or srv._db is None:
+                return _send_v1_error(handler, "LIBRARY_UNAVAILABLE", "No library", 503)
+            cover_hash = path.split("/")[-1]
+            row = srv._db.conn.execute(
+                "SELECT mime, data FROM album_art_cache WHERE album_hash=?",
+                (cover_hash,)).fetchone()
+            if row:
+                handler.send_response(200)
+                handler.send_header("Content-Type", row[0] or "image/jpeg")
+                handler.send_header("Content-Length", len(row[1]))
+                handler.send_header("Access-Control-Allow-Origin", "*")
+                handler.send_header("Cache-Control", "public, max-age=86400")
+                handler.end_headers()
+                handler.wfile.write(row[1])
+            else:
+                _send_v1_error(handler, "ARTWORK_NOT_FOUND", "Cover not found", 404)
 
         # ── Events (SSE not implemented) ──
         elif path == "/api/v1/events":
@@ -504,6 +572,13 @@ class V1_MIXIN:
                 ps.toggle()
             elif pb and hasattr(pb, "toggle"):
                 pb.toggle()
+            elif ps:
+                from audio.player import PlaybackState
+                st = getattr(ps, "state", None)
+                if st == PlaybackState.PLAYING:
+                    ps.pause()
+                else:
+                    ps.play_or_resume()
 
         elif action in ("next", "skip"):
             if ps and hasattr(ps, "play_next"):

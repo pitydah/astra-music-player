@@ -125,6 +125,120 @@ class TestPlaybackState:
         assert d["current_index"] == 0
 
 
+class TestStreamAlias:
+    def test_stream_requires_permission(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/stream/track_hash_123"
+        handler._require_permission = MagicMock(return_value=False)
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+        handler._require_permission.assert_called_with("stream.read")
+
+    def test_stream_returns_404_for_missing_track(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/stream/unknown_hash"
+        handler._require_permission = MagicMock(return_value=True)
+        srv = MagicMock()
+        srv._resolve_track = MagicMock(return_value=None)
+        handler.server_ref = srv
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+        assert len(results) == 1
+        data, status = results[0]
+        assert "error" in data
+        assert data["error"]["code"] == "TRACK_NOT_FOUND"
+
+
+class TestArtworkAlias:
+    def test_artwork_requires_permission(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/artwork/cover_hash_abc"
+        handler._require_permission = MagicMock(return_value=False)
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+        handler._require_permission.assert_called_with("artwork.read")
+
+    def test_artwork_returns_404_for_missing_cover(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/artwork/unknown_hash"
+        handler._require_permission = MagicMock(return_value=True)
+        srv = MagicMock()
+        srv._db.conn.execute.return_value.fetchone.return_value = None
+        handler.server_ref = srv
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+        assert len(results) == 1
+        data, status = results[0]
+        assert "error" in data
+        assert data["error"]["code"] == "ARTWORK_NOT_FOUND"
+
+
+class TestSearch:
+    def test_search_does_not_expose_filepath(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/search?q=test"
+        handler._require_permission = MagicMock(return_value=True)
+
+        srv = MagicMock()
+        item = MagicMock()
+        item.filepath = "/secret/path/song.mp3"
+        item.title = "Test"
+        item.artist = "Artist"
+        item.album = "Album"
+        item.duration = 200.0
+        item.track_uid = ""
+        srv._db.search_advanced.return_value = [item]
+        handler.server_ref = srv
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+
+        assert len(results) == 1
+        body = results[0][0]
+        for r in body.get("results", []):
+            assert "filepath" not in r
+            assert r["download_path"].startswith("/api/v1/stream/")
+
+    def test_search_returns_track_id_compatible_with_stream(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/search?q=test"
+        handler._require_permission = MagicMock(return_value=True)
+
+        srv = MagicMock()
+        item = MagicMock()
+        item.filepath = "/music/song.mp3"
+        item.title = "Test"
+        item.artist = "A"
+        item.album = "B"
+        item.duration = 200.0
+        item.track_uid = ""
+        srv._db.search_advanced.return_value = [item]
+        handler.server_ref = srv
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+
+        body = results[0][0]
+        for r in body.get("results", []):
+            assert r["download_path"] == f"/api/v1/stream/{r['track_id']}"
+
+
 class TestPlaybackControl:
     def test_accepts_command(self):
         from integrations.michi_link.server import V1_MIXIN
@@ -147,6 +261,39 @@ class TestPlaybackControl:
         body = json.dumps({"action": "pause"})
         V1_MIXIN._handle_control(handler, body)
         ps.pause.assert_called_once()
+
+    def test_set_volume_0(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler._require_permission = MagicMock(return_value=True)
+        ps = MagicMock()
+        V1_MIXIN._player_service = ps
+
+        body = json.dumps({"command": "set_volume", "volume": 0})
+        V1_MIXIN._handle_control(handler, body)
+        ps.set_volume.assert_called_once_with(0)
+
+    def test_set_volume_70(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler._require_permission = MagicMock(return_value=True)
+        ps = MagicMock()
+        V1_MIXIN._player_service = ps
+
+        body = json.dumps({"command": "set_volume", "volume": 70})
+        V1_MIXIN._handle_control(handler, body)
+        ps.set_volume.assert_called_once_with(70)
+
+    def test_set_volume_100(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler._require_permission = MagicMock(return_value=True)
+        ps = MagicMock()
+        V1_MIXIN._player_service = ps
+
+        body = json.dumps({"command": "set_volume", "volume": 100})
+        V1_MIXIN._handle_control(handler, body)
+        ps.set_volume.assert_called_once_with(100)
 
     def test_set_volume_validates_range(self):
         from integrations.michi_link.server import V1_MIXIN
@@ -173,6 +320,26 @@ class TestPlaybackControl:
         body = json.dumps({"command": "toggle"})
         V1_MIXIN._handle_control(handler, body)
         ps.toggle.assert_called_once()
+
+    def test_toggle_fallback_without_toggle_method(self):
+        from integrations.michi_link.server import V1_MIXIN
+        from audio.player import PlaybackState
+        handler = MagicMock()
+        handler._require_permission = MagicMock(return_value=True)
+        ps = MagicMock(spec=[])
+        ps.pause = MagicMock()
+        ps.play_or_resume = MagicMock()
+        ps.state = PlaybackState.PLAYING
+        # Remove toggle to trigger fallback
+        V1_MIXIN._player_service = ps
+
+        body = json.dumps({"command": "toggle"})
+        V1_MIXIN._handle_control(handler, body)
+        ps.pause.assert_called_once()
+
+        ps.state = PlaybackState.PAUSED
+        V1_MIXIN._handle_control(handler, body)
+        ps.play_or_resume.assert_called()
 
     def test_seek_accepts_position_ms(self):
         from integrations.michi_link.server import V1_MIXIN
