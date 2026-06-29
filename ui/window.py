@@ -619,6 +619,10 @@ class MainWindow(QMainWindow):
         sync_action = getattr(getattr(self, '_action_ctrl', None), '_sync_action', None)
         self._sync_mgr = SyncManager(self._db, self)
         self._sync_mgr.set_device_registry(DeviceRegistry())
+        self._sync_mgr.set_playback_services(
+            getattr(self, '_playback_ctrl', None),
+            getattr(self, '_playback', None),
+        )
         if sync_action:
             self._sync_mgr.sync_started.connect(
                 lambda p: sync_action.setText(
@@ -716,12 +720,13 @@ class MainWindow(QMainWindow):
         # Wire context service
         ctx = getattr(self, '_context_svc', None)
         if ctx:
+            from core.context.context_events import AppEvent
             self._playback.track_changed.connect(
-                lambda title, artist: ctx.record_event("track_played",
+                lambda title, artist: ctx.record_event(AppEvent.TRACK_PLAYED,
                     {"title": title, "artist": artist}))
             self._playback.state_changed.connect(
-                lambda state: ctx.record_event("track_paused" if state == "paused"
-                    else "track_played" if state == "playing" else ""))
+                lambda state: ctx.record_event(AppEvent.TRACK_PAUSED)
+                if state == "paused" else None)
 
     def _setup_tray(self):
         from ui.controllers.tray_controller import TrayController
@@ -919,6 +924,10 @@ class MainWindow(QMainWindow):
                 parent=self,
             )
         self._assistant_ctrl.show_assistant(self, self._views, panel=getattr(self, '_assistant_panel', None))
+        ctx = getattr(self, '_context_svc', None)
+        if ctx:
+            from core.context.context_events import AppEvent
+            ctx.record_event(AppEvent.ASSISTANT_OPENED)
 
     def _on_assistant_state(self, state: str):
         self._assistant_panel.set_thinking(state == "thinking")

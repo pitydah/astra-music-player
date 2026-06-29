@@ -579,6 +579,8 @@ class SyncServer(QObject):
         self._delta_provider: callable | None = None
         self._local_account: object | None = None
         self._device_registry: object | None = None
+        self._playback_ctrl: object | None = None
+        self._player_service: object | None = None
 
     def set_manifest_provider(self, provider):
         """Register a callable that returns public manifest dict for a device_id."""
@@ -595,6 +597,11 @@ class SyncServer(QObject):
     def set_device_registry(self, registry):
         """Set DeviceRegistry for token validation and permissions."""
         self._device_registry = registry
+
+    def set_playback_services(self, playback_controller, player_service):
+        """Set playback references for remote control API."""
+        self._playback_ctrl = playback_controller
+        self._player_service = player_service
 
     def _purge_expired_sessions(self):
         """Remove expired sessions to prevent memory leak."""
@@ -632,6 +639,16 @@ class SyncServer(QObject):
         self._build_index()
 
         SyncRequestHandler.server_ref = self
+        try:
+            from integrations.michi_link.server import MichiLinkServer
+            MichiLinkServer.mount(
+                SyncRequestHandler,
+                playback=self._playback_ctrl,
+                player_service=self._player_service,
+            )
+        except Exception as e:
+            logger.warning("MichiLinkServer mount failed: %s", e)
+
         try:
             self._httpd = HTTPServer(("0.0.0.0", self._port), SyncRequestHandler)
         except OSError as e:

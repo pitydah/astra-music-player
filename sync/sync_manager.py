@@ -97,6 +97,10 @@ class SyncManager(QObject):
         self._device_registry = registry
         self._server.set_device_registry(registry)
 
+    def set_playback_services(self, playback_controller, player_service):
+        """Register playback services for remote control API."""
+        self._server.set_playback_services(playback_controller, player_service)
+
     @property
     def local_account(self) -> LocalAccountManager:
         return self._local_account
