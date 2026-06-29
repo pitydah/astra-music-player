@@ -112,6 +112,9 @@ class SearchRouter:
             w._table.setColumnWidth(5, 130)
             w._table.setColumnWidth(6, 80)
             w._table.setColumnWidth(7, 260)
+            pc = getattr(w, '_playback_ctrl', None)
+            if pc:
+                pc.connect_table_selection()
         else:
             w._views.show("empty")
 

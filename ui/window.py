@@ -878,6 +878,8 @@ class MainWindow(QMainWindow):
 
         self._model.populate([])
         self._table.setModel(self._model)
+        if hasattr(self, '_playback_ctrl') and self._playback_ctrl:
+            self._playback_ctrl.connect_table_selection()
 
         def _on_device_scanned(files: list[str]):
             if not hasattr(self, '_model') or self._current_section_key != "devices":

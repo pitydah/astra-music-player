@@ -80,6 +80,9 @@ class ViewModeRouter:
                 w._model.populate(w._playlist_refs)
                 w._generic_tracks_table.setModel(w._model)
                 w._generic_tracks_table.setColumnHidden(7, True)
+                pc = getattr(w, '_playback_ctrl', None)
+                if pc:
+                    pc.connect_table_selection()
                 w._fade_content("library_hub")
             elif mode == "grid":
                 w._generic_song_grid.set_items(w._playlist_refs, card_size=170)
@@ -109,6 +112,9 @@ class ViewModeRouter:
                 w._model.populate(refs)
                 w._generic_tracks_table.setModel(w._model)
                 w._generic_tracks_table.setColumnHidden(7, True)
+                pc = getattr(w, '_playback_ctrl', None)
+                if pc:
+                    pc.connect_table_selection()
                 w._fade_content("library_hub")
             elif mode == "grid":
                 w._generic_song_grid.set_items(refs, card_size=170)

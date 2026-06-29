@@ -1,4 +1,5 @@
 """Playback controller — core track playback, table menus, EQ, state handling."""
+import contextlib
 import os
 
 from PySide6.QtCore import Qt
@@ -278,3 +279,47 @@ class PlaybackController:
         dlg.raise_()
         dlg.activateWindow()
         self._win._ctx.eq_dlg = dlg
+
+    # ── Table selection context ═══
+
+    def connect_table_selection(self):
+        """Connect table selection changes to ContextService without playing.
+
+        Call after each setModel() to keep signal wiring alive.
+        """
+        table = self._win._ctx.table
+        if not table:
+            return
+        sel = table.selectionModel()
+        if not sel:
+            return
+        with contextlib.suppress(TypeError, RuntimeError):
+            sel.currentChanged.disconnect()
+        sel.currentChanged.connect(self._on_table_selection)
+
+    def _on_table_selection(self, current, previous):
+        if not current or not current.isValid():
+            return
+        model = self._win._ctx.model
+        if not model:
+            return
+        track = model.get_trackref(current.row())
+        if not track:
+            return
+        ctx = (
+            getattr(getattr(self._win, "_services", None), "context_svc", None)
+            or getattr(self._win._ctx, "context_svc", None)
+        )
+        if ctx:
+            ctx.update_selection(
+                scope="track",
+                track=track,
+                album=getattr(track, "album", ""),
+                artist=getattr(track, "artist", ""),
+                genre=getattr(track, "genre", ""),
+                playlist_id=None,
+                playlist_name="",
+                folder_name="",
+                mix_key="",
+                search_query="",
+            )
