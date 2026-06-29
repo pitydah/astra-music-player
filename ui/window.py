@@ -1077,9 +1077,41 @@ class MainWindow(QMainWindow):
             from ui.audio_lab.audio_lab_page import AudioLabPage
             self._audio_lab_page = AudioLabPage()
             self._audio_lab_page.navigate_requested.connect(self._on_sidebar_navigate)
+            self._playback.state_changed.connect(
+                self._on_audio_lab_playback_state)
         if not self._views.widget("audio_lab"):
             self._views.register("audio_lab", self._audio_lab_page)
+        self._update_audio_lab_status()
         self._fade_content("audio_lab")
+
+    def _update_audio_lab_status(self):
+        """Push current track info into the Audio Lab hub status bar."""
+        ref = getattr(self, '_current_ref', None)
+        if ref and self._audio_lab_page:
+            parts = [ref.title or "Desconocido"]
+            if ref.artist:
+                parts.append(ref.artist)
+            if ref.uri:
+                from audio.format_probe import probe_format
+                try:
+                    fmt = probe_format(ref.uri)
+                    tech = fmt.container.upper() if fmt.container else ""
+                    sr = f"{fmt.sample_rate // 1000}" if fmt.sample_rate else ""
+                    bd = str(fmt.bit_depth) if fmt.bit_depth else ""
+                    if tech:
+                        quality = f"{tech}"
+                        if sr and bd:
+                            quality += f" {bd}/{sr}"
+                        parts.append(quality)
+                except Exception:
+                    pass
+            self._audio_lab_page.set_status_text(" · ".join(parts))
+        else:
+            self._audio_lab_page.set_status_text("Sin reproducción activa.")
+
+    def _on_audio_lab_playback_state(self, state):
+        """React to playback state changes to update the status bar."""
+        self._update_audio_lab_status()
 
     def _show_audio_lab_diagnostics(self, key=None):
         if self._audio_lab_diagnostics_page is None:
