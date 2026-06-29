@@ -179,20 +179,39 @@ class ArtworkPage(QWidget):
         self._new_artwork_path = fp
 
     def _embed_artwork(self):
-        fp = getattr(self, '_new_artwork_path', None)
-        if not fp or not os.path.exists(fp):
+        img_fp = getattr(self, '_new_artwork_path', None)
+        if not img_fp or not os.path.exists(img_fp):
             QMessageBox.information(
                 self, "Carátulas",
                 "Selecciona una imagen primero con 'Reemplazar desde archivo'."
             )
             return
 
+        audio_fp, _ = QFileDialog.getOpenFileName(
+            self, "Seleccionar archivo de audio destino", "",
+            "Audio (*.flac *.mp3 *.m4a *.ogg *.opus)"
+        )
+        if not audio_fp:
+            return
+
         try:
-            from ui.audio_lab.services.tag_writer import TagWriter
-            tw = TagWriter()
-            tw.embed_cover("", fp)
-            self._art_status.setText("Carátula incrustada correctamente.")
-            logger.info("Artwork embedded from %s", fp)
+            from metadata.tag_writer import write_tags
+            from metadata.tag_model import TrackTags
+
+            with open(img_fp, "rb") as f:
+                img_data = f.read()
+
+            tags = TrackTags(filepath=audio_fp)
+            tags.has_artwork = True
+            tags.artwork_mime = "image/jpeg"
+            tags.artwork_data = img_data
+            tags.mark_artwork_dirty()
+            write_tags(audio_fp, tags)
+
+            self._art_status.setText(
+                f"Carátula incrustada en {os.path.basename(audio_fp)}"
+            )
+            logger.info("Artwork embedded in %s from %s", audio_fp, img_fp)
         except Exception as e:
             logger.exception("Failed to embed artwork")
             QMessageBox.warning(self, "Error", f"No se pudo incrustar: {e}")
@@ -202,10 +221,11 @@ class ArtworkPage(QWidget):
         self._missing_progress.setVisible(True)
         self._missing_progress.setValue(0)
 
+        tmp_db = None
         try:
             from library.library_db import LibraryDB, DB_PATH
-            db = LibraryDB(DB_PATH)
-            rows = db._conn.execute(
+            tmp_db = LibraryDB(DB_PATH)
+            rows = tmp_db._conn.execute(
                 "SELECT DISTINCT album, albumartist, directory "
                 "FROM media_items WHERE deleted_at IS NULL "
                 "AND album IS NOT NULL AND album != ''"
@@ -247,5 +267,10 @@ class ArtworkPage(QWidget):
         except Exception as e:
             logger.exception("Missing artwork scan failed")
             self._missing_list.addItem(f"Error: {e}")
+
+        if tmp_db:
+            import contextlib
+            with contextlib.suppress(Exception):
+                tmp_db.close()
 
         self._missing_progress.setVisible(False)
