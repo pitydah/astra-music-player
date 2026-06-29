@@ -79,9 +79,18 @@ class ContextService:
     def get_navigation_state(self) -> dict:
         return repo.get_state("navigation", {"section": "", "tab": ""})
 
-    def update_selection(self, track=None, album: str = "", artist: str = "",
-                          genre: str = "") -> None:
-        payload = {"album": album, "artist": artist, "genre": genre}
+    def update_selection(self, track=None,
+                          album: str | None = None,
+                          artist: str | None = None,
+                          genre: str | None = None) -> None:
+        current = repo.get_state("selection", {})
+        payload = dict(current)
+        if album is not None:
+            payload["album"] = album
+        if artist is not None:
+            payload["artist"] = artist
+        if genre is not None:
+            payload["genre"] = genre
         if track is not None:
             payload["track"] = getattr(track, "title", None) or getattr(track, "name", None)
             payload["track_artist"] = getattr(track, "artist", None)

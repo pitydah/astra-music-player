@@ -249,7 +249,7 @@ class MainWindow(QMainWindow):
         from core.app_services import AppServices
         svc = AppServices(
             db=self._db, playback=self._playback, player=self._player,
-            model=self._model, toast=self._toast_svc,
+            model=self._model, workers=self._workers, toast=self._toast_svc,
             player_bar=getattr(self, '_player_bar_ctrl', None),
             features=self._features,
             artist_repo=self._artist_repo, genre_repo=self._genre_repo,

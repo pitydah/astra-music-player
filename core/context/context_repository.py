@@ -57,7 +57,7 @@ def _db_path() -> str:
     return context_db_path()
 
 
-def override_db_path(path: str):
+def override_db_path(path: str | None):
     global _DB_PATH
     _DB_PATH = path
 
