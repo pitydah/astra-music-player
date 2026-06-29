@@ -1301,6 +1301,14 @@ class MainWindow(QMainWindow):
             self._playback.duration_changed.disconnect()
         with contextlib.suppress(TypeError, RuntimeError, AttributeError):
             self._playback.state_changed.disconnect()
+        # Record app_closed event
+        ctx = getattr(self, '_context_svc', None)
+        if ctx:
+            try:
+                from core.context.context_events import AppEvent
+                ctx.record_event(AppEvent.APP_CLOSED)
+            except Exception:
+                pass
         self._shutdown.shutdown()
         event.accept()
 

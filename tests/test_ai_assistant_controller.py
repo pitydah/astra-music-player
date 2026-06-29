@@ -27,6 +27,7 @@ class TestAiAssistantController:
         ctrl._safe_mode = True
         assert ctrl.is_enabled() is False
 
+    @patch.dict("os.environ", {}, clear=True)
     def test_is_enabled_returns_true_from_settings(self, ctrl):
         ctrl._safe_mode = False
         with patch("ui.controllers.ai_assistant_controller.get_bool", return_value=True):
@@ -44,6 +45,7 @@ class TestAiAssistantController:
         ctrl._safe_mode = True
         assert ctrl.check_health() is False
 
+    @patch.dict("os.environ", {}, clear=True)
     def test_check_health_returns_service_value(self, ctrl):
         ctrl._safe_mode = False
         ctrl._service = MagicMock()
@@ -68,6 +70,7 @@ class TestAiAssistantController:
         ctrl.send_message("hello")
         assert ctrl._pending is True
 
+    @patch.dict("os.environ", {}, clear=True)
     def test_send_message_with_worker_manager(self, ctrl):
         ctrl._worker_mgr = MagicMock()
         ctrl._safe_mode = False

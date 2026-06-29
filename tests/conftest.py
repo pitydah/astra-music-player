@@ -127,6 +127,7 @@ class MockWindow:
         self._ha_ctrl = None
         self._nav = MagicMock()
         self._artist_enrich = None
+        self._nav_ctrl = MagicMock()
         self.setWindowTitle = MagicMock()
         self._search_ctrl = MagicMock()
         self._count = MagicMock()
