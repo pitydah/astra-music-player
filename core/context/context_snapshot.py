@@ -50,14 +50,30 @@ def build_library_health_snapshot(db) -> dict:
                 "SELECT COUNT(*) FROM media_items WHERE scan_status=? AND deleted_at IS NULL",
                 ("error",),
             ).fetchone()[0]
-            result["tracks_without_audio_features"] = conn.execute(
-                "SELECT COUNT(*) FROM media_items m "
-                "WHERE m.deleted_at IS NULL AND m.kind='audio' "
-                "AND NOT EXISTS (SELECT 1 FROM audio_features a WHERE a.track_id = m.id)"
-            ).fetchone()[0]
+            result["tracks_without_audio_features"] = _count_tracks_without_audio_features(conn)
     except Exception:
         logger.debug("Library health snapshot error (extra queries)")
     return result
+
+
+def _count_tracks_without_audio_features(conn) -> int:
+    try:
+        rows = conn.execute(
+            "SELECT COALESCE(NULLIF(track_uid,''), filepath) "
+            "FROM media_items WHERE deleted_at IS NULL AND kind='audio'"
+        ).fetchall()
+        track_keys = [r[0] for r in rows if r and r[0]]
+        if not track_keys:
+            return 0
+        from audio_analysis.feature_repository import FeatureRepository
+        repo = FeatureRepository()
+        try:
+            return repo.count_missing(track_keys)
+        finally:
+            repo.close()
+    except Exception:
+        logger.debug("Audio feature missing count unavailable", exc_info=True)
+        return 0
 
 
 def build_playback_snapshot(playback=None) -> dict:

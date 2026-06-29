@@ -47,22 +47,22 @@ class HomePage(QWidget):
         stats = {"total_songs": 0, "total_artists": 0, "total_albums": 0,
                  "missing_metadata": 0}
 
-        # Try context service snapshot first
-        try:
-            from core.context.context_service import ContextService
-            svc = ContextService()
-            snap = svc.get_home_snapshot()
-            if snap and snap.get("library_health"):
-                lh = snap["library_health"]
-                stats.update({
-                    "total_songs": lh.get("track_count", 0),
-                    "total_artists": lh.get("artist_count", 0),
-                    "total_albums": lh.get("album_count", 0),
-                    "missing_metadata": lh.get("missing_metadata_count", 0),
-                })
-                return stats
-        except Exception:
-            logger.debug("ContextService snapshot unavailable")
+        ctx = getattr(self._win, "_context_svc", None) if self._win else None
+        if ctx:
+            try:
+                snap = ctx.get_home_snapshot()
+                lh = snap.get("library_health", {}) if snap else {}
+                if lh:
+                    stats.update({
+                        "total_songs": lh.get("track_count", 0),
+                        "total_artists": lh.get("artist_count", 0),
+                        "total_albums": lh.get("album_count", 0),
+                        "missing_metadata": lh.get("missing_metadata_count", 0),
+                    })
+                    if stats["total_songs"] > 0 or not self._db:
+                        return stats
+            except Exception as e:
+                logger.debug("ContextService home snapshot unavailable: %s", e)
 
         # Fallback to direct DB queries
         try:

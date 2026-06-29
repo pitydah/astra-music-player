@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS context_events (
     created_at REAL NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_context_events_created ON context_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_context_events_type ON context_events(event_type);
+
 CREATE TABLE IF NOT EXISTS context_state (
     key TEXT PRIMARY KEY,
     value_json TEXT DEFAULT '{}',
@@ -83,6 +86,8 @@ def _j(obj: Any) -> str:
 
 
 def record_event(event_type: str, payload: dict | None = None) -> None:
+    if not event_type or not str(event_type).strip():
+        return
     try:
         c = _conn()
         c.execute(

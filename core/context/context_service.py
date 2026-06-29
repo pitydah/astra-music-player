@@ -20,7 +20,7 @@ from core.context.context_snapshot import (
 
 logger = logging.getLogger("michi.context_service")
 
-_SNAPSHOT_TTL = 120  # seconds
+_SNAPSHOT_TTL = 120
 
 
 class ContextService:
@@ -31,23 +31,55 @@ class ContextService:
         self._current_section = ""
         self._current_tab = ""
 
+    # ── Helpers ──
+
+    @staticmethod
+    def _track_payload(track) -> dict:
+        if track is None:
+            return {}
+        return {
+            "title": getattr(track, "title", None) or getattr(track, "name", None),
+            "artist": getattr(track, "artist", None),
+            "album": getattr(track, "album", None),
+        }
+
+    # ── Events ──
+
     def record_event(self, event_type: str, payload: dict | None = None) -> None:
         repo.record_event(event_type, payload)
         invalidate_for_event(event_type)
+
+    def record_scan_finished(self, summary: dict | None = None) -> None:
+        self.record_event(AppEvent.SCAN_FINISHED, summary or {})
+
+    def record_favorite_changed(self, track=None, favorite: bool = True) -> None:
+        self.record_event(
+            AppEvent.TRACK_FAVORITED if favorite else AppEvent.TRACK_UNFAVORITED,
+            self._track_payload(track),
+        )
+
+    def record_sync_finished(self, payload: dict | None = None) -> None:
+        self.record_event(AppEvent.SYNC_FINISHED, payload or {})
+
+    def record_audio_analysis_finished(self, payload: dict | None = None) -> None:
+        self.record_event(AppEvent.AUDIO_ANALYSIS_FINISHED, payload or {})
+
+    def record_track_played(self, track=None) -> None:
+        self.record_event(AppEvent.TRACK_PLAYED, self._track_payload(track))
+
+    # ── Navigation & state ──
 
     def update_navigation(self, section: str, tab: str = "",
                           extra: dict | None = None) -> None:
         self._current_section = section
         self._current_tab = tab
-        repo.set_state("navigation", {
-            "section": section,
-            "tab": tab,
-            **(extra or {}),
-        })
+        repo.set_state("navigation", {"section": section, "tab": tab, **(extra or {})})
         self.record_event(AppEvent.SECTION_CHANGED, {"section": section, "tab": tab})
 
-    def update_selection(self, track=None, album: str = "",
-                         artist: str = "") -> None:
+    def get_navigation_state(self) -> dict:
+        return repo.get_state("navigation", {"section": "", "tab": ""})
+
+    def update_selection(self, track=None, album: str = "", artist: str = "") -> None:
         payload = {"album": album, "artist": artist}
         if track is not None:
             payload["track"] = getattr(track, "title", None) or getattr(track, "name", None)
@@ -55,54 +87,52 @@ class ContextService:
         repo.set_state("selection", payload)
         self.record_event(AppEvent.TRACK_SELECTED, payload)
 
-    def record_track_played(self, track=None) -> None:
-        payload = {}
-        if track is not None:
-            payload["title"] = getattr(track, "title", None) or getattr(track, "name", None)
-            payload["artist"] = getattr(track, "artist", None)
-            payload["album"] = getattr(track, "album", None)
-        self.record_event(AppEvent.TRACK_PLAYED, payload)
+    def get_selection_state(self) -> dict:
+        return repo.get_state("selection", {})
+
+    # ── Snapshots ──
+
+    def _rebuild_if_dirty(self, key: str, builder, ttl: int = _SNAPSHOT_TTL):
+        if is_dirty(key) or repo.get_summary(key) is None:
+            snapshot = builder()
+            repo.set_summary(key, snapshot, ttl_seconds=ttl)
+            clear_dirty(key)
+        return repo.get_summary(key) or {}
 
     def get_library_health(self) -> dict:
-        if is_dirty("library_health") or repo.get_summary("library_health") is None:
-            snapshot = build_library_health_snapshot(self._db)
-            repo.set_summary("library_health", snapshot, ttl_seconds=_SNAPSHOT_TTL)
-            clear_dirty("library_health")
-        return repo.get_summary("library_health") or {}
+        return self._rebuild_if_dirty(
+            "library_health", lambda: build_library_health_snapshot(self._db))
 
     def get_home_snapshot(self) -> dict:
-        if is_dirty("home_snapshot") or repo.get_summary("home_snapshot") is None:
-            snapshot = build_home_snapshot(self._db, self._playback, self._sync)
-            repo.set_summary("home_snapshot", snapshot, ttl_seconds=_SNAPSHOT_TTL)
-            clear_dirty("home_snapshot")
-        return repo.get_summary("home_snapshot") or {}
+        return self._rebuild_if_dirty(
+            "home_snapshot", lambda: build_home_snapshot(self._db, self._playback, self._sync))
 
     def get_assistant_snapshot(self) -> dict:
-        if is_dirty("assistant_snapshot") or repo.get_summary("assistant_snapshot") is None:
-            events = repo.recent_events(limit=10)
-            snapshot = build_assistant_snapshot(
+        def _build():
+            nav = repo.get_state("navigation", {})
+            sel = repo.get_state("selection", {})
+            section = nav.get("section", self._current_section)
+            tab = nav.get("tab", self._current_tab)
+            snap = build_assistant_snapshot(
                 self._db, self._playback,
-                current_section=self._current_section,
-                current_tab=self._current_tab,
-                recent_events=events,
+                current_section=section, current_tab=tab,
+                recent_events=repo.recent_events(limit=10),
             )
-            repo.set_summary("assistant_snapshot", snapshot, ttl_seconds=_SNAPSHOT_TTL)
-            clear_dirty("assistant_snapshot")
-        return repo.get_summary("assistant_snapshot") or {}
+            snap.update({
+                "selected_track": sel.get("track"),
+                "selected_album": sel.get("album"),
+                "selected_artist": sel.get("artist"),
+            })
+            return snap
+        return self._rebuild_if_dirty("assistant_snapshot", _build)
 
     def get_mix_snapshot(self) -> dict:
-        if is_dirty("mix_preview") or repo.get_summary("mix_preview") is None:
-            snapshot = build_mix_snapshot(self._db)
-            repo.set_summary("mix_preview", snapshot, ttl_seconds=_SNAPSHOT_TTL)
-            clear_dirty("mix_preview")
-        return repo.get_summary("mix_preview") or {}
+        return self._rebuild_if_dirty(
+            "mix_preview", lambda: build_mix_snapshot(self._db))
 
     def get_playback_context(self) -> dict:
-        if is_dirty("playback_context") or repo.get_summary("playback_context") is None:
-            snapshot = build_playback_snapshot(self._playback)
-            repo.set_summary("playback_context", snapshot, ttl_seconds=60)
-            clear_dirty("playback_context")
-        return repo.get_summary("playback_context") or {}
+        return self._rebuild_if_dirty(
+            "playback_context", lambda: build_playback_snapshot(self._playback), ttl=60)
 
     def invalidate(self, key: str) -> None:
         repo.mark_dirty(key)

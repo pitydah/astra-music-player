@@ -52,6 +52,7 @@ class AiAssistantController(QObject):
             return self._service
 
         from integrations.ai_assistant.service import AIAssistantService
+        ctx_svc = getattr(self._win, "_context_svc", None)
 
         self._service = AIAssistantService(
             db=self._db,
@@ -68,6 +69,7 @@ class AiAssistantController(QObject):
             action_log_enabled=get_bool("ai_assistant/action_log_enabled"),
             max_action_tracks=get_int("ai_assistant/max_action_tracks") or 100,
             max_playlist_tracks=get_int("ai_assistant/max_playlist_draft_tracks") or 50,
+            context_service=ctx_svc,
         )
         return self._service
 

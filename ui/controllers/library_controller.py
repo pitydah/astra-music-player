@@ -49,6 +49,10 @@ class LibraryController(QObject):
         self.refresh_all_tabs(force=True)
         self.refresh_active_tab(force=True)
 
+        ctx = getattr(w, '_context_svc', None)
+        if ctx:
+            ctx.record_scan_finished({"reason": reason, "tracks": len(w._all_items)})
+
     def apply_filters(self):
         self._win._search_ctrl.search(self._win._search_text)
 
