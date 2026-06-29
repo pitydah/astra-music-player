@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 from metadata.genre_grouping import GenreGroup
 from library.album_art import load_cover_pixmap
 from ui.effects.michi_glass import apply_card_shadow
-from ui.central.central_styles import glass_card_qss
+from ui.central.central_styles import glass_card_qss, badge_qss, card_meta_qss, empty_state_qss
 
 _BG = "#090B11"
 _TEXT = "rgba(255,255,255,0.95)"
@@ -184,6 +184,23 @@ class GenreGridWidget(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
+        if not genres:
+            empty = QFrame()
+            empty.setObjectName("emptyState")
+            empty.setStyleSheet(empty_state_qss())
+            el = QVBoxLayout(empty)
+            el.setAlignment(Qt.AlignCenter)
+            icon = QLabel("🎵")
+            icon.setObjectName("emptyIcon")
+            icon.setAlignment(Qt.AlignCenter)
+            el.addWidget(icon)
+            t = QLabel("No se encontraron géneros")
+            t.setObjectName("emptyTitle")
+            t.setAlignment(Qt.AlignCenter)
+            el.addWidget(t)
+            self._grid.addWidget(empty, 0, 0)
+            return
+
         cols = max(1, (self._scroll.viewport().width() - 48) // 260)
         for i, g in enumerate(genres):
             card = _GenreCard(g)
@@ -272,22 +289,21 @@ class _GenreCard(QFrame):
         if len(meta) > 30:
             meta = meta[:29] + "…"
         meta_lbl = QLabel(meta)
-        meta_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 10px;")
+        meta_lbl.setStyleSheet(card_meta_qss())
         v.addWidget(meta_lbl)
 
         stats = f"{genre.track_count} canc · {genre.artist_count} art · {genre.album_count} alb"
         if len(stats) > 35:
             stats = stats[:34] + "…"
         s_lbl = QLabel(stats)
-        s_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 10px;")
+        s_lbl.setStyleSheet(card_meta_qss())
         v.addWidget(s_lbl)
 
-        # Quality badge
+        # Quality badge — experimental variant for DSD/niche formats
         if genre.quality_summary:
             q = QLabel(genre.quality_summary)
-            q.setStyleSheet(
-                f"background: rgba(143,183,255,0.10); color: {_ACCENT};"
-                f"font-size: 9px; font-weight: 600; border-radius: 5px; padding: 1px 6px;")
+            is_dsd = "dsd" in genre.quality_summary.lower() or "dff" in genre.quality_summary.lower() or "dsf" in genre.quality_summary.lower()
+            q.setStyleSheet(badge_qss("experimental") if is_dsd else badge_qss("info"))
             v.addWidget(q)
 
         v.addStretch()

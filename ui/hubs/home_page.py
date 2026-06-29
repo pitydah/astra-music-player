@@ -11,9 +11,11 @@ from PySide6.QtWidgets import (
 )
 
 from ui.central.central_styles import (
-    glass_button_qss, card_title_qss, card_desc_qss,
+    glass_button_qss, glass_chip_button_qss,
+    empty_state_qss,
+    card_title_qss, card_desc_qss,
 )
-from ui.effects.michi_glass import AcrylicGlassFrame
+from ui.effects.michi_glass import AcrylicGlassFrame, apply_card_shadow
 
 logger = logging.getLogger("michi.home_page")
 
@@ -74,15 +76,15 @@ class HomePage(QWidget):
         cl.setSpacing(20)
 
         # ── 1. Library Status ──
-        self._lib_card = AcrylicGlassFrame("homeLibCard", hover_shine=True)
+        self._lib_card = AcrylicGlassFrame("homeLibCard")
         lc = QVBoxLayout(self._lib_card)
         lc.setContentsMargins(24, 20, 24, 20)
         lc.setSpacing(4)
         self._lib_status_msg = QLabel("Tu biblioteca está lista")
         self._lib_status_msg.setObjectName("libStatusMsg")
         self._lib_status_msg.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.92); font-size: 15px;"
-            "  font-weight: 600; background: transparent; border: none; }")
+            card_title_qss() +
+            "QLabel { color: rgba(255,255,255,0.92); }")
         lc.addWidget(self._lib_status_msg)
         self._lib_counts = QLabel("")
         self._lib_counts.setStyleSheet(card_desc_qss())
@@ -114,7 +116,7 @@ class HomePage(QWidget):
 
         self._add_files_btn = QPushButton("🎵 Añadir archivos")
         self._add_files_btn.setCursor(Qt.PointingHandCursor)
-        self._add_files_btn.setStyleSheet(glass_button_qss("accent"))
+        self._add_files_btn.setStyleSheet(glass_button_qss("primary"))
         self._add_files_btn.clicked.connect(self._on_add_files_clicked)
         btn_row.addWidget(self._add_files_btn)
         btn_row.addStretch()
@@ -138,13 +140,13 @@ class HomePage(QWidget):
         preview_btn_row.setSpacing(10)
         self._cancel_preview_btn = QPushButton("✕ Cancelar")
         self._cancel_preview_btn.setCursor(Qt.PointingHandCursor)
-        self._cancel_preview_btn.setStyleSheet(glass_button_qss("ghost"))
+        self._cancel_preview_btn.setStyleSheet(glass_chip_button_qss())
         self._cancel_preview_btn.clicked.connect(self._clear_selection)
         preview_btn_row.addWidget(self._cancel_preview_btn)
 
         self._confirm_btn = QPushButton("✓ Importar")
         self._confirm_btn.setCursor(Qt.PointingHandCursor)
-        self._confirm_btn.setStyleSheet(glass_button_qss("accent"))
+        self._confirm_btn.setStyleSheet(glass_button_qss("primary"))
         self._confirm_btn.clicked.connect(self._on_confirm)
         preview_btn_row.addWidget(self._confirm_btn)
         preview_btn_row.addStretch()
@@ -218,6 +220,10 @@ class HomePage(QWidget):
         scroll.setWidget(content)
         layout.addWidget(scroll)
         self._apply_qss()
+
+        for card in (self._lib_card, self._add_music_card, self._sugg_card,
+                     self._session_card, self._conn_card):
+            apply_card_shadow(card)
 
         self._selected_files: list[str] = []
 
@@ -303,8 +309,8 @@ class HomePage(QWidget):
 
         if not actions:
             no_op = QLabel("No hay tareas importantes pendientes.")
-            no_op.setStyleSheet(
-                "QLabel { color: rgba(255,255,255,0.48); font-size: 12px;"
+            no_op.setStyleSheet(empty_state_qss() +
+                "QLabel { color: rgba(255,255,255,0.56); font-size: 13px;"
                 "  background: transparent; border: none; padding: 4px 0; }")
             self._sugg_content.addWidget(no_op)
         else:
@@ -318,7 +324,7 @@ class HomePage(QWidget):
 
         open_asst = QPushButton("Abrir Asistente")
         open_asst.setCursor(Qt.PointingHandCursor)
-        open_asst.setStyleSheet(glass_button_qss("ghost"))
+        open_asst.setStyleSheet(glass_chip_button_qss())
         open_asst.clicked.connect(
             lambda: self.navigation_requested.emit("assistant"))
         self._sugg_content.addWidget(open_asst)

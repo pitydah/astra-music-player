@@ -38,6 +38,7 @@ class HomeAudioView(QWidget):
     device_volume_changed = Signal(dict, int)
     group_selected_requested = Signal(dict)
     open_settings_requested = Signal()
+    diagnostics_requested = Signal()
     open_receiver_wizard_requested = Signal()
     create_group_requested = Signal()
 
@@ -232,26 +233,16 @@ class HomeAudioView(QWidget):
     def _refresh_badges(self):
         ha_state = "Conectado" if self._ha_connected else "Desconectado"
         ha_level = "success" if self._ha_connected else "error"
-        mr_state = "Activo" if self._multiroom_active else "Inactivo"
-        mr_level = "success" if self._multiroom_active else "warning"
-        snap_state = "En ejecución" if self._snapserver_running else "Detenido"
-        snap_level = "success" if self._snapserver_running else "error"
         dev_count = str(len(self._devices))
         dev_level = "success" if self._devices else "neutral"
 
         self._hero_badge_ha.set_state(ha_state, ha_level)
-        self._hero_badge_mr.set_state(mr_state, mr_level)
-        self._hero_badge_snap.set_state(snap_state, snap_level)
         self._hero_badge_dev.set_state(dev_count, dev_level)
         tx_state = self._transmit_device_name if self._transmit_active and self._transmit_device_name else "Local"
         tx_level = "success" if self._transmit_active else "neutral"
         self._hero_badge_tx.set_state(tx_state, tx_level)
 
         # Update multiroom button text
-        if hasattr(self, '_hero_btn_mr'):
-            self._hero_btn_mr.setText(
-                "Detener" if self._multiroom_active else "Activar Multiroom")
-
     # ── Two-apartment section: Home Assistant + Michi Music Stream ──
 
     def _build_appartments(self):

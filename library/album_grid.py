@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.effects.michi_glass import apply_card_shadow
-from ui.central.central_styles import glass_card_qss
+from ui.central.central_styles import glass_card_qss, badge_qss, card_meta_qss
 from library.album_art import load_covers_for_albums, CoverFlowItem
 from library.library_db import MediaItem
 
@@ -497,9 +497,7 @@ class _AlbumCard(QFrame):
         info_lbl = QLabel(" · ".join(info_parts))
         info_lbl.setAlignment(Qt.AlignCenter)
         info_lbl.setWordWrap(False)
-        info_lbl.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.66); font-size: 10.5px;"
-            "  background: transparent; }")
+        info_lbl.setStyleSheet(card_meta_qss())
         layout.addWidget(info_lbl)
 
         # ── Format badge ──
@@ -527,18 +525,7 @@ class _AlbumCard(QFrame):
             badge = QLabel("  ·  ".join(badge_texts))
             badge.setAlignment(Qt.AlignCenter)
             badge.setWordWrap(False)
-            # special styling for "incomplete" or "no cover" warnings
-            warn = no_cover or incomplete
-            badge.setStyleSheet(f"""
-                QLabel {{
-                    color: rgba(255,255,255,0.78);
-                    font-size: 9.5px;
-                    background: rgba(255,255,255,{0.06 if warn else 0.04});
-                    border: 1px solid rgba(255,255,255,{0.05 if warn else 0.03});
-                    border-radius: 7px;
-                    padding: 2px 7px;
-                }}
-            """)
+            badge.setStyleSheet(badge_qss("warning" if (no_cover or incomplete) else "info"))
             layout.addWidget(badge, alignment=Qt.AlignCenter)
 
         # ── Tooltip with full metadata ──

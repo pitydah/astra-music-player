@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 from library.album_art import find_cover_in_dir
 from ui.effects.michi_glass import apply_card_shadow
-from ui.central.central_styles import glass_card_qss
+from ui.central.central_styles import glass_card_qss, badge_qss
 
 
 class SongGridWidget(QWidget):
@@ -173,10 +173,19 @@ class _SongCard(QFrame):
         extra_lbl = QLabel(extra)
         extra_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         extra_lbl.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.48); font-size: 10px;"
+            "QLabel { color: rgba(255,255,255,0.56); font-size: 10px;"
             "  background: transparent; border: none; }")
         extra_lbl.setFixedHeight(14)
         layout.addWidget(extra_lbl)
+
+        # Format badge
+        ext = getattr(item, 'ext', '') or ''
+        if ext:
+            fmt_lbl = QLabel(ext.upper().lstrip("."))
+            fmt_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            fmt_lbl.setStyleSheet(badge_qss("info"))
+            fmt_lbl.setFixedHeight(16)
+            layout.addWidget(fmt_lbl)
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:

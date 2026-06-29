@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from library.artist_grouping import ArtistGroup
 from library.album_art import load_cover_pixmap
 from ui.effects.michi_glass import apply_card_shadow
-from ui.central.central_styles import glass_card_qss, menu_qss
+from ui.central.central_styles import glass_card_qss, menu_qss, badge_qss, card_meta_qss, card_desc_qss
 
 _BG = "#090B11"
 _PANEL = "rgba(255,255,255,0.035)"
@@ -343,23 +343,28 @@ class _ArtistCard(QFrame):
             meta = meta[:27] + "\u2026"
         meta_lbl = QLabel(meta)
         meta_lbl.setAlignment(Qt.AlignCenter)
-        meta_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 10px; background: transparent;")
+        meta_lbl.setStyleSheet(card_meta_qss())
         badge_row.addWidget(meta_lbl)
         v.addLayout(badge_row)
 
-        # Genres / years
-        extra = ""
+        # Genres as badges
         if artist.genres:
-            extra = ", ".join(artist.genres[:2])
+            genre_row = QHBoxLayout()
+            genre_row.setAlignment(Qt.AlignCenter)
+            genre_row.setSpacing(4)
+            for g in artist.genres[:2]:
+                g_lbl = QLabel(g[:12])
+                g_lbl.setStyleSheet(badge_qss("info"))
+                genre_row.addWidget(g_lbl)
+            v.addLayout(genre_row)
+
+        # Years
         if artist.years:
             y_str = f"{artist.years[0]}\u2013{artist.years[-1]}" if len(artist.years) > 1 else str(artist.years[0])
-            extra = f"{extra} \u00b7 {y_str}" if extra else y_str
-        if extra:
-            extra_lbl = QLabel(extra[:28])
-            extra_lbl.setAlignment(Qt.AlignCenter)
-            extra_lbl.setStyleSheet(
-                f"color: {_TEXT3}; font-size: 10px; background: transparent;")
-            v.addWidget(extra_lbl)
+            y_lbl = QLabel(y_str)
+            y_lbl.setAlignment(Qt.AlignCenter)
+            y_lbl.setStyleSheet(card_desc_qss())
+            v.addWidget(y_lbl)
 
         v.addStretch()
 

@@ -10,7 +10,10 @@ from PySide6.QtWidgets import (
 
 from ui.audio_lab.models import TagSuggestion
 from ui.effects.michi_glass import apply_card_shadow
-from ui.central.central_styles import glass_button_qss, glass_card_qss, glass_hero_qss
+from ui.central.central_styles import (
+    glass_button_qss, glass_card_qss, glass_hero_qss,
+    badge_qss, empty_state_qss,
+)
 
 
 class SmartTaggingPanel(QWidget):
@@ -142,7 +145,8 @@ class SmartTaggingPanel(QWidget):
 
         if not suggestions:
             label = QLabel("No se encontraron sugerencias de metadata.")
-            label.setStyleSheet("color: rgba(255,255,255,0.42); font-size: 12px; padding: 20px;")
+            label.setObjectName("emptyTitle")
+            label.setStyleSheet(empty_state_qss())
             idx = self._content_layout.count() - 1
             self._content_layout.insertWidget(max(0, idx), label)
             self._status_label.setText("Sin sugerencias. Busca metadata con MusicBrainz.")
@@ -177,9 +181,7 @@ class SmartTaggingPanel(QWidget):
 
         info = QVBoxLayout()
         field_label = QLabel(sug.field.upper())
-        field_label.setStyleSheet(
-            "QLabel { color: rgba(143,183,255,0.78); font-size: 11px; font-weight: 600; }"
-        )
+        field_label.setStyleSheet(badge_qss("info"))
         info.addWidget(field_label)
 
         change_text = f"'{sug.current or '(vacío)'}' → '{sug.suggested}'"
@@ -190,7 +192,7 @@ class SmartTaggingPanel(QWidget):
 
         meta_row = QHBoxLayout()
         src = QLabel(f"{sug.source} · {sug.confidence:.0%}")
-        src.setStyleSheet("QLabel { color: rgba(255,255,255,0.35); font-size: 10px; }")
+        src.setStyleSheet(badge_qss("experimental"))
         meta_row.addWidget(src)
         meta_row.addStretch()
         info.addLayout(meta_row)

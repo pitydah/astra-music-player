@@ -23,7 +23,10 @@ from metadata.artwork_utils import (
 )
 
 from ui.effects.michi_glass import apply_card_shadow
-from ui.central.central_styles import clean_table_qss, clean_table_header_qss, tab_bar_qss, glass_button_qss
+from ui.central.central_styles import (
+    glass_input_qss, glass_button_qss, table_qss, tab_bar_qss,
+)
+from ui.central.central_styles import clean_table_qss, clean_table_header_qss
 
 # ═══════════════════════════════════════════════════════════
 # Style tokens
@@ -39,12 +42,7 @@ _TEXT3     = "rgba(255,255,255,0.56)"
 _TEXT_DIM  = "rgba(255,255,255,0.48)"
 
 
-_FIELD_CSS = f"""
-    background: rgba(255,255,255,0.060); color: {_TEXT};
-    border: 1px solid rgba(255,255,255,0.10); border-radius: 10px;
-    padding: 7px 10px;
-    selection-background-color: rgba(255,255,255,0.18); selection-color: {_TEXT};
-"""
+_FIELD_CSS = glass_input_qss()
 
 
 def _panel_frame(name: str) -> str:
@@ -372,15 +370,7 @@ class MetadataEditorWidget(QWidget):
 
         # Tabs
         self._tabs = QTabWidget()
-        self._tabs.setStyleSheet(f"""
-            QTabWidget::pane {{ background: transparent; border: none; }}
-            QTabBar::tab {{
-                background: transparent; color: {_TEXT3}; padding: 6px 12px;
-                font-size: 11.5px; border: none; border-bottom: 2px solid transparent;
-            }}
-            QTabBar::tab:selected {{ color: {_TEXT}; border-bottom: 2px solid {_TEXT}; }}
-            QTabBar::tab:hover {{ color: {_TEXT2}; }}
-        """)
+        self._tabs.setStyleSheet(tab_bar_qss())
 
         self._basic_tab = self._build_field_tab([
             ("Título", "title"), ("Artista", "artist"),
@@ -899,15 +889,7 @@ class MetadataEditorWidget(QWidget):
         self._rename_table.setFrameShape(QFrame.NoFrame)
         self._rename_table.verticalHeader().setVisible(False)
         self._rename_table.horizontalHeader().setStretchLastSection(True)
-        self._rename_table.setStyleSheet(f"""
-            QTableWidget {{ background: transparent; color: {_TEXT}; border: none;
-              alternate-background-color: rgba(255,255,255,0.018); }}
-            QHeaderView::section {{
-                background: rgba(255,255,255,0.045); color: rgba(255,255,255,0.86);
-                border: none; border-bottom: 1px solid rgba(255,255,255,0.03);
-                padding: 8px 10px; font-size: 11px; font-weight: 700;
-            }}
-        """)
+        self._rename_table.setStyleSheet(table_qss())
         dv.addWidget(self._rename_table)
 
         # Run preview

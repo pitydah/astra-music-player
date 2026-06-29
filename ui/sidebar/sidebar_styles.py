@@ -63,7 +63,7 @@ def scroll_area_qss() -> str:
 def section_header_qss(dark: bool = True, hover: bool = False) -> str:
     c = "rgba(255,255,255,0.92)" if not hover else "rgba(255,255,255,1.00)"
     return (
-        f"font-size:10px;font-weight:700;color:{c};letter-spacing:0.8px;"
+        f"font-size:10.5px;font-weight:700;color:{c};letter-spacing:0.8px;"
         "background:transparent;border:none;"
     )
 
@@ -79,7 +79,7 @@ def section_chevron_qss(dark: bool = True, hover: bool = False) -> str:
 def _text_c(state: str) -> str:
     return {
         "normal": "rgba(255,255,255,0.82)",
-        "hover": "rgba(255,255,255,0.96)",
+        "hover": "rgba(255,255,255,0.98)",
         "active": "rgba(255,255,255,1.00)",
     }.get(state, "rgba(255,255,255,0.82)")
 
@@ -127,7 +127,7 @@ def badge_qss(state: str) -> str:
         )
     return (
         base
-        + "color:rgba(245,245,247,0.45);"
+        + "color:rgba(255,255,255,0.56);"
         "background:rgba(255,255,255,0.06);"
         "border-radius:5px;padding:1px 7px;border:none;"
     )

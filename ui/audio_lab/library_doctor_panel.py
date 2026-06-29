@@ -9,7 +9,10 @@ from PySide6.QtWidgets import (
 )
 
 from ui.effects.michi_glass import apply_card_shadow
-from ui.central.central_styles import glass_button_qss, glass_card_qss, glass_progress_qss
+from ui.central.central_styles import (
+    glass_button_qss, glass_card_qss, glass_progress_qss,
+    empty_state_qss, badge_qss,
+)
 
 
 class LibraryDoctorPanel(QWidget):
@@ -97,10 +100,13 @@ class LibraryDoctorPanel(QWidget):
             self._status.setText("Escaneando biblioteca...")
 
     def show_results(self, scan: dict, repair_plan: dict):
+        total = repair_plan.get('total_issues', 0)
         self._status.setText(
-            f"{repair_plan.get('total_issues', 0)} problemas detectados. "
+            f"{total} problemas detectados. "
             f"{repair_plan.get('fixable', 0)} se pueden corregir automáticamente."
         )
+        badge_kind = "error" if total > 20 else "warning" if total > 0 else "success"
+        self._status.setStyleSheet(badge_qss(badge_kind))
 
         while self._content_layout.count() > 1:
             item = self._content_layout.takeAt(0)
@@ -124,7 +130,8 @@ class LibraryDoctorPanel(QWidget):
 
         if repair_plan.get("suggestions"):
             sep = QLabel("Sugerencias de reparación")
-            sep.setStyleSheet("color: rgba(255,255,255,0.42); font-size: 11px; font-weight: 600; padding-top: 8px;")
+            sep.setObjectName("emptyTitle")
+            sep.setStyleSheet(empty_state_qss())
             idx = self._content_layout.count() - 1
             self._content_layout.insertWidget(max(0, idx), sep)
 
@@ -150,7 +157,7 @@ class LibraryDoctorPanel(QWidget):
         sev_color = sev_colors.get(severity, "rgba(255,255,255,0.35)")
 
         sev_dot = QLabel("●")
-        sev_dot.setStyleSheet(f"QLabel {{ color: {sev_color}; font-size: 18px; }}")
+        sev_dot.setStyleSheet(f"QLabel {{ color: {sev_color}; font-size: 18px; background: transparent; border: none; }}")
         sev_dot.setFixedWidth(20)
         card_layout.addWidget(sev_dot)
 
@@ -160,8 +167,9 @@ class LibraryDoctorPanel(QWidget):
         name.setStyleSheet("QLabel { color: rgba(255,255,255,0.78); font-size: 13px; font-weight: 500; }")
         info.addWidget(name)
 
+        badge_map = {"medium": "warning", "low": "info", "info": "info"}
         count_label = QLabel(f"{count} elementos")
-        count_label.setStyleSheet(f"QLabel {{ color: {sev_color}; font-size: 11px; }}")
+        count_label.setStyleSheet(badge_qss(badge_map.get(severity, "info")))
         info.addWidget(count_label)
         card_layout.addLayout(info, 1)
 
@@ -183,7 +191,7 @@ class LibraryDoctorPanel(QWidget):
         layout.addWidget(action)
 
         meta = QLabel(f"{sug.get('count', 0)} items · {sug.get('category', '')}")
-        meta.setStyleSheet("QLabel { color: rgba(255,255,255,0.48); font-size: 10px; }")
+        meta.setStyleSheet(badge_qss("info"))
         layout.addWidget(meta)
 
         card.setStyleSheet(glass_card_qss("doctorSuggestion"))

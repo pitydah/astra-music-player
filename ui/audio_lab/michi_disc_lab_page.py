@@ -21,6 +21,7 @@ from ui.effects.michi_glass import apply_card_shadow
 from ui.central.central_styles import (
     glass_button_qss, glass_progress_qss, glass_card_qss,
     clean_table_qss, clean_table_header_qss, combo_dropdown_qss,
+    badge_qss,
 )
 
 
@@ -115,6 +116,11 @@ class MichiDiscLabPage(QWidget):
         self._iso_toggle_btn.setCursor(Qt.PointingHandCursor)
         self._iso_toggle_btn.clicked.connect(self._on_toggle_iso)
         btn_row.addWidget(self._iso_toggle_btn)
+
+        self._iso_experimental_badge = QLabel("experimental")
+        self._iso_experimental_badge.setObjectName("isoExperimentalBadge")
+        self._iso_experimental_badge.setStyleSheet(badge_qss("experimental"))
+        btn_row.addWidget(self._iso_experimental_badge)
 
         self._iso_select_btn = QPushButton("Seleccionar ISO")
         self._iso_select_btn.setObjectName("isoSelectBtn")
@@ -245,8 +251,11 @@ class MichiDiscLabPage(QWidget):
             note = ""
             if not tool.available and tool.recommended_for:
                 note = f" ({tool.recommended_for} no disponible)"
-            lines.append(f"{icon} {name}: {'Disponible' if tool.available else 'No instalado'}{note}")
+            status = "Disponible" if tool.available else "No instalado"
+            badge_kind = "success" if tool.available else "error"
+            lines.append(f"{icon} {name}: <span style='{badge_qss(badge_kind)}'>{status}</span>{note}")
         self._diag_text.setText("\n".join(lines))
+        self._diag_text.setTextFormat(Qt.RichText)
 
     def _on_scan_drive(self):
         if self._iso_mode:
@@ -273,6 +282,7 @@ class MichiDiscLabPage(QWidget):
             self._scan_drive_btn.setVisible(False)
             self._iso_select_btn.setVisible(True)
             self._drive_status.setText("Selecciona un archivo ISO de CD de audio.")
+            self._drive_status.setStyleSheet(badge_qss("experimental"))
             self._analyze_disc_btn.setEnabled(False)
         else:
             self._iso_mode = False
@@ -280,6 +290,7 @@ class MichiDiscLabPage(QWidget):
             self._scan_drive_btn.setVisible(True)
             self._iso_select_btn.setVisible(False)
             self._drive_status.setText("Esperando disco de música...")
+            self._drive_status.setStyleSheet("QLabel { color: rgba(143,183,255,0.72); font-size: 14px; background: transparent; border: none; }")
             self._analyze_disc_btn.setEnabled(False)
 
     def _on_select_iso(self):

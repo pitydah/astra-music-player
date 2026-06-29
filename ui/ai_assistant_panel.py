@@ -9,7 +9,11 @@ from PySide6.QtWidgets import (
 )
 
 from ui.effects.michi_glass import apply_card_shadow
-from ui.central.central_styles import glass_hero_qss
+from ui.central.central_styles import (
+    glass_hero_qss, glass_action_card_qss, glass_chip_button_qss,
+    empty_state_qss, glass_button_qss, card_title_qss, card_desc_qss,
+    glass_input_qss,
+)
 
 _PRIVACY_NOTICE = "IA local · Datos protegidos · Sin rutas sensibles"
 
@@ -275,8 +279,10 @@ class AiAssistantPanel(QWidget):
             self._sugg_empty.show()
 
     def _build_action_card(self, action: dict) -> QFrame:
+        name = f"suggAction_{action['title'].replace(' ','_')}"
         card = QFrame()
-        card.setObjectName(f"suggAction_{action['title'].replace(' ','_')}")
+        card.setObjectName(name)
+        card.setStyleSheet(glass_action_card_qss(name))
         vl = QVBoxLayout(card)
         vl.setContentsMargins(12, 10, 12, 10)
         vl.setSpacing(4)
@@ -284,18 +290,24 @@ class AiAssistantPanel(QWidget):
         top = QHBoxLayout()
         t = QLabel(action["title"])
         t.setObjectName("suggActionTitle")
+        t.setStyleSheet(card_title_qss())
         t.setWordWrap(True)
         top.addWidget(t, 1)
         kind = action.get("kind", "")
         if kind:
             badge = QLabel(kind.capitalize())
             badge.setObjectName("suggActionBadge")
+            badge.setStyleSheet(
+                "QLabel { color: rgba(143,183,255,0.60); font-size: 9px;"
+                "  font-weight: 600; background: rgba(143,183,255,0.08);"
+                "  border-radius: 6px; padding: 1px 6px; }")
             top.addWidget(badge)
         vl.addLayout(top)
 
         d = QLabel(action.get("desc", ""))
         d.setWordWrap(True)
         d.setObjectName("suggActionDesc")
+        d.setStyleSheet(card_desc_qss())
         vl.addWidget(d)
 
         target = action.get("target", "")
@@ -303,23 +315,10 @@ class AiAssistantPanel(QWidget):
             btn = QPushButton("Abrir")
             btn.setCursor(Qt.PointingHandCursor)
             btn.setObjectName("suggActionBtn")
+            btn.setStyleSheet(glass_button_qss("accent"))
             btn.clicked.connect(lambda c=None, t=target: self._navigate_safe(t))
             vl.addWidget(btn)
 
-        card.setStyleSheet(
-            "QFrame { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04);"
-            "  border-radius: 10px; }"
-            "QLabel#suggActionTitle { color: rgba(255,255,255,0.84); font-size: 12px;"
-            "  font-weight: 600; background: transparent; }"
-            "QLabel#suggActionDesc { color: rgba(255,255,255,0.52); font-size: 11px;"
-            "  background: transparent; }"
-            "QLabel#suggActionBadge { color: rgba(143,183,255,0.60); font-size: 9px;"
-            "  font-weight: 600; background: rgba(143,183,255,0.08);"
-            "  border-radius: 6px; padding: 1px 6px; }"
-            "QPushButton#suggActionBtn { background: rgba(143,183,255,0.10);"
-            "  border: 1px solid rgba(143,183,255,0.14); border-radius: 8px;"
-            "  padding: 4px 14px; color: rgba(143,183,255,0.85); font-size: 11px; font-weight: 600; }"
-            "QPushButton#suggActionBtn:hover { background: rgba(143,183,255,0.18); }")
         return card
 
     def _navigate_safe(self, target: str):
@@ -340,10 +339,32 @@ class AiAssistantPanel(QWidget):
             header.setStyleSheet(glass_hero_qss("assistantHeader"))
         chat_card = self.findChild(QFrame, "assistantChatCard")
         if chat_card:
+            chat_card.setStyleSheet(glass_action_card_qss("assistantChatCard"))
             apply_card_shadow(chat_card)
         sugg_panel = self.findChild(QFrame, "assistantSuggestionsPanel")
         if sugg_panel:
+            sugg_panel.setStyleSheet(glass_action_card_qss("assistantSuggestionsPanel"))
             apply_card_shadow(sugg_panel)
+        input_field = self.findChild(QLineEdit, "assistantInput")
+        if input_field:
+            input_field.setStyleSheet(glass_input_qss())
+        send_btn = self.findChild(QPushButton, "assistantSendBtn")
+        if send_btn:
+            send_btn.setStyleSheet(glass_button_qss("primary"))
+        sugg_title = self.findChild(QLabel, "assistantSuggTitle")
+        if sugg_title:
+            sugg_title.setStyleSheet(card_title_qss())
+        sugg_desc = self.findChild(QLabel, "assistantSuggDesc")
+        if sugg_desc:
+            sugg_desc.setStyleSheet(card_desc_qss())
+        sugg_empty = self.findChild(QLabel, "assistantSuggEmpty")
+        if sugg_empty:
+            sugg_empty.setStyleSheet(card_desc_qss())
+        empty_state = self.findChild(QWidget, "assistantEmptyState")
+        if empty_state:
+            empty_state.setStyleSheet(empty_state_qss())
+        for chip in self.findChildren(QPushButton, "assistantChip"):
+            chip.setStyleSheet(glass_chip_button_qss())
 
     def _on_send(self):
         text = self._input.text().strip()
@@ -429,47 +450,15 @@ class AiAssistantPanel(QWidget):
     def _build_panel_qss() -> str:
         return (
             "QWidget#aiAssistantPanel { background: #090B11; }"
-            "QFrame#assistantHeader { background: rgba(255,255,255,0.030);"
-            "  border-bottom: 1px solid rgba(255,255,255,0.05); }"
             "QLabel#assistantHeaderTitle { color: rgba(255,255,255,0.92); font-size: 18px;"
             "  font-weight: 700; background: transparent; }"
             "QLabel#assistantHeaderSubtitle { color: rgba(255,255,255,0.62); font-size: 12px;"
             "  background: transparent; }"
-            "QLabel#assistantEmptyTitle { color: rgba(255,255,255,0.72); font-size: 17px;"
-            "  font-weight: 600; background: transparent; }"
-            "QLabel#assistantEmptyDesc { color: rgba(255,255,255,0.54); font-size: 13px;"
-            "  background: transparent; max-width: 400px; }"
-            "QPushButton#assistantChip { background: rgba(255,255,255,0.04);"
-            "  border: 1px solid rgba(255,255,255,0.04); border-radius: 10px;"
-            "  padding: 6px 14px; color: rgba(255,255,255,0.62); font-size: 11px; font-weight: 500; }"
-            "QPushButton#assistantChip:hover { background: rgba(143,183,255,0.08);"
-            "  border: 1px solid rgba(143,183,255,0.12); color: rgba(255,255,255,0.84); }"
             "QScrollArea#assistantChatScroll { background: transparent; border: none; }"
             "QWidget#assistantChatContainer { background: transparent; }"
             "QLabel#assistantPrivacyBadge { color: rgba(255,255,255,0.48); font-size: 11px;"
             "  padding: 6px 16px; background: rgba(143,183,255,0.04);"
             "  border-top: 1px solid rgba(255,255,255,0.04); }"
-            "QLineEdit#assistantInput { background: rgba(255,255,255,0.04);"
-            "  border: 1px solid rgba(255,255,255,0.05); border-radius: 12px;"
-            "  padding: 10px 14px; color: rgba(255,255,255,0.92); font-size: 13px; }"
-            "QLineEdit#assistantInput:focus { border: 1px solid rgba(143,183,255,0.18);"
-            "  background: rgba(255,255,255,0.05); }"
-            "QPushButton#assistantSendBtn { background: rgba(143,183,255,0.12);"
-            "  border: 1px solid rgba(143,183,255,0.14); border-radius: 12px;"
-            "  padding: 10px 20px; color: rgba(255,255,255,0.92); font-size: 13px; font-weight: 600; }"
-            "QPushButton#assistantSendBtn:hover { background: rgba(143,183,255,0.20);"
-            "  border: 1px solid rgba(143,183,255,0.22); }"
-            "QPushButton#assistantSendBtn:pressed { background: rgba(143,183,255,0.08); }"
-            "QFrame#assistantChatCard { background: rgba(255,255,255,0.025);"
-            "  border: 1px solid rgba(255,255,255,0.035); border-radius: 18px; }"
-            "QFrame#assistantSuggestionsPanel { background: rgba(255,255,255,0.030);"
-            "  border: 1px solid rgba(255,255,255,0.04); border-radius: 18px; }"
-            "QLabel#assistantSuggTitle { color: rgba(255,255,255,0.82); font-size: 14px;"
-            "  font-weight: 600; background: transparent; }"
-            "QLabel#assistantSuggDesc { color: rgba(255,255,255,0.52); font-size: 11px;"
-            "  background: transparent; }"
-            "QLabel#assistantSuggEmpty { color: rgba(255,255,255,0.52); font-size: 12px;"
-            "  background: transparent; }"
             "QScrollArea#assistantSuggScroll { background: transparent; border: none; }"
             "QWidget#assistantSuggContainer { background: transparent; }"
         )
@@ -537,17 +526,14 @@ class _PendingActionCard(QFrame):
 
         title = QLabel(pending.get("title", "Acción pendiente"))
         title.setObjectName("pendingTitle")
-        title.setStyleSheet(
-            "QLabel#pendingTitle {"
-            "  color: rgba(255,255,255,0.92); font-size: 14px; font-weight: 600; }")
+        title.setStyleSheet(card_title_qss())
         layout.addWidget(title)
 
         desc = pending.get("description", "")
         if desc:
             desc_label = QLabel(desc)
             desc_label.setWordWrap(True)
-            desc_label.setStyleSheet(
-                "QLabel { color: rgba(255,255,255,0.62); font-size: 12px; }")
+            desc_label.setStyleSheet(card_desc_qss())
             layout.addWidget(desc_label)
 
         badge = QLabel("Requiere confirmación")
@@ -563,32 +549,17 @@ class _PendingActionCard(QFrame):
         confirm_btn = QPushButton("Confirmar")
         confirm_btn.setObjectName("pendingConfirmBtn")
         confirm_btn.setCursor(Qt.PointingHandCursor)
+        confirm_btn.setStyleSheet(glass_button_qss("primary"))
         confirm_btn.clicked.connect(lambda: self.confirmed.emit(self._action_id))
         btn_row.addWidget(confirm_btn)
 
         cancel_btn = QPushButton("Cancelar")
         cancel_btn.setObjectName("pendingCancelBtn")
         cancel_btn.setCursor(Qt.PointingHandCursor)
+        cancel_btn.setStyleSheet(glass_button_qss("ghost"))
         cancel_btn.clicked.connect(lambda: self.cancelled.emit(self._action_id))
         btn_row.addWidget(cancel_btn)
 
         layout.addLayout(btn_row)
 
-        self.setStyleSheet(
-            "QFrame#pendingActionCard {"
-            "  background: rgba(143,183,255,0.04);"
-            "  border: 1px solid rgba(143,183,255,0.10);"
-            "  border-radius: 14px; }"
-            "QPushButton#pendingConfirmBtn {"
-            "  background: rgba(143,183,255,0.14);"
-            "  border: 1px solid rgba(143,183,255,0.16);"
-            "  border-radius: 10px; padding: 8px 18px;"
-            "  color: rgba(255,255,255,0.94); font-size: 12px; font-weight: 600; }"
-            "QPushButton#pendingConfirmBtn:hover { background: rgba(143,183,255,0.22); }"
-            "QPushButton#pendingCancelBtn {"
-            "  background: rgba(255,255,255,0.03);"
-            "  border: 1px solid rgba(255,255,255,0.05);"
-            "  border-radius: 10px; padding: 8px 18px;"
-            "  color: rgba(255,255,255,0.58); font-size: 12px; font-weight: 500; }"
-            "QPushButton#pendingCancelBtn:hover { background: rgba(255,255,255,0.06);"
-            "  color: rgba(255,255,255,0.78); }")
+        self.setStyleSheet(glass_action_card_qss("pendingActionCard"))
