@@ -1,4 +1,4 @@
-"""ArtworkPage — manage album artwork: view, search local, replace, embed."""
+"""ArtworkPage — manage album artwork: view, scan local covers, replace, embed."""
 
 from __future__ import annotations
 
@@ -19,16 +19,26 @@ from ui.central.central_styles import (
 
 logger = logging.getLogger("michi.artwork.ui")
 
+_AUDIO_FILTER = "Audio (*.flac *.mp3 *.m4a *.mp4 *.ogg *.oga *.opus)"
+_IMAGE_FILTER = "Imágenes (*.jpg *.jpeg *.png *.gif *.webp *.bmp)"
+
 
 class ArtworkPage(QWidget):
+    """Small, safe artwork tool for Audio Lab.
+
+    The page intentionally avoids pretending that a library album context exists.
+    Users must choose explicit destination audio files before embedding artwork.
+    """
+
     navigate_requested = Signal(str)
 
-    def __init__(self):
+    def __init__(self, db=None):
         super().__init__()
         self.setObjectName("artworkPage")
         self._resolver = None
-        self._current_album = ""
-        self._current_artist = ""
+        self._db = db
+        self._new_artwork_path = ""
+        self._target_audio_files: list[str] = []
         self._build_ui()
 
     def _build_ui(self):
@@ -52,8 +62,8 @@ class ArtworkPage(QWidget):
         cl.addWidget(title)
 
         sub = QLabel(
-            "Gestiona las carátulas de tu biblioteca: busca, "
-            "reemplaza e incrusta imágenes en tus archivos de música."
+            "Gestiona carátulas de forma segura: carga una imagen, "
+            "elige archivos destino y luego incrusta la portada."
         )
         sub.setStyleSheet(
             "color: rgba(255,255,255,0.56); font-size: 13px; "
@@ -62,7 +72,6 @@ class ArtworkPage(QWidget):
         sub.setWordWrap(True)
         cl.addWidget(sub)
 
-        # Current artwork display
         art_card = QFrame()
         art_card.setStyleSheet(glass_card_qss("artDisplayCard"))
         avl = QVBoxLayout(art_card)
@@ -81,7 +90,9 @@ class ArtworkPage(QWidget):
         art_top.addWidget(self._art_preview)
 
         art_info = QVBoxLayout()
-        self._art_status = QLabel("Selecciona un álbum para ver su carátula.")
+        self._art_status = QLabel(
+            "Carga una imagen y selecciona los archivos de audio donde se incrustará."
+        )
         self._art_status.setStyleSheet(
             "color: rgba(255,255,255,0.62); font-size: 12px; "
             "background: transparent;"
@@ -89,26 +100,38 @@ class ArtworkPage(QWidget):
         self._art_status.setWordWrap(True)
         art_info.addWidget(self._art_status)
 
+        self._target_label = QLabel("Destino: ningún archivo seleccionado")
+        self._target_label.setStyleSheet(
+            "color: rgba(255,255,255,0.50); font-size: 11px; "
+            "background: transparent;"
+        )
+        self._target_label.setWordWrap(True)
+        art_info.addWidget(self._target_label)
         art_info.addStretch()
 
-        self._replace_btn = QPushButton("Reemplazar desde archivo...")
+        self._replace_btn = QPushButton("Cargar imagen...")
         self._replace_btn.setCursor(Qt.PointingHandCursor)
         self._replace_btn.setStyleSheet(glass_button_qss("secondary"))
         self._replace_btn.clicked.connect(self._replace_artwork)
         art_info.addWidget(self._replace_btn)
 
+        self._select_audio_btn = QPushButton("Seleccionar archivos destino...")
+        self._select_audio_btn.setCursor(Qt.PointingHandCursor)
+        self._select_audio_btn.setStyleSheet(glass_button_qss("secondary"))
+        self._select_audio_btn.clicked.connect(self._select_target_audio_files)
+        art_info.addWidget(self._select_audio_btn)
+
         self._embed_btn = QPushButton("Incrustar en archivos")
         self._embed_btn.setCursor(Qt.PointingHandCursor)
         self._embed_btn.setStyleSheet(glass_button_qss("primary"))
         self._embed_btn.clicked.connect(self._embed_artwork)
+        self._embed_btn.setEnabled(False)
         art_info.addWidget(self._embed_btn)
 
         art_top.addLayout(art_info, 1)
         avl.addLayout(art_top)
-
         cl.addWidget(art_card)
 
-        # Albums without artwork
         missing_card = QFrame()
         missing_card.setStyleSheet(glass_card_qss("artMissingCard"))
         mvl = QVBoxLayout(missing_card)
@@ -155,10 +178,14 @@ class ArtworkPage(QWidget):
             self._resolver = ArtworkResolver()
         return self._resolver
 
+    def _update_embed_enabled(self):
+        self._embed_btn.setEnabled(
+            bool(self._new_artwork_path and self._target_audio_files)
+        )
+
     def _replace_artwork(self):
         fp, _ = QFileDialog.getOpenFileName(
-            self, "Seleccionar imagen", "",
-            "Imágenes (*.jpg *.jpeg *.png *.gif *.webp *.bmp)"
+            self, "Seleccionar imagen", "", _IMAGE_FILTER
         )
         if not fp:
             return
@@ -177,41 +204,65 @@ class ArtworkPage(QWidget):
             f"{pix.width()}x{pix.height()} px"
         )
         self._new_artwork_path = fp
+        self._update_embed_enabled()
+
+    def _select_target_audio_files(self):
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "Seleccionar archivos de audio", "", _AUDIO_FILTER
+        )
+        self._target_audio_files = [f for f in files if os.path.isfile(f)]
+        count = len(self._target_audio_files)
+        if count == 0:
+            self._target_label.setText("Destino: ningún archivo seleccionado")
+        elif count == 1:
+            self._target_label.setText(
+                f"Destino: {os.path.basename(self._target_audio_files[0])}"
+            )
+        else:
+            self._target_label.setText(f"Destino: {count} archivos seleccionados")
+        self._update_embed_enabled()
 
     def _embed_artwork(self):
-        img_fp = getattr(self, '_new_artwork_path', None)
-        if not img_fp or not os.path.exists(img_fp):
+        fp = self._new_artwork_path
+        if not fp or not os.path.exists(fp):
             QMessageBox.information(
                 self, "Carátulas",
-                "Selecciona una imagen primero con 'Reemplazar desde archivo'."
+                "Selecciona una imagen primero."
             )
             return
-
-        audio_fp, _ = QFileDialog.getOpenFileName(
-            self, "Seleccionar archivo de audio destino", "",
-            "Audio (*.flac *.mp3 *.m4a *.ogg *.opus)"
-        )
-        if not audio_fp:
+        if not self._target_audio_files:
+            QMessageBox.information(
+                self, "Carátulas",
+                "Selecciona los archivos de audio destino antes de incrustar."
+            )
             return
 
         try:
-            from metadata.tag_writer import write_tags
-            from metadata.tag_model import TrackTags
+            from ui.audio_lab.services.tag_writer import TagWriter
+            tw = TagWriter()
+            ok = 0
+            failed: list[str] = []
+            for audio_path in self._target_audio_files:
+                try:
+                    result = tw.embed_cover(audio_path, fp)
+                    if result.get("ok"):
+                        ok += 1
+                    else:
+                        failed.append(os.path.basename(audio_path))
+                except Exception:
+                    logger.exception("Failed to embed artwork in %s", audio_path)
+                    failed.append(os.path.basename(audio_path))
 
-            with open(img_fp, "rb") as f:
-                img_data = f.read()
-
-            tags = TrackTags(filepath=audio_fp)
-            tags.has_artwork = True
-            tags.artwork_mime = "image/jpeg"
-            tags.artwork_data = img_data
-            tags.mark_artwork_dirty()
-            write_tags(audio_fp, tags)
-
-            self._art_status.setText(
-                f"Carátula incrustada en {os.path.basename(audio_fp)}"
-            )
-            logger.info("Artwork embedded in %s from %s", audio_fp, img_fp)
+            if failed:
+                self._art_status.setText(
+                    f"Carátula incrustada en {ok}/{len(self._target_audio_files)} archivos. "
+                    f"Fallidos: {', '.join(failed[:4])}"
+                )
+            else:
+                self._art_status.setText(
+                    f"Carátula incrustada en {ok} archivo(s)."
+                )
+            logger.info("Artwork embedded in %d files", ok)
         except Exception as e:
             logger.exception("Failed to embed artwork")
             QMessageBox.warning(self, "Error", f"No se pudo incrustar: {e}")
@@ -221,11 +272,15 @@ class ArtworkPage(QWidget):
         self._missing_progress.setVisible(True)
         self._missing_progress.setValue(0)
 
-        tmp_db = None
+        temp_db = None
+        db = self._db
         try:
-            from library.library_db import LibraryDB, DB_PATH
-            tmp_db = LibraryDB(DB_PATH)
-            rows = tmp_db._conn.execute(
+            if db is None:
+                from library.library_db import LibraryDB, DB_PATH
+                temp_db = LibraryDB(DB_PATH)
+                db = temp_db
+
+            rows = db._conn.execute(
                 "SELECT DISTINCT album, albumartist, directory "
                 "FROM media_items WHERE deleted_at IS NULL "
                 "AND album IS NOT NULL AND album != ''"
@@ -233,7 +288,7 @@ class ArtworkPage(QWidget):
 
             resolver = self._get_resolver()
             missing = []
-            total = len(rows)
+            total = max(1, len(rows))
 
             for i, (album, artist, directory) in enumerate(rows):
                 if (i + 1) % 10 == 0:
@@ -267,10 +322,10 @@ class ArtworkPage(QWidget):
         except Exception as e:
             logger.exception("Missing artwork scan failed")
             self._missing_list.addItem(f"Error: {e}")
-
-        if tmp_db:
-            import contextlib
-            with contextlib.suppress(Exception):
-                tmp_db.close()
-
-        self._missing_progress.setVisible(False)
+        finally:
+            if temp_db is not None:
+                try:
+                    temp_db.close()
+                except Exception:
+                    logger.debug("Temporary artwork DB close failed", exc_info=True)
+            self._missing_progress.setVisible(False)
