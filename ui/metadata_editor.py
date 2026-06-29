@@ -1153,8 +1153,8 @@ class MetadataEditorWidget(QWidget):
         self._doctor_panel.set_loading(True)
         try:
             from ui.audio_lab.services.library_doctor import LibraryDoctor
-            from library.library_db import LibraryDB
-            db = LibraryDB()
+            from library.library_db import LibraryDB, DB_PATH
+            db = self._get_db() or LibraryDB()
             doctor = LibraryDoctor(db)
             scan = doctor.scan_all()
             repair = doctor.generate_repair_plan()
@@ -1165,3 +1165,13 @@ class MetadataEditorWidget(QWidget):
             repair = {"total_issues": 0, "fixable": 0, "suggestions": []}
         self._doctor_panel.set_loading(False)
         self._doctor_panel.show_results(scan, repair)
+
+    def _get_db(self):
+        """Walk parent widgets looking for a MainWindow with a _db reference."""
+        from ui.window import MainWindow
+        p = self.parent()
+        while p is not None:
+            if isinstance(p, MainWindow) and hasattr(p, '_db'):
+                return p._db
+            p = p.parent()
+        return None
