@@ -1,4 +1,4 @@
-"""ConnectionsHubPage — premium service hub for music servers, devices and network."""
+"""ConnectionsHubPage — Servidores y conexiones del ecosistema Michi."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from ui.effects.michi_glass import apply_card_shadow
 from ui.central.central_styles import (
     glass_card_qss, glass_button_qss, glass_chip_button_qss, glass_progress_qss,
+    glass_hero_qss, badge_qss,
     card_title_qss, card_desc_qss, card_meta_qss, section_label_qss,
 )
 
@@ -18,7 +19,6 @@ _SERVICE_DEFS = [
     ("navidrome", "Navidrome", "Servidor de música Subsonic moderno.", "add_server"),
     ("jellyfin", "Jellyfin", "Centro multimedia completo.", "add_server"),
     ("subsonic", "Subsonic", "Servidor de música compatible Subsonic.", "add_server"),
-    ("michi_local", "Michi Local", "Servidor propio en esta máquina.", "add_server"),
     ("custom", "Servidor manual", "Conecta cualquier servidor Subsonic.", "add_server"),
 ]
 
@@ -44,11 +44,71 @@ class ConnectionsHubPage(QWidget):
         content.setObjectName("connectionsHubContent")
         cl = QVBoxLayout(content)
         cl.setContentsMargins(40, 16, 40, 32)
-        cl.setSpacing(24)
+        cl.setSpacing(20)
 
+        # ── 1. Michi Micro Server — hero ──
+        ms_card = QFrame()
+        ms_card.setObjectName("mmsHero")
+        ms_card.setStyleSheet(glass_hero_qss("mmsHero"))
+        ms_card.setMinimumHeight(200)
+        ms_vl = QVBoxLayout(ms_card)
+        ms_vl.setContentsMargins(24, 18, 24, 18)
+        ms_vl.setSpacing(8)
+
+        ms_header = QHBoxLayout()
+        ms_title = QLabel("Michi Micro Server")
+        ms_title.setStyleSheet(
+            "font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.94);")
+        ms_header.addWidget(ms_title)
+        ms_badge = QLabel("Ecosistema Michi")
+        ms_badge.setStyleSheet(badge_qss("active"))
+        ms_header.addWidget(ms_badge)
+        ms_badge2 = QLabel("Rust")
+        ms_badge2.setStyleSheet(badge_qss("info"))
+        ms_header.addWidget(ms_badge2)
+        ms_badge3 = QLabel("Streaming")
+        ms_badge3.setStyleSheet(badge_qss("info"))
+        ms_header.addWidget(ms_badge3)
+        ms_header.addStretch()
+        ms_vl.addLayout(ms_header)
+
+        ms_desc = QLabel(
+            "Servidor musical doméstico del ecosistema Michi para centralizar "
+            "biblioteca, metadatos, playlists y streaming local o remoto.")
+        ms_desc.setWordWrap(True)
+        ms_desc.setStyleSheet(
+            "font-size: 12px; color: rgba(255,255,255,0.56);")
+        ms_vl.addWidget(ms_desc)
+
+        ms_status = QLabel("● No configurado")
+        ms_status.setStyleSheet(
+            "font-size: 12px; color: rgba(255,255,255,0.46);")
+        ms_vl.addWidget(ms_status)
+
+        ms_btns = QHBoxLayout()
+        ms_btns.setSpacing(10)
+        btn_search = QPushButton("Buscar Michi Micro Server")
+        btn_search.setCursor(Qt.PointingHandCursor)
+        btn_search.setStyleSheet(glass_button_qss("primary"))
+        btn_search.clicked.connect(self._on_scan_network)
+        ms_btns.addWidget(btn_search)
+        btn_manual = QPushButton("Agregar manualmente")
+        btn_manual.setCursor(Qt.PointingHandCursor)
+        btn_manual.setStyleSheet(glass_button_qss("secondary"))
+        btn_manual.clicked.connect(lambda: self._navigate("add_server"))
+        ms_btns.addWidget(btn_manual)
+        btn_concept = QPushButton("Ver concepto")
+        btn_concept.setCursor(Qt.PointingHandCursor)
+        btn_concept.setStyleSheet(glass_button_qss("ghost"))
+        ms_btns.addWidget(btn_concept)
+        ms_btns.addStretch()
+        ms_vl.addLayout(ms_btns)
+
+        apply_card_shadow(ms_card)
+        cl.addWidget(ms_card)
+
+        # ── 2. Saved servers ──
         servers = self._get_servers()
-
-        # ── Saved servers ──
         if servers:
             sec = QLabel("SERVIDORES CONFIGURADOS")
             sec.setStyleSheet(section_label_qss())
@@ -60,58 +120,54 @@ class ConnectionsHubPage(QWidget):
                 grid.addWidget(self._build_server_card(srv), i // cols, i % cols, Qt.AlignTop)
             cl.addLayout(grid)
 
-        # ── Service grid ──
-        sec2 = QLabel("SERVICIOS DISPONIBLES")
-        sec2.setStyleSheet("QLabel { color: rgba(255,255,255,0.48); font-size: 11px; font-weight: 600; letter-spacing: 1px; }")
+        # ── 3. External services ──
+        sec2 = QLabel("SERVIDORES EXTERNOS")
+        sec2.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.48); font-size: 11px;"
+            " font-weight: 600; letter-spacing: 1px; }")
         cl.addWidget(sec2)
         svc_grid = QGridLayout()
         svc_grid.setSpacing(14)
         cols2 = max(1, (self.width() or 800) // 200)
         for i, (key, name, desc, nav) in enumerate(_SERVICE_DEFS):
             svc_grid.addWidget(
-                self._build_service_card(key, name, desc, nav), i // cols2, i % cols2, Qt.AlignTop)
+                self._build_service_card(key, name, desc, nav),
+                i // cols2, i % cols2, Qt.AlignTop)
         cl.addLayout(svc_grid)
 
-        # ── Otros servicios → Home Audio ──
+        # ── 4. Michi Local ──
+        local_row = QHBoxLayout()
+        local_row.setSpacing(10)
+        local_chip = QPushButton("Michi Local — servidor en esta máquina")
+        local_chip.setCursor(Qt.PointingHandCursor)
+        local_chip.setStyleSheet(glass_chip_button_qss())
+        local_chip.clicked.connect(lambda: self._navigate("michi_local"))
+        local_row.addWidget(local_chip)
+        local_row.addStretch()
+        cl.addLayout(local_row)
+
+        # ── 5. Home Audio access ──
         other_row = QHBoxLayout()
         other_row.setSpacing(10)
-        other_label = QLabel("Otros servicios de audio doméstico")
+        other_label = QLabel("Audio doméstico")
         other_label.setStyleSheet(
-            "font-size: 11px; color: rgba(255,255,255,0.42); background: transparent; border: none;")
+            "font-size: 11px; color: rgba(255,255,255,0.42);")
         other_row.addWidget(other_label)
         for _key, name in (("home_assistant", "Home Assistant"), ("snapcast", "Snapcast")):
             chip = QPushButton(name)
             chip.setCursor(Qt.PointingHandCursor)
             chip.setStyleSheet(glass_chip_button_qss())
-            chip.clicked.connect(lambda c=None, k="home_audio": self._navigate(k))
+            chip.clicked.connect(lambda c=None: self._navigate("home_audio"))
             other_row.addWidget(chip)
         other_row.addStretch()
         cl.addLayout(other_row)
         cl.addSpacing(8)
 
-        # ── Mounted devices ──
-        devices = self._get_devices()
-        if devices:
-            sec3 = QLabel("DISPOSITIVOS MONTADOS")
-            sec3.setStyleSheet("QLabel { color: rgba(255,255,255,0.48); font-size: 11px; font-weight: 600; letter-spacing: 1px; }")
-            cl.addWidget(sec3)
-            dev_row = QHBoxLayout()
-            dev_row.setSpacing(8)
-            for d in devices:
-                dname = d.get("name", d.get("mount", "Dispositivo"))
-                dmount = d.get("mount", "")
-                chip = QPushButton(dname)
-                chip.setToolTip(dmount)
-                chip.setCursor(Qt.PointingHandCursor)
-                chip.setStyleSheet(glass_chip_button_qss())
-                chip.clicked.connect(lambda c=None, m=dmount: self._navigate(f"dev:{m}"))
-                dev_row.addWidget(chip)
-            dev_row.addStretch()
-            cl.addLayout(dev_row)
-
-        # ── Network scan ──
+        # ── 6. Network scan ──
         sec4 = QLabel("RED LOCAL")
-        sec4.setStyleSheet("QLabel { color: rgba(255,255,255,0.48); font-size: 11px; font-weight: 600; letter-spacing: 1px; }")
+        sec4.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.48); font-size: 11px;"
+            " font-weight: 600; letter-spacing: 1px; }")
         cl.addWidget(sec4)
         scan_card = QFrame()
         scan_card.setObjectName("connectionsScanCard")
@@ -136,7 +192,8 @@ class ConnectionsHubPage(QWidget):
 
         self._scan_results = QLabel("")
         self._scan_results.setWordWrap(True)
-        self._scan_results.setStyleSheet("QLabel { color: rgba(143,183,255,0.60); font-size: 12px; }")
+        self._scan_results.setStyleSheet(
+            "QLabel { color: rgba(143,183,255,0.60); font-size: 12px; }")
         self._scan_results.setVisible(False)
         sc.addWidget(self._scan_results)
 
@@ -150,15 +207,94 @@ class ConnectionsHubPage(QWidget):
         scan_card.setStyleSheet(glass_card_qss("connectionsScanCard", "elevated"))
         cl.addWidget(scan_card)
 
+        # ── 7. Mounted devices ──
+        devices = self._get_devices()
+        if devices:
+            sec3 = QLabel("DISPOSITIVOS MONTADOS")
+            sec3.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.48); font-size: 11px;"
+                " font-weight: 600; letter-spacing: 1px; }")
+            cl.addWidget(sec3)
+            dev_row = QHBoxLayout()
+            dev_row.setSpacing(8)
+            for d in devices:
+                dname = d.get("name", d.get("mount", "Dispositivo"))
+                dmount = d.get("mount", "")
+                chip = QPushButton(dname)
+                chip.setToolTip(dmount)
+                chip.setCursor(Qt.PointingHandCursor)
+                chip.setStyleSheet(glass_chip_button_qss())
+                chip.clicked.connect(lambda c=None, m=dmount: self._navigate(f"dev:{m}"))
+                dev_row.addWidget(chip)
+            dev_row.addStretch()
+            cl.addLayout(dev_row)
+
         cl.addStretch()
         scroll.setWidget(content)
         layout.addWidget(scroll)
         self._apply_qss()
 
+    def _build_micro_server_card(self) -> QFrame:
+        card = QFrame()
+        card.setObjectName("mmsHero")
+        card.setStyleSheet(glass_hero_qss("mmsHero"))
+        card.setMinimumHeight(200)
+        vl = QVBoxLayout(card)
+        vl.setContentsMargins(24, 18, 24, 18)
+        vl.setSpacing(8)
+
+        header = QHBoxLayout()
+        title = QLabel("Michi Micro Server")
+        title.setStyleSheet(
+            "font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.94);")
+        header.addWidget(title)
+        b1 = QLabel("Ecosistema Michi")
+        b1.setStyleSheet(badge_qss("active"))
+        header.addWidget(b1)
+        b2 = QLabel("Rust")
+        b2.setStyleSheet(badge_qss("info"))
+        header.addWidget(b2)
+        b3 = QLabel("Streaming")
+        b3.setStyleSheet(badge_qss("info"))
+        header.addWidget(b3)
+        header.addStretch()
+        vl.addLayout(header)
+
+        desc = QLabel(
+            "Servidor musical doméstico del ecosistema Michi para centralizar "
+            "biblioteca, metadatos, playlists y streaming local o remoto.")
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-size: 12px; color: rgba(255,255,255,0.56);")
+        vl.addWidget(desc)
+
+        status = QLabel("● No configurado")
+        status.setStyleSheet("font-size: 12px; color: rgba(255,255,255,0.46);")
+        vl.addWidget(status)
+
+        btns = QHBoxLayout()
+        btns.setSpacing(10)
+        btn1 = QPushButton("Buscar Michi Micro Server")
+        btn1.setCursor(Qt.PointingHandCursor)
+        btn1.setStyleSheet(glass_button_qss("primary"))
+        btn1.clicked.connect(self._on_scan_network)
+        btns.addWidget(btn1)
+        btn2 = QPushButton("Agregar manualmente")
+        btn2.setCursor(Qt.PointingHandCursor)
+        btn2.setStyleSheet(glass_button_qss("secondary"))
+        btn2.clicked.connect(lambda: self._navigate("add_server"))
+        btns.addWidget(btn2)
+        btn3 = QPushButton("Ver concepto")
+        btn3.setCursor(Qt.PointingHandCursor)
+        btn3.setStyleSheet(glass_button_qss("ghost"))
+        btns.addWidget(btn3)
+        btns.addStretch()
+        vl.addLayout(btns)
+        return card
+
     def _build_service_card(self, key: str, name: str, desc: str, nav: str) -> QFrame:
         card = QFrame()
         card.setObjectName(f"svcCard_{key}")
-        card.setMinimumHeight(170)
+        card.setMinimumHeight(150)
         card.setCursor(Qt.PointingHandCursor)
         vl = QVBoxLayout(card)
         vl.setContentsMargins(16, 14, 16, 14)
@@ -169,12 +305,9 @@ class ConnectionsHubPage(QWidget):
         name_lbl.setStyleSheet(card_title_qss())
         vl.addWidget(name_lbl)
 
-        icon_area = QLabel(name[0] if name else "?")
-        icon_area.setAlignment(Qt.AlignCenter)
-        icon_area.setStyleSheet(
-            "QLabel { font-size: 28px; font-weight: 700; color: rgba(255,255,255,0.22); "
-            "background: transparent; border: none; }")
-        vl.addWidget(icon_area, 1)
+        ext_badge = QLabel("Externo")
+        ext_badge.setStyleSheet(badge_qss("remote"))
+        vl.addWidget(ext_badge)
 
         desc_lbl = QLabel(desc)
         desc_lbl.setWordWrap(True)
@@ -187,7 +320,7 @@ class ConnectionsHubPage(QWidget):
         btn.clicked.connect(lambda c=None, n=nav: self._navigate(n))
         vl.addWidget(btn)
 
-        card.setStyleSheet(glass_card_qss(f"svcCard_{key}", "base"))
+        card.setStyleSheet(glass_card_qss(f"svcCard_{key}", "compact"))
         return card
 
     def _build_server_card(self, srv: dict) -> QFrame:
@@ -242,7 +375,10 @@ class ConnectionsHubPage(QWidget):
         self._scan_btn.setEnabled(True)
         self._scan_progress.setVisible(False)
         if not results:
-            self._scan_results.setText("No se encontraron servidores en la red local.")
+            self._scan_results.setText(
+                "No se encontraron servidores en la red local.\n"
+                "Verifica que Michi Micro Server o tus servidores "
+                "compatibles estén encendidos y en la misma red.")
             self._connect_btn.setVisible(False)
         else:
             self._discovered = results
@@ -291,6 +427,7 @@ class ConnectionsHubPage(QWidget):
             QScrollArea#connectionsHubScroll { background: transparent; border: none; }
             QWidget#connectionsHubContent { background: transparent; }
         """)
+        apply_card_shadow(self.findChild(QFrame, "mmsHero"))
         for key, _name, _desc, _nav in _SERVICE_DEFS:
             card = self.findChild(QFrame, f"svcCard_{key}")
             if card:
@@ -298,8 +435,7 @@ class ConnectionsHubPage(QWidget):
         scan_card = self.findChild(QFrame, "connectionsScanCard")
         if scan_card:
             apply_card_shadow(scan_card)
-        servers = self._get_servers()
-        for srv in servers:
+        for srv in self._get_servers():
             name = srv.get("name", "Servidor")
             key = f"srv_{name.replace(' ','_')}"
             card = self.findChild(QFrame, key)
