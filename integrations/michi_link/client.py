@@ -131,8 +131,8 @@ class MichiLinkClient:
     def get_queue(self, server: RemoteServerInfo) -> dict | None:
         return self._get(server, "/api/v1/queue")
 
-    def control(self, server: RemoteServerInfo, action: str, **kwargs) -> bool:
-        body = json.dumps({"action": action, **kwargs}).encode()
+    def control(self, server: RemoteServerInfo, command: str, **kwargs) -> bool:
+        body = json.dumps({"command": command, **kwargs}).encode()
         try:
             headers = {"Content-Type": "application/json"}
             if server.device_token:
@@ -145,5 +145,5 @@ class MichiLinkClient:
             with urllib.request.urlopen(req, timeout=10) as r:
                 return r.status == 200
         except Exception as e:
-            logger.warning("Control action '%s' failed: %s", action, e)
+            logger.warning("Control '%s' failed: %s", command, e)
             return False

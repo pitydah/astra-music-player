@@ -750,6 +750,194 @@ class TestMicroServerStubs:
         provider = RemoteLibraryProvider()
         assert provider is not None
 
+    def test_micro_server_get_server_info(self):
+        from integrations.michi_link.micro_server_client import MicroServerClient
+        mc = MicroServerClient()
+        assert mc is not None
+        from integrations.michi_link.client import MichiLinkClient
+        lc = MichiLinkClient()
+        assert lc is not None
+
+    def test_micro_server_client_has_methods(self):
+        from integrations.michi_link.micro_server_client import MicroServerClient
+        client = MicroServerClient()
+        assert hasattr(client, "get_server_info")
+        assert hasattr(client, "pair_start")
+        assert hasattr(client, "pair_confirm")
+        assert hasattr(client, "get_tracks")
+        assert hasattr(client, "get_library_stats")
+        assert hasattr(client, "create_import_session")
+        assert hasattr(client, "upload_track")
+        assert hasattr(client, "commit_import")
+        assert hasattr(client, "playback_session_continue_on_server")
+
+
+class TestE2EContract:
+    """End-to-end contract tests that verify the API against expected JSON schemas.
+    These tests do NOT start a real HTTP server — they validate models directly."""
+
+    def test_server_info_contract(self):
+        from integrations.michi_link.models import ServerInfo
+        info = ServerInfo(name="TestPlayer")
+        d = info.to_dict()
+        assert d["service"] == "michi-music-player"
+        assert d["api_version"] == "v1"
+        assert d["version"] == "1.0.0"
+        assert d["michi_link_version"] == "1.0.0-alpha"
+        assert "desktop_player" in d["roles"]
+        assert "library_master" in d["roles"]
+        assert d["auth"]["strategy"] == "PLAYER_PASSWORD"
+        assert d["auth"]["token_refresh"] is False
+        assert d["features"]["library"] is True
+        assert d["features"]["token_refresh"] is False
+        assert d["features"]["events"] is False
+        assert d["features"]["receivers"] is False
+        assert d["features"]["rooms"] is False
+
+    def test_pair_start_contract(self):
+        from integrations.michi_link.models import V1PairStartResponse
+        resp = V1PairStartResponse(
+            pairing_id="pair_123",
+            auth_methods=["password"],
+            server_alias="Michi Player",
+            auth_required=True,
+            server_device_id="srv_001",
+        )
+        j = json.loads(resp.to_json())
+        assert j["pairing_id"] == "pair_123"
+        assert j["auth_methods"] == ["password"]
+        assert j["auth_required"] is True
+        assert j["server_device_id"] == "srv_001"
+        assert j["version"] == "1.0"
+
+    def test_pair_confirm_contract(self):
+        from integrations.michi_link.models import V1PairConfirmResponse
+        resp = V1PairConfirmResponse(
+            success=True,
+            device_id="android_abc",
+            device_token="tok_hex64",
+            permissions=["library.read", "stream.read", "playback.control"],
+            server_device_id="srv_001",
+            server_alias="Michi Player",
+        )
+        j = json.loads(resp.to_json())
+        assert j["success"] is True
+        assert j["device_id"] == "android_abc"
+        assert j["device_token"] == "tok_hex64"
+        assert "playback.control" in j["permissions"]
+        assert "library.read" in j["permissions"]
+
+    def test_track_no_filepath_contract(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/tracks"
+        handler._require_permission = MagicMock(return_value=True)
+        srv = MagicMock()
+        item = MagicMock()
+        item.filepath = "/secret/music/song.flac"
+        item.title = "Test Song"
+        item.artist = "Artist"
+        item.album = "Album"
+        item.duration = 200.0
+        item.ext = ".flac"
+        item.year = 2024
+        item.size = 1000000
+        item.genre = "Rock"
+        item.track_uid = ""
+        srv._db.get_all.return_value = [item]
+        handler.server_ref = srv
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+
+        body = results[0][0]
+        track = body["tracks"][0]
+        assert "filepath" not in track
+        assert "track_id" in track
+        assert "title" in track
+        assert "artist" in track
+        assert "album" in track
+        assert "duration" in track
+        assert "format" in track
+        assert "cover_id" in track
+        assert "download_path" in track
+        assert track["download_path"].startswith("/api/v1/stream/")
+
+    def test_error_format_contract(self):
+        from integrations.michi_link.server import _v1_error
+        err = _v1_error("TEST_ERROR", "Test message", {"detail": "value"})
+        assert "error" in err
+        assert err["error"]["code"] == "TEST_ERROR"
+        assert err["error"]["message"] == "Test message"
+        assert err["error"]["details"]["detail"] == "value"
+
+    def test_error_format_minimal(self):
+        from integrations.michi_link.server import _v1_error
+        err = _v1_error("MINIMAL", "Minimal")
+        assert err["error"]["code"] == "MINIMAL"
+        assert err["error"]["details"] == {}
+
+    def test_queue_no_filepath_contract(self):
+        from integrations.michi_link.server import V1_MIXIN
+        ps = MagicMock()
+        ps.get_queue.return_value = [
+            {"filepath": "/secret/s.mp3", "title": "S",
+             "artist": "A", "album": "B", "track_uid": ""},
+        ]
+        V1_MIXIN._player_service = ps
+        V1_MIXIN._playback = MagicMock()
+        V1_MIXIN._playback.get_queue_index.return_value = 0
+
+        result = V1_MIXIN._build_queue(MagicMock())
+        track = result["tracks"][0]
+        assert "filepath" not in track
+        assert track["download_path"].startswith("/api/v1/stream/")
+
+    def test_search_no_filepath_contract(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/search?q=test"
+        handler._require_permission = MagicMock(return_value=True)
+        srv = MagicMock()
+        item = MagicMock()
+        item.filepath = "/secret/path/song.mp3"
+        item.title = "Test"
+        item.artist = "A"
+        item.album = "B"
+        item.duration = 200.0
+        item.track_uid = ""
+        srv._db.search_advanced.return_value = [item]
+        handler.server_ref = srv
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+
+        body = results[0][0]
+        for r in body.get("results", []):
+            assert "filepath" not in r
+            assert r["download_path"].startswith("/api/v1/stream/")
+
+    def test_manifest_no_filepath_contract(self):
+        from integrations.michi_link.server import V1_MIXIN
+        handler = MagicMock()
+        handler.path = "/api/v1/sync/manifest?device_id=d1"
+        handler._require_permission = MagicMock(return_value=True)
+        srv = MagicMock()
+        srv._manifest_provider = MagicMock(return_value={
+            "tracks": [{"track_id": "abc", "title": "Song"}],
+        })
+        handler.server_ref = srv
+
+        results = []
+        handler._send_json = lambda data, status=200: results.append((data, status))
+        V1_MIXIN.handle_get(handler)
+
+        body = results[0][0]
+        for t in body.get("tracks", []):
+            assert "filepath" not in t
+
 
 class TestLegacyCompat:
     def test_legacy_pair_start_still_works(self):

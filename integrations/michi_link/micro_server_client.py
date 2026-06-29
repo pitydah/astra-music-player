@@ -1,30 +1,74 @@
-"""Michi Micro Server client — future integration.
+"""Michi Micro Server client — Player as client to a remote Micro Server.
 
-Michi Music Player can act as client to a Michi Micro Server (lightweight
-headless server running on Raspberry Pi, NAS, etc.).
-
-Phase 1 (current): Player acts as server.
-Phase 2 (next): Player discovers and pairs with Micro Server.
-Phase 3 (future): Player sends music to Micro Server for playback.
-
-This module is a stub for Phase 2. Do not connect to UI yet.
+Phase 2 (next): Player discovers, pairs, and reads library from Micro Server.
+Phase 3 (future): Player sends tracks/playlists to Micro Server for playback.
+This module is a stub ready for Phase 2. Do not connect to UI yet.
 """
 from __future__ import annotations
 
+import json
 import logging
+
+from integrations.michi_link.client import MichiLinkClient, RemoteServerInfo
 
 logger = logging.getLogger("michi.link.micro_client")
 
 
 class MicroServerClient:
-    """Client for discovering, pairing, and consuming a Michi Micro Server.
+    """Client for discovering, pairing, and consuming a Michi Micro Server."""
 
-    Usage (future):
-        client = MicroServerClient()
-        info = client.discover("192.168.1.100")
-        client.pair(info, username="admin", password="...")
-        tracks = client.get_library(info)
-        client.send_tracks(info, track_ids)
-    """
     def __init__(self):
-        pass
+        self._client = MichiLinkClient()
+        self._servers: dict[str, RemoteServerInfo] = {}
+
+    def get_server_info(self, host: str, port: int = 53318) -> RemoteServerInfo | None:
+        return self._client.discover(host, port)
+
+    def pair_start(self, server: RemoteServerInfo) -> dict | None:
+        import secrets as _secrets
+        body = json.dumps({
+            "client_device_id": f"player_{_secrets.token_hex(4)}",
+            "alias": "Michi Music Player",
+            "device_model": "desktop",
+            "client_version": "1.0",
+        }).encode()
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                f"http://{server.host}:{server.port}/api/v1/pair/start",
+                data=body, method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return json.loads(r.read().decode())
+        except Exception as e:
+            logger.warning("pair_start failed: %s", e)
+            return None
+
+    def pair_confirm(self, server: RemoteServerInfo, username: str = "",
+                     password: str = "") -> bool:
+        return self._client.pair(server, username=username, password=password)
+
+    def get_tracks(self, server: RemoteServerInfo) -> list[dict] | None:
+        return self._client.get_library(server)
+
+    def get_library_stats(self, server: RemoteServerInfo) -> dict | None:
+        return self._client._get(server, "/api/v1/library/stats")
+
+    def create_import_session(self, server: RemoteServerInfo) -> dict | None:
+        logger.info("create_import_session stub — not yet implemented")
+        return None
+
+    def upload_track(self, server: RemoteServerInfo, track_id: str) -> bool:
+        logger.info("upload_track stub for track %s — not yet implemented", track_id)
+        return False
+
+    def commit_import(self, server: RemoteServerInfo) -> bool:
+        logger.info("commit_import stub — not yet implemented")
+        return False
+
+    def playback_session_continue_on_server(self, server: RemoteServerInfo,
+                                            track_ids: list[str]) -> bool:
+        """Future: send current queue to Micro Server for remote playback."""
+        logger.info("playback_session_continue_on_server stub — not yet implemented")
+        return False
