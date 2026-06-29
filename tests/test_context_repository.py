@@ -16,6 +16,7 @@ class TestContextRepository:
 
     def teardown_method(self):
         repo.close()
+        repo.override_db_path(None)
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
 

@@ -18,6 +18,7 @@ class TestContextService:
 
     def teardown_method(self):
         repo.close()
+        repo.override_db_path(None)
 
     def test_record_event(self, tmp_path):
         svc, _ = _init_db(tmp_path)

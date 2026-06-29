@@ -64,9 +64,17 @@ class SearchRouter:
 
         if sec in ("albums", "genres"):
             w._lib_ctrl.refresh_active_tab(force=True)
+            if ctx and query:
+                ctx.record_event(AppEvent.SEARCH_STARTED, {"section": sec})
             return
         if sec == "folders":
             w._folder_browser.set_filter(w._search_text)
+            if ctx and query:
+                visible = getattr(w._folder_browser, "visible_count", None)
+                if visible:
+                    self._record_search_performed(sec, visible())
+                else:
+                    ctx.record_event(AppEvent.SEARCH_STARTED, {"section": sec})
             return
         if sec in ("favs", "recent", "mix_unplayed"):
             return

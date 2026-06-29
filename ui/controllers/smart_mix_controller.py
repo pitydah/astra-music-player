@@ -12,6 +12,12 @@ def _ctx_svc(win):
     )
 
 
+def _reconnect_table_selection(win):
+    pc = getattr(win, "_playback_ctrl", None)
+    if pc:
+        pc.connect_table_selection()
+
+
 class SmartMixController:
     def __init__(self, window):
         self._win = window
@@ -71,6 +77,7 @@ class SmartMixController:
             self._win._table.setColumnWidth(5, 130)
             self._win._table.setColumnWidth(6, 80)
             self._win._table.setColumnWidth(7, 260)
+            _reconnect_table_selection(self._win)
         else:
             self._win._views.show("empty")
         self._record_mix_opened(key, len(refs))
@@ -95,6 +102,7 @@ class SmartMixController:
             self._win._table.setColumnWidth(4, 55)
             self._win._table.setColumnWidth(5, 110)
             self._win._table.setColumnWidth(6, 75)
+            _reconnect_table_selection(self._win)
         else:
             self._win._views.show("empty")
         self._win._search.show()
@@ -121,6 +129,7 @@ class SmartMixController:
             self._win._table.setColumnWidth(4, 55)
             self._win._table.setColumnWidth(5, 110)
             self._win._table.setColumnWidth(6, 75)
+            _reconnect_table_selection(self._win)
         else:
             self._win._views.show("empty")
         self._win._search.show()
