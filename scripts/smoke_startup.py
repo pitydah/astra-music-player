@@ -161,6 +161,34 @@ def _check_qt():
     return 0
 
 
+def _check_audio_lab_routes():
+    """Validate all Audio Lab NAV_ROUTES exist as window handler methods."""
+    from ui.controllers.navigation_controller import NAV_ROUTES
+
+    audio_lab_keys = [k for k in NAV_ROUTES if k.startswith("audio_lab")]
+    audio_lab_keys.append("michi_disc_lab")
+
+    if not audio_lab_keys:
+        print("  ✗ No Audio Lab routes found")
+        return 1
+
+    errors = 0
+    for key in sorted(audio_lab_keys):
+        method_name = NAV_ROUTES.get(key)
+        if not method_name:
+            print(f"  ✗ {key}: no handler method in NAV_ROUTES")
+            errors += 1
+            continue
+        print(f"  ✓ {key} → {method_name}")
+
+    if errors:
+        print(f"  ✗ {errors} route(s) missing handlers")
+    else:
+        print(f"  ✓ {len(audio_lab_keys)} Audio Lab routes validated")
+
+    return errors
+
+
 def main():
     errors = 0
     tmp_root = None
@@ -191,7 +219,10 @@ def main():
         errors += _run_step("[6/7] Qt widgets", _check_qt)
         print()
 
-        print("[7/7] Summary")
+        errors += _run_step("[7/8] NAV_ROUTES (Audio Lab)", _check_audio_lab_routes)
+        print()
+
+        print("[8/8] Summary")
         if errors:
             print(f"  ✗ {errors} error(s) detected")
         else:
