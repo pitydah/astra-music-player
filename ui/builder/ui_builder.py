@@ -40,6 +40,20 @@ if TYPE_CHECKING:
     from ui.window import MainWindow
 
 
+def _nav_button_qss() -> str:
+    return """
+        QToolButton {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 10px;
+        }
+        QToolButton:disabled {
+            background: transparent;
+            border: 1px solid transparent;
+        }
+    """
+
+
 class UIBuilder:
     """Constructs all widgets, stacks, and layouts for MainWindow.
 
@@ -107,7 +121,7 @@ class UIBuilder:
         w._back_btn.setIconSize(QSize(18, 18))
         w._back_btn.setToolTip("Atrás (Alt+Izquierda)")
         w._back_btn.setCursor(Qt.PointingHandCursor)
-        w._back_btn.setStyleSheet(tool_button_qss("icon"))
+        w._back_btn.setStyleSheet(_nav_button_qss())
         w._back_btn.setFixedSize(38, 38)
         w._back_btn.setEnabled(False)
         w._back_btn.clicked.connect(lambda _w=w: _w._nav_ctrl.navigate_back())
@@ -119,7 +133,7 @@ class UIBuilder:
         w._forward_btn.setIconSize(QSize(18, 18))
         w._forward_btn.setToolTip("Adelante (Alt+Derecha)")
         w._forward_btn.setCursor(Qt.PointingHandCursor)
-        w._forward_btn.setStyleSheet(tool_button_qss("icon"))
+        w._forward_btn.setStyleSheet(_nav_button_qss())
         w._forward_btn.setFixedSize(38, 38)
         w._forward_btn.setEnabled(False)
         w._forward_btn.clicked.connect(lambda _w=w: _w._nav_ctrl.navigate_forward())

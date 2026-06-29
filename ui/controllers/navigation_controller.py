@@ -347,8 +347,11 @@ class NavigationController(QObject):
             if search_text and hasattr(w, '_search') and w._search:
                 w._search_text = search_text
                 w._search.setText(search_text)
+        except Exception as e:
+            _log.warning("Navigation restore failed for %s: %s", key, e)
         finally:
             self._history._restoring = False
+            self._update_buttons()
 
     def _update_buttons(self):
         w = self._win
