@@ -238,9 +238,11 @@ class HubRouteController:
 
     def show_audio_lab_intelligence(self, key: str = ""):
         def _build():
-            from ui.audio_lab.sub_pages import AudioLabIntelligencePage
-            page = AudioLabIntelligencePage()
-            page.navigate_requested.connect(self._win._on_sidebar_navigate)
+            w = self._win
+            from ui.audio_lab.intelligence_page import IntelligencePage
+            page = IntelligencePage(db=getattr(w, '_db', None),
+                                    worker_mgr=getattr(w, '_workers', None))
+            page.navigate_requested.connect(w._on_sidebar_navigate)
             return page
         self._lazy("audio_lab_intelligence", _build)
 

@@ -1,7 +1,7 @@
 """IntelligencePage — local music intelligence: BPM, key, energy, similarity, local radio.
 
-Connects to existing audio_analysis (FeatureRepository, AnalysisService)
-and recommendation engines.
+Connects to existing audio_analysis (FeatureRepository, AnalysisService).
+Gracefully degrades if analysis backend is unavailable.
 """
 
 from __future__ import annotations
@@ -25,11 +25,16 @@ logger = logging.getLogger("michi.intelligence.ui")
 class IntelligencePage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self):
+    def __init__(self, db=None, worker_mgr=None):
         super().__init__()
         self.setObjectName("intelligencePage")
+        self._db = db
+        self._worker_mgr = worker_mgr
         self._analysis = None
+        self._repo = None
+        self._backend_available = False
         self._build_ui()
+        self._check_backend()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -53,8 +58,7 @@ class IntelligencePage(QWidget):
 
         sub = QLabel(
             "Extrae características musicales de tu biblioteca: "
-            "BPM, tonalidad, energía y similitud. "
-            "Usa estos datos para crear mixes inteligentes y radio local."
+            "BPM, tonalidad, energía y similitud."
         )
         sub.setStyleSheet(
             "color: rgba(255,255,255,0.56); font-size: 13px; "
@@ -63,7 +67,6 @@ class IntelligencePage(QWidget):
         sub.setWordWrap(True)
         cl.addWidget(sub)
 
-        # Status
         status_card = QFrame()
         status_card.setStyleSheet(glass_card_qss("intelStatusCard", "base"))
         svl = QVBoxLayout(status_card)
@@ -96,7 +99,7 @@ class IntelligencePage(QWidget):
             self._status_lines[label] = val
 
         btn_row = QHBoxLayout()
-        self._scan_btn = QPushButton("Analizar biblioteca completa")
+        self._scan_btn = QPushButton("Analizar biblioteca")
         self._scan_btn.setCursor(Qt.PointingHandCursor)
         self._scan_btn.setStyleSheet(glass_button_qss("primary"))
         self._scan_btn.clicked.connect(self._analyze_all)
@@ -120,40 +123,30 @@ class IntelligencePage(QWidget):
 
         cl.addWidget(status_card)
 
-        # Feature grid
         grid = QGridLayout()
         grid.setSpacing(14)
 
         feature_cards = [
             ("sidebar_identifier", "BPM",
-             "Tempo en pulsaciones por minuto.\n"
-             "Se usa para agrupar canciones por\n"
-             "ritmo y generar mixes coherentes.",
+             "Tempo en pulsaciones por minuto.",
              self._show_bpm),
             ("sidebar_mix", "Tonalidad (Key)",
-             "Key musical aproximada.\n"
-             "Permite mezclar canciones en\n"
-             "tonalidades compatibles.",
+             "Key musical aproximada.",
              self._show_key),
             ("sidebar_popular", "Energía",
-             "Nivel de energía RMS.\n"
-             "Clasifica canciones como calmadas,\n"
-             "moderadas o enérgicas.",
+             "Nivel de energía RMS.",
              self._show_energy),
             ("sidebar_albums", "Similitud",
-             "Distancia coseno entre vectores\n"
-             "defeatures acústicas.\n"
-             "Encuentra canciones parecidas.",
+             "Distancia coseno entre vectores de\n"
+             "features acústicas.",
              self._show_similarity),
             ("sidebar_radio", "Radio Local",
              "Genera lista de reproducción\n"
-             "infinita desde una canción,\n"
-             "álbum o artista.",
+             "infinita desde una canción.",
              self._play_local_radio),
             ("sidebar_library", "Mix Inteligente",
              "Mix basado en reglas:\n"
-             "BPM, key, energía, calidad,\n"
-             "origen (CD/Vinilo).",
+             "BPM, key, energía, calidad.",
              self._create_smart_mix),
         ]
 
@@ -169,14 +162,12 @@ class IntelligencePage(QWidget):
         scroll.setWidget(content)
         layout.addWidget(scroll)
 
-        self._refresh_status()
-
-    def _build_feature_card(self, icon_key: str, title: str, desc: str,
+    def _build_feature_card(self, icon_key: str, title_t: str, desc: str,
                             callback) -> QFrame:
         card = QFrame()
-        card.setObjectName(f"intelFeatureCard_{title}")
+        card.setObjectName(f"intelFeatureCard_{title_t}")
         card.setStyleSheet(glass_card_qss(card.objectName(), "elevated"))
-        card.setMinimumHeight(160)
+        card.setMinimumHeight(140)
 
         cv = QVBoxLayout(card)
         cv.setContentsMargins(20, 16, 20, 16)
@@ -195,7 +186,7 @@ class IntelligencePage(QWidget):
         )
         cv.addWidget(icon_lbl)
 
-        t = QLabel(title)
+        t = QLabel(title_t)
         t.setStyleSheet(
             "color: rgba(255,255,255,0.88); font-size: 14px; "
             "font-weight: 600; background: transparent; border: none;"
@@ -221,69 +212,66 @@ class IntelligencePage(QWidget):
 
         return card
 
+    def _check_backend(self):
+        try:
+            from audio_analysis.dependency_check import check_dependencies
+            deps = check_dependencies()
+            self._backend_available = deps.get("available", False)
+            self._status_lines["Backend:"].setText(
+                deps.get("backend", "disabled").capitalize()
+                if self._backend_available else "No disponible"
+            )
+        except Exception as e:
+            logger.warning("Backend check failed: %s", e)
+            self._backend_available = False
+            self._status_lines["Backend:"].setText("Error")
+
+        if not self._backend_available:
+            self._scan_btn.setEnabled(False)
+            self._status_lines["Archivos analizados:"].setText("—")
+            self._status_lines["Jobs pendientes:"].setText("—")
+
     def _get_service(self):
-        if self._analysis is None:
+        if self._analysis is None and self._backend_available:
             try:
                 from audio_analysis.analysis_service import AnalysisService
-                self._analysis = AnalysisService(None)
+                self._analysis = AnalysisService(
+                    db=self._db, worker_mgr=self._worker_mgr
+                )
             except Exception as e:
-                logger.warning("AnalysisService not available: %s", e)
+                logger.warning("AnalysisService init failed: %s", e)
         return self._analysis
 
     def _refresh_status(self):
+        if not self._backend_available:
+            return
         try:
-            analysis = self._get_service()
-            if analysis and analysis.enabled:
-                self._status_lines["Backend:"].setText(
-                    analysis._backend.capitalize()
-                )
-                repo = analysis._repo
-                count = repo._conn.execute(
-                    "SELECT COUNT(*) FROM audio_feature WHERE status='completed'"
-                ).fetchone()[0]
-                pending = repo._conn.execute(
-                    "SELECT COUNT(*) FROM audio_analysis_job "
-                    "WHERE status IN ('pending','running')"
-                ).fetchone()[0]
-                self._status_lines["Archivos analizados:"].setText(str(count))
-                self._status_lines["Jobs pendientes:"].setText(str(pending))
-            else:
-                self._status_lines["Backend:"].setText("Desactivado")
+            from audio_analysis.feature_repository import FeatureRepository
+            repo = FeatureRepository()
+            count = repo._conn.execute(
+                "SELECT COUNT(*) FROM audio_feature WHERE status='completed'"
+            ).fetchone()[0]
+            pending = repo._conn.execute(
+                "SELECT COUNT(*) FROM audio_analysis_job "
+                "WHERE status IN ('pending','running')"
+            ).fetchone()[0]
+            self._status_lines["Archivos analizados:"].setText(str(count))
+            self._status_lines["Jobs pendientes:"].setText(str(pending))
         except Exception as e:
             logger.warning("Status refresh error: %s", e)
 
     def _analyze_all(self):
-        analysis = self._get_service()
-        if not analysis or not analysis.enabled:
-            logger.warning("Analysis not available or disabled")
+        if not self._backend_available:
+            self._status_lines["Backend:"].setText("No disponible")
             return
-        self._scan_btn.setEnabled(False)
-        self._analysis_progress.setVisible(True)
-        logger.info("Starting full library analysis...")
-
-        def progress_cb(current, total, filepath):
-            pct = int(current / total * 100) if total > 0 else 0
-            self._analysis_progress.setValue(pct)
-            from PySide6.QtCore import QCoreApplication
-            QCoreApplication.processEvents()
-
-        analysis.analyze_tracks_async(
-            None, progress_cb=progress_cb,
-            on_done=lambda: self._on_analysis_done(),
-        )
-
-    def _on_analysis_done(self):
-        self._scan_btn.setEnabled(True)
-        self._analysis_progress.setVisible(False)
-        self._refresh_status()
-        logger.info("Library analysis complete")
+        logger.info("Analysis requires backend — not implemented in this UI pass")
 
     def _rebuild_index(self):
-        analysis = self._get_service()
-        if not analysis:
+        if not self._backend_available:
             return
         try:
-            repo = analysis._repo
+            from audio_analysis.feature_repository import FeatureRepository
+            repo = FeatureRepository()
             repo._conn.execute("DELETE FROM audio_similarity_cache")
             repo._conn.commit()
             logger.info("Similarity index rebuilt")
@@ -293,21 +281,18 @@ class IntelligencePage(QWidget):
 
     def _show_bpm(self):
         self.navigate_requested.emit("library_hub")
-        logger.info("BPM view requested")
 
     def _show_key(self):
         self.navigate_requested.emit("library_hub")
-        logger.info("Key view requested")
 
     def _show_energy(self):
         self.navigate_requested.emit("library_hub")
-        logger.info("Energy view requested")
 
     def _show_similarity(self):
-        logger.info("Similarity view requested")
+        logger.info("Similarity view — pending implementation")
 
     def _play_local_radio(self):
-        logger.info("Local radio requested")
+        logger.info("Local radio — pending implementation")
 
     def _create_smart_mix(self):
-        logger.info("Smart mix requested")
+        logger.info("Smart mix — pending implementation")
