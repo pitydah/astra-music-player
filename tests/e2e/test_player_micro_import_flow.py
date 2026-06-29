@@ -120,7 +120,7 @@ class TestImportToServerService:
             mock_resp = MagicMock()
             mock_resp.read.return_value = b"fake_audio_data"
             mock_urlopen.return_value.__enter__.return_value = mock_resp
-            r2 = svc.upload_track(sid, "t1", "/api/v1/stream/t1")
+            r2 = svc.upload_track(sid, "t1", local_data=b"fake_audio_data")
             assert r2.ok
             assert r2.data["bytes"] > 0
 
@@ -197,7 +197,7 @@ class TestImportToServerService:
             mock_resp = MagicMock()
             mock_resp.read.return_value = b"d"
             mock_urlopen.return_value.__enter__.return_value = mock_resp
-            svc.upload_track(sid, "t1", "/api/v1/stream/t1")
+            svc.upload_track(sid, "t1", local_data=b"d")
         r2 = svc.commit(sid)
         assert r2.ok
         assert r2.data["uploaded"] == 1

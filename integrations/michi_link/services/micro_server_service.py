@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.error
 import urllib.request
 
 from integrations.michi_link.client import MichiLinkClient, RemoteServerInfo
@@ -49,14 +50,19 @@ class MicroServerService:
         })
 
     def test_connection(self, server: RemoteServerInfo) -> Result:
+        import time
         try:
             req = urllib.request.Request(
-                f"http://{server.host}:{server.port}/api/v1/ping",
+                f"http://{server.host}:{server.port}/api/v1/status",
                 method="GET",
             )
+            start = time.time()
             with urllib.request.urlopen(req, timeout=5) as r:
+                elapsed_ms = round((time.time() - start) * 1000, 1)
                 if r.status == 200:
-                    return Result.success({"latency_ms": 0}, "Connection OK")
+                    return Result.success({"latency_ms": elapsed_ms}, "Connection OK")
+        except urllib.error.URLError as e:
+            return Result.fail("CONNECTION_FAILED", f"Cannot reach server: {e.reason}")
         except Exception as e:
             return Result.fail("CONNECTION_FAILED", str(e))
         return Result.fail("CONNECTION_FAILED", "Unexpected response")
@@ -141,3 +147,21 @@ class MicroServerService:
         if not ok:
             return Result.fail("CONTROL_FAILED", f"Command '{command}' failed")
         return Result.success({"command": command}, f"Command '{command}' executed")
+
+    def create_import_session(self, server: RemoteServerInfo) -> Result:
+        """Tell Micro Server to prepare for receiving tracks (pull model)."""
+        body = json.dumps({"source": "michi-music-player"}).encode()
+        try:
+            headers = {"Content-Type": "application/json"}
+            if server.device_token:
+                headers["Authorization"] = f"Bearer {server.device_token}"
+                headers["X-Michi-Device-Id"] = server.device_id
+            req = urllib.request.Request(
+                f"http://{server.host}:{server.port}/api/v1/import/session/create",
+                data=body, method="POST", headers=headers,
+            )
+            with urllib.request.urlopen(req, timeout=15) as r:
+                resp = json.loads(r.read().decode())
+            return Result.success(resp, "Import session created on Micro Server")
+        except Exception as e:
+            return Result.fail("IMPORT_SESSION_FAILED", str(e))

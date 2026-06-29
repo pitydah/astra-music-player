@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Callable
@@ -61,37 +62,65 @@ class ImportToServerService:
         }, f"Import session {session.session_id} created")
 
     def upload_track(self, session_id: str, track_id: str,
-                     download_path: str,
+                     download_path: str = "",
                      local_filepath: str = "",
+                     local_data: bytes | None = None,
                      progress_cb: ProgressCallback | None = None) -> Result:
         session = self._sessions.get(session_id)
         if not session or not session.server:
             return Result.fail("INVALID_SESSION", "Session not found")
 
-        # Hash verification before upload
+        # Read track data from local file or use provided data
+        track_data = local_data
         local_hash = ""
-        if local_filepath and os.path.isfile(local_filepath):
-            h = hashlib.sha256()
-            try:
-                with open(local_filepath, "rb") as f:
-                    for chunk in iter(lambda: f.read(65536), b""):
-                        h.update(chunk)
-                local_hash = h.hexdigest()
-            except OSError as e:
-                logger.warning("Hash failed for %s: %s", local_filepath, e)
+        if track_data is None and local_filepath and os.path.isfile(local_filepath):
+                h = hashlib.sha256()
+                try:
+                    with open(local_filepath, "rb") as f:
+                        chunks = []
+                        while True:
+                            chunk = f.read(65536)
+                            if not chunk:
+                                break
+                            h.update(chunk)
+                            chunks.append(chunk)
+                        track_data = b"".join(chunks)
+                        local_hash = h.hexdigest()
+                except OSError as e:
+                    logger.warning("Read failed for %s: %s", local_filepath, e)
+                    session.errors.append(f"track {track_id}: {e}")
+                    if progress_cb:
+                        progress_cb(session.uploaded, session.total, track_id)
+                    return Result.fail("FILE_READ_ERROR", str(e))
 
+        if track_data is None:
+            session.errors.append(f"track {track_id}: no data source")
+            if progress_cb:
+                progress_cb(session.uploaded, session.total, track_id)
+            return Result.fail("NO_DATA", "No track data or filepath provided")
+
+        # Push model: POST track data to Micro Server
         try:
-            stream_url = f"http://{session.server.host}:{session.server.port}{download_path}"
-            headers = {"Content-Type": "application/json"}
+            push_url = f"http://{session.server.host}:{session.server.port}" \
+                       f"/api/v1/import/track/upload"
+            headers = {"Content-Type": "application/octet-stream"}
             if session.server.device_token:
                 headers["Authorization"] = f"Bearer {session.server.device_token}"
                 headers["X-Michi-Device-Id"] = session.server.device_id
+                headers["X-Track-Id"] = track_id
+                if local_hash:
+                    headers["X-Checksum"] = local_hash
 
             req = urllib.request.Request(
-                url=stream_url, method="GET", headers=headers,
+                url=push_url, data=track_data, method="POST", headers=headers,
             )
-            with urllib.request.urlopen(req, timeout=30) as r:
-                data = r.read()
+            urllib.request.urlopen(req, timeout=60)
+        except urllib.error.HTTPError as e:
+            logger.warning("Upload track %s HTTP %d: %s", track_id, e.code, e.reason)
+            session.errors.append(f"track {track_id}: HTTP {e.code}")
+            if progress_cb:
+                progress_cb(session.uploaded, session.total, track_id)
+            return Result.fail("UPLOAD_FAILED", f"HTTP {e.code}: {e.reason}")
         except Exception as e:
             logger.warning("Upload track %s failed: %s", track_id, e)
             session.errors.append(f"track {track_id}: {e}")
@@ -105,9 +134,9 @@ class ImportToServerService:
 
         return Result.success({
             "track_id": track_id,
-            "bytes": len(data),
+            "bytes": len(track_data),
             "local_hash": local_hash[:16] + "..." if local_hash else "",
-        }, f"Track {track_id} uploaded ({len(data)} bytes)")
+        }, f"Track {track_id} uploaded ({len(track_data)} bytes)")
 
     def upload_artwork(self, session_id: str, cover_id: str,
                        artwork_path: str = "") -> Result:
