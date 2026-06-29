@@ -116,6 +116,7 @@ class SyncStateRequest:
 
 @dataclass
 class RegisterRequest:
+    """Legacy — kept for backward compat. PairRequest replaces this."""
     alias: str
     device: str = "android"
     device_model: str = ""
@@ -131,6 +132,7 @@ class RegisterRequest:
 
 @dataclass
 class RegisterResponse:
+    """Legacy — kept for backward compat. PairResponse replaces this."""
     session_token: str
     server_device_id: str
     client_device_id: str
@@ -139,6 +141,79 @@ class RegisterResponse:
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
+
+
+# ═══════════════════════════════════════
+#  Pairing DTOs (replaces open register)
+# ═══════════════════════════════════════
+
+@dataclass
+class PairStartRequest:
+    alias: str
+    device: str = "android"
+    device_model: str = ""
+    port: int = 0
+    client_device_id: str = ""
+
+    @classmethod
+    def from_json(cls, s: str) -> "PairStartRequest":
+        d = json.loads(s)
+        return cls(**{k: v for k, v in d.items()
+                     if k in cls.__dataclass_fields__})
+
+
+@dataclass
+class PairStartResponse:
+    paired: bool
+    server_device_id: str
+    requires_auth: bool = True
+    version: str = "1.0"
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+
+@dataclass
+class PairConfirmRequest:
+    client_device_id: str
+    username: str = ""
+    password: str = ""
+    pairing_code: str = ""
+
+    @classmethod
+    def from_json(cls, s: str) -> "PairConfirmRequest":
+        d = json.loads(s)
+        return cls(**{k: v for k, v in d.items()
+                     if k in cls.__dataclass_fields__})
+
+
+@dataclass
+class PairConfirmResponse:
+    success: bool
+    session_token: str = ""
+    server_device_id: str = ""
+    error: str = ""
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+
+# ═══════════════════════════════════════
+#  Token & Permission helpers
+# ═══════════════════════════════════════
+
+SYNC_PERMISSIONS = {
+    "sync.read_manifest",
+    "sync.download_tracks",
+    "sync.download_covers",
+    "sync.download_playlists",
+    "sync.upload_state",
+    "remote.control",
+}
+
+
+def check_permission(device_permissions: list[str], required: str) -> bool:
+    return required in device_permissions
 
 
 # ═══════════════════════════════════════
@@ -189,6 +264,12 @@ def make_track_id(filepath: str, track_uid: str = "") -> str:
     if track_uid and track_uid.startswith("fp:"):
         return track_uid[3:]
     return hashlib.sha256(filepath.encode()).hexdigest()[:16]
+
+
+def make_cover_id(album: str, artist: str = "") -> str:
+    """Stable cover identifier — always SHA-256 of album+artist."""
+    raw = f"{album}||{artist}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
 def make_device_id() -> str:

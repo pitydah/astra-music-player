@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, Signal
 from library.library_db import LibraryDB
 from sync.sync_server import SyncServer
 from sync.sync_discovery import DiscoveryServer
+from sync.local_account import LocalAccountManager
 
 
 class SyncManager(QObject):
@@ -29,6 +30,11 @@ class SyncManager(QObject):
         self._discovery = DiscoveryServer(
             alias=self._load_alias(), parent=self)
         self._active = False
+        self._local_account = LocalAccountManager()
+        self._device_registry = None
+
+        # Wire security components into the server
+        self._server.set_local_account_manager(self._local_account)
 
         # Wire signals
         self._server.server_started.connect(
@@ -83,6 +89,15 @@ class SyncManager(QObject):
     def set_delta_provider(self, provider):
         """Register a delta manifest provider for GET /api/sync/manifest/delta."""
         self._server.set_delta_provider(provider)
+
+    def set_device_registry(self, registry):
+        """Register DeviceRegistry for token validation and permission checks."""
+        self._device_registry = registry
+        self._server.set_device_registry(registry)
+
+    @property
+    def local_account(self) -> LocalAccountManager:
+        return self._local_account
 
     def get_peer_info(self, alias: str) -> dict | None:
         """Return stored announce info for a discovered peer."""

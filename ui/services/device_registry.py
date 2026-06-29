@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import logging
 import os
 import time
@@ -32,6 +33,16 @@ class PairedDevice:
     client_version: str = ""
     last_ip: str = ""
     capabilities: list = field(default_factory=list)
+    trusted: bool = False
+    token_hash: str = ""
+    permissions: list = field(default_factory=lambda: [
+        "sync.read_manifest", "sync.download_tracks",
+        "sync.download_covers", "sync.download_playlists", "sync.upload_state",
+    ])
+    allowed_playlists: list = field(default_factory=list)
+    sync_mode: str = "selected_playlists"
+    revoked_at: str = ""
+    last_pairing_at: str = ""
 
 
 class DeviceRegistry:
@@ -95,4 +106,38 @@ class DeviceRegistry:
                 d.name = name
             if host:
                 d.host = host
+            self._save()
+
+    def set_token(self, device_id: str, token: str):
+        d = self._devices.get(device_id)
+        if d:
+            d.token_hash = hashlib.sha256(token.encode()).hexdigest()
+            d.last_pairing_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+            d.trusted = True
+            d.revoked_at = ""
+            self._save()
+
+    def validate_token(self, device_id: str, token: str) -> bool:
+        d = self._devices.get(device_id)
+        if not d or not d.token_hash or d.revoked_at:
+            return False
+        return hashlib.sha256(token.encode()).hexdigest() == d.token_hash
+
+    def revoke(self, device_id: str):
+        d = self._devices.get(device_id)
+        if d:
+            d.trusted = False
+            d.revoked_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+            self._save()
+
+    def has_permission(self, device_id: str, permission: str) -> bool:
+        d = self._devices.get(device_id)
+        if not d or d.revoked_at:
+            return False
+        return permission in d.permissions
+
+    def update_permissions(self, device_id: str, permissions: list[str]):
+        d = self._devices.get(device_id)
+        if d:
+            d.permissions = permissions
             self._save()

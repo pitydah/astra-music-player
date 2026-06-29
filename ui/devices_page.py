@@ -156,6 +156,21 @@ class DevicesPage(QWidget):
             "QLabel { color: rgba(255,255,255,0.38); font-size: 11px; }")
         c2.addWidget(self._server_info)
 
+        # ── Security section ──
+        sec_row = QHBoxLayout()
+        sec_row.setSpacing(8)
+        self._security_label = QLabel("Seguridad: sin cuenta local")
+        self._security_label.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px; }")
+        sec_row.addWidget(self._security_label)
+        sec_row.addStretch()
+        self._account_btn = QPushButton("Crear cuenta local")
+        self._account_btn.setCursor(Qt.PointingHandCursor)
+        self._account_btn.setStyleSheet(glass_button_qss("secondary"))
+        self._account_btn.clicked.connect(self._on_account_action)
+        sec_row.addWidget(self._account_btn)
+        c2.addLayout(sec_row)
+
         card.setStyleSheet(glass_action_card_qss("syncServerCard"))
         cl.addWidget(card)
 
@@ -207,6 +222,16 @@ class DevicesPage(QWidget):
         self._server_info.setText(
             f"Puerto 53318 · URL: {url} · {paired} dispositivos emparejados"
         )
+
+        # Security status
+        acct = self._sync_mgr.local_account if self._sync_mgr else None
+        if acct and acct.exists():
+            self._security_label.setText(
+                f"Seguridad: cuenta local activa ({acct.get_username()})")
+            self._account_btn.setText("Cambiar contraseña")
+        else:
+            self._security_label.setText("Seguridad: sin cuenta local")
+            self._account_btn.setText("Crear cuenta local")
 
     def _show_paired(self):
         while self._paired_layout.count():
@@ -327,6 +352,32 @@ class DevicesPage(QWidget):
 
         card.setStyleSheet(glass_action_card_qss(f"devCard_{card_id}"))
         return card
+
+    def _on_account_action(self):
+        if not self._sync_mgr:
+            return
+        acct = self._sync_mgr.local_account
+        if acct.exists():
+            from PySide6.QtWidgets import QInputDialog, QLineEdit
+            old_pw, ok = QInputDialog.getText(
+                self, "Cambiar contraseña", "Contraseña actual:",
+                QLineEdit.Password)
+            if ok and old_pw:
+                new_pw, ok2 = QInputDialog.getText(
+                    self, "Cambiar contraseña", "Nueva contraseña:",
+                    QLineEdit.Password)
+                if ok2 and new_pw and acct.change_password(old_pw, new_pw):
+                    self._update_server_card()
+        else:
+            from PySide6.QtWidgets import QInputDialog, QLineEdit
+            username, ok = QInputDialog.getText(
+                self, "Crear cuenta local", "Nombre de usuario:")
+            if ok and username.strip():
+                password, ok2 = QInputDialog.getText(
+                    self, "Crear cuenta local", "Contraseña:",
+                    QLineEdit.Password)
+                if ok2 and password and acct.create(username.strip(), password):
+                    self._update_server_card()
 
     def _on_toggle_sync(self):
         if self._sync_mgr:

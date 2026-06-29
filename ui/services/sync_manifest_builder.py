@@ -9,6 +9,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from sync.sync_protocol import make_cover_id, make_track_id
+
 
 @dataclass
 class SyncManifest:
@@ -16,18 +18,28 @@ class SyncManifest:
     device_id: str = ""
     created_at: str = ""
     items: list[dict] = field(default_factory=list)
+    playlists: list[dict] = field(default_factory=list)
+    removed: list[dict] = field(default_factory=list)
     total_size: int = 0
     total_tracks: int = 0
     destination_root: str = ""
 
     def to_public_dict(self) -> dict[str, Any]:
-        """Android-safe payload — no local file paths exposed."""
+        """Android-safe payload — no local file paths exposed. Michi Sync Manifest v1."""
         return {
+            "schema": "michi.sync.manifest",
+            "version": 1,
             "manifest_id": self.manifest_id,
             "device_id": self.device_id,
             "created_at": self.created_at,
             "total_tracks": self.total_tracks,
             "total_size": self.total_size,
+            "profile": {
+                "audio": "original",
+                "artwork": "embedded",
+                "lyrics": False,
+                "replaygain": True,
+            },
             "tracks": [
                 {
                     "track_id": item["track_id"],
@@ -45,6 +57,8 @@ class SyncManifest:
                 }
                 for item in self.items
             ],
+            "playlists": self.playlists,
+            "removed": self.removed,
         }
 
 
@@ -56,7 +70,6 @@ class SyncManifestBuilder:
                           destination_root: str = "",
                           device_id: str = "") -> SyncManifest:
         import uuid
-        from sync.sync_protocol import make_track_id
 
         manifest = SyncManifest(
             manifest_id=str(uuid.uuid4())[:12],
@@ -82,10 +95,7 @@ class SyncManifestBuilder:
             title = str(getattr(item, "title", "") or "")
             artist = str(getattr(item, "artist", "") or "")
             album_name = str(getattr(item, "album", "") or "")
-            cover_hash = ""
-            if album_name:
-                import hashlib as _hashlib
-                cover_hash = _hashlib.md5(album_name.encode()).hexdigest()
+            cover_hash = make_cover_id(album_name, artist)
 
             manifest.items.append({
                 "track_id": track_key,
@@ -112,10 +122,24 @@ class SyncManifestBuilder:
                             destination_root: str = "",
                             device_id: str = "") -> SyncManifest:
         track_ids = []
+        playlist_name = ""
         if hasattr(self._db, "get_playlist_items"):
             items = self._db.get_playlist_items(playlist_id)
             track_ids = [getattr(i, "id", 0) for i in items if getattr(i, "id", 0)]
-        return self.build_from_tracks(track_ids, destination_root, device_id)
+        if hasattr(self._db, "get_playlists"):
+            for p in self._db.get_playlists():
+                if p["id"] == playlist_id:
+                    playlist_name = p.get("name", "")
+                    break
+        manifest = self.build_from_tracks(track_ids, destination_root, device_id)
+
+        manifest.playlists = [{
+            "playlist_id": f"desktop:{playlist_id}",
+            "name": playlist_name,
+            "track_ids": [t["track_id"] for t in manifest.items],
+            "updated_at": int(time.time()),
+        }]
+        return manifest
 
     def build_from_album(self, album_title: str, artist: str = "",
                          destination_root: str = "",
@@ -152,16 +176,12 @@ class SyncManifestBuilder:
         with contextlib.suppress(Exception):
             deleted_items = self._db.get_deleted_since(since)
 
-        from sync.sync_protocol import make_track_id
 
         def _build_public(item, fp: str, tuid: str = "") -> dict:
             track_key = make_track_id(fp, tuid)
             size = int(getattr(item, "size", 0) or 0)
             album_name = str(getattr(item, "album", "") or "")
-            cover_hash = ""
-            if album_name:
-                import hashlib as _h
-                cover_hash = _h.md5(album_name.encode()).hexdigest()
+            cover_hash = make_cover_id(album_name, str(getattr(item, "artist", "") or ""))
             cs = ""
             if hasattr(self._db, "ensure_file_hash") and os.path.isfile(fp):
                 cs = self._db.ensure_file_hash(fp)

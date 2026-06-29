@@ -609,8 +609,10 @@ class MainWindow(QMainWindow):
         if hasattr(self, '_sync_mgr'):
             return self._sync_mgr
         from sync.sync_manager import SyncManager
+        from ui.services.device_registry import DeviceRegistry
         sync_action = getattr(getattr(self, '_action_ctrl', None), '_sync_action', None)
         self._sync_mgr = SyncManager(self._db, self)
+        self._sync_mgr.set_device_registry(DeviceRegistry())
         if sync_action:
             self._sync_mgr.sync_started.connect(
                 lambda p: sync_action.setText(

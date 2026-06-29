@@ -1,22 +1,25 @@
 """HTTP REST API server for wireless music sync.
 
+Protected endpoints require a paired device token with appropriate permissions.
+Public endpoints: /api/ping, /api/discovery/info, /api/pair/start, /api/pair/confirm.
+All other endpoints require a valid Bearer token and the corresponding permission.
+
+Permission map:
+    sync.read_manifest  → /api/library, /api/sync/manifest, /api/search,
+                          /api/favorites, /api/history
+    sync.download_tracks  → /api/stream/{id}
+    sync.download_covers  → /api/cover/{id}
+    sync.upload_state     → /api/sync/state
+
 Inspired by LocalSend's hyper server architecture (Rust).
 Uses Python stdlib http.server + ThreadPoolExecutor for concurrent requests.
-
-Endpoints:
-    POST /api/register        Device handshake → session token
-    GET  /api/library          Full library JSON
-    GET  /api/stream/{id}     Range-request audio streaming
-    GET  /api/cover/{id}      Album art image
-    POST /api/sync/state      Play counts & favorites
-    GET  /api/ping            Health check
-    GET  /api/search?q=X      Search library
 """
 
+import logging
 import os
 import json
 import threading
-import hashlib
+import secrets
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from concurrent.futures import ThreadPoolExecutor
@@ -24,10 +27,14 @@ from concurrent.futures import ThreadPoolExecutor
 from sync.sync_protocol import (
     SessionToken, TrackDto, LibraryResponse,
     RegisterRequest, RegisterResponse,
-    SyncStateRequest, make_track_id, make_device_id,
+    PairStartRequest, PairStartResponse,
+    PairConfirmRequest, PairConfirmResponse,
+    SyncStateRequest, make_track_id, make_cover_id, make_device_id,
 )
 from library.library_db import LibraryDB
 from PySide6.QtCore import QObject, Signal
+
+logger = logging.getLogger("michi.sync.server")
 
 
 class SyncRequestHandler(BaseHTTPRequestHandler):
@@ -53,13 +60,13 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         return self.rfile.read(length).decode("utf-8") if length else ""
 
+    # ── Auth middleware ──
+
     def _check_token(self) -> str | None:
-        """Check Authorization header. Returns device_alias or None."""
         session = self._check_token_session()
         return session.device_alias if session else None
 
     def _check_token_session(self) -> "SessionToken | None":
-        """Check Authorization header. Returns full SessionToken or None."""
         auth = self.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
             return None
@@ -72,6 +79,42 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             return None
         return session
 
+    def _require_permission(self, permission: str) -> bool:
+        """Validate that the device token has a specific permission.
+        Returns True if authorized, sends error and returns False otherwise.
+        """
+        auth = self.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            self._send_error("Unauthorized", 401)
+            return False
+        token = auth[7:]
+        srv = self.server_ref
+        if srv is None or srv._device_registry is None:
+            self._send_error("Server not ready", 503)
+            return False
+
+        # Resolve device_id from in-memory session
+        session = srv._sessions.get(token)
+        if session is None or session.is_expired():
+            self._send_error("Unauthorized", 401)
+            return False
+        device_id = session.client_device_id
+        if not device_id:
+            self._send_error("Invalid token: no device id", 401)
+            return False
+
+        # Re-validate token against persisted registry
+        if not srv._device_registry.validate_token(device_id, token):
+            self._send_error("Token revoked or invalid", 403)
+            return False
+
+        if not srv._device_registry.has_permission(device_id, permission):
+            self._send_error("Forbidden: insufficient permissions", 403)
+            return False
+
+        srv._device_registry.mark_seen(device_id)
+        return True
+
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -83,13 +126,21 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         srv = self.server_ref
 
+        # ── Public endpoints ──
         if path == "/api/ping":
             self._send_json({"status": "ok", "version": "1.0"})
 
+        elif path == "/api/discovery/info":
+            self._send_json({
+                "server": "MichiMusicPlayer",
+                "version": "1.0",
+                "requires_pairing": bool(srv and srv._local_account and srv._local_account.exists()),
+            })
+
+        # ── Protected: sync.read_manifest ──
         elif path == "/api/sync/manifest":
-            session = self._check_token_session()
-            if not session:
-                return self._send_error("Unauthorized", 401)
+            if not self._require_permission("sync.read_manifest"):
+                return
             if srv is None or srv._manifest_provider is None:
                 return self._send_error("Manifest service not available", 503)
             qs = urllib.parse.parse_qs(
@@ -97,17 +148,14 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             device_id = (qs.get("device_id") or [""])[0]
             if not device_id:
                 return self._send_error("Missing device_id parameter", 400)
-            if session.client_device_id and device_id != session.client_device_id:
-                return self._send_error("Forbidden: token does not match device_id", 403)
             manifest = srv._manifest_provider(device_id)
             if manifest is None:
                 return self._send_error("No manifest for this device", 404)
             self._send_json(manifest)
 
         elif path == "/api/sync/manifest/delta":
-            session = self._check_token_session()
-            if not session:
-                return self._send_error("Unauthorized", 401)
+            if not self._require_permission("sync.read_manifest"):
+                return
             if srv is None or srv._delta_provider is None:
                 return self._send_error("Delta manifest not available", 503)
             qs = urllib.parse.parse_qs(
@@ -116,8 +164,6 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             since_str = (qs.get("since") or ["0"])[0]
             if not device_id:
                 return self._send_error("Missing device_id parameter", 400)
-            if session.client_device_id and device_id != session.client_device_id:
-                return self._send_error("Forbidden: token does not match device_id", 403)
             try:
                 since = float(since_str)
             except ValueError:
@@ -128,21 +174,21 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             self._send_json(delta)
 
         elif path == "/api/library":
-            if not self._check_token():
-                return self._send_error("Unauthorized", 401)
+            if not self._require_permission("sync.read_manifest"):
+                return
             if srv is None or srv._db is None:
                 return self._send_error("No library", 503)
             items = srv._db.get_all()
             tracks = []
             for item in items:
-                cover_hash = ""
-                if item.album:
-                    cover_hash = hashlib.sha256(item.album.encode()).hexdigest()[:32]
+                artist = item.artist or ""
+                album_name = item.album or ""
+                cover_hash = make_cover_id(album_name, artist)
                 tuid = getattr(item, "track_uid", "") if hasattr(item, "track_uid") else ""
                 td = TrackDto(
                     id=make_track_id(item.filepath, tuid),
                     title=item.title or item.filename,
-                    artist=item.artist, album=item.album,
+                    artist=artist, album=album_name,
                     duration=int(item.duration), size=item.size,
                     format=item.ext.upper().lstrip("."),
                     bitrate=item.bitrate, sample_rate=item.sample_rate,
@@ -157,9 +203,53 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             )
             self._send_json(json.loads(resp.to_json()))
 
+        elif path == "/api/search":
+            if not self._require_permission("sync.read_manifest"):
+                return
+            query = ""
+            if "q=" in self.path:
+                query = self.path.split("q=", 1)[1].split("&")[0]
+                query = urllib.parse.unquote(query)
+            if not query:
+                self._send_json({"results": []})
+                return
+            if srv is None or srv._db is None:
+                self._send_json({"results": []})
+                return
+            items = srv._db.search_advanced(query) if hasattr(srv._db, 'search_advanced') else []
+            results = []
+            for item in items[:50]:
+                tuid = getattr(item, "track_uid", "") if hasattr(item, "track_uid") else ""
+                results.append({
+                    "id": make_track_id(item.filepath, tuid),
+                    "title": item.title or item.filename,
+                    "artist": item.artist, "album": item.album,
+                    "duration": int(item.duration),
+                })
+            self._send_json({"results": results, "query": query})
+
+        elif path == "/api/favorites":
+            if not self._require_permission("sync.read_manifest"):
+                return
+            if srv is None or srv._db is None:
+                self._send_json({"tracks": []})
+                return
+            favs = srv._db.get_favorites()
+            self._send_json({"tracks": favs})
+
+        elif path == "/api/history":
+            if not self._require_permission("sync.read_manifest"):
+                return
+            if srv is None or srv._db is None:
+                self._send_json({"entries": []})
+                return
+            history = srv._db.get_play_history()
+            self._send_json({"entries": history})
+
+        # ── Protected: sync.download_tracks ──
         elif path.startswith("/api/stream/"):
-            if not self._check_token():
-                return self._send_error("Unauthorized", 401)
+            if not self._require_permission("sync.download_tracks"):
+                return
             track_hash = path.split("/")[-1]
             if srv is None:
                 return self._send_error("No server", 503)
@@ -221,9 +311,10 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
                             break
                         self.wfile.write(data)
 
+        # ── Protected: sync.download_covers ──
         elif path.startswith("/api/cover/"):
-            if not self._check_token():
-                return self._send_error("Unauthorized", 401)
+            if not self._require_permission("sync.download_covers"):
+                return
             cover_hash = path.split("/")[-1]
             if srv is None or srv._db is None:
                 return self._send_error("No library", 503)
@@ -241,49 +332,6 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
             else:
                 self._send_error("Cover not found", 404)
 
-        elif path == "/api/search":
-            if not self._check_token():
-                return self._send_error("Unauthorized", 401)
-            query = ""
-            if "q=" in self.path:
-                query = self.path.split("q=", 1)[1].split("&")[0]
-                query = urllib.parse.unquote(query)
-            if not query:
-                self._send_json({"results": []})
-                return
-            if srv is None or srv._db is None:
-                self._send_json({"results": []})
-                return
-            items = srv._db.search_advanced(query) if hasattr(srv._db, 'search_advanced') else []
-            results = []
-            for item in items[:50]:
-                tuid = getattr(item, "track_uid", "") if hasattr(item, "track_uid") else ""
-                results.append({
-                    "id": make_track_id(item.filepath, tuid),
-                    "title": item.title or item.filename,
-                    "artist": item.artist, "album": item.album,
-                    "duration": int(item.duration),
-                })
-            self._send_json({"results": results, "query": query})
-
-        elif path == "/api/favorites":
-            if not self._check_token():
-                return self._send_error("Unauthorized", 401)
-            if srv is None or srv._db is None:
-                self._send_json({"tracks": []})
-                return
-            favs = srv._db.get_favorites()
-            self._send_json({"tracks": favs})
-
-        elif path == "/api/history":
-            if not self._check_token():
-                return self._send_error("Unauthorized", 401)
-            if srv is None or srv._db is None:
-                self._send_json({"entries": []})
-                return
-            history = srv._db.get_play_history()
-            self._send_json({"entries": history})
-
         else:
             self._send_error("Not found", 404)
 
@@ -292,11 +340,91 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
         body = self._read_body()
         srv = self.server_ref
 
-        if path == "/api/register":
+        # ── Public: pair/start ──
+        if path == "/api/pair/start":
+            try:
+                req = PairStartRequest.from_json(body)
+            except Exception:
+                return self._send_error("Invalid request", 400)
+            client_id = req.client_device_id or f"{req.alias}_{req.device_model or req.device}"
+            server_id = make_device_id()
+            has_account = bool(srv and srv._local_account and srv._local_account.exists())
+            resp = PairStartResponse(
+                paired=False,
+                server_device_id=server_id,
+                requires_auth=has_account,
+            )
+            self._send_json(json.loads(resp.to_json()))
+
+        # ── Public: pair/confirm ──
+        elif path == "/api/pair/confirm":
+            try:
+                req = PairConfirmRequest.from_json(body)
+            except Exception:
+                return self._send_error("Invalid request", 400)
+            if srv is None:
+                return self._send_error("Server not ready", 503)
+
+            # Auth verification
+            if srv._local_account and srv._local_account.exists():
+                if not req.username or not req.password:
+                    resp = PairConfirmResponse(
+                        success=False, error="Username and password required")
+                    self._send_json(json.loads(resp.to_json()))
+                    return
+                if not srv._local_account.verify(req.password):
+                    logger.warning("Pairing failed: invalid credentials for '%s'", req.username)
+                    resp = PairConfirmResponse(
+                        success=False, error="Invalid credentials")
+                    self._send_json(json.loads(resp.to_json()))
+                    return
+                if req.username != srv._local_account.get_username():
+                    resp = PairConfirmResponse(
+                        success=False, error="Invalid username")
+                    self._send_json(json.loads(resp.to_json()))
+                    return
+
+            client_id = req.client_device_id
+            if not client_id:
+                resp = PairConfirmResponse(
+                    success=False, error="Missing client_device_id")
+                self._send_json(json.loads(resp.to_json()))
+                return
+
+            # Generate persistent token
+            token_str = secrets.token_hex(32)
+            server_id = make_device_id()
+
+            # Persist in registry
+            if srv._device_registry:
+                srv._device_registry.set_token(client_id, token_str)
+
+            # In-memory session
+            session = SessionToken(
+                token=token_str,
+                device_alias=client_id,
+                client_device_id=client_id,
+            )
+            with srv._sessions_lock:
+                srv._sessions[token_str] = session
+
+            resp = PairConfirmResponse(
+                success=True,
+                session_token=token_str,
+                server_device_id=server_id,
+            )
+            srv.client_connected.emit(client_id)
+            self._send_json(json.loads(resp.to_json()))
+
+        # ── Legacy register: respond with error when account exists ──
+        elif path == "/api/register":
+            if srv and srv._local_account and srv._local_account.exists():
+                return self._send_error("Use /api/pair/start and /api/pair/confirm", 403)
+            # Fallback for backward compatibility (no local account)
             try:
                 req = RegisterRequest.from_json(body)
             except Exception:
-                return self._send_error("Invalid request")
+                return self._send_error("Invalid request", 400)
             client_id = req.client_device_id or f"{req.alias}_{req.device_model or req.device}"
             server_id = make_device_id()
             token = SessionToken.generate(
@@ -321,17 +449,17 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
                 srv.client_connected.emit(req.alias)
             self._send_json(json.loads(resp.to_json()))
 
+        # ── Protected: sync/state (sync.upload_state) ──
         elif path == "/api/sync/state":
+            if not self._require_permission("sync.upload_state"):
+                return
             try:
                 req = SyncStateRequest.from_json(body)
             except Exception:
-                return self._send_error("Invalid request")
+                return self._send_error("Invalid request", 400)
             if not srv:
-                return self._send_error("Invalid token", 401)
-            with srv._sessions_lock:
-                if req.session_token not in srv._sessions:
-                    return self._send_error("Invalid token", 401)
-                device = srv._sessions[req.session_token].device_alias
+                return self._send_error("Server not ready", 503)
+            device_alias = self._check_token() or "unknown"
             synced = 0
             for entry in req.tracks:
                 tid = entry.get("track_id", "")
@@ -342,9 +470,9 @@ class SyncRequestHandler(BaseHTTPRequestHandler):
                     if filepath:
                         if play_count > 0:
                             for _ in range(play_count):
-                                srv._db.update_play_history(tid, device)
+                                srv._db.update_play_history(tid, device_alias)
                         if favorite:
-                            srv._db.toggle_favorite(tid, device)
+                            srv._db.toggle_favorite(tid, device_alias)
                         synced += 1
             self._send_json({"synced": synced})
 
@@ -375,6 +503,8 @@ class SyncServer(QObject):
         self._track_index_built = False
         self._manifest_provider: callable | None = None
         self._delta_provider: callable | None = None
+        self._local_account: object | None = None
+        self._device_registry: object | None = None
 
     def set_manifest_provider(self, provider):
         """Register a callable that returns public manifest dict for a device_id."""
@@ -383,6 +513,14 @@ class SyncServer(QObject):
     def set_delta_provider(self, provider):
         """Register a callable for GET /api/sync/manifest/delta."""
         self._delta_provider = provider
+
+    def set_local_account_manager(self, mgr):
+        """Set LocalAccountManager for pairing auth."""
+        self._local_account = mgr
+
+    def set_device_registry(self, registry):
+        """Set DeviceRegistry for token validation and permissions."""
+        self._device_registry = registry
 
     def _purge_expired_sessions(self):
         """Remove expired sessions to prevent memory leak."""
