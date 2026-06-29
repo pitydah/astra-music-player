@@ -149,7 +149,6 @@ class MainWindow(QMainWindow):
         self._assistant_ctrl = None
         self._metadata_review_panel = None
         self._metadata_review_ctrl = None
-        self._album_repo = None
         self._audio_lab_page = None
         self._michi_disc_lab_page = None
         self._library_hub_page = None
@@ -1310,7 +1309,7 @@ class MainWindow(QMainWindow):
     # ── FileWatcher handlers ──
 
     # FileWatcher handlers moved to LibraryWatcherController.
-    # Signals are connected directly in _init_core().
+    # Signals connected in _init_controllers().
 
     def _scan_path(self, path: str):
         self._file_actions.scan_path(path)

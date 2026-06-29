@@ -23,7 +23,7 @@ class LibraryWatcherController:
         if not paths:
             return
         try:
-            self._file_actions._add_file_list(paths)
+            self._file_actions.add_file_list(paths)
             self._lib_ctrl.reload_after_change("watcher_added")
             if self._toast:
                 self._toast.show(f"{len(paths)} archivos nuevos detectados", "info")
@@ -43,7 +43,7 @@ class LibraryWatcherController:
         if not paths:
             return
         try:
-            self._file_actions._add_file_list(paths)
+            self._file_actions.add_file_list(paths)
             self._lib_ctrl.reload_after_change("watcher_modified")
         except Exception:
             _log.exception("LibraryWatcherController.on_files_modified failed")

@@ -63,6 +63,30 @@ def test_playlist_crud():
     db.close()
 
 
+def test_mark_files_deleted():
+    from library.library_db import LibraryDB
+    db = LibraryDB(":memory:")
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+        f.write(b"dummy")
+        path = f.name
+    db.add_file(path)
+
+    db.mark_files_deleted([path], deleted_at=12345.0)
+
+    deleted = db.get_deleted_since(0)
+    assert any(item["filepath"] == path for item in deleted)
+
+    deleted_after = db.get_deleted_since(12345.0)
+    assert any(item["filepath"] == path for item in deleted_after)
+
+    deleted_later = db.get_deleted_since(12346.0)
+    assert not any(item["filepath"] == path for item in deleted_later)
+
+    db.mark_files_deleted([])
+    os.unlink(path)
+    db.close()
+
+
 def test_scanner():
     from library.library_db import LibraryDB
     from library.indexer import Indexer

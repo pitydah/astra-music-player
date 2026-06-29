@@ -998,7 +998,7 @@ class LibraryDB:
                  "artist": r[3] or "", "album": r[4] or "",
                  "duration": r[5] or 0, "ext": r[6] or "",
                  "size": r[7] or 0, "year": r[8] or 0,
-                 "genre": r[9] or "", "track_uid": r[11] or ""}
+                 "genre": r[9] or "", "track_uid": r[10] or ""}
                 for r in rows]
 
     def mark_files_deleted(self, paths: list[str], deleted_at: float | None = None) -> None:
