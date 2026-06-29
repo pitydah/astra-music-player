@@ -9,7 +9,8 @@ from PySide6.QtWidgets import (
 )
 
 from ui.audio_lab.models import TagSuggestion
-from ui.central.central_styles import glass_button_qss
+from ui.effects.michi_glass import apply_card_shadow
+from ui.central.central_styles import glass_button_qss, glass_card_qss, glass_hero_qss
 
 
 class SmartTaggingPanel(QWidget):
@@ -93,6 +94,7 @@ class SmartTaggingPanel(QWidget):
 
         layout.addLayout(actions)
 
+        header.setStyleSheet(glass_hero_qss("smartTaggingHeader"))
         self._apply_qss()
 
     def _apply_qss(self):
@@ -160,10 +162,8 @@ class SmartTaggingPanel(QWidget):
 
     def _build_suggestion_card(self, sug: TagSuggestion) -> QFrame:
         card = QFrame()
-        card.setStyleSheet(
-            "QFrame { border: 1px solid rgba(255,255,255,0.04); "
-            "border-radius: 10px; background: rgba(255,255,255,0.015); padding: 8px; }"
-        )
+        card.setStyleSheet(glass_card_qss("smartTaggingSuggestionCard"))
+        apply_card_shadow(card)
 
         layout = QHBoxLayout(card)
         layout.setContentsMargins(12, 6, 12, 6)

@@ -327,7 +327,7 @@ class HomeAudioHandlers:
                 "No disponible" if not (hasattr(self._win, '_mdns') and self._win._mdns.is_available) else "No activo"),
             "Snapserver": "Activo" if snap_running else "Detenido",
             "Servidor local": "Activo" if local_media_running else "No activo",
-            "Ultimo error": (getattr(self._win._snapserver, 'last_error', "") or "—")[:40] if hasattr(self._win, '_snapserver') else "—",
+            "Último error": (getattr(self._win._snapserver, 'last_error', "") or "—")[:40] if hasattr(self._win, '_snapserver') else "—",
             "IP local": getattr(self._win, '_local_ip', "—"),
             "Firewall": "Acepta tráfico local" if (api_running or local_media_running or mdns_running) else "—",
         })

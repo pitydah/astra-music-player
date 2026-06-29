@@ -6,9 +6,10 @@ from PySide6.QtGui import QPixmap, QIcon, QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QScrollArea, QGridLayout,
     QPushButton, QLabel, QFrame, QMenu,
-    QGraphicsDropShadowEffect,
 )
 
+from ui.effects.michi_glass import apply_card_shadow
+from ui.central.central_styles import glass_card_qss
 from library.album_art import load_covers_for_albums, CoverFlowItem
 from library.library_db import MediaItem
 
@@ -373,7 +374,7 @@ class AlbumGridWidget(QWidget):
 
 
 def _placeholder_album_icon(size=72) -> QPixmap:
-    from PySide6.QtGui import QPainter, QColor, QPen
+    from PySide6.QtGui import QPainter, QPen
     pix = QPixmap(size, size)
     pix.fill(Qt.transparent)
     p = QPainter(pix)
@@ -410,13 +411,6 @@ class _AlbumCard(QFrame):
         self.setFixedSize(card_w, card_h)
         self.setCursor(Qt.PointingHandCursor)
         self._apply_qss()
-
-        # subtle shadow
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(18)
-        shadow.setOffset(0, 4)
-        shadow.setColor(QColor(0, 0, 0, 70))
-        self.setGraphicsEffect(shadow)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -563,21 +557,15 @@ class _AlbumCard(QFrame):
 
     def _apply_qss(self):
         self.setObjectName("albumCard")
-        self.setStyleSheet("""
-            QFrame#albumCard {
-                background: rgba(255,255,255,0.030);
-                border: 1px solid rgba(255,255,255,0.025);
-                border-radius: 18px;
-            }
-            QFrame#albumCard:hover {
-                background: rgba(255,255,255,0.048);
-                border: 1px solid rgba(143,183,255,0.10);
-            }
+        style = glass_card_qss("albumCard")
+        style += """
             QFrame#albumCard[active="true"] {
                 background: rgba(143,183,255,0.12);
                 border: 1px solid rgba(143,183,255,0.16);
             }
-        """)
+        """
+        self.setStyleSheet(style)
+        apply_card_shadow(self)
 
     def set_active(self, active: bool):
         if self._active == active:

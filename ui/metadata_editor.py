@@ -22,6 +22,7 @@ from metadata.artwork_utils import (
     _pillow_available,
 )
 
+from ui.effects.michi_glass import apply_card_shadow
 from ui.central.central_styles import clean_table_qss, clean_table_header_qss, tab_bar_qss, glass_button_qss
 
 # ═══════════════════════════════════════════════════════════
@@ -103,6 +104,8 @@ class MetadataEditorWidget(QWidget):
         self._splitter.addWidget(self._center_panel)
         self._splitter.addWidget(self._right_panel)
         self._splitter.setSizes([200, 500, 320])
+        for p in (self._left_panel, self._center_panel, self._right_panel):
+            apply_card_shadow(p)
 
         # ── Main layout ──
         main = QVBoxLayout(self)

@@ -7,7 +7,8 @@ from PySide6.QtWidgets import (
 
 from metadata.genre_grouping import GenreGroup
 from library.album_art import load_cover_pixmap
-from ui.central.central_styles import grid_card_qss
+from ui.effects.michi_glass import apply_card_shadow
+from ui.central.central_styles import glass_card_qss
 
 _BG = "#090B11"
 _TEXT = "rgba(255,255,255,0.95)"
@@ -233,7 +234,8 @@ class _GenreCard(QFrame):
         self.setObjectName("genreCard")
         self.setFixedSize(240, 200)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet(grid_card_qss("genreCard"))
+        self.setStyleSheet(glass_card_qss("genreCard"))
+        apply_card_shadow(self)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(12, 10, 12, 10)

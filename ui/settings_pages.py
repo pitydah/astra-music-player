@@ -292,7 +292,7 @@ class AudioPage(_Page):
             str(sm.get("audio/dsd_pcm_rate") or "auto"))
         card_dsd.add_row(SettingsRow("Modo DSD", "DSD to PCM o DoP",
                                       self._dsd_mode))
-        card_dsd.add_row(SettingsRow("Rate DSD→PCM", "Sample rate para conversion",
+        card_dsd.add_row(SettingsRow("Rate DSD→PCM", "Sample rate para conversión",
                                       self._dsd_rate))
         self.add_card(card_dsd)
 

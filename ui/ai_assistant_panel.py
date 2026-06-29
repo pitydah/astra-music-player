@@ -8,6 +8,9 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QFrame, QSizePolicy,
 )
 
+from ui.effects.michi_glass import apply_card_shadow
+from ui.central.central_styles import glass_hero_qss
+
 _PRIVACY_NOTICE = "IA local · Datos protegidos · Sin rutas sensibles"
 
 _PLACEHOLDER = "Pregunta a Michi Assistant..."
@@ -332,6 +335,15 @@ class AiAssistantPanel(QWidget):
 
     def _apply_qss(self):
         self.setStyleSheet(self._build_panel_qss())
+        header = self.findChild(QFrame, "assistantHeader")
+        if header:
+            header.setStyleSheet(glass_hero_qss("assistantHeader"))
+        chat_card = self.findChild(QFrame, "assistantChatCard")
+        if chat_card:
+            apply_card_shadow(chat_card)
+        sugg_panel = self.findChild(QFrame, "assistantSuggestionsPanel")
+        if sugg_panel:
+            apply_card_shadow(sugg_panel)
 
     def _on_send(self):
         text = self._input.text().strip()

@@ -17,6 +17,7 @@ from ui.audio_lab.services.external_tools import check_all_tools
 from ui.audio_lab.services.disc_detection_service import DiscDetectionService
 from ui.audio_lab.services.rip_job_manager import RipJobManager
 from ui.audio_lab.services.encoder_service import EncoderService
+from ui.effects.michi_glass import apply_card_shadow
 from ui.central.central_styles import (
     glass_button_qss, glass_progress_qss, glass_card_qss,
     clean_table_qss, clean_table_header_qss, combo_dropdown_qss,
@@ -451,6 +452,7 @@ class MichiDiscLabPage(QWidget):
             p = self.findChild(QFrame, pn)
             if p:
                 p.setStyleSheet(glass_card_qss(pn, "elevated"))
+                apply_card_shadow(p)
 
         # Drive status
         ds = self.findChild(QLabel, "driveStatus")

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QPushButton, QProgressBar,
 )
 
+from ui.effects.michi_glass import apply_card_shadow
 from ui.central.central_styles import (
     glass_card_qss, glass_button_qss, glass_chip_button_qss, glass_progress_qss,
     card_title_qss, card_desc_qss, card_meta_qss, section_label_qss,
@@ -275,3 +276,17 @@ class ConnectionsHubPage(QWidget):
             QScrollArea#connectionsHubScroll { background: transparent; border: none; }
             QWidget#connectionsHubContent { background: transparent; }
         """)
+        for key, _name, _desc, _nav in _SERVICE_DEFS:
+            card = self.findChild(QFrame, f"svcCard_{key}")
+            if card:
+                apply_card_shadow(card)
+        scan_card = self.findChild(QFrame, "connectionsScanCard")
+        if scan_card:
+            apply_card_shadow(scan_card)
+        servers = self._get_servers()
+        for srv in servers:
+            name = srv.get("name", "Servidor")
+            key = f"srv_{name.replace(' ','_')}"
+            card = self.findChild(QFrame, key)
+            if card:
+                apply_card_shadow(card)

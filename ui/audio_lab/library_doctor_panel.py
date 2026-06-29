@@ -8,7 +8,8 @@ from PySide6.QtWidgets import (
     QPushButton, QFrame, QScrollArea, QProgressBar,
 )
 
-from ui.central.central_styles import glass_button_qss, glass_progress_qss
+from ui.effects.michi_glass import apply_card_shadow
+from ui.central.central_styles import glass_button_qss, glass_card_qss, glass_progress_qss
 
 
 class LibraryDoctorPanel(QWidget):
@@ -164,10 +165,8 @@ class LibraryDoctorPanel(QWidget):
         info.addWidget(count_label)
         card_layout.addLayout(info, 1)
 
-        card.setStyleSheet(
-            "QFrame { border: 1px solid rgba(255,255,255,0.04); border-radius: 10px; "
-            "background: rgba(255,255,255,0.015); }"
-        )
+        card.setStyleSheet(glass_card_qss(f"doctorCard_{cat_key}"))
+        apply_card_shadow(card)
         return card
 
     def _build_suggestion_card(self, sug: dict) -> QFrame:
@@ -187,8 +186,6 @@ class LibraryDoctorPanel(QWidget):
         meta.setStyleSheet("QLabel { color: rgba(255,255,255,0.48); font-size: 10px; }")
         layout.addWidget(meta)
 
-        card.setStyleSheet(
-            "QFrame { border: 1px solid rgba(143,183,255,0.06); border-radius: 8px; "
-            "background: rgba(143,183,255,0.02); }"
-        )
+        card.setStyleSheet(glass_card_qss("doctorSuggestion"))
+        apply_card_shadow(card)
         return card

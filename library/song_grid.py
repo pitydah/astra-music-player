@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (
     QGridLayout, QFrame,
 )
 from library.album_art import find_cover_in_dir
+from ui.effects.michi_glass import apply_card_shadow
+from ui.central.central_styles import glass_card_qss
 
 
 class SongGridWidget(QWidget):
@@ -102,17 +104,9 @@ class _SongCard(QFrame):
         self._fp = getattr(item, 'filepath', None) or getattr(item, 'uri', '')
         self.setFixedSize(size, size + 70)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet("""
-            QFrame {
-                background: rgba(255,255,255,0.045);
-                border: 1px solid rgba(255,255,255,0.08);
-                border-radius: 12px;
-            }
-            QFrame:hover {
-                background: rgba(255,255,255,0.075);
-                border: 1px solid rgba(143,183,255,0.28);
-            }
-        """)
+        self.setObjectName("songCard")
+        self.setStyleSheet(glass_card_qss("songCard"))
+        apply_card_shadow(self)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)

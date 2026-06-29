@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QPushButton, QFrame, QScrollArea,
 )
 
+from ui.effects.michi_glass import apply_card_shadow
 from ui.central.central_styles import glass_card_qss, glass_button_qss
 
 
@@ -121,3 +122,7 @@ class AudioLabPage(QWidget):
             btn = self.findChild(QPushButton, f"audioLabCardBtn_{key}")
             if btn:
                 btn.setStyleSheet(glass_button_qss("primary"))
+        for key in ("metadata_editor", "michi_disc_lab"):
+            card = self.findChild(QFrame, f"audioLabCard_{key}")
+            if card:
+                apply_card_shadow(card)

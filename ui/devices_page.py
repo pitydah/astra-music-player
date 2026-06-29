@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.central.central_styles import (
-    glass_card_qss, glass_button_qss,
+    glass_action_card_qss, glass_button_qss,
     card_title_qss, card_desc_qss, section_label_qss,
 )
 from ui.services.device_registry import PairedDevice
@@ -122,7 +122,7 @@ class DevicesPage(QWidget):
             pd.setWordWrap(True)
             pd.setStyleSheet(card_desc_qss())
             cl2.addWidget(pd)
-            card.setStyleSheet(glass_card_qss(f"profile_{pid}"))
+            card.setStyleSheet(glass_action_card_qss(f"profile_{pid}"))
             profiles_row.addWidget(card)
         cl.addLayout(profiles_row)
 
@@ -156,7 +156,7 @@ class DevicesPage(QWidget):
             "QLabel { color: rgba(255,255,255,0.38); font-size: 11px; }")
         c2.addWidget(self._server_info)
 
-        card.setStyleSheet(glass_card_qss("syncServerCard", "elevated"))
+        card.setStyleSheet(glass_action_card_qss("syncServerCard"))
         cl.addWidget(card)
 
     def _build_content_selector(self, cl):
@@ -325,8 +325,7 @@ class DevicesPage(QWidget):
             pair.clicked.connect(lambda c=None, a=alias, h=ip_val: self._on_pair(a, h))
             c2.addWidget(pair)
 
-        card.setStyleSheet(glass_card_qss(f"devCard_{card_id}",
-                            "elevated" if paired else "base"))
+        card.setStyleSheet(glass_action_card_qss(f"devCard_{card_id}"))
         return card
 
     def _on_toggle_sync(self):

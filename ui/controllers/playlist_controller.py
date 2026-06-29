@@ -146,7 +146,7 @@ class PlaylistController:
                 albums.append(label)
                 album_tracks[label] = ag.tracks
         if not albums:
-            self._toast("No se encontraron albumes", "info")
+            self._toast("No se encontraron álbumes", "info")
             return
         label, ok = QInputDialog.getItem(
             self._win, "Crear playlist desde album",
@@ -195,7 +195,7 @@ class PlaylistController:
             return
         genres = sorted(set(i.genre for i in all_items if i.genre))
         if not genres:
-            self._toast("No se encontraron generos", "info")
+            self._toast("No se encontraron géneros", "info")
             return
         genre, ok = QInputDialog.getItem(
             self._win, "Crear playlist desde genero",

@@ -96,7 +96,7 @@ class MusicIdentifierView(QWidget):
         self._pill_status = StatusPill("", "idle")
         badges.addWidget(self._pill_status)
 
-        self._lbl_source = QLabel("Sin reproduccion")
+        self._lbl_source = QLabel("Sin reproducción")
         self._lbl_source.setStyleSheet(
             "font-size: 11px; color: rgba(255,255,255,0.42);"
             "background: rgba(255,255,255,0.035); border-radius: 8px; padding: 4px 10px;")
@@ -244,7 +244,7 @@ class MusicIdentifierView(QWidget):
         cl = QVBoxLayout(card)
         cl.setContentsMargins(18, 14, 18, 14)
         cl.setSpacing(6)
-        t = QLabel("Diagnostico")
+        t = QLabel("Diagnóstico")
         t.setStyleSheet(
             "font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.88);")
         cl.addWidget(t)
@@ -278,7 +278,7 @@ class MusicIdentifierView(QWidget):
         disp = source_label or {
             "radio": "Radio", "navidrome": "Navidrome", "jellyfin": "Jellyfin",
             "remote_stream": "Stream", "local_file": "Archivo local",
-        }.get(source_type, source_type or "Sin reproduccion")
+        }.get(source_type, source_type or "Sin reproducción")
         self._lbl_source.setText(f"Fuente: {disp}")
 
         if paused_reason:
@@ -287,7 +287,7 @@ class MusicIdentifierView(QWidget):
         elif source_type in ("radio", "navidrome", "jellyfin", "remote_stream"):
             self._lbl_pause.setText("")
             self._lbl_source_detail.setText(
-                "Escuchando automaticamente — Michi reconocera nuevas canciones.")
+                "Escuchando automáticamente — Michi reconocerá nuevas canciones.")
         elif source_type in ("local_file", "device_file"):
             self._lbl_pause.setText(
                 "Pausado: archivo local con metadatos conocidos")

@@ -9,7 +9,8 @@ from PySide6.QtWidgets import (
 
 from library.artist_grouping import ArtistGroup
 from library.album_art import load_cover_pixmap
-from ui.central.central_styles import menu_qss
+from ui.effects.michi_glass import apply_card_shadow
+from ui.central.central_styles import glass_card_qss, menu_qss
 
 _BG = "#090B11"
 _PANEL = "rgba(255,255,255,0.035)"
@@ -220,7 +221,7 @@ class ArtistGridWidget(QWidget):
         acts = {
             "Abrir artista": "open",
             "Reproducir todo": "play",
-            "Anadir a la cola": "queue",
+            "Añadir a la cola": "queue",
             "Crear playlist": "playlist",
             "Editar metadatos": "metadata",
             "Actualizar info externa": "refresh_info",
@@ -364,21 +365,15 @@ class _ArtistCard(QFrame):
 
     def _apply_qss(self):
         self.setObjectName("artistCard")
-        self.setStyleSheet("""
-            QFrame#artistCard {
-                background: rgba(255,255,255,0.030);
-                border: 1px solid rgba(255,255,255,0.025);
-                border-radius: 18px;
-            }
-            QFrame#artistCard:hover {
-                background: rgba(255,255,255,0.050);
-                border: 1px solid rgba(143,183,255,0.10);
-            }
+        style = glass_card_qss("artistCard")
+        style += """
             QFrame#artistCard[active="true"] {
                 background: rgba(143,183,255,0.10);
                 border: 1px solid rgba(143,183,255,0.14);
             }
-        """)
+        """
+        self.setStyleSheet(style)
+        apply_card_shadow(self)
 
     def set_active(self, active: bool):
         if self._active == active:
@@ -405,7 +400,7 @@ class _ArtistCard(QFrame):
         menu.addAction("Abrir artista", lambda: self.context_action.emit("open"))
         menu.addSeparator()
         menu.addAction("Reproducir todo", lambda: self.context_action.emit("play"))
-        menu.addAction("Anadir a la cola", lambda: self.context_action.emit("queue"))
+        menu.addAction("Añadir a la cola", lambda: self.context_action.emit("queue"))
         menu.addAction("Crear playlist", lambda: self.context_action.emit("playlist"))
         menu.addAction("Editar metadatos", lambda: self.context_action.emit("metadata"))
         menu.addSeparator()

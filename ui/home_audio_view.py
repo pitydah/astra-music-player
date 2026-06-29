@@ -6,8 +6,10 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QPushButton, QSlider,
 )
 
+from ui.effects.michi_glass import apply_card_shadow
 from ui.central.central_styles import (
-    glass_button_qss, glass_card_qss, transparent_scrollbar_qss, glass_tab_qss,
+    glass_button_qss, glass_card_qss, glass_hero_qss,
+    transparent_scrollbar_qss, glass_tab_qss,
 )
 
 
@@ -15,6 +17,7 @@ def _glass_card(name: str = "glassCard") -> QFrame:
     f = QFrame()
     f.setObjectName(name)
     f.setStyleSheet(glass_card_qss(name))
+    apply_card_shadow(f)
     return f
 
 
@@ -183,16 +186,8 @@ class HomeAudioView(QWidget):
 
     def _build_hero(self):
         hero = QFrame()
-        hero.setStyleSheet(
-            "QFrame#hero {"
-            "  background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "    stop:0 rgba(255,255,255,0.065),"
-            "    stop:0.55 rgba(255,255,255,0.035),"
-            "    stop:1 rgba(143,183,255,0.065));"
-            "  border: 1px solid rgba(143,183,255,0.12);"
-            "  border-radius: 22px; }"
-            "QLabel { background: transparent; }")
         hero.setObjectName("hero")
+        hero.setStyleSheet(glass_hero_qss("hero"))
         hero.setMinimumHeight(150)
         hero.setMaximumHeight(180)
 

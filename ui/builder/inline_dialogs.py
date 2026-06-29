@@ -47,7 +47,7 @@ def show_nowplaying_details(parent, point, track_ref):
 
 def show_audio_diagnostics(parent, playback):
     dlg = QDialog(parent)
-    dlg.setWindowTitle("Diagnostico de ruta de audio")
+    dlg.setWindowTitle("Diagnóstico de ruta de audio")
     dlg.setMinimumWidth(420)
     dlg.setStyleSheet(
         "QDialog { background: rgba(15,17,22,0.96);"
@@ -62,7 +62,7 @@ def show_audio_diagnostics(parent, playback):
         diag = playback.get_audio_diagnostics()
         lines = diag.to_tooltip().split("\n") if diag else ["Sin diagnóstico"]
     except Exception:
-        lines = ["Diagnostico no disponible"]
+        lines = ["Diagnóstico no disponible"]
 
     title = QLabel("Ruta de audio activa")
     title.setStyleSheet(
