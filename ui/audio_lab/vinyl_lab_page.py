@@ -62,7 +62,12 @@ class VinylLabPage(QWidget):
             "font-weight: 700; background: transparent;"
         )
         cl.addWidget(title)
-        sub = QLabel("Captura desde tu ADC/platina, separa pistas y exporta a FLAC.")
+        sub = QLabel(
+            "EXPERIMENTAL — Captura desde tu ADC/platina, separa pistas "
+            "y exporta a FLAC.\n"
+            "Las resoluciones 24/96 y 24/192 dependen de las capacidades "
+            "reales de tu dispositivo."
+        )
         sub.setStyleSheet(
             "color: rgba(255,255,255,0.56); font-size: 13px; background: transparent;"
         )
@@ -99,7 +104,7 @@ class VinylLabPage(QWidget):
 
         # ── Step 5: Export ──
         step5 = self._build_step_box(
-            "Paso 5: Exportar e importar",
+            "Paso 5: Exportar",
             self._build_export_panel(),
         )
         cl.addWidget(step5)
@@ -141,10 +146,12 @@ class VinylLabPage(QWidget):
 
         self._sr_combo = QComboBox()
         self._sr_combo.setStyleSheet(glass_combo_qss())
-        for sr in [44100, 48000, 96000, 192000]:
+        for sr in [44100, 48000, 96000]:
             label = f"{sr // 1000}.{sr % 1000 // 100} kHz"
             self._sr_combo.addItem(label, sr)
+        self._sr_combo.addItem("192 kHz (experimental)", 192000)
         self._sr_combo.setCurrentIndex(2)  # 96 kHz default
+        # Nota: las resoluciones dependen de las capacidades reales del ADC
         wl.addWidget(QLabel("Frecuencia:"))
         wl.addWidget(self._sr_combo)
 
@@ -299,7 +306,7 @@ class VinylLabPage(QWidget):
         self._export_dir_btn.clicked.connect(self._select_export_dir)
         wl.addWidget(self._export_dir_btn)
 
-        self._export_btn = QPushButton("Exportar e importar")
+        self._export_btn = QPushButton("Exportar")
         self._export_btn.setCursor(Qt.PointingHandCursor)
         self._export_btn.setStyleSheet(glass_button_qss("primary"))
         self._export_btn.clicked.connect(self._export_and_import)
@@ -513,6 +520,7 @@ class VinylLabPage(QWidget):
         self._export_progress.setVisible(True)
         self._export_progress.setValue(10)
 
+        # TODO: mover split + encode a WorkerManager para no bloquear UI
         from vinyl.exporter import split_wav, encode_wav
 
         tracks = [
