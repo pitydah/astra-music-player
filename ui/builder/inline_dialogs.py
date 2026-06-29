@@ -40,7 +40,7 @@ def show_nowplaying_details(parent, point, track_ref):
     menu.addSeparator()
     if current and not current.startswith("http"):
         menu.addAction("Abrir carpeta", lambda: parent._on_album_open_folder(os.path.dirname(current)))
-        menu.addAction("Editar metadatos", lambda: parent._open_metadata_for_files([current]))
+        menu.addAction("Editar metadatos", lambda: parent._artist_ctrl.open_metadata_for_files([current]))
 
     menu.exec(point)
 

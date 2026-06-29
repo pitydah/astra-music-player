@@ -234,7 +234,8 @@ class TestCoverFlowPublicAPI:
         w._album_filter_mode = "all"
         w._coverflow_cache_key = "some_old_key"
         w._current_section_key = "albums"
-        w._refresh_active_library_tab = lambda force=None: setattr(
+        w._lib_ctrl = MagicMock()
+        w._lib_ctrl.refresh_active_tab = lambda force=None: setattr(
             w, '_refreshed', True)
         w._refreshed = False
         menu = AlbumSortMenu.__new__(AlbumSortMenu)

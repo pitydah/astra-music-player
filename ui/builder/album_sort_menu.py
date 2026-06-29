@@ -55,14 +55,14 @@ class AlbumSortMenu:
         w._album_sort_key = key
         w._coverflow_cache_key = None
         if w._current_section_key == "albums":
-            w._refresh_active_library_tab(force=True)
+            w._lib_ctrl.refresh_active_tab(force=True)
 
     def _on_filter(self, key: str):
         w = self._win
         w._album_filter_mode = key
         w._coverflow_cache_key = None
         if w._current_section_key == "albums":
-            w._refresh_active_library_tab(force=True)
+            w._lib_ctrl.refresh_active_tab(force=True)
 
 
 _MENU_QSS = """

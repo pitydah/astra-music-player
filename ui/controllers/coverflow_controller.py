@@ -35,7 +35,7 @@ class CoverFlowController:
         self._win._on_view_mode_changed("coverflow")
 
     def show(self):
-        items = self._win._filtered_album_items()
+        items = self._win._lib_ctrl.filtered_album_items()
 
         # Cache key — stable signature to skip rebuild when nothing changed
         sig_parts = [str(len(items)), self._win._album_sort_key,
@@ -256,7 +256,7 @@ class CoverFlowController:
         tracks = self.album_tracks(idx)
         fps = [t.filepath for t in tracks if os.path.isfile(t.filepath)]
         if fps:
-            self._win._open_metadata_for_files(fps)
+            self._win._artist_ctrl.open_metadata_for_files(fps)
 
     def on_details_album(self, idx: int):
         item = self._win._coverflow.item_at(idx) if self._win._coverflow else None

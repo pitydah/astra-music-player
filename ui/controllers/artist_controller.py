@@ -83,3 +83,17 @@ class ArtistController:
         self._ctx.metadata_editor.load_files(filepaths)
         self._ctx.configure_header("metadata_editor")
         self._ctx.fade_to("metadata_editor")
+
+    def refresh_artist_info(self, artist_key: str):
+        repo = self._ctx.artist_repo
+        group = repo.get_group(artist_key)
+        if not group or not hasattr(self._win, '_artist_enrich'):
+            return
+        if hasattr(repo, 'mark_enrichment_loading'):
+            repo.mark_enrichment_loading(artist_key)
+        self._win._artist_enrich.refresh_artist(artist_key)
+        self._win._artist_enrich.enrich_artist(group, force=True)
+        if hasattr(self._win._artist_grid, 'set_artists'):
+            self._win._artist_grid.set_artists(repo.groups)
+        self._ctx.toast.show(
+            f"Actualizando info de {group.display_name}...", "info")

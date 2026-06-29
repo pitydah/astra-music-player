@@ -24,7 +24,7 @@ class SearchRouter:
         w._search_text = text.strip()
         sec = self._section_key(w)
         if sec in ("albums", "genres"):
-            w._refresh_active_library_tab(force=True)
+            w._lib_ctrl.refresh_active_tab(force=True)
             return
         if sec == "folders":
             w._folder_browser.set_filter(w._search_text)

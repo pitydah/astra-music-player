@@ -546,7 +546,7 @@ class MainWindow(QMainWindow):
         svc.set_store_and_bridge(store, bridge)
         # Update state store on player changes
         self._playback.state_changed.connect(
-            lambda s: store.update_player(state=self._state_to_str(s)))
+            lambda s: store.update_player(state=self.state_to_str(s)))
         self._playback.volume_changed.connect(
             lambda v: store.update_player(volume=v))
         self._shutdown.register("michi_api", lambda: svc.stop())
@@ -1122,7 +1122,8 @@ class MainWindow(QMainWindow):
     # ── Michi API Bridge handlers ──
 
     @staticmethod
-    def _state_to_str(state) -> str:
+    @staticmethod
+    def state_to_str(state) -> str:
         if state is None:
             return "idle"
         return str(state).split(".")[-1].lower() if "." in str(state) else str(state).lower()
@@ -1185,7 +1186,7 @@ class MainWindow(QMainWindow):
     def _on_sidebar_navigate(self, key):
         self._nav_ctrl.dispatch(key)
     def _show_album_grid(self):
-        items = self._filtered_album_items()
+        items = self._lib_ctrl.filtered_album_items()
         self._album_grid.set_items(items, 200,
                                    sort_key=getattr(self, '_album_sort_key', 'title'),
                                    filter_mode=getattr(self, '_album_filter_mode', 'all'))
@@ -1217,37 +1218,12 @@ class MainWindow(QMainWindow):
     def _reload_library_after_change(self, reason: str = ""):
         self._lib_ctrl.reload_after_change(reason)
 
-    def _filtered_album_items(self) -> list:
-        return self._lib_ctrl.filtered_album_items()
-
-    def _album_items(self) -> list:
-        return self._lib_ctrl._album_items()
-
-    def _refresh_active_library_tab(self, force: bool = False):
-        self._lib_ctrl.refresh_active_tab(force)
-
     # Extracted to ui/controllers/artist_controller.py — grid + detail logic
 
     def _show_artists_view(self, mode: str):
         self._artist_ctrl.show_artists_view(mode)
     def _refresh_artist_info(self, artist_key: str):
-        repo = self._ctx.artist_repo
-        group = repo.get_group(artist_key)
-        if not group or not hasattr(self, '_artist_enrich'):
-            return
-
-        if hasattr(repo, 'mark_enrichment_loading'):
-            repo.mark_enrichment_loading(artist_key)
-
-        self._artist_enrich.refresh_artist(artist_key)
-        self._artist_enrich.enrich_artist(group, force=True)
-
-        if hasattr(self._artist_grid, 'set_artists'):
-            self._artist_grid.set_artists(repo.groups)
-
-        self._toast_svc.show(
-            f"Actualizando info de {group.display_name}...", "info")
-
+        self._artist_ctrl.refresh_artist_info(artist_key)
     def _on_artist_enriched(self, artist_key: str, info):
         repo = self._ctx.artist_repo
         if hasattr(repo, 'apply_external_info'):
@@ -1290,9 +1266,6 @@ class MainWindow(QMainWindow):
         self._toast_svc.show(
             f"Enriquecimiento: {error}", "error")
 
-    def _open_metadata_for_files(self, filepaths: list[str]):
-        self._artist_ctrl.open_metadata_for_files(filepaths)
-
     # Extracted to ui/controllers/expanded_controller.py — now playing expanded
 
     def _show_cover_preview(self):
@@ -1305,6 +1278,9 @@ class MainWindow(QMainWindow):
         from PySide6.QtGui import QCursor
         from ui.builder.inline_dialogs import show_nowplaying_details
         show_nowplaying_details(self, QCursor.pos(), self._current_ref)
+
+    def _open_metadata_for_files(self, filepaths: list[str]):
+        self._artist_ctrl.open_metadata_for_files(filepaths)
 
     # ── FileWatcher handlers ──
 

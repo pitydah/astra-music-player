@@ -410,7 +410,8 @@ class UIBuilder:
             lambda fps, _w=w: _w._play_filepaths(fps, play_now=False))
         w._artist_detail.playlist_artist_requested.connect(lambda key, _w=w: _w._artist_ctrl.create_playlist_from_artist(key))
         w._artist_detail.metadata_artist_requested.connect(lambda key, _w=w: _w._artist_ctrl.edit_artist_metadata(key))
-        w._artist_detail.metadata_files_requested.connect(w._open_metadata_for_files)
+        w._artist_detail.metadata_files_requested.connect(
+            w._open_metadata_for_files)
         w._artist_detail.artist_enrich_requested.connect(w._refresh_artist_info)
         w._artist_detail.track_play_requested.connect(
             lambda fp, _w=w: _w._play_filepaths([fp], play_now=True))

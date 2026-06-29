@@ -74,7 +74,7 @@ class LibraryController(QObject):
 
     def refresh_albums(self):
         w = self._win
-        w._album_grid.set_items(self._album_items(), 200,
+        w._album_grid.set_items(self.album_items(), 200,
             sort_key=getattr(w, '_album_sort_key', 'title'),
             filter_mode=getattr(w, '_album_filter_mode', 'all'))
         w._coverflow_cache_key = None
@@ -123,7 +123,7 @@ class LibraryController(QObject):
 
     # ── Album helpers ──
 
-    def _album_items(self) -> list:
+    def album_items(self) -> list:
         w = self._win
         if not w._all_items and w._db:
             w._all_items = w._db.get_all()
@@ -131,7 +131,7 @@ class LibraryController(QObject):
         return [i for i in w._all_items if getattr(i, "kind", "audio") == "audio"]
 
     def filtered_album_items(self) -> list:
-        items = self._album_items()
+        items = self.album_items()
         q = (self._win._search_text or "").lower().strip()
         if not q:
             return items

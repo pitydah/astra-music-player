@@ -83,7 +83,7 @@ class AlbumController:
             def _norm(s):
                 s = (s or '').strip().lower()
                 return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii')
-            for a, ar, tr in group_by_album(w._filtered_album_items()):
+            for a, ar, tr in group_by_album(w._lib_ctrl.filtered_album_items()):
                 if _norm(album) == _norm(a) or (album and _norm(album) in _norm(a)):
                     tracks = tr
                     album = a

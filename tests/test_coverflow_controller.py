@@ -66,10 +66,12 @@ class TestCoverFlowControllerShow:
         win._count = MagicMock()
         win._views = MagicMock()
         win._fade_content = MagicMock()
-        win._filtered_album_items = MagicMock(return_value=[])
+        win._lib_ctrl = MagicMock()
+        win._lib_ctrl.filtered_album_items = MagicMock(return_value=[])
         win._album_sort_key = "title"
         win._album_filter_mode = "all"
         win._search_text = ""
+        win._artist_ctrl = MagicMock()
         win._coverflow.count = MagicMock(return_value=5)
         win._coverflow.current_index = MagicMock(return_value=2)
         return CoverFlowController(win)
@@ -265,7 +267,7 @@ class TestCoverFlowControllerActions:
         ctrl._win._coverflow.item_at = MagicMock(return_value=item)
         with patch("os.path.isfile", return_value=True):
             ctrl.on_metadata_album(0)
-        ctrl._win._open_metadata_for_files.assert_called_once()
+        ctrl._win._artist_ctrl.open_metadata_for_files.assert_called_once()
 
     def test_search_cover_shows_toast(self, ctrl):
         item, tracks = _make_item()
