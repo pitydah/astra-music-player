@@ -30,8 +30,39 @@ class HubRouteController:
             from ui.audio_lab.audio_lab_page import AudioLabPage
             page = AudioLabPage()
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
+            self._win._playback.state_changed.connect(
+                self._update_audio_lab_status)
             return page
         self._lazy("audio_lab", _build)
+        self._update_audio_lab_status()
+
+    def _update_audio_lab_status(self, _state=None):
+        w = self._win
+        page = w._views.widget("audio_lab") if hasattr(w, '_views') else None
+        if not page or not hasattr(page, 'set_status_text'):
+            return
+        ref = getattr(w, '_current_ref', None)
+        if not ref:
+            page.set_status_text("Sin reproducción activa.")
+            return
+        parts = [ref.title or "Desconocido"]
+        if ref.artist:
+            parts.append(ref.artist)
+        if ref.uri:
+            try:
+                from audio.format_probe import probe_format
+                fmt = probe_format(ref.uri)
+                tech = fmt.container.upper() if fmt.container else ""
+                sr = f"{fmt.sample_rate // 1000}" if fmt.sample_rate else ""
+                bd = str(fmt.bit_depth) if fmt.bit_depth else ""
+                if tech:
+                    quality = tech
+                    if sr and bd:
+                        quality += f" {bd}/{sr}"
+                    parts.append(quality)
+            except Exception:
+                pass
+        page.set_status_text(" · ".join(parts))
 
     def show_michi_disc_lab(self, key: str = ""):
         def _build():
