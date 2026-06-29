@@ -49,14 +49,15 @@ class SidebarController(QObject):
         self._sidebar.add_item("hub", "home", "Inicio", "sidebar_home")
         self._sidebar.add_item("hub", "library_hub", "Biblioteca", "sidebar_library")
         self._sidebar.add_item("hub", "mix_hub", "Mix", "sidebar_mix")
-        self._sidebar.add_item("hub", "playlist_hub", "Playlists", "sidebar_playlists")
         self._sidebar.add_item("hub", "playback_hub", "Reproducción", "warm_play")
         self._sidebar.add_item("hub", "connections_hub", "Conexiones", "sidebar_servers")
+        self._sidebar.add_item("hub", "home_audio", "Home Audio", "home_audio")
         self._sidebar.add_item("hub", "audio_lab", "Audio Lab", "sidebar_mix")
         self._sidebar.add_item("hub", "assistant", "Asistente", "sidebar_assistant")
 
-        # ── Playlists dinámicas (siempre muestra Nueva playlist) ──
+        # ── Playlists (hub principal + sección colapsable con Nueva playlist y playlists) ──
         self._sidebar.add_section("pl", "Playlists", "sidebar_playlists")
+        self._sidebar.add_item("pl", "playlist_hub", "Playlists", "sidebar_playlists")
         self._sidebar.add_item("pl", "playlist:new", "+ Nueva playlist",
                                 "sidebar_playlists")
         try:
@@ -92,10 +93,6 @@ class SidebarController(QObject):
         for d in get_mounted_devices():
             self._sidebar.add_item("dev", f"dev:{d['mount']}", d['name'],
                                     "sidebar_devices")
-
-        # ── Sistema (sección separada al final) ──
-        self._sidebar.add_section("system", "Sistema", "warm_settings")
-        self._sidebar.add_item("system", "settings_hub", "Configuración", "warm_settings")
 
         if self._last_active:
             self._sidebar.set_active(self._last_active)

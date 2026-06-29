@@ -366,17 +366,17 @@ class TestNavigationController:
         ctrl.dispatch("radio")
         win._sidebar_controller.set_active.assert_called_with("playback_hub")
 
-    def test_dispatch_home_audio_sets_connections_hub_sidebar(self, ctrl, win):
+    def test_dispatch_home_audio_sets_home_audio_sidebar(self, ctrl, win):
         ctrl.dispatch("home_audio")
-        win._sidebar_controller.set_active.assert_called_with("connections_hub")
+        win._sidebar_controller.set_active.assert_called_with("home_audio")
 
     def test_dispatch_identifier_sets_audio_lab_sidebar(self, ctrl, win):
         ctrl.dispatch("identifier")
         win._sidebar_controller.set_active.assert_called_with("audio_lab")
 
-    def test_dispatch_settings_hub_sets_settings_hub_sidebar(self, ctrl, win):
+    def test_dispatch_settings_hub_sets_playback_hub_sidebar(self, ctrl, win):
         ctrl.dispatch("settings_hub")
-        win._sidebar_controller.set_active.assert_called_with("settings_hub")
+        win._sidebar_controller.set_active.assert_called_with("playback_hub")
 
 
 class TestResolveSidebarActiveKey:
@@ -407,9 +407,9 @@ class TestResolveSidebarActiveKey:
         assert resolve_sidebar_active_key("devices") == "devices_page"
         assert resolve_sidebar_active_key("devices_page") == "devices_page"
 
-    def test_settings_hub(self):
-        assert resolve_sidebar_active_key("settings_hub") == "settings_hub"
-        assert resolve_sidebar_active_key("settings") == "settings_hub"
+    def test_settings_hub_falls_back_to_playback_hub(self):
+        assert resolve_sidebar_active_key("settings_hub") == "playback_hub"
+        assert resolve_sidebar_active_key("settings") == "playback_hub"
 
     def test_audio_lab_children(self):
         assert resolve_sidebar_active_key("audio_lab") == "audio_lab"

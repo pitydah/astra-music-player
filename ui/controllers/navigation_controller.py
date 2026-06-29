@@ -142,8 +142,8 @@ def resolve_sidebar_active_key(key: str) -> str:
     """
     # Hubs visibles
     if key in ("home", "library_hub", "mix_hub", "playlist_hub",
-                "playback_hub", "connections_hub", "audio_lab",
-                "assistant", "devices_page", "settings_hub"):
+                "playback_hub", "connections_hub", "home_audio",
+                "audio_lab", "assistant", "devices_page"):
         return key
     # Hijos de library_hub
     if key in ("library", "albums", "artists", "genres", "folders", "favs", "recent"):
@@ -155,7 +155,7 @@ def resolve_sidebar_active_key(key: str) -> str:
     if key.startswith("pl:") or key.startswith("playlist:"):
         return "playlist_hub"
     # Hijos de connections_hub
-    if key.startswith("srv:") or key in ("add_server", "home_audio"):
+    if key.startswith("srv:") or key in ("add_server",):
         return "connections_hub"
     # Hijos de playback_hub
     if key == "radio":
@@ -166,15 +166,15 @@ def resolve_sidebar_active_key(key: str) -> str:
     # Hijos de audio_lab
     if key in ("metadata_editor", "metadata_review", "michi_disc_lab", "identifier"):
         return "audio_lab"
-    # Settings
-    if key == "settings":
-        return "settings_hub"
+    # Settings (ya no está en sidebar, pero la ruta sigue siendo válida)
+    if key in ("settings_hub", "settings"):
+        return "playback_hub"
     # Fallback: extraer prefijo antes de ":"
     prefix = key.split(":")[0] if ":" in key else key
     return prefix if prefix in (
         "home", "library_hub", "mix_hub", "playlist_hub",
-        "playback_hub", "connections_hub", "audio_lab",
-        "assistant", "devices_page", "settings_hub",
+        "playback_hub", "connections_hub", "home_audio",
+        "audio_lab", "assistant", "devices_page",
     ) else "home"
 
 # Navigation routes — maps sidebar keys to window handler methods
