@@ -1,9 +1,16 @@
 """Tests: Disc Lab profile combo and EncoderService error cleanup."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6.QtCore import QProcess
+from PySide6.QtCore import Qt, QProcess
+from PySide6.QtGui import QPixmap
+
+
+def _pix():
+    pix = QPixmap(1, 1)
+    pix.fill(Qt.transparent)
+    return pix
 
 
 class TestDiscLabProfileCombo:
@@ -33,10 +40,46 @@ class TestDiscLabProfileCombo:
         from ui.audio_lab.models import RIP_PROFILES
         for p in RIP_PROFILES:
             if not p.available:
-                assert not p.available, (
-                    f"Profile '{p.name}' is unavailable by design"
-                )
                 assert p.fmt  # fmt is informational, not executable
+
+    @patch("ui.audio_lab.michi_disc_lab_page.apply_card_shadow")
+    @patch("ui.audio_lab.michi_disc_lab_page.check_all_tools")
+    @patch("ui.audio_lab.michi_disc_lab_page.DiscDetectionService")
+    @patch("ui.audio_lab.michi_disc_lab_page.RipJobManager")
+    @patch("ui.audio_lab.michi_disc_lab_page.EncoderService")
+    def test_unavailable_profiles_are_disabled_in_combo(
+        self, mock_enc, mock_rip, mock_det, mock_tools, mock_shadow, qtbot
+    ):
+        from ui.audio_lab.michi_disc_lab_page import MichiDiscLabPage
+        from ui.audio_lab.models import RIP_PROFILES
+
+        mock_tools.return_value = {}
+        mock_det.return_value = MagicMock()
+        mock_rip.return_value = MagicMock()
+        mock_enc.return_value = MagicMock()
+
+        page = MichiDiscLabPage()
+        qtbot.addWidget(page)
+
+        combo = page._profile_combo
+        model = combo.model()
+
+        available_count = sum(1 for p in RIP_PROFILES if p.available)
+        unavailable_count = sum(1 for p in RIP_PROFILES if not p.available)
+
+        assert combo.count() == len(RIP_PROFILES)
+        assert combo.count() == available_count + unavailable_count
+
+        for i in range(combo.count()):
+            item = model.item(i)
+            if i < available_count:
+                assert item.isEnabled(), (
+                    f"Item {i} should be enabled"
+                )
+            else:
+                assert not item.isEnabled(), (
+                    f"Item {i} should be disabled"
+                )
 
 
 class TestEncoderServiceErrors:
