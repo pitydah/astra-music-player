@@ -48,6 +48,7 @@ class SongsController(QObject):
         else:
             self._all_items = list(getattr(w, '_all_items', []))
         self._filtered_items = list(self._all_items)
+        self._status_svc.invalidate_cache()
         self._status_svc.refresh_favorites()
         self._refresh_status()
 

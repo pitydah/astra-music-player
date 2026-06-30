@@ -10,13 +10,14 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QSplitter, QTableView,
+    QWidget, QVBoxLayout, QSplitter, QTableView, QHeaderView, QLabel,
 )
 
 from library.mediaitem_table_model import MediaItemTableModel
 from ui.library.songs_filter_bar import SongsFilterBar
 from ui.library.songs_bulk_action_bar import SongsBulkActionBar
 from ui.library.songs_detail_panel import SongsDetailPanel
+from ui.library.songs_status_delegate import SongsStatusDelegate
 
 if TYPE_CHECKING:
     pass
@@ -52,6 +53,13 @@ class SongsPremiumPage(QWidget):
         self._filter_bar.filters_changed.connect(self._on_filters_changed)
         outer.addWidget(self._filter_bar)
 
+        # Loading indicator
+        self._loading_label = QLabel("Cargando canciones...")
+        self._loading_label.setAlignment(Qt.AlignCenter)
+        self._loading_label.setStyleSheet("color: rgba(255,255,255,0.50); font-size: 13px;")
+        self._loading_label.hide()
+        outer.addWidget(self._loading_label)
+
         # Splitter: table + detail panel
         splitter = QSplitter(Qt.Horizontal)
         splitter.setHandleWidth(0)
@@ -65,8 +73,13 @@ class SongsPremiumPage(QWidget):
         self._table.setShowGrid(False)
         self._table.setSortingEnabled(True)
         self._table.verticalHeader().hide()
-        self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.Interactive)
+        self._table.horizontalHeader().setStretchLastSection(False)
         self._table.horizontalHeader().setSectionsClickable(True)
+        self._delegate = SongsStatusDelegate(
+            status_cache_provider=lambda: self._ctrl.status_cache() if self._ctrl else {})
+        self._table.setItemDelegateForColumn(9, self._delegate)
         self._table.setStyleSheet(self._table_qss())
         self._table.selectionModel().selectionChanged.connect(
             self._on_selection_changed)
@@ -183,8 +196,12 @@ class SongsPremiumPage(QWidget):
 
     def load_data(self, items: list, fav_ids: set[int] | None = None,
                   status_cache: dict[int, dict] | None = None):
+        self._loading_label.show()
+        from PySide6.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
         self._model.populate(items, fav_ids=fav_ids, status_cache=status_cache)
         self._resize_columns()
+        self._loading_label.hide()
 
     @staticmethod
     def _table_qss() -> str:
@@ -196,6 +213,10 @@ class SongsPremiumPage(QWidget):
             outline: none;
             color: rgba(255,255,255,0.80);
             font-size: 12px;
+        }
+        QTableView::item {
+            padding: 6px 4px;
+            min-height: 28px;
         }
         QTableView::item:selected {
             background: rgba(143,183,255,0.18);

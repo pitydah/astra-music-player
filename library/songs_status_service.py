@@ -41,6 +41,9 @@ class SongsStatusService:
     def favorite_ids(self) -> set[int]:
         return set(self._fav_ids)
 
+    def invalidate_cache(self):
+        self._quality_cache.clear()
+
     def compute_status(self, item: MediaItem) -> dict:
         """Return a dict with status info for a single item.
 
