@@ -41,7 +41,7 @@ class _FolderWorker(QObject):
         self._cancelled = True
 
     def run(self):
-        from ui.audio_lab.diagnostics_service import analyse_file
+        from core.audio_lab.diagnostics_service import analyse_file
         for fp in self._files:
             if self._cancelled:
                 break
@@ -56,7 +56,7 @@ class _FolderWorker(QObject):
                 }
             if self._include_spectral and fp.lower().endswith(".wav") and not result.get("error"):
                 try:
-                    from ui.audio_lab.diagnostics_service import analyse_spectral
+                    from core.audio_lab.diagnostics_service import analyse_spectral
                     spec = analyse_spectral(fp)
                     if spec:
                         result["spectral"] = spec
@@ -318,7 +318,7 @@ class DiagnosticsPage(QWidget):
         self._progress.setVisible(True)
         self._progress.setRange(0, 0)
 
-        from ui.audio_lab.diagnostics_service import analyse_file
+        from core.audio_lab.diagnostics_service import analyse_file
         result = analyse_file(fp)
         self._results = [result]
 
@@ -339,7 +339,7 @@ class DiagnosticsPage(QWidget):
         from PySide6.QtCore import QCoreApplication
         QCoreApplication.processEvents()
 
-        from ui.audio_lab.diagnostics_service import analyse_spectral
+        from core.audio_lab.diagnostics_service import analyse_spectral
         result = analyse_spectral(fp)
 
         lines = [
@@ -399,7 +399,7 @@ class DiagnosticsPage(QWidget):
         if not folder:
             return
 
-        from ui.audio_lab.diagnostics_service import AUDIO_EXTS
+        from core.audio_lab.diagnostics_service import AUDIO_EXTS
 
         audio_files = []
         for root, _dirs, files in os.walk(folder):
@@ -529,7 +529,7 @@ class DiagnosticsPage(QWidget):
         if not self._results:
             return
 
-        from ui.audio_lab.diagnostics_service import generate_report
+        from core.audio_lab.diagnostics_service import generate_report
         report = generate_report(self._results)
 
         lines = [
