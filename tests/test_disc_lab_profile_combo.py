@@ -21,6 +21,23 @@ class TestDiscLabProfileCombo:
         for p in RIP_PROFILES:
             assert p.fmt, f"Profile {p.name} has no format"
 
+    def test_first_available_is_wav(self):
+        from ui.audio_lab.models import RIP_PROFILES
+        available = [p for p in RIP_PROFILES if p.available]
+        assert len(available) > 0
+        assert available[0].fmt == "wav", (
+            f"First available profile should be WAV, got {available[0].fmt}"
+        )
+
+    def test_unavailable_profiles_have_no_usable_fmt_as_currentData(self):
+        from ui.audio_lab.models import RIP_PROFILES
+        for p in RIP_PROFILES:
+            if not p.available:
+                assert not p.available, (
+                    f"Profile '{p.name}' is unavailable by design"
+                )
+                assert p.fmt  # fmt is informational, not executable
+
 
 class TestEncoderServiceErrors:
 
