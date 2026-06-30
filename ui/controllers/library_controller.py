@@ -187,6 +187,24 @@ class LibraryController(QObject):
         w._song_grid.set_items(items, card_size=170)
         w._count.setText(f"{len(items)} canciones")
 
+    def show_library_hub(self, key: str = ""):
+        """Lazy-create and display library hub page."""
+        w = self._win
+        if w._library_hub_page is None:
+            from ui.hubs.library_hub_page import LibraryHubPage
+            w._library_hub_page = LibraryHubPage(
+                db=w._db, window=w,
+                songs_widget=w._songs_stack,
+                albums_widget=w._albums_stack,
+                artists_widget=w._artists_stack,
+                genres_widget=w._genres_stack,
+                folders_widget=w._folder_browser,
+            )
+            w._library_hub_page.tab_changed.connect(w._on_library_tab_changed)
+        if not w._views.widget("library_hub"):
+            w._views.register("library_hub", w._library_hub_page)
+        w._fade_content("library_hub")
+
     def show_folders(self, key: str = ""):
         """Activate folder source and display folder browser."""
         w = self._win

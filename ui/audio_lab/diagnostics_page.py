@@ -1,7 +1,8 @@
 """DiagnosticsPage — analyse audio files and generate technical reports.
 
-Reuses format_probe and quality_classifier from existing modules.
-Marked as Experimental — Fake Hi-Res detection is not included yet.
+Reuses format_probe, quality_classifier and spectral_authenticator.
+Includes experimental spectral coherence analysis for WAV PCM.
+Results are probabilistic and not conclusive.
 """
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, Signal, Slot, QObject, QThread
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QFileDialog, QScrollArea,
@@ -24,6 +25,48 @@ from ui.central.central_styles import (
 logger = logging.getLogger("michi.diagnostics.ui")
 
 
+class _FolderWorker(QObject):
+    """Worker object for folder analysis. Emits results to main thread."""
+
+    file_done = Signal(object)   # result dict
+    folder_done = Signal()
+
+    def __init__(self, file_list: list[str], include_spectral: bool):
+        super().__init__()
+        self._files = file_list
+        self._include_spectral = include_spectral
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        from ui.audio_lab.diagnostics_service import analyse_file
+        for fp in self._files:
+            if self._cancelled:
+                break
+            try:
+                result = analyse_file(fp)
+            except Exception as e:
+                result = {
+                    "filepath": fp, "filename": os.path.basename(fp),
+                    "exists": True, "error": str(e),
+                    "format_info": {}, "size_mb": 0.0, "duration_str": "",
+                    "quality": {"category": "error", "label": "Error"},
+                }
+            if self._include_spectral and fp.lower().endswith(".wav") and not result.get("error"):
+                try:
+                    from ui.audio_lab.diagnostics_service import analyse_spectral
+                    spec = analyse_spectral(fp)
+                    if spec:
+                        result["spectral"] = spec
+                except Exception:
+                    pass
+            self.file_done.emit(result)
+        if not self._cancelled:
+            self.folder_done.emit()
+
+
 class DiagnosticsPage(QWidget):
     navigate_requested = Signal(str)
 
@@ -33,7 +76,8 @@ class DiagnosticsPage(QWidget):
         self._worker_mgr = worker_mgr
         self._results: list[dict] = []
         self._cancelled = False
-        self._analyse_folder_worker = None
+        self._worker_thread: QThread | None = None
+        self._worker_obj: _FolderWorker | None = None
         self._build_ui()
 
     def _build_ui(self):
@@ -322,7 +366,7 @@ class DiagnosticsPage(QWidget):
         if not folder:
             return
 
-        from ui.audio_lab.diagnostics_service import analyse_file, AUDIO_EXTS
+        from ui.audio_lab.diagnostics_service import AUDIO_EXTS
 
         audio_files = []
         for root, _dirs, files in os.walk(folder):
@@ -350,48 +394,23 @@ class DiagnosticsPage(QWidget):
 
         include_spectral = self._spectral_check.isChecked()
         self._total_files = len(audio_files)
-        self._files_copy = list(audio_files)
 
-        def _worker():
-            for fp in self._files_copy:
-                if self._cancelled:
-                    break
-                result = analyse_file(fp)
-                if include_spectral and fp.lower().endswith(".wav"):
-                    try:
-                        from ui.audio_lab.diagnostics_service import analyse_spectral
-                        spec = analyse_spectral(fp)
-                        if spec:
-                            result["spectral"] = spec
-                    except Exception:
-                        pass
-                self._results.append(result)
-                from PySide6.QtCore import QMetaObject, Qt as QtEnum
-                QMetaObject.invokeMethod(
-                    self, "_on_one_file_done",
-                    QtEnum.QueuedConnection,
-                )
-            if not self._cancelled:
-                QMetaObject.invokeMethod(
-                    self, "_on_folder_analysis_done",
-                    QtEnum.QueuedConnection,
-                )
+        self._worker_obj = _FolderWorker(audio_files, include_spectral)
+        self._worker_obj.file_done.connect(self._on_file_result)
+        self._worker_obj.folder_done.connect(self._on_folder_analysis_done)
 
-        if self._worker_mgr and hasattr(self._worker_mgr, 'run_task'):
-            self._analyse_folder_worker = f"diag_folder_{id(self._files_copy)}"
-            self._worker_mgr.run_task(
-                self._analyse_folder_worker, _worker,
-                on_done=lambda: None,
-            )
-        else:
-            self._analyse_folder_worker = "diag_folder_sync"
-            import threading
-            t = threading.Thread(target=_worker, daemon=True)
-            t.start()
+        self._worker_thread = QThread()
+        self._worker_obj.moveToThread(self._worker_thread)
+        self._worker_thread.started.connect(self._worker_obj.run)
+        self._worker_thread.finished.connect(self._worker_thread.deleteLater)
+        self._worker_thread.start()
 
-    @Slot()
-    def _on_one_file_done(self):
-        current = len(self._results) + 1
+    @Slot(object)
+    def _on_file_result(self, result: dict):
+        if self._cancelled:
+            return
+        self._results.append(result)
+        current = len(self._results)
         self._progress.setValue(min(current, self._total_files))
         self._progress_label.setText(
             f"Analizando {min(current, self._total_files)}/{self._total_files}..."
@@ -399,6 +418,8 @@ class DiagnosticsPage(QWidget):
 
     @Slot()
     def _on_folder_analysis_done(self):
+        if self._cancelled:
+            return
         self._analyse_finished()
 
     def _analyse_finished(self):
@@ -407,6 +428,11 @@ class DiagnosticsPage(QWidget):
         self._cancel_btn.setVisible(False)
         self._progress.setVisible(False)
         self._progress_label.setVisible(False)
+        if self._worker_thread:
+            self._worker_thread.quit()
+            self._worker_thread.wait(500)
+            self._worker_thread = None
+        self._worker_obj = None
         if self._results:
             self._populate_table()
             self._generate_report_btn.setEnabled(True)
@@ -414,7 +440,18 @@ class DiagnosticsPage(QWidget):
 
     def _cancel_analysis(self):
         self._cancelled = True
-        self._analyse_finished()
+        if self._worker_obj:
+            self._worker_obj.cancel()
+        if self._worker_thread:
+            self._worker_thread.quit()
+            self._worker_thread.wait(500)
+            self._worker_thread = None
+        self._worker_obj = None
+        self._analyse_file_btn.setEnabled(True)
+        self._analyse_folder_btn.setEnabled(True)
+        self._cancel_btn.setVisible(False)
+        self._progress.setVisible(False)
+        self._progress_label.setVisible(True)
         self._progress_label.setText("Análisis cancelado.")
 
     def _clear_results(self):

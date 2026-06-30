@@ -799,9 +799,12 @@ class MainWindow(QMainWindow):
             ctx.record_assistant_opened()
 
     def _on_assistant_state(self, state: str):
-        self._assistant_panel.set_thinking(state == "thinking")
+        if self._assistant_panel:
+            self._assistant_panel.set_thinking(state == "thinking")
 
     def _on_assistant_response(self, response):
+        if not self._assistant_panel:
+            return
         if isinstance(response, dict):
             self._assistant_panel.add_response(response)
             data = response.get("data") if isinstance(response, dict) else None
@@ -856,20 +859,7 @@ class MainWindow(QMainWindow):
         self._home_ctrl.show()
 
     def _show_library_hub_page(self, key=None):
-        if self._library_hub_page is None:
-            from ui.hubs.library_hub_page import LibraryHubPage
-            self._library_hub_page = LibraryHubPage(
-                db=self._db, window=self,
-                songs_widget=self._songs_stack,
-                albums_widget=self._albums_stack,
-                artists_widget=self._artists_stack,
-                genres_widget=self._genres_stack,
-                folders_widget=self._folder_browser)
-            self._library_hub_page.tab_changed.connect(
-                self._on_library_tab_changed)
-        if not self._views.widget("library_hub"):
-            self._views.register("library_hub", self._library_hub_page)
-        self._fade_content("library_hub")
+        self._lib_ctrl.show_library_hub(key)
 
     def _on_library_tab_changed(self, section_key: str, force: bool = False):
         self._lib_ctrl._on_library_tab_changed(section_key, force)
