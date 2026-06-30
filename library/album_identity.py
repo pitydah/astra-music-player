@@ -8,8 +8,7 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 
 _REMIX_SUFFIXES = [
@@ -134,10 +133,7 @@ def is_compilation(tracks: list) -> bool:
     artist_set = {a for a in artists if a}
     if len(artist_set) > 1:
         return True
-    for aa in albumartists:
-        if normalize_artist_name(aa) == "various artists":
-            return True
-    return False
+    return any(normalize_artist_name(aa) == "various artists" for aa in albumartists)
 
 
 @dataclass(frozen=True)

@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from ui.central.central_styles import (
     glass_button_qss, table_qss, table_header_qss,
     card_desc_qss, transparent_scrollbar_qss,
-    section_title_qss, section_subtitle_qss,
+    section_title_qss,
 )
 from ui.effects.michi_glass import AcrylicBrush
 
@@ -140,7 +140,7 @@ class AlbumDetailView(QWidget):
 
     def _quality_for_track(self, t) -> str:
         sr = int(getattr(t, "sample_rate", 0) or 0)
-        bd = int(getattr(t, "bit_depth", 0) or 0)
+        int(getattr(t, "bit_depth", 0) or 0)
         ext = str(getattr(t, "ext", "") or "").lstrip(".").upper()
         if ext in ("DSF", "DFF"):
             return "DSD"

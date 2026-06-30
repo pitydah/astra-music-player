@@ -100,6 +100,42 @@ class VinylCaptureService(QObject):
         except Exception:
             return [{"name": "Default (autoaudiosrc)"}]
 
+    def get_level(self) -> float:
+        """Return current RMS level as a float 0..1 for calibration display.
+
+        Returns 0.0 if not recording or level cannot be computed.
+        """
+        if not self._is_recording or not self._pipeline:
+            return 0.0
+        try:
+            bus = self._pipeline.get_bus()
+            if bus:
+                msg = bus.peek()
+                while msg:
+                    if msg.type == Gst.MessageType.ELEMENT:
+                        s = msg.get_structure()
+                        if s and s.has_field("rms"):
+                            rms = s.get_double("rms")
+                            if rms is not None:
+                                return min(1.0, float(rms) * 10.0)
+                    msg = bus.peek()
+        except Exception:
+            pass
+        return 0.0
+
+    def get_recording_seconds(self) -> float:
+        """Return approximate recording duration in seconds."""
+        if not self._filepath or not os.path.exists(self._filepath):
+            return 0.0
+        try:
+            size = os.path.getsize(self._filepath)
+            bytes_per_sec = self._sample_rate * (self._bit_depth // 8) * self._channels
+            if bytes_per_sec > 0:
+                return size / bytes_per_sec
+        except OSError:
+            pass
+        return 0.0
+
     def cleanup(self):
         if self._pipeline:
             import contextlib

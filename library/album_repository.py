@@ -7,12 +7,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 from library.album_identity import (
     AlbumIdentity, compute_album_identity, make_canonical_album_identity,
-    normalize_album_title, normalize_artist_name, detect_album_artist,
-    is_compilation,
+    normalize_album_title,
 )
 from metadata.album_summary import AlbumSummary
 
@@ -183,7 +181,7 @@ class AlbumRepository:
 
     def find_duplicate_candidates(self) -> list:
         """Find potential duplicate album groups."""
-        items = self.list_groups()
+        self.list_groups()
         candidates = []
         keys = list(self._groups.keys())
         for i in range(len(keys)):
@@ -207,7 +205,6 @@ class AlbumRepository:
         sample_rates = {}
         bit_depths = {}
         total_bitrate = 0
-        gain_count = 0
         has_dsd = False
 
         for t in tracks:

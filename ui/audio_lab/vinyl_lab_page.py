@@ -10,6 +10,8 @@ import logging
 import os
 import tempfile
 
+import numpy as np
+
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -39,6 +41,8 @@ class VinylLabPage(QWidget):
         self._is_recording = False
         self._waveform_data: list[float] = []
         self._split_points: list[float] = []
+        self._monitor_active = False
+        self._monitor_timer = None
         self._build_ui()
 
     def _build_ui(self):
@@ -325,7 +329,40 @@ class VinylLabPage(QWidget):
     # ── Actions ──
 
     def _toggle_monitor(self):
-        logger.info("Monitor toggled (placeholder — requires GStreamer capture)")
+        if not self._capture:
+            from vinyl.capture_service import VinylCaptureService
+            try:
+                self._capture = VinylCaptureService()
+            except Exception as e:
+                QMessageBox.warning(
+                    self, "Vinyl Lab",
+                    f"No se pudo inicializar la captura: {e}"
+                )
+                return
+
+        if hasattr(self, '_monitor_timer') and self._monitor_timer.isActive():
+            self._monitor_timer.stop()
+            self._monitor_active = False
+            self._cal_btn.setText("Iniciar monitoreo")
+            self._cal_level.setValue(0)
+            self._peak_label.setText("Peak: -- dB")
+        else:
+            self._monitor_timer = QTimer()
+            self._monitor_timer.timeout.connect(self._update_monitor)
+            self._monitor_timer.start(200)
+            self._monitor_active = True
+            self._cal_btn.setText("Detener monitoreo")
+
+    def _update_monitor(self):
+        if not self._capture:
+            return
+        level = self._capture.get_level()
+        self._cal_level.setValue(int(level * 100))
+        if level > 0:
+            db = 20 * np.log10(max(level, 0.001))
+            self._peak_label.setText(f"Peak: {db:.1f} dB")
+        else:
+            self._peak_label.setText("Peak: -- dB")
 
     def _toggle_recording(self):
         if not self._capture:
@@ -366,7 +403,12 @@ class VinylLabPage(QWidget):
                 self._rec_progress.setVisible(True)
                 self._rec_timer = QTimer()
                 self._rec_timer.timeout.connect(self._update_rec_time)
-                self._rec_timer.start(1000)
+                self._rec_timer.start(200)
+                if not self._monitor_active:
+                    self._monitor_timer = QTimer()
+                    self._monitor_timer.timeout.connect(self._update_monitor)
+                    self._monitor_timer.start(200)
+                    self._monitor_active = True
         else:
             self._capture.stop_recording()
             self._is_recording = False
@@ -400,14 +442,9 @@ class VinylLabPage(QWidget):
     def _update_rec_time(self):
         if self._capture and self._capture.is_recording:
             try:
-                import os
-                fp = self._side_a_path or self._side_b_path
-                if fp and os.path.exists(fp):
-                    secs = os.path.getsize(fp) // (
-                        self._sr_combo.currentData() or 96000
-                    ) // 4 // 2
-                    m, s = divmod(secs, 60)
-                    self._rec_time.setText(f"{m:02d}:{s:02d}")
+                secs = self._capture.get_recording_seconds()
+                m, s = divmod(int(secs), 60)
+                self._rec_time.setText(f"{m:02d}:{s:02d}")
             except Exception:
                 pass
 

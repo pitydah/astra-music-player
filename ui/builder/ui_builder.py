@@ -343,6 +343,24 @@ class UIBuilder:
         w._album_detail_view = AlbumDetailView()
         w._album_detail_view.back_requested.connect(lambda: w._nav_ctrl.navigate_back())
         w._album_detail_view.track_play_requested.connect(w._play_file)
+        w._album_detail_view.play_album_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.play_album(tracks))
+        w._album_detail_view.queue_album_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.queue_album(tracks))
+        w._album_detail_view.play_next_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.play_next_album(tracks))
+        w._album_detail_view.playlist_album_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.create_playlist_from_tracks(tracks))
+        w._album_detail_view.metadata_album_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.edit_album_metadata(tracks))
+        w._album_detail_view.cover_album_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.search_or_change_cover(tracks))
+        w._album_detail_view.quality_album_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.analyze_album_quality(tracks))
+        w._album_detail_view.send_to_server_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.send_album_to_server(tracks))
+        w._album_detail_view.sync_mobile_requested.connect(
+            lambda tracks, _w=w: _w._album_ctrl.sync_album_to_mobile(tracks))
 
         w._albums_stack = QStackedWidget()
         w._albums_stack.setObjectName("albumsStack")
