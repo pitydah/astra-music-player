@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QSplitter, QTableView,
+    QWidget, QVBoxLayout, QSplitter, QTableView, QScrollArea,
 )
 
 from library.mediaitem_table_model import MediaItemTableModel
@@ -76,7 +76,13 @@ class SongsPremiumPage(QWidget):
         self._detail_panel = SongsDetailPanel()
         splitter.addWidget(self._detail_panel)
 
-        outer.addWidget(splitter, 1)
+        # Wrap splitter in scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        scroll.setWidget(splitter)
+        outer.addWidget(scroll, 1)
 
         # Bulk action bar
         self._bulk_bar = SongsBulkActionBar(self)

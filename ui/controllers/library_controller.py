@@ -191,10 +191,36 @@ class LibraryController(QObject):
         """Lazy-create and display library hub page."""
         w = self._win
         if w._library_hub_page is None:
+            from PySide6.QtWidgets import QStackedWidget
+            from ui.library.songs_premium_page import SongsPremiumPage
+            from ui.controllers.songs_controller import SongsController
+
+            # Create premium songs page + wrap with grid in a stack
+            songs_ctrl = getattr(w, '_songs_ctrl', None)
+            if songs_ctrl is None:
+                songs_ctrl = SongsController(w)
+                w._songs_ctrl = songs_ctrl
+            self._songs_premium_page = SongsPremiumPage()
+            self._songs_premium_page.set_controller(songs_ctrl)
+
+            # Replace _songs_stack with a new stacked widget
+            songs_stack = QStackedWidget()
+            songs_stack.addWidget(self._songs_premium_page)  # index 0 = premium list
+            songs_stack.addWidget(w._song_grid)              # index 1 = grid
+            w._songs_stack = songs_stack
+
+            songs_ctrl.load()
+            fav_ids = songs_ctrl.status_service._fav_ids
+            status_cache = songs_ctrl.status_service._quality_cache
+            self._songs_premium_page.load_data(
+                songs_ctrl.get_display_items(),
+                fav_ids=fav_ids, status_cache=status_cache,
+            )
+
             from ui.hubs.library_hub_page import LibraryHubPage
             w._library_hub_page = LibraryHubPage(
                 db=w._db, window=w,
-                songs_widget=w._songs_stack,
+                songs_widget=songs_stack,
                 albums_widget=w._albums_stack,
                 artists_widget=w._artists_stack,
                 genres_widget=w._genres_stack,
