@@ -1,15 +1,20 @@
-"""Spectral Authenticator — detect fake hi-res / upsampled audio via FFT analysis.
+"""Spectral Authenticator — evaluate spectral coherence of PCM audio via FFT.
 
-Uses numpy FFT to analyse the spectral content of a PCM audio file and
+Uses numpy FFT to analyse the spectral content of a WAV PCM file and
 estimate whether the declared sample rate / bit depth is authentic.
+
+This is an experimental, probabilistic analysis. It is NOT a definitive
+proof of authenticity, upsampling, or lossy transcoding.
 
 Output: dict with keys:
   - verdict: HI_RES_COHERENT | LOSSLESS_COHERENT | POSSIBLE_LOSSY_SOURCE |
              SUSPICIOUS_UPSAMPLING | INCONCLUSIVE | ANALYSIS_ERROR
   - label: human-readable short label in Spanish
   - explanation: technical explanation
-  - metrics: dict with spectral_rolloff_95, energy_16k, energy_18k, energy_20k,
-             noise_floor, declared_sr, effective_sr
+  - confidence: float 0..1
+  - metrics: dict with spectral_rolloff_95/99, energy_16k/18k/20k,
+             effective_ceiling_hz, cutoff_detected, segments_analysed,
+             nyquist_hz, declared_sample_rate, declared_bit_depth
 """
 
 from __future__ import annotations

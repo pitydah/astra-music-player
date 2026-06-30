@@ -1,7 +1,9 @@
 """Diagnostics service — analyse single files or directories using format_probe and quality_classifier.
 
-Reuses existing audio/format_probe.py and audio/quality_classifier.py.
-No fake hi-res detection yet (SpectralAuthenticator is separate).
+Reuses audio/format_probe.py, audio/quality_classifier.py and
+core/audio_analysis/spectral_authenticator.py for spectral analysis.
+Includes experimental spectral coherence analysis for WAV PCM.
+Results are probabilistic and not conclusive.
 """
 
 from __future__ import annotations
