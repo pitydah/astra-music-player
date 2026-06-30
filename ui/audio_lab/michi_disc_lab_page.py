@@ -165,6 +165,12 @@ class MichiDiscLabPage(QWidget):
         p_layout.addWidget(profile_label)
 
         self._profile_combo = QComboBox()
+        self._profile_combo.setStyleSheet(
+            "QComboBox { background: rgba(255,255,255,0.055); "
+            "border: 1px solid rgba(255,255,255,0.05); "
+            "border-radius: 8px; padding: 6px 10px; "
+            "color: rgba(255,255,255,0.86); font-size: 12px; }"
+        )
         self._profile_data: list[str] = []
         for p in RIP_PROFILES:
             if p.available:
@@ -172,6 +178,9 @@ class MichiDiscLabPage(QWidget):
             else:
                 self._profile_combo.addItem(f"{p.name} (próximamente)")
         self._profile_combo.setCurrentIndex(0)
+        self._profile_combo.currentIndexChanged.connect(
+            self._on_profile_changed
+        )
 
         mode_label = QLabel("Modo:")
         mode_label.setStyleSheet("color: rgba(255,255,255,0.62); font-size: 12px;")
@@ -354,6 +363,17 @@ class MichiDiscLabPage(QWidget):
             s = int(dur % 60)
             self._track_table.setItem(i, 3, QTableWidgetItem(f"{m}:{s:02d}"))
             self._track_table.setItem(i, 4, QTableWidgetItem("Pendiente"))
+
+    def _on_profile_changed(self, idx: int):
+        count_available = sum(1 for p in RIP_PROFILES if p.available)
+        if idx >= count_available:
+            self._import_btn.setEnabled(False)
+            self._drive_status.setText(
+                "Perfil no disponible. Selecciona WAV sin compresión u otro perfil disponible."
+            )
+        else:
+            self._import_btn.setEnabled(True)
+            self._drive_status.setText("")
 
     def _on_import_disc(self):
         drive = getattr(self, '_current_drive', '') or self._detection.get_default_drive()
