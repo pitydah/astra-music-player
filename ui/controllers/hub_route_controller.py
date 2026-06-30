@@ -198,8 +198,9 @@ class HubRouteController:
 
     def show_audio_lab_artwork(self, key: str = ""):
         def _build():
+            w = self._win
             from ui.audio_lab.artwork_page import ArtworkPage
-            page = ArtworkPage()
+            page = ArtworkPage(db=getattr(w, '_db', None))
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
             return page
         self._lazy("audio_lab_artwork", _build)
