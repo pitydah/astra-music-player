@@ -784,19 +784,7 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(50, self._home_audio_view.refresh_if_needed)
 
     def _show_assistant(self, key=None):
-        from ui.controllers.ai_assistant_controller import AiAssistantController
-        if self._assistant_ctrl is None:
-            self._assistant_ctrl = AiAssistantController(
-                db=self._db, worker_manager=self._workers,
-                playback=self._playback,
-                safe_mode=self._safe_mode,
-                parent=self,
-            )
-            self._assistant_ctrl.set_context_service(self._context_svc)
-        self._assistant_ctrl.show_assistant(self, self._views, panel=getattr(self, '_assistant_panel', None))
-        ctx = self._context_svc
-        if ctx:
-            ctx.record_assistant_opened()
+        self._hub_route_ctrl.show_assistant(key)
 
     def _on_assistant_state(self, state: str):
         if self._assistant_panel:

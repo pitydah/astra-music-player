@@ -20,6 +20,7 @@ Output: dict with keys:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import numpy as np
@@ -200,6 +201,10 @@ def _verdict_from_metrics(metrics: dict[str, float],
     segs = metrics.get("segments_analysed", 0)
 
     # Base confidence from segment count (more segments = more reliable)
+    if segs < 3:
+        return ("INCONCLUSIVE", "No concluyente",
+                "Muy pocos segmentos analizados para una evaluación "
+                "significativa. El archivo puede ser demasiado corto.", 0.05)
     base_conf = min(1.0, segs / 20.0) if segs else 0.1
 
     # Hi-Res coherence: declared >= 96kHz
@@ -342,5 +347,19 @@ def analyse_spectral(filepath: str,
 
 
 def can_analyse(filepath: str) -> bool:
-    """Check if spectral analysis is possible for this file."""
-    return filepath.lower().endswith(".wav")
+    """Check if spectral analysis is possible for this file.
+
+    Returns True if the file has a .wav extension and, when the file exists,
+    has a valid WAV header (RIFF + WAVE signature). Non-existent files
+    return True based on extension alone (analyse_spectral will error later).
+    """
+    if not filepath.lower().endswith(".wav"):
+        return False
+    if not os.path.isfile(filepath):
+        return True  # Let analyse_spectral handle the missing file error
+    try:
+        with open(filepath, "rb") as f:
+            header = f.read(12)
+        return header[:4] == b"RIFF" and header[8:12] == b"WAVE"
+    except OSError:
+        return False

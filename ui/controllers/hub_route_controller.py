@@ -121,3 +121,21 @@ class HubRouteController:
             from ui.metadata_review_panel import MetadataReviewPanel
             return MetadataReviewPanel()
         self._lazy("metadata_review", _build)
+
+    def show_assistant(self, key: str = ""):
+        w = self._win
+        if getattr(w, '_assistant_ctrl', None) is None:
+            from ui.controllers.ai_assistant_controller import AiAssistantController
+            w._assistant_ctrl = AiAssistantController(
+                db=w._db, worker_manager=w._workers,
+                playback=w._playback, safe_mode=w._safe_mode,
+                parent=w,
+            )
+            ctx = getattr(w, '_context_svc', None)
+            if ctx:
+                w._assistant_ctrl.set_context_service(ctx)
+        w._assistant_ctrl.show_assistant(
+            w, w._views, panel=getattr(w, '_assistant_panel', None))
+        ctx = getattr(w, '_context_svc', None)
+        if ctx:
+            ctx.record_assistant_opened()

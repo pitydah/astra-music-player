@@ -1,6 +1,6 @@
 """Tests: MichiLinkController — API, mDNS, sync manager."""
 
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 
 class TestMichiLinkController:

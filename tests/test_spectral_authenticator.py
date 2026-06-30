@@ -1,6 +1,10 @@
-"""Tests for the spectral authenticator (fake hi-res detection)."""
+"""Tests for the spectral authenticator (coherencia espectral Hi-Res)."""
 
 from __future__ import annotations
+
+import os
+import tempfile
+import wave
 
 import numpy as np
 from core.audio_analysis.spectral_authenticator import (
@@ -49,6 +53,7 @@ class TestSpectralAuthenticator:
             "energy_above_16k": 1e-8,
             "energy_above_18k": 1e-9,
             "energy_above_20k": 1e-10,
+            "segments_analysed": 30,
         }
         verdict, label, _expl, conf = _verdict_from_metrics(metrics, 192000, 24)
         assert verdict == "SUSPICIOUS_UPSAMPLING"
@@ -106,3 +111,79 @@ class TestSpectralAuthenticator:
     def test_analyse_spectral_nonwav_file(self):
         result = analyse_spectral("/path/to/song.flac")
         assert result["verdict"] == "ANALYSIS_ERROR"
+
+    def test_can_analyse_validates_wav_header(self):
+        assert can_analyse("song.wav")
+        assert not can_analyse("song.flac")
+        assert not can_analyse("song.mp3")
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(b"RIFF\x00\x00\x00\x00WAVE")
+            path = f.name
+        try:
+            assert can_analyse(path)
+        finally:
+            os.unlink(path)
+
+    def test_can_analyse_rejects_non_wav_header(self):
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(b"NOT A WAV FILE")
+            path = f.name
+        try:
+            assert not can_analyse(path)
+        finally:
+            os.unlink(path)
+
+    def test_analyse_32bit_pcm_no_crash(self):
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            path = f.name
+        try:
+            sr = 44100
+            frames = int(sr * 1)
+            data = np.array([0, 1000000, -1000000, 2147483647], dtype=np.int32)
+            data = np.tile(data, frames // 4)
+            with wave.open(path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(4)
+                wf.setframerate(sr)
+                wf.writeframes(data.tobytes())
+            result = analyse_spectral(path, sr, 32)
+            assert result["verdict"] in (
+                "LOSSLESS_COHERENT", "INCONCLUSIVE", "ANALYSIS_ERROR",
+            )
+        finally:
+            os.unlink(path)
+
+    def test_analyse_corrupt_wav(self):
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(b"RIFF\x00\x00\x00\x00WAVE\x00\x00\x00\x00")
+            path = f.name
+        try:
+            result = analyse_spectral(path, 44100, 16)
+            assert result["verdict"] == "ANALYSIS_ERROR"
+        finally:
+            os.unlink(path)
+
+    def test_metrics_contain_required_keys(self):
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            path = f.name
+        try:
+            sr = 44100
+            frames = int(sr * 2)
+            t = np.linspace(0, 2, frames, endpoint=False)
+            tone = (0.5 * np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
+            with wave.open(path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sr)
+                wf.writeframes(tone.tobytes())
+            result = analyse_spectral(path, sr, 16)
+            metrics = result.get("metrics", {})
+            if result["verdict"] != "ANALYSIS_ERROR":
+                for key in ("nyquist_hz", "effective_ceiling_hz",
+                            "segments_analysed", "declared_sample_rate",
+                            "declared_bit_depth"):
+                    assert key in metrics, f"Missing metric: {key}"
+                assert "confidence" in result
+                assert 0 <= result["confidence"] <= 1.0
+        finally:
+            os.unlink(path)
