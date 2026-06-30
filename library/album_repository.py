@@ -135,11 +135,21 @@ class AlbumRepository:
         self._groups = {}
         groups: dict[str, list] = {}
 
+        # First pass: group by album title
+        temp_groups: dict[str, list] = {}
         for item in items:
-            key = make_canonical_album_identity([item])
+            album = normalize_album_title(str(getattr(item, "album", "") or ""))
+            if album not in temp_groups:
+                temp_groups[album] = []
+            temp_groups[album].append(item)
+
+        # Second pass: compute canonical key for each temp group
+        for _, track_list in temp_groups.items():
+            key = make_canonical_album_identity(track_list)
             if key not in groups:
-                groups[key] = []
-            groups[key].append(item)
+                groups[key] = track_list
+            else:
+                groups[key].extend(track_list)
 
         for key, track_list in groups.items():
             identity = compute_album_identity(track_list)

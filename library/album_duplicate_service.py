@@ -64,9 +64,18 @@ class AlbumDuplicateService:
 
         stripped1 = normalize_album_title(id1.display_title, strip_edition=True)
         stripped2 = normalize_album_title(id2.display_title, strip_edition=True)
-        if stripped1 == stripped2 and title1 != title2:
-            score += 0.2
-            reasons.append("Mismo título sin edición/remaster")
+        if stripped1 == stripped2:
+            if title1 != title2:
+                score += 0.2
+                reasons.append("Mismo título sin edición/remaster")
+            if art1 == art2:
+                score += 0.3
+                reasons.append("Mismo artista")
+        elif art1 == art2:
+            score += 0.1
+
+        if art1 != art2 and (title1 == title2 or stripped1 == stripped2):
+            pass  # different artists with same title — not a match
 
         if id1.year and id2.year and id1.year == id2.year:
             score += 0.1

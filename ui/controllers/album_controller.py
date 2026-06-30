@@ -55,9 +55,9 @@ class AlbumController:
                 pb.enqueue(fps, play_now=True)
         self._toast(f"Reproduciendo {len(fps)} canciones", "info")
         ctx = self._context_svc
-        if ctx and hasattr(ctx, "record_event"):
+        if ctx and hasattr(ctx, "record_queue_updated"):
             with contextlib.suppress(Exception):
-                ctx.record_event("album_played", {"track_count": len(fps)})
+                ctx.record_queue_updated(count=len(fps), source="album")
 
     def queue_album(self, tracks: list) -> None:
         fps = self._filepaths(tracks)
@@ -73,9 +73,9 @@ class AlbumController:
                 pc.enqueue_with_context(fps, play_now=False, source="album")
         self._toast(f"{len(fps)} canciones añadidas a la cola", "info")
         ctx = self._context_svc
-        if ctx and hasattr(ctx, "record_event"):
+        if ctx and hasattr(ctx, "record_queue_updated"):
             with contextlib.suppress(Exception):
-                ctx.record_event("album_queued", {"track_count": len(fps)})
+                ctx.record_queue_updated(count=len(fps), source="album")
 
     def play_next_album(self, tracks: list) -> None:
         fps = self._filepaths(tracks)
@@ -126,10 +126,9 @@ class AlbumController:
             self._win._rebuild_sidebar()
         self._toast(f"Playlist '{name.strip()}' creada con {len(fps)} canciones", "success")
         ctx = self._context_svc
-        if ctx and hasattr(ctx, "record_event"):
+        if ctx and hasattr(ctx, "record_playlist_created"):
             with contextlib.suppress(Exception):
-                ctx.record_event("playlist_created_from_album",
-                                 {"name": name, "track_count": len(fps)})
+                ctx.record_playlist_created(0, name.strip(), len(fps))
 
     def edit_album_metadata(self, tracks: list) -> None:
         w = self._win
@@ -197,9 +196,9 @@ class AlbumController:
         except Exception as e:
             self._toast(f"Error al analizar calidad: {e}", "error")
         ctx = self._context_svc
-        if ctx and hasattr(ctx, "record_event"):
+        if ctx and hasattr(ctx, "record_audio_analysis_finished"):
             with contextlib.suppress(Exception):
-                ctx.record_event("quality_analyzed", {"track_count": len(tracks)})
+                ctx.record_audio_analysis_finished({"track_count": len(tracks)})
 
     def send_album_to_server(self, tracks: list) -> None:
         try:

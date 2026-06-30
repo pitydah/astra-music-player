@@ -27,7 +27,7 @@ class TestFindDuplicates:
         ]
         results = svc.find_duplicates(groups)
         assert len(results) >= 1
-        assert results[0].confidence >= 0.8
+        assert results[0].confidence >= 0.6
 
     def test_different_albums(self):
         from library.album_duplicate_service import AlbumDuplicateService

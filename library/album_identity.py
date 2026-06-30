@@ -11,15 +11,15 @@ import unicodedata
 from dataclasses import dataclass
 
 
-_REMIX_PATTERN = re.compile(
-    r"[-–—\s]*(?:"
-    r"\((?:remaster(?:ed)?|deluxe\s+edition|expanded\s+edition|"
-    r"anniversary\s+edition|bonus\s+tracks?|special\s+edition)\)|"
-    r"\[(?:remaster(?:ed)?|deluxe\s+edition|expanded\s+edition|"
-    r"anniversary\s+edition|bonus\s+tracks?|special\s+edition)\]"
-    r")*\s*$",
-    re.IGNORECASE,
-)
+_EDITION_TOKENS = [
+    r"remaster(?:ed)?", r"deluxe\s+edition", r"expanded\s+edition",
+    r"anniversary\s+edition", r"bonus\s+tracks?", r"special\s+edition",
+]
+_EDITION_PATTERNS = [
+    re.compile(r"[-–—\s]*\(?" + tok + r"\)?[-–—\s]*", re.IGNORECASE)
+    for tok in _EDITION_TOKENS
+]
+_STRIP_PATTERN = re.compile(r"[\s\u00a0\u2000-\u200a\u202f\u205f\u3000]+")
 
 _STRIP_PATTERN = re.compile(r"[\s\u00a0\u2000-\u200a\u202f\u205f\u3000]+")
 _QUOTES_PATTERN = re.compile(r"[\u2018\u2019\u201a\u201b']")
@@ -43,7 +43,9 @@ def normalize_album_title(text: str, strip_edition: bool = False) -> str:
     """
     s = _fold(text)
     if strip_edition:
-        s = _REMIX_PATTERN.sub("", s).strip()
+        for pat in _EDITION_PATTERNS:
+            s = pat.sub("", s)
+        s = _STRIP_PATTERN.sub(" ", s).strip()
     return s
 
 
