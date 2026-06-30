@@ -70,11 +70,14 @@ class _FolderWorker(QObject):
 class DiagnosticsPage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self, worker_mgr=None, job_manager=None):
+    diagnostics_updated = Signal(list)  # list of filepaths
+
+    def __init__(self, worker_mgr=None, job_manager=None, db=None):
         super().__init__()
         self.setObjectName("diagnosticsPage")
         self._worker_mgr = worker_mgr
         self._job_manager = job_manager
+        self._db = db
         self._results: list[dict] = []
         self._cancelled = False
         self._worker_thread: QThread | None = None
@@ -321,6 +324,8 @@ class DiagnosticsPage(QWidget):
         from core.audio_lab.diagnostics_service import analyse_file
         result = analyse_file(fp)
         self._results = [result]
+        self._sync_result(result)
+        self.diagnostics_updated.emit([fp])
 
         self._populate_table()
         self._generate_report_btn.setEnabled(True)
@@ -438,11 +443,26 @@ class DiagnosticsPage(QWidget):
         self._worker_thread.finished.connect(self._worker_thread.deleteLater)
         self._worker_thread.start()
 
+    def _sync_result(self, result: dict):
+        if not self._db:
+            return
+        fp = result.get("filepath", "")
+        if not fp:
+            return
+        try:
+            from core.audio_lab.audio_lab_sync import sync_audio_lab_result_to_media_item
+            sync_audio_lab_result_to_media_item(
+                self._db._conn, fp, result,
+            )
+        except Exception:
+            pass
+
     @Slot(object)
     def _on_file_result(self, result: dict):
         if self._cancelled:
             return
         self._results.append(result)
+        self._sync_result(result)
         current = len(self._results)
         self._progress.setValue(min(current, self._total_files))
         self._progress_label.setText(
@@ -467,6 +487,9 @@ class DiagnosticsPage(QWidget):
             self._worker_thread = None
         self._worker_obj = None
         if self._results:
+            synced = [r.get("filepath", "") for r in self._results if r.get("filepath")]
+            if synced:
+                self.diagnostics_updated.emit(synced)
             self._populate_table()
             self._generate_report_btn.setEnabled(True)
             self._show_report()

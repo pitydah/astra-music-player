@@ -54,6 +54,12 @@ class AlbumGridWidget(QWidget):
     open_folder_requested = Signal(str)
     details_requested = Signal(object)
     add_folder_requested = Signal()
+    metadata_requested = Signal(object)
+    quality_requested = Signal(object)
+    send_to_server_requested = Signal(object)
+    sync_mobile_requested = Signal(object)
+    duplicate_review_requested = Signal(object)
+    play_next_requested = Signal(list)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -286,6 +292,22 @@ class AlbumGridWidget(QWidget):
             return [g for g in groups if any(
                 (getattr(t, 'ext', '') or '').lower().lstrip('.') == ext
                 for t in g.data.get("tracks", []))]
+        if mode == "quality_hires":
+            return [g for g in groups if any(
+                int(getattr(t, 'sample_rate', 0) or 0) > 48000
+                for t in g.data.get("tracks", []))]
+        if mode == "quality_lossless":
+            return [g for g in groups if any(
+                (getattr(t, 'ext', '') or '').upper().lstrip('.') in ("FLAC", "ALAC", "WAV", "AIFF")
+                for t in g.data.get("tracks", []))]
+        if mode == "quality_lossy":
+            return [g for g in groups if any(
+                (getattr(t, 'ext', '') or '').upper().lstrip('.') in ("MP3", "AAC", "OGG", "OPUS")
+                for t in g.data.get("tracks", []))]
+        if mode == "dsd":
+            return [g for g in groups if any(
+                (getattr(t, 'ext', '') or '').upper().lstrip('.') in ("DSF", "DFF", "DSD")
+                for t in g.data.get("tracks", []))]
         return groups
 
     # ── selection ──
@@ -313,8 +335,20 @@ class AlbumGridWidget(QWidget):
             self.queue_requested.emit(fps)
         elif action == "playlist":
             self.playlist_requested.emit(fps)
+        elif action == "play_next":
+            self.play_next_requested.emit(fps)
         elif action == "cover":
             self.cover_search_requested.emit(group)
+        elif action == "metadata":
+            self.metadata_requested.emit(group)
+        elif action == "quality":
+            self.quality_requested.emit(group)
+        elif action == "server":
+            self.send_to_server_requested.emit(group)
+        elif action == "mobile":
+            self.sync_mobile_requested.emit(group)
+        elif action == "duplicates":
+            self.duplicate_review_requested.emit(group)
         elif action == "folder":
             if fps:
                 import os
@@ -512,6 +546,10 @@ class _AlbumCard(QFrame):
         # Detect special states for badge coloring
         no_cover = cover_item.pixmap is None or cover_item.pixmap.isNull()
         incomplete = count < 2
+        has_hires = any(int(getattr(t, 'sample_rate', 0) or 0) > 48000 for t in tracks)
+        has_dsd = any((getattr(t, 'ext', '') or '').upper().lstrip('.') in ("DSF", "DFF") for t in tracks)
+        has_lossy = any((getattr(t, 'ext', '') or '').upper().lstrip('.') in ("MP3", "AAC", "OGG", "OPUS") for t in tracks)
+        has_lossless = any((getattr(t, 'ext', '') or '').upper().lstrip('.') in ("FLAC", "ALAC", "WAV", "AIFF") for t in tracks)
 
         badge_texts = []
         if fmt_str:
@@ -520,6 +558,14 @@ class _AlbumCard(QFrame):
             badge_texts.append("Sin carátula")
         if incomplete:
             badge_texts.append("Incompleto")
+        if has_dsd:
+            badge_texts.append("DSD")
+        elif has_hires:
+            badge_texts.append("Hi-Res")
+        elif has_lossy and not has_lossless:
+            badge_texts.append("Lossy")
+        elif has_lossless and not has_lossy:
+            pass  # lossless is default, no badge needed
 
         if badge_texts:
             badge = QLabel("  ·  ".join(badge_texts))
@@ -580,23 +626,43 @@ class _AlbumCard(QFrame):
         menu.setStyleSheet(menu_qss())
 
         play_action = menu.addAction("Reproducir álbum")
+        play_next_action = menu.addAction("Reproducir después")
         queue_action = menu.addAction("Añadir a la cola")
         menu.addSeparator()
         playlist_action = menu.addAction("Crear playlist")
         menu.addSeparator()
-        cover_action = menu.addAction("Buscar carátula")
+        metadata_action = menu.addAction("Editar metadata")
+        cover_action = menu.addAction("Buscar/Cambiar carátula")
+        quality_action = menu.addAction("Analizar calidad")
+        duplicates_action = menu.addAction("Revisar duplicados")
+        menu.addSeparator()
+        server_action = menu.addAction("Enviar a Michi Micro Server")
+        mobile_action = menu.addAction("Sincronizar a Michi Mobile")
+        menu.addSeparator()
         folder_action = menu.addAction("Abrir carpeta")
         details_action = menu.addAction("Ver detalles")
 
         action_chosen = menu.exec(event.globalPos())
         if action_chosen == play_action:
             self.context_action.emit("play")
+        elif action_chosen == play_next_action:
+            self.context_action.emit("play_next")
         elif action_chosen == queue_action:
             self.context_action.emit("queue")
         elif action_chosen == playlist_action:
             self.context_action.emit("playlist")
+        elif action_chosen == metadata_action:
+            self.context_action.emit("metadata")
         elif action_chosen == cover_action:
             self.context_action.emit("cover")
+        elif action_chosen == quality_action:
+            self.context_action.emit("quality")
+        elif action_chosen == duplicates_action:
+            self.context_action.emit("duplicates")
+        elif action_chosen == server_action:
+            self.context_action.emit("server")
+        elif action_chosen == mobile_action:
+            self.context_action.emit("mobile")
         elif action_chosen == folder_action:
             self.context_action.emit("folder")
         elif action_chosen == details_action:

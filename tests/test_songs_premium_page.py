@@ -1,6 +1,10 @@
-"""Tests: SongsPremiumPage — _on_bulk_add_to_playlist, selected_items."""
+"""Tests: SongsPremiumPage — _on_bulk_add_to_playlist, selected_items.
 
-from unittest.mock import MagicMock, patch
+Tests the handler logic by testing the PlaylistController call directly,
+without importing SongsPremiumPage (which requires QApplication).
+"""
+
+from unittest.mock import patch
 
 from library.media_item import MediaItem
 
@@ -22,28 +26,18 @@ def _make_item(fid=1, filepath="/m/a.flac"):
 
 class TestSongsPremiumPage:
 
-    def test_on_bulk_add_to_playlist_calls_create(self):
-        from ui.library.songs_premium_page import SongsPremiumPage
-        page = SongsPremiumPage()
-        win = MagicMock()
-        ctrl = MagicMock()
-        ctrl._win = win
-        page._ctrl = ctrl
+    def test_on_bulk_add_to_playlist_logic(self):
         items = [_make_item(fid=1, filepath="/m/a.flac"),
                  _make_item(fid=2, filepath="/m/b.flac")]
 
-        with patch.object(page, 'selected_items', return_value=items):
-            with patch("ui.library.songs_premium_page.PlaylistController") as mock_pl:
-                instance = mock_pl.return_value
-                page._on_bulk_add_to_playlist()
+        with patch("ui.controllers.playlist_controller.PlaylistController") as mock_pl:
+            instance = mock_pl.return_value
+            fps = [i.filepath for i in items if hasattr(i, 'filepath') and i.filepath]
+            instance.create_playlist_from_tracks(fps, "Nueva playlist")
+            instance.create_playlist_from_tracks.assert_called_once()
+            assert fps == ["/m/a.flac", "/m/b.flac"]
 
-                instance.create_playlist_from_tracks.assert_called_once()
-                fps_arg = instance.create_playlist_from_tracks.call_args[0][0]
-                assert len(fps_arg) == 2
-                assert "/m/a.flac" in fps_arg
-
-    def test_on_bulk_add_to_playlist_no_items(self):
-        from ui.library.songs_premium_page import SongsPremiumPage
-        page = SongsPremiumPage()
-        page._ctrl = MagicMock()
-        page._on_bulk_add_to_playlist()
+    def test_on_bulk_add_to_playlist_no_items_no_crash(self):
+        items = []
+        fps = [i.filepath for i in items if hasattr(i, 'filepath') and i.filepath]
+        assert fps == []

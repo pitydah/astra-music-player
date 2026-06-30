@@ -125,6 +125,18 @@ def _build_field_clause(term: FieldTerm) -> tuple[str, list]:
             return "directory LIKE ?", [f"%{term.value}%"]
         if col == "filename":
             return "filename LIKE ?", [f"%{term.value}%"]
+        # Technical filter fields
+        if col == "spectral_verdict":
+            if term.value == "suspicious":
+                return ("spectral_verdict IN "
+                        "('SUSPICIOUS_UPSAMPLING','POSSIBLE_LOSSY_SOURCE')", [])
+            return "spectral_verdict = ?", [term.value.upper()]
+        if col == "analysis_status":
+            if term.value == "pending":
+                return ("(analysis_status = 'pending' OR analysis_status = '')", [])
+            return "analysis_status = ?", [term.value.lower()]
+        if col == "quality":
+            return "quality = ?", [term.value.lower()]
         # Default: LIKE match for text columns
         return f"{col} LIKE ?", [f"%{term.value}%"]
 

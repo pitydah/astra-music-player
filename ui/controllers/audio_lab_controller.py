@@ -96,8 +96,9 @@ class AudioLabController:
             page = AudioLabDiagnosticsPage(
                 worker_mgr=getattr(w, '_workers', None),
                 job_manager=jm,
+                db=getattr(w, '_db', None),
             )
-            page.navigate_requested.connect(self._win._on_sidebar_navigate)
+            page.navigate_requested.connect(w._on_sidebar_navigate)
             return page
         self._lazy("audio_lab_diagnostics", _build)
 

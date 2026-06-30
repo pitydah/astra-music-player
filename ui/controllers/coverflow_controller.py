@@ -1,5 +1,6 @@
 """CoverFlow controller — 3D album browser actions: play, queue, snap, enrich, banner."""
 import hashlib
+import logging
 import os
 
 from PySide6.QtCore import QUrl
@@ -8,6 +9,8 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from library.album_art import load_cover_pixmap, load_covers_for_albums
 from library.coverflow import CoverFlowWidget
+
+logger = logging.getLogger("michi.coverflow_controller")
 
 
 def _album_key(item, tracks: list = None) -> str:
@@ -217,6 +220,22 @@ class CoverFlowController:
             cover_pix = cf.center_pixmap()
             if cover_pix and not cover_pix.isNull():
                 self._win._album_banner.set_cover_pixmap(cover_pix)
+
+            # Add quality info from AlbumRepository if available
+            try:
+                from library.album_repository import AlbumRepository
+                repo = AlbumRepository()
+                repo.build(tracks)
+                q = repo.get_quality_summary(repo.list_groups()[0].identity.album_key) if repo.list_groups() else None
+                if q and q.dominant_quality != "unknown":
+                    quality_text = f"Calidad: {q.dominant_quality.upper()}"
+                    if q.dominant_sample_rate:
+                        quality_text += f" · {q.dominant_sample_rate} kHz"
+                    if q.dominant_bit_depth:
+                        quality_text += f" · {q.dominant_bit_depth}-bit"
+                    self._win._album_banner.set_audio_quality(quality_text)
+            except Exception as exc:
+                logger.debug("AlbumRepository quality fallback: %s", exc)
 
             self.enrich_album_background(key, item, tracks)
 

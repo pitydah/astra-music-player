@@ -307,8 +307,25 @@ class UIBuilder:
             lambda fps, _w=w: _w._play_filepaths(fps, play_now=False))
         w._album_grid.playlist_requested.connect(
             lambda fps, _w=w: _w._album_ctrl.create_playlist(fps))
+        w._album_grid.play_next_requested.connect(
+            lambda fps, _w=w: _w._play_filepaths(fps, play_now=False) if w._playback.get_queue() else None)
         w._album_grid.cover_search_requested.connect(
             lambda group, _w=w: _w._album_ctrl.search_cover(group))
+        w._album_grid.metadata_requested.connect(
+            lambda group, _w=w: _w._album_ctrl.edit_album_metadata(
+                group.data.get("tracks", []) if group.data else []))
+        w._album_grid.quality_requested.connect(
+            lambda group, _w=w: _w._album_ctrl.analyze_album_quality(
+                group.data.get("tracks", []) if group.data else []))
+        w._album_grid.send_to_server_requested.connect(
+            lambda group, _w=w: _w._album_ctrl.send_album_to_server(
+                group.data.get("tracks", []) if group.data else []))
+        w._album_grid.sync_mobile_requested.connect(
+            lambda group, _w=w: _w._album_ctrl.sync_album_to_mobile(
+                group.data.get("tracks", []) if group.data else []))
+        w._album_grid.duplicate_review_requested.connect(
+            lambda group, _w=w: _w._album_ctrl.analyze_album_quality(
+                group.data.get("tracks", []) if group.data else []))
         w._album_grid.open_folder_requested.connect(
             lambda folder, _w=w: _w._album_ctrl.open_folder(folder))
         w._album_grid.details_requested.connect(
