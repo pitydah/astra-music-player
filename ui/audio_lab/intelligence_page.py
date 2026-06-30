@@ -360,22 +360,37 @@ class IntelligencePage(QWidget):
         self._refresh_status()
 
     def _show_bpm(self):
-        self.navigate_requested.emit("library_hub")
+        self._set_notice(
+            "Columna BPM pendiente de agregar a la tabla de Biblioteca. "
+            "Próximamente."
+        )
 
     def _show_key(self):
-        self.navigate_requested.emit("library_hub")
+        self._set_notice(
+            "Columna de tonalidad pendiente de agregar a la tabla de Biblioteca. "
+            "Próximamente."
+        )
 
     def _show_energy(self):
-        self.navigate_requested.emit("library_hub")
+        self._set_notice(
+            "Filtro de energía pendiente de conectar a Biblioteca. "
+            "Próximamente."
+        )
 
     def _show_similarity(self):
-        self._set_notice("Vista de similitud pendiente de conectar a Mix/Playlists.")
+        self._set_notice(
+            "Vista de similitud pendiente de conectar a Mix/Playlists."
+        )
         logger.info("Similarity view — pending implementation")
 
     def _play_local_radio(self):
-        self._set_notice("Radio local pendiente de conectar al generador de cola.")
+        self._set_notice(
+            "Radio local pendiente de conectar al generador de cola."
+        )
         logger.info("Local radio — pending implementation")
 
     def _create_smart_mix(self):
-        self._set_notice("Mix inteligente pendiente de conectar al motor de playlists.")
+        self._set_notice(
+            "Mix inteligente pendiente de conectar al motor de playlists."
+        )
         logger.info("Smart mix — pending implementation")
