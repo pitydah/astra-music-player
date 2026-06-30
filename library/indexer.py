@@ -60,6 +60,8 @@ class Indexer(QObject):
         self._max_errors = max_errors
         self._state = ScanState()
         self._cancelled = False
+        self._added_paths: list[str] = []
+        self._updated_paths: list[str] = []
 
     # ── Public API ──
 
@@ -135,8 +137,10 @@ class Indexer(QObject):
                         batch_writer.add(record)
                         if is_new:
                             self._state.added_count += 1
+                            self._added_paths.append(fp)
                         else:
                             self._state.updated_count += 1
+                            self._updated_paths.append(fp)
                     else:
                         self._state.skipped_count += 1
                 except Exception as e:
@@ -345,6 +349,31 @@ class Indexer(QObject):
                 idx.rebuild_fts()
         except Exception as e:
             logger.warning(f"Index rebuild failed: {e}")
+
+    def _analyse_new_files(self):
+        """Run Audio Lab diagnostics on newly added/updated files (best-effort)."""
+        if self._cancelled:
+            return
+        try:
+            from core.audio_lab.diagnostics_service import analyse_file
+            from core.audio_lab.audio_lab_sync import sync_audio_lab_result_to_media_item
+        except Exception:
+            return
+
+        paths = list(self._added_paths) + list(self._updated_paths)
+        if not paths:
+            return
+        total = len(paths)
+        for i, fp in enumerate(paths):
+            if self._cancelled:
+                break
+            try:
+                result = analyse_file(fp)
+                if not result.get("error"):
+                    sync_audio_lab_result_to_media_item(self._db.conn, fp, result)
+            except Exception:
+                pass
+            self._state.progress_pct = ((i + 1) / total) * 100
 
     def _schedule_enrichment(self):
         """Request MusicBrainz enrichment for newly indexed artists."""
