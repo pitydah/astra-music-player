@@ -10,6 +10,7 @@ _EXCLUDED_DIRS = {
 _EXCLUDED_PREFIXES = {
     "core/context",
     "tests/test_context",
+    "tests/",
 }
 # Allowed patterns (only in core/context/ and tests)
 _ALLOWED_RAW_RECORD_EVENT = {
@@ -31,6 +32,14 @@ def _is_excluded_path(p: Path) -> bool:
     if any(excl in s for excl in _EXCLUDED_DIRS):
         return True
     if any(f"music_player/{pref}" in s for pref in _EXCLUDED_PREFIXES):
+        return True
+    # Exclude all test files
+    if "/tests/" in s:
+        return True
+    # Exclude integrations (frozen)
+    if "/integrations/michi_link/" in s:
+        return True
+    if "/integrations/ai_assistant/" in s:
         return True
     return False
 

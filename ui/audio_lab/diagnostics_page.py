@@ -443,36 +443,68 @@ class DiagnosticsPage(QWidget):
         report = generate_report(self._results)
 
         lines = [
+            "=== Resumen general ===",
             f"Total archivos: {report['total_files']}",
             f"Tamaño total: {report['total_size_mb']} MB",
             f"Duración total: {report['total_duration_str']}",
             "",
-            "Formatos:",
+            "=== Formatos ===",
         ]
         for fmt, count in report["format_counts"].items():
             lines.append(f"  .{fmt}: {count} archivo(s)")
         lines.append("")
-        lines.append("Calidad:")
-        for cat, count in report["quality_counts"].items():
-            lines.append(f"  {cat}: {count}")
+        lines.append("=== Resolución ===")
         if report["sample_rates"]:
-            lines.append("")
             lines.append(
-                f"Frecuencias: {', '.join(str(s) for s in report['sample_rates'])} Hz"
+                f"  Frecuencias: {', '.join(str(s) for s in report['sample_rates'])} Hz"
             )
         if report["bit_depths"]:
             lines.append(
-                f"Profundidades: {', '.join(str(b) for b in report['bit_depths'])} bit"
+                f"  Profundidades: {', '.join(str(b) for b in report['bit_depths'])} bit"
             )
+        if report["channels"]:
+            lines.append(
+                f"  Canales: {', '.join(str(c) for c in report['channels'])}"
+            )
+        lines.append("")
+        lines.append("=== Calidad ===")
+        for cat, count in report["quality_counts"].items():
+            lines.append(f"  {cat}: {count}")
+        if report["lossless_count"]:
+            lines.append(f"  Lossless: {report['lossless_count']}")
+        if report["lossy_count"]:
+            lines.append(f"  Lossy: {report['lossy_count']}")
+        if report["hires_count"]:
+            lines.append(f"  Hi-Res: {report['hires_count']}")
+        if report["dsd_count"]:
+            lines.append(f"  DSD: {report['dsd_count']}")
+        if report["missing_bit_depth"]:
+            lines.append("")
+            lines.append(f"=== Sin bit depth ({len(report['missing_bit_depth'])}) ===")
+            for fp in report["missing_bit_depth"][:5]:
+                lines.append(f"  ⚠ {os.path.basename(fp)}")
+            if len(report["missing_bit_depth"]) > 5:
+                lines.append(f"  ... y {len(report['missing_bit_depth']) - 5} más")
+        if report["missing_duration"]:
+            lines.append("")
+            lines.append(f"=== Sin duración ({len(report['missing_duration'])}) ===")
+            for fp in report["missing_duration"][:5]:
+                lines.append(f"  ⚠ {os.path.basename(fp)}")
+            if len(report["missing_duration"]) > 5:
+                lines.append(f"  ... y {len(report['missing_duration']) - 5} más")
         if report["errors"]:
             lines.append("")
-            lines.append(f"Errores: {len(report['errors'])} archivo(s)")
-            for e in report["errors"][:5]:
+            lines.append(f"=== Problemas detectados ({len(report['errors'])}) ===")
+            for e in report["errors"][:10]:
                 lines.append(f"  ✗ {os.path.basename(e)}")
+            if len(report["errors"]) > 10:
+                lines.append(f"  ... y {len(report['errors']) - 10} más")
         if report["warnings"]:
             lines.append("")
-            lines.append(f"Advertencias: {len(report['warnings'])}")
+            lines.append(f"=== Advertencias ({len(report['warnings'])}) ===")
             for fp, w in report["warnings"][:5]:
                 lines.append(f"  ⚠ {os.path.basename(fp)}: {w}")
+            if len(report["warnings"]) > 5:
+                lines.append(f"  ... y {len(report['warnings']) - 5} más")
 
         self._report_label.setText("\n".join(lines))

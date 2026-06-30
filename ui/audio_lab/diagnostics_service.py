@@ -274,10 +274,9 @@ def analyse_file(filepath: str, use_cache: bool = True) -> dict[str, Any]:
     if use_cache and result["exists"] and not result.get("from_cache"):
         cache = _get_cache()
         if cache:
-            try:
+            import contextlib
+            with contextlib.suppress(Exception):
                 cache.put(filepath, result)
-            except Exception:
-                pass
 
     return result
 
@@ -374,14 +373,18 @@ def analyse_spectral(filepath: str) -> dict[str, Any]:
 
 
 def generate_report(results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Generate a summary report from a list of per-file analyses.
+    """Generate a comprehensive summary report from a list of per-file analyses.
 
     Returns dict with:
       - total_files, total_size_mb, total_duration_str
       - format_counts: {ext: count}
       - quality_counts: {category: count}
+      - lossless_count, lossy_count, hires_count, dsd_count
       - sample_rates: list of detected rates
       - bit_depths: list of detected depths
+      - channels_set: list of detected channel counts
+      - missing_bit_depth: list of filepaths without bit_depth
+      - missing_duration: list of filepaths without duration
       - errors: list of filepaths with errors
       - warnings: list of (filepath, warning) tuples
     """
@@ -392,26 +395,48 @@ def generate_report(results: list[dict[str, Any]]) -> dict[str, Any]:
     quality_counts: dict[str, int] = {}
     sample_rates: set[int] = set()
     bit_depths: set[int] = set()
+    channels_set: set[int] = set()
     errors: list[str] = []
     warnings: list[tuple[str, str]] = []
+    missing_bit_depth: list[str] = []
+    missing_duration: list[str] = []
+    lossless_count = 0
+    lossy_count = 0
+    hires_count = 0
+    dsd_count = 0
 
     for r in results:
         total_size += r.get("size_mb", 0)
         fi = r.get("format_info", {})
         if fi.get("duration"):
             total_secs += fi["duration"]
+        else:
+            missing_duration.append(r["filepath"])
         ext = os.path.splitext(r.get("filename", ""))[1].lower().lstrip(".")
         if ext:
             format_counts[ext] = format_counts.get(ext, 0) + 1
-        q = r.get("quality", {})
-        cat = q.get("category", "unknown")
-        quality_counts[cat] = quality_counts.get(cat, 0) + 1
+        chan = fi.get("channels", 0)
+        if chan:
+            channels_set.add(chan)
         sr = fi.get("sample_rate", 0)
         if sr:
             sample_rates.add(sr)
         bd = fi.get("bit_depth", 0)
         if bd:
             bit_depths.add(bd)
+        else:
+            missing_bit_depth.append(r["filepath"])
+        if fi.get("is_dsd"):
+            dsd_count += 1
+        if fi.get("is_lossless"):
+            lossless_count += 1
+        q = r.get("quality", {})
+        cat = q.get("category", "unknown")
+        quality_counts[cat] = quality_counts.get(cat, 0) + 1
+        if cat == "hires":
+            hires_count += 1
+        elif cat in ("lossy",):
+            lossy_count += 1
         if r.get("error"):
             errors.append(r["filepath"])
         for w in fi.get("warnings", []):
@@ -427,8 +452,15 @@ def generate_report(results: list[dict[str, Any]]) -> dict[str, Any]:
         "total_duration_str": dur,
         "format_counts": dict(sorted(format_counts.items())),
         "quality_counts": dict(sorted(quality_counts.items())),
+        "lossless_count": lossless_count,
+        "lossy_count": lossy_count,
+        "hires_count": hires_count,
+        "dsd_count": dsd_count,
         "sample_rates": sorted(sample_rates),
         "bit_depths": sorted(bit_depths),
+        "channels": sorted(channels_set),
+        "missing_bit_depth": missing_bit_depth,
+        "missing_duration": missing_duration,
         "errors": errors,
         "warnings": warnings,
     }

@@ -942,8 +942,7 @@ class MainWindow(QMainWindow):
         self._assistant_ctrl.show_assistant(self, self._views, panel=getattr(self, '_assistant_panel', None))
         ctx = self._context_svc
         if ctx:
-            from core.context.context_events import AppEvent
-            ctx.record_event(AppEvent.ASSISTANT_OPENED)
+            ctx.record_assistant_opened()
 
     def _on_assistant_state(self, state: str):
         self._assistant_panel.set_thinking(state == "thinking")

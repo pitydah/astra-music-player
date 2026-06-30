@@ -190,6 +190,17 @@ class ContextService:
             "folder_name": safe_name, "count": int(count or 0),
         })
 
+    def record_folder_scanned(self, folder_name: str = "") -> None:
+        import os
+        safe_name = os.path.basename(str(folder_name or ""))
+        self.record_event(AppEvent.FOLDER_SCANNED, {"folder_name": safe_name})
+
+    def record_assistant_opened(self) -> None:
+        self.record_event(AppEvent.ASSISTANT_OPENED)
+
+    def record_app_closed(self) -> None:
+        self.record_event(AppEvent.APP_CLOSED)
+
     # ── Queue ──
 
     def record_queue_updated(self, count: int, source: str = "",
