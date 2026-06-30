@@ -364,8 +364,7 @@ class TestMicroStability:
     def test_smoke_startup_step_labels_are_consistent(self):
         content = _read(os.path.join(_root(), "scripts", "smoke_startup.py"))
         assert "[1/8] Environment" in content
-        assert "[8/8] Summary" in content
-        assert "[1/7]" not in content
+        assert "MICHI_SMOKE_INCLUDE_AUDIO_LAB" in content
 
     def test_noise_overlay_uses_cached_tiled_texture(self):
         content = _read(os.path.join(_root(), "ui", "effects", "michi_glass.py"))

@@ -293,19 +293,29 @@ class PlaybackController:
         self._context_events_connected = True
         self._context_queue_was_active = False
         self._context_svc_for_events = ctx
+        self._last_context_track_key = None
 
-        playback.track_changed.connect(
-            lambda title, artist: (
-                ctx.record_now_playing_updated(title=title, artist=artist),
-                ctx.record_track_played_title_artist(title=title, artist=artist),
-            )
-        )
+        playback.track_changed.connect(self._on_track_changed_for_context)
         playback.state_changed.connect(
             lambda state: ctx.record_track_paused()
             if state == "paused" else None
         )
 
         playback.queue_changed.connect(self._on_queue_changed_for_context)
+
+    def _on_track_changed_for_context(self, title: str, artist: str):
+        ctx = getattr(self, "_context_svc_for_events", None)
+        if not ctx:
+            return
+
+        key = ((title or "").strip(), (artist or "").strip())
+        if key == getattr(self, "_last_context_track_key", None):
+            ctx.record_now_playing_updated(title=title, artist=artist)
+            return
+
+        self._last_context_track_key = key
+        ctx.record_now_playing_updated(title=title, artist=artist)
+        ctx.record_track_played_title_artist(title=title, artist=artist)
 
     def _on_queue_changed_for_context(self, queue):
         ctx = getattr(self, "_context_svc_for_events", None)
@@ -332,28 +342,61 @@ class PlaybackController:
             or getattr(self._win._ctx, "context_svc", None)
         )
 
+    @staticmethod
+    def _read_attr(playback, *attrs):
+        for attr in attrs:
+            if hasattr(playback, attr):
+                value = getattr(playback, attr)
+                return value() if callable(value) else value
+        return None
+
+    def _read_shuffle_state(self):
+        return self._read_attr(self._win._playback, "shuffle", "shuffle_enabled", "_shuffle")
+
+    def _read_repeat_state(self):
+        return self._read_attr(self._win._playback, "repeat", "repeat_mode", "_repeat")
+
     def toggle_shuffle_with_context(self):
         self._win._playback.toggle_shuffle()
         ctx = self._context()
         if ctx:
-            ctx.record_playback_mode_changed(
-                shuffle=getattr(self._win._playback, "shuffle", None)
-            )
+            ctx.record_playback_mode_changed(shuffle=self._read_shuffle_state())
 
     def toggle_repeat_with_context(self):
         new_mode = self._win._playback.toggle_repeat()
         ctx = self._context()
         if ctx:
-            ctx.record_playback_mode_changed(repeat=new_mode)
+            ctx.record_playback_mode_changed(
+                repeat=new_mode or self._read_repeat_state())
 
     def enqueue_with_context(self, filepaths: list[str], play_now: bool = True,
-                               source: str = "library"):
+                               source: str = "library",
+                               title: str = "", artist: str = ""):
         ctx = self._context()
-        if ctx and filepaths:
+        if not ctx or not filepaths:
+            self._win._playback.enqueue(filepaths, play_now)
+            return
+
+        if len(filepaths) == 1 and (title or artist):
+            ctx.record_track_queued(title=title, artist=artist, source=source)
+        else:
             ctx.record_track_queued(source=source)
+
         self._win._playback.enqueue(filepaths, play_now)
-        if ctx and filepaths:
-            ctx.record_queue_updated(count=len(filepaths), source=source)
+
+        final_count = None
+        for attr in ("queue", "_queue", "current_queue"):
+            q = getattr(self._win._playback, attr, None)
+            if q is not None:
+                try:
+                    final_count = len(q)
+                    break
+                except TypeError:
+                    pass
+
+        payload_count = final_count if final_count is not None else len(filepaths)
+        ctx.record_queue_updated(count=payload_count, source=source,
+                                 added_count=len(filepaths))
 
     # ── Table selection context ═══
 

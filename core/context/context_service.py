@@ -111,8 +111,12 @@ class ContextService:
 
     # ── Queue ──
 
-    def record_queue_updated(self, count: int, source: str = "") -> None:
-        self.record_event(AppEvent.QUEUE_UPDATED, {"count": count, "source": source})
+    def record_queue_updated(self, count: int, source: str = "",
+                              added_count: int | None = None) -> None:
+        payload = {"count": count, "source": source}
+        if added_count is not None:
+            payload["added_count"] = added_count
+        self.record_event(AppEvent.QUEUE_UPDATED, payload)
 
     def record_queue_cleared(self, reason: str = "") -> None:
         self.record_event(AppEvent.QUEUE_CLEARED, {"reason": reason})

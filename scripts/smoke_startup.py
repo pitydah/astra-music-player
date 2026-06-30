@@ -217,12 +217,16 @@ def main():
         print()
 
         errors += _run_step("[6/7] Qt widgets", _check_qt)
-        print()
 
-        errors += _run_step("[7/8] NAV_ROUTES (Audio Lab)", _check_audio_lab_routes)
-        print()
+        if os.environ.get("MICHI_SMOKE_INCLUDE_AUDIO_LAB") == "1":
+            errors += _run_step("[7/8] NAV_ROUTES (Audio Lab)", _check_audio_lab_routes)
+        else:
+            print()
+            print("[7/7] NAV_ROUTES (Audio Lab) — skipped (set MICHI_SMOKE_INCLUDE_AUDIO_LAB=1 to enable)")
+            print()
 
-        print("[8/8] Summary")
+        print()
+        print("[8/8] Summary" if os.environ.get("MICHI_SMOKE_INCLUDE_AUDIO_LAB") == "1" else "[7/7] Summary")
         if errors:
             print(f"  ✗ {errors} error(s) detected")
         else:

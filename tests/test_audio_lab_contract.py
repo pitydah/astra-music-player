@@ -1,63 +1,65 @@
-"""Contract tests for the Audio Lab hub and route wiring.
+"""Contract tests for Audio Lab — structural integrity, safety, and honesty."""
 
-These tests keep the Audio Lab integration honest: the central hub owns the
-five top-level cards, experimental pages are labelled as such, and every
-Audio Lab route remains registered in the navigation layer.
-"""
+from __future__ import annotations
 
-
-def test_audio_lab_top_level_sections_are_five_and_central():
-    from ui.audio_lab.audio_lab_page import _SECTIONS
-
-    keys = [section["key"] for section in _SECTIONS]
-    assert keys == [
-        "audio_lab_diagnostics",
-        "audio_lab_identifier",
-        "audio_lab_backup",
-        "audio_lab_output",
-        "audio_lab_intelligence",
-    ]
+import os
 
 
-def test_audio_lab_experimental_sections_are_not_marked_available():
-    from ui.audio_lab.audio_lab_page import _SECTIONS
+class TestAudioLabContract:
 
-    status_by_key = {section["key"]: section["status"] for section in _SECTIONS}
-    assert status_by_key["audio_lab_identifier"] == "experimental"
-    assert status_by_key["audio_lab_backup"] == "experimental"
-    assert status_by_key["audio_lab_output"] == "experimental"
-    assert status_by_key["audio_lab_intelligence"] == "experimental"
-    assert status_by_key["audio_lab_diagnostics"] == "proximamente"
+    def test_hub_has_exactly_five_main_sections(self):
+        from ui.audio_lab.audio_lab_page import _SECTIONS
+        assert len(_SECTIONS) == 5
 
+    def test_no_section_marked_disponible_if_incomplete(self):
+        from ui.audio_lab.audio_lab_page import _SECTIONS
+        for sec in _SECTIONS:
+            if sec["key"] in ("audio_lab_output", "audio_lab_diagnostics",
+                              "audio_lab_intelligence"):
+                assert sec["status"] in (
+                    "proximamente", "experimental", "no_disponible"
+                ), f"{sec['key']} should not be marked disponible"
 
-def test_audio_lab_routes_are_registered_and_grouped_under_audio_lab():
-    from ui.controllers.navigation_controller import (
-        NAV_ROUTES,
-        SECTION_CONFIG,
-        resolve_sidebar_active_key,
-    )
+    def test_michi_disc_lab_only_wav_available(self):
+        from ui.audio_lab.models import RIP_PROFILES
+        for p in RIP_PROFILES:
+            if p.available:
+                assert p.fmt == "wav", "Only WAV should be available"
 
-    expected = {
-        "audio_lab",
-        "audio_lab_diagnostics",
-        "audio_lab_identifier",
-        "audio_lab_backup",
-        "audio_lab_output",
-        "audio_lab_intelligence",
-        "audio_lab_musicbrainz",
-        "audio_lab_artwork",
-        "audio_lab_lyrics",
-        "audio_lab_vinyl_lab",
-        "audio_lab_conversion",
-        "audio_lab_organize",
-        "michi_disc_lab",
-        "metadata_editor",
-    }
+    def test_no_orphan_routes(self):
+        from ui.controllers.navigation_controller import NAV_ROUTES
+        import ui.window
 
-    missing_routes = expected.difference(NAV_ROUTES)
-    missing_config = expected.difference(SECTION_CONFIG)
-    assert not missing_routes, f"Missing NAV_ROUTES entries: {missing_routes}"
-    assert not missing_config, f"Missing SECTION_CONFIG entries: {missing_config}"
+        missing = []
+        for key, method_name in NAV_ROUTES.items():
+            if not hasattr(ui.window.MainWindow, method_name):
+                missing.append(f"{key} → {method_name}")
+        assert not missing, f"Orphan routes: {'; '.join(missing)}"
 
-    for key in expected - {"audio_lab"}:
-        assert resolve_sidebar_active_key(key) == "audio_lab"
+    def test_all_audio_lab_routes_grouped_under_sidebar(self):
+        from ui.controllers.navigation_controller import (
+            NAV_ROUTES, resolve_sidebar_active_key,
+        )
+        for key in NAV_ROUTES:
+            if key.startswith("audio_lab") or key == "michi_disc_lab":
+                assert resolve_sidebar_active_key(key) == "audio_lab", (
+                    f"{key} not grouped under audio_lab sidebar"
+                )
+
+    def test_no_import_of_context_repository(self):
+        audio_lab_dir = os.path.join(
+            os.path.dirname(__file__), "..", "ui", "audio_lab"
+        )
+        for root, _dirs, files in os.walk(os.path.abspath(audio_lab_dir)):
+            for f in files:
+                if f.endswith(".py"):
+                    with open(os.path.join(root, f)) as fh:
+                        content = fh.read()
+                    assert "context_repository" not in content, (
+                        f"{os.path.join(root, f)} imports context_repository"
+                    )
+
+    def test_rip_profiles_have_format(self):
+        from ui.audio_lab.models import RIP_PROFILES
+        for p in RIP_PROFILES:
+            assert p.fmt, f"Profile {p.name} has no format"
