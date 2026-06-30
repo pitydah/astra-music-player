@@ -213,6 +213,9 @@ def _check_audio_lab_page_instantiation():
         ("IntelligencePage", "ui.audio_lab.intelligence_page", "IntelligencePage",
          {"db": None, "worker_mgr": None}),
         ("ArtworkPage", "ui.audio_lab.artwork_page", "ArtworkPage", {"db": None}),
+        ("MusicBrainzPage", "ui.audio_lab.musicbrainz_page", "MusicBrainzPage", {}),
+        ("LyricsPage", "ui.audio_lab.lyrics_page", "LyricsPage", {}),
+        ("OrganizePage", "ui.audio_lab.organize_page", "OrganizePage", {}),
         ("ConversionPage", "ui.audio_lab.conversion_page", "ConversionPage", {}),
         ("VinylLabPage", "ui.audio_lab.vinyl_lab_page", "VinylLabPage", {}),
         ("DSPPage", "ui.audio_lab.dsp_page", "DSPPage", {}),
@@ -232,6 +235,40 @@ def _check_audio_lab_page_instantiation():
             print(f"  ✗ {label}: {e}")
             errors += 1
 
+    return errors
+
+
+def _check_context_core():
+    """Validate ContextService can record events and build snapshots."""
+    import os as _os
+    import tempfile
+
+    errors = 0
+    tmp_db = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as tf:
+            tmp_db = tf.name
+        from core.context import context_repository as repo
+        repo.override_db_path(tmp_db)
+        from core.context.context_service import ContextService
+        svc = ContextService()
+        svc.record_scan_finished({"tracks": 0})
+        svc.record_queue_updated(count=0, source="test")
+        svc.record_event("smoke_test", {"ok": True})
+        snap = svc.get_home_snapshot()
+        snap2 = svc.get_assistant_snapshot()
+        assert "library_health" in snap
+        assert "assistant_capabilities" in snap2
+        repo.close()
+        print("  ✓ OK — events, home, assistant")
+    except Exception as e:
+        errors += 1
+        print(f"  ✗ ContextService smoke: {e}")
+    finally:
+        if tmp_db and _os.path.exists(tmp_db):
+            import contextlib
+            with contextlib.suppress(PermissionError):
+                _os.unlink(tmp_db)
     return errors
 
 
@@ -273,8 +310,13 @@ def main():
             print("[7/7] NAV_ROUTES (Audio Lab) — skipped (set MICHI_SMOKE_INCLUDE_AUDIO_LAB=1 to enable)")
             print()
 
+        # Context core smoke
         print()
-        print("[8/8] Summary" if os.environ.get("MICHI_SMOKE_INCLUDE_AUDIO_LAB") == "1" else "[7/7] Summary")
+        errors += _run_step("[7/7] ContextService", _check_context_core)
+        print()
+
+        print()
+        print("[7/7] Summary" if not os.environ.get("MICHI_SMOKE_INCLUDE_AUDIO_LAB") else "[8/8] Summary")
         if errors:
             print(f"  ✗ {errors} error(s) detected")
         else:

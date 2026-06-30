@@ -116,9 +116,13 @@ class TestContextSemanticAudit:
         for p in (src / "ui" / "controllers").rglob("*.py"):
             if _check_file(p, "context_repository"):
                 violations.append(f"{p}: context_repository")
+            if _check_file(p, "ctx.record_event("):
+                violations.append(f"{p}: ctx.record_event(")
 
         for p in (src / "ui" / "routers").rglob("*.py"):
             if _check_file(p, "context_repository"):
                 violations.append(f"{p}: context_repository")
+            if _check_file(p, "ctx.record_event("):
+                violations.append(f"{p}: ctx.record_event(")
 
         assert not violations, "\n".join(violations)

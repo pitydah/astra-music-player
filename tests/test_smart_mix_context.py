@@ -1,7 +1,6 @@
 """Tests: SmartMix context — MIX_OPENED, scope=mix, attach_track_table, no duplicates."""
 
 from unittest.mock import MagicMock
-from core.context.context_events import AppEvent
 
 
 class DummyItem:
@@ -54,11 +53,9 @@ class TestSmartMixContext:
         try:
             ctrl = SmartMixController(win)
             ctrl.show_smart_mix("mix_daily")
-            called = any(
-                c[0][0] == AppEvent.MIX_OPENED and c[0][1].get("key") == "mix_daily"
-                for c in ctx.record_event.call_args_list
-            )
-            assert called
+            ctx.record_mix_opened.assert_called_once()
+            mix_args = ctx.record_mix_opened.call_args[1]
+            assert mix_args.get("key") == "mix_daily"
             kwargs = ctx.update_selection.call_args[1]
             assert kwargs["scope"] == "mix"
             assert kwargs["mix_key"] == "mix_daily"
@@ -122,11 +119,9 @@ class TestSmartMixContext:
         ctrl = SmartMixController(win)
         ctrl.show_favs("favs")
 
-        called = any(
-            c[0][0] == AppEvent.MIX_OPENED and c[0][1].get("key") == "favs"
-            for c in ctx.record_event.call_args_list
-        )
-        assert called
+        ctx.record_mix_opened.assert_called_once()
+        mix_args = ctx.record_mix_opened.call_args[1]
+        assert mix_args.get("key") == "favs"
 
     def test_show_favs_uses_attach_track_table(self, tmp_path):
         win, ctx = _make_win()
@@ -154,11 +149,9 @@ class TestSmartMixContext:
         ctrl = SmartMixController(win)
         ctrl.show_recent("recent")
 
-        called = any(
-            c[0][0] == AppEvent.MIX_OPENED and c[0][1].get("key") == "recent"
-            for c in ctx.record_event.call_args_list
-        )
-        assert called
+        ctx.record_mix_opened.assert_called_once()
+        mix_args = ctx.record_mix_opened.call_args[1]
+        assert mix_args.get("key") == "recent"
 
     def test_show_recent_uses_attach_track_table(self, tmp_path):
         win, ctx = _make_win()

@@ -3,7 +3,6 @@
 import os
 from unittest.mock import MagicMock
 from core.context import context_repository as repo
-from core.context.context_events import AppEvent
 
 
 class TestSearchContext:
@@ -30,11 +29,9 @@ class TestSearchContext:
         router._win._search_text = "test"
         router.on_results([MagicMock(), MagicMock()])
 
-        called = any(
-            c[0][0] == AppEvent.SEARCH_PERFORMED and c[0][1].get("result_count") == 2
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert called
+        ctx_svc.record_search_performed.assert_called_once()
+        args = ctx_svc.record_search_performed.call_args[1]
+        assert args.get("result_count") == 2
 
     def test_search_artist_records_performed_with_count(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
@@ -45,11 +42,9 @@ class TestSearchContext:
 
         router.on_search("test")
 
-        called = any(
-            c[0][0] == AppEvent.SEARCH_PERFORMED
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert called
+        ctx_svc.record_search_performed.assert_called_once()
+        args = ctx_svc.record_search_performed.call_args[1]
+        assert args.get("section") == "artists"
 
     def test_search_albums_records_search_started(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
@@ -58,11 +53,9 @@ class TestSearchContext:
 
         router.on_search("test")
 
-        called = any(
-            c[0][0] == AppEvent.SEARCH_STARTED
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert called
+        ctx_svc.record_search_started.assert_called_once()
+        args = ctx_svc.record_search_started.call_args[1]
+        assert args.get("section") == "albums"
 
     def test_search_genres_records_search_started(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
@@ -71,14 +64,8 @@ class TestSearchContext:
 
         router.on_search("test")
 
-        called = any(
-            c[0][0] == AppEvent.SEARCH_STARTED
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert called
-        for call in ctx_svc.record_event.call_args_list:
-            if call[0][0] == AppEvent.SEARCH_PERFORMED:
-                assert False, "SEARCH_PERFORMED should not be emitted for genres"
+        ctx_svc.record_search_started.assert_called_once()
+        ctx_svc.record_search_performed.assert_not_called()
 
     def test_search_folders_callable_count(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
@@ -88,11 +75,9 @@ class TestSearchContext:
 
         router.on_search("test")
 
-        called = any(
-            c[0][0] == AppEvent.SEARCH_PERFORMED and c[0][1].get("result_count") == 7
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert called
+        ctx_svc.record_search_performed.assert_called_once()
+        args = ctx_svc.record_search_performed.call_args[1]
+        assert args.get("result_count") == 7
 
     def test_search_folders_non_callable_count(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
@@ -102,16 +87,8 @@ class TestSearchContext:
 
         router.on_search("test")
 
-        called_performed = any(
-            c[0][0] == AppEvent.SEARCH_PERFORMED
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert not called_performed
-        called_started = any(
-            c[0][0] == AppEvent.SEARCH_STARTED
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert called_started
+        ctx_svc.record_search_performed.assert_not_called()
+        ctx_svc.record_search_started.assert_called_once()
 
     def test_search_folders_exception_in_callable(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
@@ -125,16 +102,8 @@ class TestSearchContext:
 
         router.on_search("test")
 
-        called_performed = any(
-            c[0][0] == AppEvent.SEARCH_PERFORMED
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert not called_performed
-        called_started = any(
-            c[0][0] == AppEvent.SEARCH_STARTED
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert called_started
+        ctx_svc.record_search_performed.assert_not_called()
+        ctx_svc.record_search_started.assert_called_once()
 
     def test_search_folders_no_false_count(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
@@ -144,9 +113,7 @@ class TestSearchContext:
 
         router.on_search("test")
 
-        for call in ctx_svc.record_event.call_args_list:
-            if call[0][0] == AppEvent.SEARCH_PERFORMED:
-                assert False, "SEARCH_PERFORMED should not be emitted for folders without visible_count"
+        ctx_svc.record_search_performed.assert_not_called()
 
     def test_empty_query_clears_search(self, tmp_path):
         router, ctx_svc = self._make_router(tmp_path)
@@ -156,11 +123,7 @@ class TestSearchContext:
 
         router.on_search("")
 
-        called = any(
-            c[0][0] == AppEvent.SEARCH_CLEARED
-            for c in ctx_svc.record_event.call_args_list
-        )
-        assert called
+        ctx_svc.record_search_cleared.assert_called_once()
 
         state = repo.get_state("selection", {})
         query = state.get("search_query", "")

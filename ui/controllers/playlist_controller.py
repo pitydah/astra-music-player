@@ -3,6 +3,8 @@ import os
 
 from PySide6.QtWidgets import QFileDialog, QInputDialog
 
+from core.context.context_events import AppEvent
+
 
 class PlaylistController:
     def __init__(self, window, services=None):
@@ -31,7 +33,6 @@ class PlaylistController:
         self._select_playlist(pid, name)
         ctx = self._context()
         if ctx:
-            from core.context.context_events import AppEvent
             ctx.record_event(AppEvent.PLAYLIST_CREATED,
                 {"playlist_id": pid, "name": name, "count": count})
 
@@ -153,13 +154,7 @@ class PlaylistController:
 
         ctx = self._context()
         if ctx:
-            from core.context.context_events import AppEvent
-            ctx.record_event(AppEvent.PLAYLIST_IMPORTED, {
-                "name": os.path.basename(path),
-                "count": len(valid_files),
-                "missing": missing,
-                "remote_ignored": remote,
-            })
+            ctx.record_playlist_imported(0, os.path.basename(path), len(valid_files))
 
     def export_queue(self, parent, playback):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -180,12 +175,7 @@ class PlaylistController:
 
         ctx = self._context()
         if ctx:
-            from core.context.context_events import AppEvent
-            ctx.record_event(AppEvent.PLAYLIST_EXPORTED, {
-                "name": os.path.basename(path),
-                "count": len(queue),
-                "source": "queue",
-            })
+            ctx.record_playlist_exported(0, os.path.basename(path), len(queue))
 
     # ── Playlist from folder ──
 
@@ -415,6 +405,7 @@ class PlaylistController:
         ctx = self._context()
         if ctx:
             ctx.record_event(AppEvent.PLAYLIST_DELETED, {"playlist_id": pid, "name": name})
+        self._toast("Playlist eliminada.", "info")
 
     def add_track_to_playlist(self, pid: int, fp: str):
         self._ctx.db.add_to_playlist(pid, fp)
@@ -422,7 +413,6 @@ class PlaylistController:
         if ctx:
             pl = self.get_playlist_by_id(pid)
             name = pl.get("name", "") if pl else ""
-            from core.context.context_events import AppEvent
             ctx.record_event(AppEvent.TRACK_ADDED_TO_PLAYLIST,
                 {"playlist_id": pid, "name": name, "count": 1})
 

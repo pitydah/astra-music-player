@@ -101,6 +101,10 @@ def build_playback_snapshot(playback=None) -> dict:
     result = {
         "now_playing": None,
         "queue_length": 0,
+        "queue": {
+            "active": False,
+            "count": 0,
+        },
         "recently_played_count": 0,
         "favorites_count": 0,
         "current_source": "local",
@@ -116,7 +120,9 @@ def build_playback_snapshot(playback=None) -> dict:
                 "album": getattr(track, "album", None),
             }
         if hasattr(playback, "queue_length"):
-            result["queue_length"] = playback.queue_length
+            ql = playback.queue_length
+            result["queue_length"] = ql
+            result["queue"] = {"active": bool(ql), "count": ql}
         if hasattr(playback, "recent_count"):
             result["recently_played_count"] = playback.recent_count
         if hasattr(playback, "favorites_count"):
