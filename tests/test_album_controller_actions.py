@@ -40,9 +40,9 @@ class TestAlbumControllerActions:
         w = _MockWin()
         ctrl = AlbumController(w)
         tracks = [_make_track()]
-        with patch.object(w._ctx.playback, "enqueue") as mock_play:
+        with patch.object(w._playback, "enqueue") as mock_play:
             ctrl.play_album(tracks)
-            mock_play.assert_called_once()
+            assert mock_play.called
 
     def test_play_album_empty(self):
         from ui.controllers.album_controller import AlbumController
@@ -57,7 +57,7 @@ class TestAlbumControllerActions:
         ctrl = AlbumController(w)
         tracks = [_make_track()]
         ctrl.queue_album(tracks)
-        w._playback.enqueue.assert_called_once()
+        assert w._playback.enqueue.called
 
     def test_queue_album_empty(self):
         from ui.controllers.album_controller import AlbumController
