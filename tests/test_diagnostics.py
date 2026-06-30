@@ -108,3 +108,52 @@ class TestDiagnosticsNav:
     def test_diagnostics_sidebar_key(self):
         from ui.controllers.navigation_controller import resolve_sidebar_active_key
         assert resolve_sidebar_active_key("audio_lab_diagnostics") == "audio_lab"
+
+
+class TestSpectralAnalysis:
+
+    def test_analyse_spectral_nonexistent_file(self):
+        from ui.audio_lab.diagnostics_service import analyse_spectral
+        result = analyse_spectral("/nonexistent/file.wav")
+        assert result["verdict"] == "ANALYSIS_ERROR"
+
+    def test_analyse_spectral_nonwav(self):
+        import tempfile, os
+        from ui.audio_lab.diagnostics_service import analyse_spectral
+        with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
+            f.write(b"fLaC")
+            path = f.name
+        try:
+            result = analyse_spectral(path)
+            assert result["verdict"] == "ANALYSIS_ERROR"
+            assert "WAV PCM" in result.get("explanation", "")
+        finally:
+            os.unlink(path)
+
+    def test_analyse_spectral_wav_basic(self):
+        import tempfile, os, wave
+        import numpy as np
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            path = f.name
+        try:
+            sr = 44100
+            frames = int(sr * 2)
+            t = np.linspace(0, 2, frames, endpoint=False)
+            tone = 0.5 * np.sin(2 * np.pi * 440 * t)
+            with wave.open(path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sr)
+                wf.writeframes(tone.astype(np.int16).tobytes())
+
+            from ui.audio_lab.diagnostics_service import analyse_spectral
+            result = analyse_spectral(path)
+            assert "verdict" in result
+            assert result["verdict"] in (
+                "LOSSLESS_COHERENT", "HI_RES_COHERENT",
+                "POSSIBLE_LOSSY_SOURCE", "INCONCLUSIVE",
+                "ANALYSIS_ERROR",
+            )
+        finally:
+            os.unlink(path)

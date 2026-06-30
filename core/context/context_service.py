@@ -109,6 +109,23 @@ class ContextService:
             "playlist_id": playlist_id, "name": name, "count": count,
         })
 
+    def record_playlist_created(self, playlist_id: int = 0, name: str = "",
+                                count: int = 0) -> None:
+        self.record_event(AppEvent.PLAYLIST_CREATED, {
+            "playlist_id": playlist_id, "name": name, "count": count,
+        })
+
+    def record_playlist_deleted(self, playlist_id: int = 0, name: str = "") -> None:
+        self.record_event(AppEvent.PLAYLIST_DELETED, {
+            "playlist_id": playlist_id, "name": name,
+        })
+
+    def record_track_added_to_playlist(self, playlist_id: int = 0, name: str = "",
+                                       count: int = 1) -> None:
+        self.record_event(AppEvent.TRACK_ADDED_TO_PLAYLIST, {
+            "playlist_id": playlist_id, "name": name, "count": count,
+        })
+
     # ── Search ──
 
     def record_search_started(self, section: str = "", query: str = "") -> None:

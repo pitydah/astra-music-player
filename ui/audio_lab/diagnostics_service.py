@@ -126,6 +126,40 @@ def analyse_directory(directory: str) -> list[dict[str, Any]]:
     return results
 
 
+def analyse_spectral(filepath: str) -> dict[str, Any]:
+    """Run spectral authenticity analysis on a WAV file.
+
+    Delegates to core/audio_analysis/spectral_authenticator.analyse_spectral.
+    Only supports WAV files. Returns verdict or error.
+    """
+    if not os.path.isfile(filepath):
+        return {"verdict": "ANALYSIS_ERROR", "label": "Error",
+                "explanation": "Archivo no encontrado", "error": "Archivo no encontrado"}
+
+    try:
+        from core.audio_analysis.spectral_authenticator import (
+            analyse_spectral as _analyse,
+            can_analyse,
+        )
+
+        if not can_analyse(filepath):
+            return {"verdict": "ANALYSIS_ERROR", "label": "No soportado",
+                    "explanation": "El análisis espectral requiere un archivo WAV PCM.",
+                    "error": "Formato no soportado"}
+
+        result = _analyse(filepath)
+        return result
+
+    except ImportError as e:
+        return {"verdict": "ANALYSIS_ERROR", "label": "Dependencia faltante",
+                "explanation": f"numpy no disponible: {e}",
+                "error": str(e)}
+    except Exception as e:
+        logger.exception("Spectral analysis failed")
+        return {"verdict": "ANALYSIS_ERROR", "label": "Error",
+                "explanation": str(e), "error": str(e)}
+
+
 def generate_report(results: list[dict[str, Any]]) -> dict[str, Any]:
     """Generate a summary report from a list of per-file analyses.
 

@@ -144,6 +144,51 @@ class DiagnosticsPage(QWidget):
 
         cl.addWidget(results_card)
 
+        # Spectral analysis
+        spec_card = QFrame()
+        spec_card.setStyleSheet(glass_card_qss("diagSpecCard"))
+        svl = QVBoxLayout(spec_card)
+        svl.setContentsMargins(20, 16, 20, 16)
+        svl.setSpacing(10)
+
+        spec_title = QLabel("Análisis espectral (Fake Hi-Res)")
+        spec_title.setStyleSheet(
+            "color: rgba(255,255,255,0.88); font-size: 14px; "
+            "font-weight: 600; background: transparent;"
+        )
+        svl.addWidget(spec_title)
+
+        spec_sub = QLabel(
+            "EXPERIMENTAL — Analiza el contenido espectral de un archivo WAV "
+            "para detectar posible upsampling o fuentes lossy.\n"
+            "El resultado es probabilístico, no concluyente."
+        )
+        spec_sub.setStyleSheet(
+            "color: rgba(255,255,255,0.48); font-size: 11px; "
+            "background: transparent;"
+        )
+        spec_sub.setWordWrap(True)
+        svl.addWidget(spec_sub)
+
+        spec_btn_row = QHBoxLayout()
+        self._spectral_btn = QPushButton("Analizar archivo WAV...")
+        self._spectral_btn.setCursor(Qt.PointingHandCursor)
+        self._spectral_btn.setStyleSheet(glass_button_qss("secondary"))
+        self._spectral_btn.clicked.connect(self._analyse_spectral)
+        spec_btn_row.addWidget(self._spectral_btn)
+        spec_btn_row.addStretch()
+        svl.addLayout(spec_btn_row)
+
+        self._spectral_result = QLabel("")
+        self._spectral_result.setStyleSheet(
+            "color: rgba(255,255,255,0.72); font-size: 12px; "
+            "background: transparent;"
+        )
+        self._spectral_result.setWordWrap(True)
+        svl.addWidget(self._spectral_result)
+
+        cl.addWidget(spec_card)
+
         # Report
         report_card = QFrame()
         report_card.setStyleSheet(glass_card_qss("diagReportCard"))
@@ -200,6 +245,43 @@ class DiagnosticsPage(QWidget):
         self._generate_report_btn.setEnabled(True)
         self._progress.setVisible(False)
         self._show_report()
+
+    def _analyse_spectral(self):
+        fp, _ = QFileDialog.getOpenFileName(
+            self, "Seleccionar archivo WAV para análisis espectral", "",
+            "WAV (*.wav)"
+        )
+        if not fp:
+            return
+
+        self._spectral_result.setText("Analizando contenido espectral...")
+        from PySide6.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
+
+        from ui.audio_lab.diagnostics_service import analyse_spectral
+        result = analyse_spectral(fp)
+
+        lines = [
+            f"Archivo: {fp.split('/')[-1]}",
+            f"Veredicto: {result.get('label', '?')}",
+            f"Explicación: {result.get('explanation', '?')}",
+        ]
+        metrics = result.get("metrics", {})
+        if metrics:
+            lines.append("")
+            lines.append("Métricas espectrales:")
+            for k, v in metrics.items():
+                if isinstance(v, float):
+                    lines.append(f"  {k}: {v:.2f}")
+                else:
+                    lines.append(f"  {k}: {v}")
+
+        error = result.get("error", "")
+        if error:
+            lines.append("")
+            lines.append(f"Error: {error}")
+
+        self._spectral_result.setText("\n".join(lines))
 
     def _analyse_folder(self):
         folder = QFileDialog.getExistingDirectory(

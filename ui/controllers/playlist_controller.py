@@ -33,8 +33,7 @@ class PlaylistController:
         self._select_playlist(pid, name)
         ctx = self._context()
         if ctx:
-            ctx.record_event(AppEvent.PLAYLIST_CREATED,
-                {"playlist_id": pid, "name": name, "count": count})
+            ctx.record_playlist_created(playlist_id=pid, name=name, count=count)
 
     def _toast(self, text: str, level: str = "info"):
         if self._ctx and hasattr(self._ctx, 'toast'):
@@ -404,7 +403,7 @@ class PlaylistController:
         self._ctx.load_library()
         ctx = self._context()
         if ctx:
-            ctx.record_event(AppEvent.PLAYLIST_DELETED, {"playlist_id": pid, "name": name})
+            ctx.record_playlist_deleted(playlist_id=pid, name=name)
         self._toast("Playlist eliminada.", "info")
 
     def add_track_to_playlist(self, pid: int, fp: str):
