@@ -54,13 +54,6 @@ class TestSongsQueryService:
         assert len(result) == 1
         assert result[0].id == 2
 
-    def test_filter_favorites_by_id(self):
-        svc = SongsQueryService(None)
-        items = [_make_item(fid=1), _make_item(fid=2)]
-        result = svc.filter(items, only_favorites=True, fav_ids={2})
-        assert len(result) == 1
-        assert result[0].id == 2
-
     def test_filter_favorites_by_filepath(self):
         svc = SongsQueryService(None)
         items = [_make_item(fid=1, filepath="/m/a.flac"),

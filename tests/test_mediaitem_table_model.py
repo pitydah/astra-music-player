@@ -124,12 +124,12 @@ class TestMediaItemTableModel:
 
     def test_fav_star_display(self):
         model = MediaItemTableModel()
-        model.populate([_make_item(fid=42)], fav_ids={42})
+        model.populate([_make_item(fid=42, filepath="/m/a.flac")], fav_set={"/m/a.flac"})
         val = model.data(model.index(0, 0))
         assert val == "★"
 
     def test_non_fav_no_star(self):
         model = MediaItemTableModel()
-        model.populate([_make_item(fid=42)], fav_ids={})
+        model.populate([_make_item(fid=42, filepath="/m/a.flac")], fav_set=set())
         val = model.data(model.index(0, 0))
         assert val == ""

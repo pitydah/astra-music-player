@@ -1,20 +1,20 @@
-"""SongsFilterBar — chip-based filter bar for the premium songs view."""
+"""SongsFilterBar — chip-based filter bar for the premium songs view.
+
+Emits filters_changed with a SongsFilterState.
+"""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QComboBox, QLineEdit,
+    QWidget, QHBoxLayout, QLabel, QComboBox, QCheckBox,
 )
+
+from library.songs_view_state import SongsFilterState
 
 
 class SongsFilterBar(QWidget):
-    """Compact filter bar with format, quality, genre, year, and text search.
-
-    Emits filters_changed with a dict of active filters.
-    """
-
-    filters_changed = Signal(dict)
+    filters_changed = Signal(SongsFilterState)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -41,11 +41,13 @@ class SongsFilterBar(QWidget):
         layout.addWidget(QLabel("Calidad:"))
         layout.addWidget(self._quality_combo)
 
-        self._fav_check = QLineEdit()
-        self._fav_check.setPlaceholderText("Solo favoritos")
-        self._fav_check.setClearButtonEnabled(True)
-        self._fav_check.textChanged.connect(self._emit)
+        self._fav_check = QCheckBox("♥ Favoritos")
+        self._fav_check.stateChanged.connect(self._emit)
         layout.addWidget(self._fav_check)
+
+        self._meta_check = QCheckBox("Sin metadata")
+        self._meta_check.stateChanged.connect(self._emit)
+        layout.addWidget(self._meta_check)
 
         layout.addStretch()
 
@@ -61,14 +63,13 @@ class SongsFilterBar(QWidget):
             self._format_combo.setCurrentIndex(idx)
         self._format_combo.blockSignals(False)
 
-    def _emit(self):
+    def _emit(self, _=None):
         f = self._format_combo.currentData() or None
         q = self._quality_combo.currentData() or None
-        payload = {}
-        if f:
-            payload["formats"] = {f}
-        if q:
-            payload["qualities"] = {q}
-        if self._fav_check.text().strip():
-            payload["only_favorites"] = True
-        self.filters_changed.emit(payload)
+        state = SongsFilterState(
+            formats=frozenset({f}) if f else frozenset(),
+            qualities=frozenset({q}) if q else frozenset(),
+            only_favorites=bool(self._fav_check.isChecked()),
+            only_missing_metadata=bool(self._meta_check.isChecked()),
+        )
+        self.filters_changed.emit(state)

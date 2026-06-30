@@ -1,12 +1,10 @@
 """SongsPremiumPage — premium song management view for Biblioteca > Canciones.
 
 Integrates MediaItemTableModel, SongsFilterBar, SongsBulkActionBar,
-and SongsDetailPanel into a single QWidget.
+and SongsDetailPanel. Works with SongsController for data and actions.
 """
 
 from __future__ import annotations
-
-from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -14,21 +12,14 @@ from PySide6.QtWidgets import (
 )
 
 from library.mediaitem_table_model import MediaItemTableModel
+from library.songs_view_state import SongsFilterState
 from ui.library.songs_filter_bar import SongsFilterBar
 from ui.library.songs_bulk_action_bar import SongsBulkActionBar
 from ui.library.songs_detail_panel import SongsDetailPanel
-from ui.library.songs_status_delegate import SongsStatusDelegate
-
-if TYPE_CHECKING:
-    pass
 
 
 class SongsPremiumPage(QWidget):
-    """Premium songs management page.
-
-    Contains a filter bar, a master table, a detail panel, and a bulk action bar.
-    Works with SongsController for data and actions.
-    """
+    """Premium songs management page with filter bar, master table, detail panel, bulk actions."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -48,23 +39,19 @@ class SongsPremiumPage(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # Filter bar
         self._filter_bar = SongsFilterBar(self)
         self._filter_bar.filters_changed.connect(self._on_filters_changed)
         outer.addWidget(self._filter_bar)
 
-        # Loading indicator
         self._loading_label = QLabel("Cargando canciones...")
         self._loading_label.setAlignment(Qt.AlignCenter)
         self._loading_label.setStyleSheet("color: rgba(255,255,255,0.50); font-size: 13px;")
         self._loading_label.hide()
         outer.addWidget(self._loading_label)
 
-        # Splitter: table + detail panel
         splitter = QSplitter(Qt.Horizontal)
         splitter.setHandleWidth(0)
 
-        # Table
         self._table = QTableView()
         self._table.setModel(self._model)
         self._table.setSelectionBehavior(QTableView.SelectRows)
@@ -73,37 +60,31 @@ class SongsPremiumPage(QWidget):
         self._table.setShowGrid(False)
         self._table.setSortingEnabled(True)
         self._table.verticalHeader().hide()
-        self._table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Interactive)
+        self._table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self._table.horizontalHeader().setStretchLastSection(False)
         self._table.horizontalHeader().setSectionsClickable(True)
-        self._delegate = SongsStatusDelegate(
-            status_cache_provider=lambda: self._ctrl.status_cache() if self._ctrl else {})
-        self._table.setItemDelegateForColumn(9, self._delegate)
         self._table.setStyleSheet(self._table_qss())
-        self._table.selectionModel().selectionChanged.connect(
-            self._on_selection_changed)
+        self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
         splitter.addWidget(self._table)
 
-        # Detail panel
         self._detail_panel = SongsDetailPanel()
-        self._detail_panel.locate_requested.connect(
-            lambda item: self._ctrl.locate_file(item) if self._ctrl else None)
-        self._detail_panel.edit_requested.connect(
-            lambda item: self._ctrl.edit_metadata([item]) if self._ctrl else None)
+        self._detail_panel.play_requested.connect(self._on_detail_play)
+        self._detail_panel.queue_requested.connect(self._on_detail_queue)
+        self._detail_panel.edit_requested.connect(self._on_detail_edit)
+        self._detail_panel.locate_requested.connect(self._on_detail_locate)
+        self._detail_panel.fav_requested.connect(self._on_detail_fav)
         splitter.addWidget(self._detail_panel)
 
         outer.addWidget(splitter, 1)
 
-        # Bulk action bar
         self._bulk_bar = SongsBulkActionBar(self)
-        self._bulk_bar.action_play.connect(self._on_bulk_play)
-        self._bulk_bar.action_queue.connect(self._on_bulk_queue)
-        self._bulk_bar.action_edit_metadata.connect(self._on_bulk_edit)
-        self._bulk_bar.action_toggle_fav.connect(self._on_bulk_fav)
-        self._bulk_bar.action_add_to_playlist.connect(self._on_bulk_add_to_playlist)
-        self._bulk_bar.action_analyze.connect(self._on_bulk_analyze)
-        self._bulk_bar.action_locate.connect(self._on_bulk_locate)
+        self._bulk_bar.action_play.connect(lambda: self._run_bulk("play"))
+        self._bulk_bar.action_queue.connect(lambda: self._run_bulk("queue"))
+        self._bulk_bar.action_edit_metadata.connect(lambda: self._run_bulk("edit"))
+        self._bulk_bar.action_toggle_fav.connect(lambda: self._run_bulk("fav"))
+        self._bulk_bar.action_add_to_playlist.connect(lambda: self._run_bulk("playlist"))
+        self._bulk_bar.action_analyze.connect(lambda: self._run_bulk("analyze"))
+        self._bulk_bar.action_locate.connect(lambda: self._run_bulk("locate"))
         outer.addWidget(self._bulk_bar)
 
     def selected_items(self) -> list:
@@ -113,66 +94,52 @@ class SongsPremiumPage(QWidget):
         rows = sorted(set(r.row() for r in sel.selectedRows()))
         return [self._model.item_at(r) for r in rows if self._model.item_at(r) is not None]
 
-    def _on_bulk_play(self, _=None):
-        items = self.selected_items()
-        if items and self._ctrl:
-            self._ctrl.play_items(items)
-
-    def _on_bulk_queue(self, _=None):
-        items = self.selected_items()
-        if items and self._ctrl:
-            self._ctrl.queue_items(items)
-
-    def _on_bulk_edit(self, _=None):
-        items = self.selected_items()
-        if items and self._ctrl:
-            self._ctrl.edit_metadata(items)
-
-    def _on_bulk_fav(self, _=None):
+    def _run_bulk(self, action: str):
         items = self.selected_items()
         if not items or not self._ctrl:
             return
-        self._ctrl.toggle_favorite(items[0])
-
-    def _on_bulk_locate(self, _=None):
-        items = self.selected_items()
-        if items and self._ctrl:
+        if action == "play":
+            self._ctrl.play_items(items)
+        elif action == "queue":
+            self._ctrl.queue_items(items)
+        elif action == "edit":
+            self._ctrl.edit_metadata(items)
+        elif action == "fav":
+            self._ctrl.toggle_favorite(items[0])
+        elif action == "playlist":
+            self._ctrl.add_to_playlist(items)
+        elif action == "analyze":
+            self._ctrl.analyze_quality(items)
+        elif action == "locate":
             self._ctrl.locate_file(items[0])
 
-    def _on_bulk_add_to_playlist(self, _=None):
-        items = self.selected_items()
-        if not items or not self._ctrl:
-            return
-        fps = [i.filepath for i in items if hasattr(i, 'filepath') and i.filepath]
-        if fps:
-            from ui.controllers.playlist_controller import PlaylistController
-            ctrl = PlaylistController(self._ctrl._win)
-            ctrl.create_playlist_from_tracks(fps, "Nueva playlist")
+    def _on_detail_play(self, item):
+        if self._ctrl:
+            self._ctrl.play_items([item])
 
-    def _on_bulk_analyze(self, _=None):
-        items = self.selected_items()
-        if not items or not self._ctrl:
-            return
-        fps = [i.filepath for i in items if hasattr(i, 'filepath') and i.filepath]
-        if fps:
-            wm = getattr(self._ctrl._win, '_workers', None)
-            if wm:
-                for fp in fps:
-                    def _run(filepath):
-                        try:
-                            from ui.audio_lab.diagnostics_service import analyse_file
-                            analyse_file(filepath)
-                        except Exception:
-                            pass
-                    wm.run_task("analyze_song", lambda f=fp: _run(f))
+    def _on_detail_queue(self, item):
+        if self._ctrl:
+            self._ctrl.queue_items([item])
 
-    def _on_filters_changed(self, filters: dict):
+    def _on_detail_edit(self, item):
+        if self._ctrl:
+            self._ctrl.edit_metadata([item])
+
+    def _on_detail_locate(self, item):
+        if self._ctrl:
+            self._ctrl.locate_file(item)
+
+    def _on_detail_fav(self, item):
+        if self._ctrl:
+            self._ctrl.toggle_favorite(item)
+
+    def _on_filters_changed(self, state: SongsFilterState):
         if not self._ctrl:
             return
-        items = self._ctrl.apply_filter(**filters)
-        state = self._ctrl.view_state()
-        self._model.populate(items, fav_ids=state["fav_ids"],
-                              status_cache=state["status_cache"])
+        self._ctrl.apply_filter(filter_state=state)
+        vs = self._ctrl.view_state()
+        self._model.populate(vs.items, fav_set=vs.favorite_track_ids,
+                             status_cache=dict(vs.status_cache))
         self._resize_columns()
 
     def _on_selection_changed(self, selected, _deselected):
@@ -180,7 +147,6 @@ class SongsPremiumPage(QWidget):
         unique_rows = list(dict.fromkeys(rows))
         count = len(unique_rows)
         self._bulk_bar.show_for_selection(count)
-
         if count == 1:
             item = self._model.item_at(unique_rows[0])
             if item:
@@ -194,44 +160,24 @@ class SongsPremiumPage(QWidget):
             if i < self._model.columnCount():
                 self._table.setColumnWidth(i, w)
 
-    def load_data(self, items: list, fav_ids: set[int] | None = None,
+    def load_data(self, items: list, fav_set: set[str] | None = None,
                   status_cache: dict[int, dict] | None = None):
         self._loading_label.show()
         from PySide6.QtCore import QCoreApplication
         QCoreApplication.processEvents()
-        self._model.populate(items, fav_ids=fav_ids, status_cache=status_cache)
+        self._model.populate(items, fav_set=fav_set, status_cache=status_cache)
         self._resize_columns()
         self._loading_label.hide()
 
     @staticmethod
     def _table_qss() -> str:
         return """
-        QTableView {
-            background: transparent;
-            alternate-background-color: rgba(255,255,255,0.02);
-            border: none;
-            outline: none;
-            color: rgba(255,255,255,0.80);
-            font-size: 12px;
-        }
-        QTableView::item {
-            padding: 6px 4px;
-            min-height: 28px;
-        }
-        QTableView::item:selected {
-            background: rgba(143,183,255,0.18);
-            color: rgba(255,255,255,0.95);
-        }
-        QTableView::item:hover {
-            background: rgba(143,183,255,0.08);
-        }
-        QHeaderView::section {
-            background: rgba(255,255,255,0.04);
-            color: rgba(255,255,255,0.60);
-            border: none;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            padding: 6px 4px;
-            font-size: 11px;
-            font-weight: 600;
-        }
+        QTableView { background: transparent; alternate-background-color: rgba(255,255,255,0.02);
+            border: none; outline: none; color: rgba(255,255,255,0.80); font-size: 12px; }
+        QTableView::item { padding: 6px 4px; min-height: 28px; }
+        QTableView::item:selected { background: rgba(143,183,255,0.18); color: rgba(255,255,255,0.95); }
+        QTableView::item:hover { background: rgba(143,183,255,0.08); }
+        QHeaderView::section { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.60);
+            border: none; border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 6px 4px; font-size: 11px; font-weight: 600; }
         """

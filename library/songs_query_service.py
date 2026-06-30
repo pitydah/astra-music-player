@@ -10,21 +10,15 @@ from library.media_item import MediaItem
 
 
 class SongsQueryService:
-    """Encapsulates song queries with combined filters.
-
-    Supports format, quality, genre, year range, bitrate, sample rate,
-    favorites, metadata status, and file status filters.
-    """
+    """Encapsulates song queries with combined filters."""
 
     def __init__(self, db):
         self._db = db
 
     def fetch_all(self) -> list[MediaItem]:
-        """Return all non-deleted media items."""
         return self._db.get_all() if self._db else []
 
     def search(self, query: str = "", limit: int = 5000) -> list[MediaItem]:
-        """Search using advanced FTS5 engine."""
         if not query or not self._db:
             return self.fetch_all()
         return self._db.search_advanced(query, limit=limit)
@@ -37,13 +31,12 @@ class SongsQueryService:
                year_max: int | None = None,
                bitrate_min: int | None = None,
                sample_rate_min: int | None = None,
-               fav_ids: set[int] | None = None,
+               fav_ids: set[str] | None = None,
                only_favorites: bool = False,
                only_missing_metadata: bool = False,
                only_missing_cover: bool = False,
                text_filter: str = "",
                ) -> list[MediaItem]:
-        """Apply multiple filters in-memory over a list of MediaItems."""
         if not items:
             return []
 
@@ -65,8 +58,7 @@ class SongsQueryService:
         if sample_rate_min is not None:
             result = [i for i in result if (i.sample_rate or 0) >= sample_rate_min]
         if only_favorites and fav_set:
-            result = [i for i in result if getattr(i, 'id', 0) in fav_set
-                      or getattr(i, 'filepath', '') in fav_set]
+            result = [i for i in result if i.filepath in fav_set]
         if only_missing_metadata:
             result = [i for i in result if _is_missing_metadata(i)]
         if only_missing_cover:
@@ -83,7 +75,6 @@ class SongsQueryService:
         return result
 
     def distinct_genres(self, items: list[MediaItem] | None = None) -> list[str]:
-        """Return distinct genre list, optionally filtered to a subset."""
         if items is None:
             items = self.fetch_all()
         genres: set[str] = set()
@@ -105,12 +96,10 @@ class SongsQueryService:
 
 
 def _is_missing_metadata(item: MediaItem) -> bool:
-    """Check if a MediaItem has incomplete core metadata."""
     return not (item.title and item.artist and item.album and item.genre)
 
 
 def _is_missing_cover(item: MediaItem) -> bool:
-    """Check if a MediaItem likely lacks cover art."""
     from library.cover_art_service import CoverArtService
     if not item.filepath:
         return True
@@ -123,7 +112,6 @@ _DSD_EXTS = {"dsf", "dff", "dsd"}
 
 
 def _classify(item: MediaItem) -> str:
-    """Return quality category: hires, lossless, lossy, dsd, unknown."""
     ext = (item.ext or "").lower().lstrip(".")
     if ext in _DSD_EXTS:
         return "dsd"

@@ -55,11 +55,11 @@ class LibraryController(QObject):
         songs_ctrl = getattr(w, '_songs_ctrl', None)
         if songs_ctrl and hasattr(w, '_songs_premium_page') and w._songs_premium_page:
             songs_ctrl.load()
-            state = songs_ctrl.view_state()
+            vs = songs_ctrl.view_state()
             w._songs_premium_page.load_data(
-                songs_ctrl.get_display_items(),
-                fav_ids=state["fav_ids"],
-                status_cache=state["status_cache"],
+                vs.items,
+                fav_set=set(vs.favorite_track_ids),
+                status_cache=dict(vs.status_cache),
             )
 
     def _record_reload_context(self, reason: str, track_count: int) -> None:
@@ -97,7 +97,17 @@ class LibraryController(QObject):
         self.refresh_genres()
 
     def refresh_songs(self):
-        self._win._song_grid.set_items(self._win._all_items, card_size=170)
+        w = self._win
+        w._song_grid.set_items(w._all_items, card_size=170)
+        songs_ctrl = getattr(w, '_songs_ctrl', None)
+        if songs_ctrl and hasattr(w, '_songs_premium_page') and w._songs_premium_page:
+            songs_ctrl.load(w._all_items)
+            vs = songs_ctrl.view_state()
+            w._songs_premium_page.load_data(
+                vs.items,
+                fav_set=set(vs.favorite_track_ids),
+                status_cache=dict(vs.status_cache),
+            )
 
     def refresh_albums(self):
         w = self._win
@@ -208,7 +218,13 @@ class LibraryController(QObject):
 
             songs_ctrl = getattr(w, '_songs_ctrl', None)
             if songs_ctrl is None:
-                songs_ctrl = SongsController(w)
+                svc = getattr(w, '_services', None)
+                songs_ctrl = SongsController(
+                    svc,
+                    open_metadata_for_files=w._open_metadata_for_files if hasattr(w, '_open_metadata_for_files') else None,
+                    locate_file=lambda fp: w._artist_ctrl.locate_file if hasattr(w, '_artist_ctrl') else None,
+                    parent=w,
+                )
                 w._songs_ctrl = songs_ctrl
 
             w._songs_premium_page = SongsPremiumPage()
@@ -220,11 +236,11 @@ class LibraryController(QObject):
             w._songs_stack = songs_stack
 
             songs_ctrl.load()
-            state = songs_ctrl.view_state()
+            vs = songs_ctrl.view_state()
             w._songs_premium_page.load_data(
-                songs_ctrl.get_display_items(),
-                fav_ids=state["fav_ids"],
-                status_cache=state["status_cache"],
+                vs.items,
+                fav_set=set(vs.favorite_track_ids),
+                status_cache=dict(vs.status_cache),
             )
 
             from ui.hubs.library_hub_page import LibraryHubPage

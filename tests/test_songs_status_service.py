@@ -41,17 +41,17 @@ class TestSongsStatusService:
         db = _FakeDb(["42", "99"])
         svc = SongsStatusService(db)
         svc.refresh_favorites()
-        assert 42 in svc.favorite_ids()
-        assert 99 in svc.favorite_ids()
+        assert "42" in svc.favorite_track_ids()
+        assert "99" in svc.favorite_track_ids()
 
     def test_refresh_favorites_empty(self):
         svc = SongsStatusService(_FakeDb([]))
         svc.refresh_favorites()
-        assert svc.favorite_ids() == set()
+        assert svc.favorite_track_ids() == set()
 
     def test_favorite_ids_property(self):
         svc = SongsStatusService(None)
-        assert svc.favorite_ids() == set()
+        assert svc.favorite_track_ids() == set()
 
     @patch("library.songs_status_service.SongsStatusService._get_diag_badge",
            return_value=None)

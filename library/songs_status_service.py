@@ -17,59 +17,36 @@ class SongsStatusService:
 
     def __init__(self, db=None):
         self._db = db
-        self._fav_ids: set[int] = set()
+        self._fav_track_ids: set[str] = set()
         self._quality_cache: dict[int, dict] = {}
 
-    def set_favorites(self, fav_ids: set[int]):
-        self._fav_ids = set(fav_ids)
+    def favorite_track_ids(self) -> set[str]:
+        return set(self._fav_track_ids)
 
     def refresh_favorites(self):
-        """Sync favorite set from DB."""
+        """Sync favorite set from DB. get_favorites() returns list of track_id strings."""
         if not self._db:
             return
         import contextlib
         with contextlib.suppress(Exception):
             favs = self._db.get_favorites()
-            self._fav_ids = set()
-            for f in favs:
-                if isinstance(f, str):
-                    with contextlib.suppress(ValueError, TypeError):
-                        self._fav_ids.add(int(f))
-                elif hasattr(f, 'id'):
-                    self._fav_ids.add(int(f.id))
-
-    def favorite_ids(self) -> set[int]:
-        return set(self._fav_ids)
+            self._fav_track_ids = set(str(f) for f in favs)
 
     def invalidate_cache(self):
         self._quality_cache.clear()
 
     def compute_status(self, item: MediaItem) -> dict:
-        """Return a dict with status info for a single item.
-
-        Returns:
-            {
-                "quality_label": str,  # e.g. "Hi-Res 96kHz", "Lossless FLAC"
-                "badges": list[str],   # e.g. ["♥", "Hi-Res", "Metadata"]
-                "is_favorite": bool,
-                "quality_category": str,  # "hires", "lossless", "lossy", "dsd", "unknown"
-            }
-        """
         item_id = getattr(item, 'id', 0)
         cached = self._quality_cache.get(item_id)
         if cached:
             result = dict(cached)
-            result["is_favorite"] = item_id in self._fav_ids
+            result["is_favorite"] = item.filepath in self._fav_track_ids
             return result
 
         badges = []
         quality_label = ""
         quality_category = "unknown"
-
-        # Check favorite
-        is_fav = item_id in self._fav_ids
-
-        # Determine quality from metadata
+        is_fav = item.filepath in self._fav_track_ids
         sr = item.sample_rate or 0
         bd = item.bit_depth or 0
         ext = (item.ext or "").lower().lstrip(".")
@@ -139,7 +116,6 @@ class SongsStatusService:
         return result
 
     def compute_batch(self, items: list[MediaItem]) -> dict[int, dict]:
-        """Compute status for a batch of items, returning {item_id: status_dict}."""
         result = {}
         for item in items:
             st = self.compute_status(item)
@@ -150,7 +126,7 @@ class SongsStatusService:
     @staticmethod
     def _get_diag_badge(filepath: str) -> dict | None:
         try:
-            from core.audio_lab.diagnostics_service import get_badge_for_file
+            from ui.audio_lab.diagnostics_service import get_badge_for_file
             return get_badge_for_file(filepath)
         except Exception:
             return None

@@ -1,7 +1,7 @@
 """MediaItemTableModel — premium model for Biblioteca > Canciones.
 
 Uses MediaItem directly, not TrackRef. Supports sorting, tooltips,
-and optional columns for technical metadata.
+optional columns, and status-based color coding.
 """
 
 from __future__ import annotations
@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
-from PySide6.QtGui import QBrush, QColor
 
 from library.media_item import MediaItem
 
@@ -26,8 +25,8 @@ _COL_QUALITY = 9
 _COL_FILEPATH = 10
 
 _BASE_COLUMNS = [
-    ("", 28),            # fav star
-    ("", 24),            # status badge
+    ("", 28),           # fav star
+    ("", 24),           # status badge
     ("Título", 220),
     ("Artista", 200),
     ("Álbum", 200),
@@ -53,36 +52,27 @@ _OPTIONAL_COLUMNS = {
     "created_at": ("Agregado", 120),
     "last_scanned": ("Últ. Escaneo", 120),
     "track_uid": ("Track UID", 180),
+    "replaygain_track_gain": ("RG Track", 80),
+    "replaygain_album_gain": ("RG Album", 80),
 }
 
 ItemDataRole = Qt.ItemDataRole
 
 
 class MediaItemTableModel(QAbstractTableModel):
-    """Table model for MediaItem-based song library.
-
-    Supports:
-    - Base columns (fav, status, title, artist, album, year, genre, duration, format, quality, path)
-    - Optional columns (bitrate, sample_rate, bit_depth, channels, bpm, key, etc.)
-    - Numeric sorting, tooltips, status data
-    """
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self._items: list[MediaItem] = []
         self._optional_cols: list[str] = []
         self._status_cache: dict[int, dict] = {}
-        self._fav_set: set[int] = set()
-
-    # ── Column management ──
+        self._fav_set: set[str] = set()
 
     @property
     def base_column_count(self) -> int:
         return len(_BASE_COLUMNS)
 
     def set_optional_columns(self, cols: list[str]):
-        valid = [c for c in cols if c in _OPTIONAL_COLUMNS]
-        self._optional_cols = valid
+        self._optional_cols = [c for c in cols if c in _OPTIONAL_COLUMNS]
 
     def get_optional_columns(self) -> list[str]:
         return list(self._optional_cols)
@@ -94,22 +84,13 @@ class MediaItemTableModel(QAbstractTableModel):
             widths.append(w)
         return widths
 
-    # ── Data management ──
-
-    def populate(self, items: list[MediaItem], fav_ids: set[int] | None = None,
+    def populate(self, items: list[MediaItem], fav_set: set[str] | None = None,
                  status_cache: dict[int, dict] | None = None):
-        import time
-        t0 = time.time()
         self.beginResetModel()
         self._items = list(items)
-        self._fav_set = set(fav_ids or [])
+        self._fav_set = set(fav_set or [])
         self._status_cache = dict(status_cache or {})
         self.endResetModel()
-        elapsed = time.time() - t0
-        if elapsed > 0.5:
-            import logging
-            logging.getLogger("michi.mediaitem_model").warning(
-                "populate %d items took %.2fs", len(items), elapsed)
 
     def item_at(self, row: int) -> MediaItem | None:
         if 0 <= row < len(self._items):
@@ -119,8 +100,22 @@ class MediaItemTableModel(QAbstractTableModel):
     def items_at(self, rows: list[int]) -> list[MediaItem]:
         return [self._items[r] for r in rows if 0 <= r < len(self._items)]
 
+    def filepath_at(self, row: int) -> str:
+        item = self.item_at(row)
+        return getattr(item, 'filepath', "") if item else ""
+
     def all_items(self) -> list[MediaItem]:
         return list(self._items)
+
+    def refresh_status(self, status_cache: dict[int, dict] | None = None,
+                       fav_set: set[str] | None = None):
+        if status_cache is not None:
+            self._status_cache = dict(status_cache)
+        if fav_set is not None:
+            self._fav_set = set(fav_set)
+        self.dataChanged.emit(self.index(0, 0),
+                              self.index(len(self._items) - 1, self.columnCount() - 1),
+                              [ItemDataRole.DisplayRole])
 
     # ── QAbstractTableModel protocol ──
 
@@ -143,7 +138,7 @@ class MediaItemTableModel(QAbstractTableModel):
 
     def _col_key(self, section: int) -> str | None:
         if section < self.base_column_count:
-            return None  # base columns handled directly
+            return None
         opt_idx = section - self.base_column_count
         if opt_idx < len(self._optional_cols):
             return self._optional_cols[opt_idx]
@@ -157,38 +152,19 @@ class MediaItemTableModel(QAbstractTableModel):
 
         if role == ItemDataRole.ToolTipRole:
             return self._tooltip(item, col)
-
         if role == ItemDataRole.DisplayRole:
             return self._display(item, col)
-
         if role == ItemDataRole.UserRole:
             return item
-
         if role == Qt.TextAlignmentRole:
             if col in (_COL_YEAR, _COL_DURATION):
                 return Qt.AlignCenter
             return Qt.AlignLeft | Qt.AlignVCenter
-
-        if role == Qt.ForegroundRole:
-            if col == _COL_QUALITY:
-                st = self._status_cache.get(item_id(item), {})
-                kind = st.get("quality_category", "")
-                color = {
-                    "hires": QColor("#64DC64"),
-                    "lossless": QColor("#8FB7FF"),
-                    "lossy": QColor("#FFB347"),
-                    "dsd": QColor("#C084FC"),
-                    "warning": QColor("#FF8C42"),
-                    "error": QColor("#FF6B6B"),
-                }.get(kind, QColor("#8e8e93"))
-                return QBrush(color)
-            return None
-
         return None
 
     def _display(self, item: MediaItem, col: int) -> str:
         if col == _COL_FAV:
-            return "★" if getattr(item, 'id', 0) in self._fav_set else ""
+            return "★" if item.filepath in self._fav_set else ""
         if col == _COL_TITLE:
             return item.title or item.filename or ""
         if col == _COL_ARTIST:
@@ -206,13 +182,12 @@ class MediaItemTableModel(QAbstractTableModel):
         if col == _COL_FILEPATH:
             return item.filepath or ""
         if col == _COL_QUALITY:
-            st = self._status_cache.get(item_id(item), {})
+            st = self._status_cache.get(getattr(item, 'id', 0), {})
             return st.get("quality_label", "")
         if col == _COL_STATUS:
-            st = self._status_cache.get(item_id(item), {})
+            st = self._status_cache.get(getattr(item, 'id', 0), {})
             badges = st.get("badges", [])
             return " | ".join(badges) if badges else ""
-        # Optional columns
         col_key = self._col_key(col)
         if col_key:
             return self._opt_display(item, col_key)
@@ -223,15 +198,15 @@ class MediaItemTableModel(QAbstractTableModel):
         if val is None:
             return ""
         if key == "size":
-            return _fmt_size(val)
-        if key == "duration":
-            return self._fmt_duration(val)
+            return self._fmt_size(val)
         if key in ("sample_rate",):
             return f"{val // 1000}kHz" if val else ""
         if key in ("bitrate",):
             return f"{val // 1000}k" if val else ""
-        if key == "bit_depth":
+        if key in ("bit_depth",):
             return f"{val}bit" if val else ""
+        if key in ("replaygain_track_gain", "replaygain_album_gain"):
+            return f"{val:.2f} dB" if val else ""
         return str(val)
 
     def _tooltip(self, item: MediaItem, col: int) -> str:
@@ -240,17 +215,17 @@ class MediaItemTableModel(QAbstractTableModel):
             lines.append(f"Artista: {item.artist}")
         if item.album:
             lines.append(f"Álbum: {item.album}")
-        tech = []
+        tech_parts = []
         if item.sample_rate:
-            tech.append(f"{item.sample_rate // 1000}kHz")
+            tech_parts.append(f"{item.sample_rate // 1000}kHz")
         if item.bit_depth:
-            tech.append(f"{item.bit_depth}bit")
+            tech_parts.append(f"{item.bit_depth}bit")
         if item.channels:
-            tech.append(f"{item.channels}ch")
+            tech_parts.append(f"{item.channels}ch")
         if item.bitrate:
-            tech.append(f"{item.bitrate // 1000}kbps")
-        if tech:
-            lines.append(" | ".join(tech))
+            tech_parts.append(f"{item.bitrate // 1000}kbps")
+        if tech_parts:
+            lines.append(" | ".join(tech_parts))
         if item.filepath:
             lines.append(f"\n{item.filepath}")
         return "\n".join(lines)
@@ -265,6 +240,17 @@ class MediaItemTableModel(QAbstractTableModel):
         if h:
             return f"{h}:{m:02d}:{s:02d}"
         return f"{m}:{s:02d}"
+
+    @staticmethod
+    def _fmt_size(bytes_val) -> str:
+        if not bytes_val:
+            return ""
+        b = int(bytes_val)
+        for unit in ("B", "KB", "MB", "GB"):
+            if b < 1024:
+                return f"{b:.1f}{unit}"
+            b /= 1024
+        return f"{b:.1f}TB"
 
     # ── Sorting ──
 
@@ -302,18 +288,3 @@ class MediaItemTableModel(QAbstractTableModel):
 
         self._items.sort(key=_sort_key, reverse=reverse)
         self.layoutChanged.emit()
-
-
-def item_id(item: MediaItem) -> int:
-    return getattr(item, 'id', 0)
-
-
-def _fmt_size(bytes_val) -> str:
-    if not bytes_val:
-        return ""
-    b = int(bytes_val)
-    for unit in ("B", "KB", "MB", "GB"):
-        if b < 1024:
-            return f"{b:.1f}{unit}"
-        b /= 1024
-    return f"{b:.1f}TB"
