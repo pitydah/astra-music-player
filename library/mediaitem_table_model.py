@@ -146,7 +146,6 @@ class MediaItemTableModel(QAbstractTableModel):
             return None
         item = self._items[index.row()]
         col = index.column()
-        item_id = getattr(item, 'id', 0)
 
         if role == ItemDataRole.ToolTipRole:
             return self._tooltip(item, col)

@@ -87,9 +87,15 @@ class AudioLabController:
 
     def show_diagnostics(self, key: str = ""):
         def _build():
+            w = self._win
             from ui.audio_lab.sub_pages import AudioLabDiagnosticsPage
+            from core.jobs.job_manager import JobManager
+            jm = JobManager(
+                worker_mgr=getattr(w, '_workers', None),
+            ) if hasattr(w, '_workers') else None
             page = AudioLabDiagnosticsPage(
-                db=self._win._db if hasattr(self._win, '_db') else None,
+                worker_mgr=getattr(w, '_workers', None),
+                job_manager=jm,
             )
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
             return page

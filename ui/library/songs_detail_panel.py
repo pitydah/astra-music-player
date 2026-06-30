@@ -1,5 +1,6 @@
 """SongsDetailPanel — optional side panel showing song details."""
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QVBoxLayout, QLabel, QFrame, QPushButton,
 )
@@ -10,8 +11,12 @@ from ui.central.central_styles import glass_card_qss, glass_button_qss
 class SongsDetailPanel(QFrame):
     """Right-side detail panel for the selected song."""
 
+    locate_requested = Signal(object)
+    edit_requested = Signal(object)
+
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._current_item = None
         self.setObjectName("songsDetailPanel")
         self.setFixedWidth(280)
         self.setStyleSheet(glass_card_qss("songsDetailPanel", "elevated"))
@@ -62,14 +67,17 @@ class SongsDetailPanel(QFrame):
 
         self._locate_btn = QPushButton("📁 Localizar archivo")
         self._locate_btn.setStyleSheet(glass_button_qss("primary"))
+        self._locate_btn.clicked.connect(lambda: self.locate_requested.emit(self._current_item))
         layout.addWidget(self._locate_btn)
 
         self._edit_btn = QPushButton("✎ Editar metadatos")
         self._edit_btn.setStyleSheet(glass_button_qss("primary"))
+        self._edit_btn.clicked.connect(lambda: self.edit_requested.emit(self._current_item))
         layout.addWidget(self._edit_btn)
 
     def show_item(self, item):
         """Populate panel with MediaItem data."""
+        self._current_item = item
         self._title_lbl.setText(item.title or item.filename or "?")
         self._artist_lbl.setText(f"Artista: {item.artist or '?'}")
         self._album_lbl.setText(f"Álbum: {item.album or '?'}")
@@ -93,6 +101,7 @@ class SongsDetailPanel(QFrame):
         self.setVisible(True)
 
     def clear(self):
+        self._current_item = None
         self._title_lbl.setText("Selecciona una canción")
         self._artist_lbl.setText("")
         self._album_lbl.setText("")

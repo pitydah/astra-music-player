@@ -121,3 +121,15 @@ class TestMediaItemTableModel:
         col = model.columnCount() - 1
         val = model.data(model.index(0, col))
         assert val == "96kHz"
+
+    def test_fav_star_display(self):
+        model = MediaItemTableModel()
+        model.populate([_make_item(fid=42)], fav_ids={42})
+        val = model.data(model.index(0, 0))
+        assert val == "★"
+
+    def test_non_fav_no_star(self):
+        model = MediaItemTableModel()
+        model.populate([_make_item(fid=42)], fav_ids={})
+        val = model.data(model.index(0, 0))
+        assert val == ""

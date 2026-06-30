@@ -74,6 +74,10 @@ class SongsPremiumPage(QWidget):
 
         # Detail panel
         self._detail_panel = SongsDetailPanel()
+        self._detail_panel.locate_requested.connect(
+            lambda item: self._ctrl.locate_file(item) if self._ctrl else None)
+        self._detail_panel.edit_requested.connect(
+            lambda item: self._ctrl.edit_metadata([item]) if self._ctrl else None)
         splitter.addWidget(self._detail_panel)
 
         outer.addWidget(splitter, 1)

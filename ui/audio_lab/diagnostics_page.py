@@ -70,10 +70,11 @@ class _FolderWorker(QObject):
 class DiagnosticsPage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self, worker_mgr=None):
+    def __init__(self, worker_mgr=None, job_manager=None):
         super().__init__()
         self.setObjectName("diagnosticsPage")
         self._worker_mgr = worker_mgr
+        self._job_manager = job_manager
         self._results: list[dict] = []
         self._cancelled = False
         self._worker_thread: QThread | None = None
@@ -147,6 +148,13 @@ class DiagnosticsPage(QWidget):
         self._analyse_folder_btn.setStyleSheet(glass_button_qss("secondary"))
         self._analyse_folder_btn.clicked.connect(self._analyse_folder)
         btn_row.addWidget(self._analyse_folder_btn)
+
+        self._queue_btn = QPushButton("Cola persistente")
+        self._queue_btn.setCursor(Qt.PointingHandCursor)
+        self._queue_btn.setStyleSheet(glass_button_qss("ghost"))
+        self._queue_btn.clicked.connect(self._analyse_with_job_manager)
+        self._queue_btn.setVisible(self._job_manager is not None)
+        btn_row.addWidget(self._queue_btn)
 
         self._clear_btn = QPushButton("Limpiar")
         self._clear_btn.setCursor(Qt.PointingHandCursor)
@@ -358,6 +366,31 @@ class DiagnosticsPage(QWidget):
             lines.append(f"Error: {error}")
 
         self._spectral_result.setText("\n".join(lines))
+
+    def _analyse_with_job_manager(self):
+        if not self._job_manager:
+            return
+        folder = QFileDialog.getExistingDirectory(
+            self, "Seleccionar carpeta para análisis persistente"
+        )
+        if not folder:
+            return
+
+        include_spectral = self._spectral_check.isChecked()
+        from core.audio_lab.diagnostics_service import analyse_directory_job
+        job_id = analyse_directory_job(
+            folder, job_manager=self._job_manager,
+            include_spectral=include_spectral,
+        )
+        if job_id:
+            self._report_label.setText(
+                f"Job creado: {job_id}. Estado: pendiente. "
+                "Revisa la cola de trabajos para ver el progreso."
+            )
+        else:
+            self._report_label.setText(
+                "No se pudo crear el job de análisis."
+            )
 
     def _analyse_folder(self):
         folder = QFileDialog.getExistingDirectory(
