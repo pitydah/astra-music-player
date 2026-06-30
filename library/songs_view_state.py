@@ -37,6 +37,8 @@ class SongsFilterState:
             only_favorites=self.only_favorites,
             only_missing_metadata=self.only_missing_metadata,
             only_missing_cover=self.only_missing_cover,
+            only_missing_file=self.only_missing_file,
+            only_audio_lab_warning=self.only_audio_lab_warning,
         )
         return {k: v for k, v in kwargs.items() if v is not None}
 

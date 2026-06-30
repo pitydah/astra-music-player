@@ -35,6 +35,8 @@ class SongsQueryService:
                only_favorites: bool = False,
                only_missing_metadata: bool = False,
                only_missing_cover: bool = False,
+               only_missing_file: bool = False,
+               only_audio_lab_warning: bool = False,
                text_filter: str = "",
                ) -> list[MediaItem]:
         if not items:
@@ -63,6 +65,9 @@ class SongsQueryService:
             result = [i for i in result if _is_missing_metadata(i)]
         if only_missing_cover:
             result = [i for i in result if _is_missing_cover(i)]
+        if only_missing_file:
+            import os
+            result = [i for i in result if not (i.filepath and os.path.isfile(i.filepath))]
         if text_filter:
             q = text_filter.lower()
             result = [i for i in result

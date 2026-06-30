@@ -117,8 +117,13 @@ class SearchRouter:
         if sec == "radio":
             w._radio_widget.set_filter(w._search_text)
             return
+        # If premium songs view is active, use it exclusively
+        songs_ctrl = getattr(w, '_songs_ctrl', None)
+        premium_page = getattr(w, '_songs_premium_page', None)
+        if songs_ctrl and premium_page:
+            self._apply_songs_search(w._search_text)
+            return
         w._apply_filters()
-        self._apply_songs_search(w._search_text)
 
     def _apply_songs_search(self, text: str):
         """Apply search text to SongsController if premium view is active."""
@@ -139,9 +144,24 @@ class SearchRouter:
         w = self._win
         if w._current_section_key not in ("library",):
             return
-        w._model.populate(results)
         n = len(results)
         w._count.setText(f"{n} elementos" if n else "0 elementos")
+
+        # If premium page is active, update it directly
+        songs_ctrl = getattr(w, '_songs_ctrl', None)
+        premium_page = getattr(w, '_songs_premium_page', None)
+        if songs_ctrl and premium_page:
+            songs_ctrl.apply_filter(text=w._search_text)
+            vs = songs_ctrl.view_state()
+            premium_page.load_data(
+                vs.items,
+                fav_set=set(vs.favorite_track_ids),
+                status_cache=dict(vs.status_cache),
+            )
+            return
+
+        # Legacy path: update old table model
+        w._model.populate(results)
         if n:
             w._show_library_hub_page()
             if w._library_hub_page:

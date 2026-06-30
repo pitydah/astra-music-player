@@ -23,6 +23,9 @@ class SongsStatusService:
     def favorite_track_ids(self) -> set[str]:
         return set(self._fav_track_ids)
 
+    def status_cache(self) -> dict[int, dict]:
+        return dict(self._quality_cache)
+
     def refresh_favorites(self):
         """Sync favorite set from DB. get_favorites() returns list of track_id strings."""
         if not self._db:

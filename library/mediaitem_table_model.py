@@ -52,8 +52,8 @@ _OPTIONAL_COLUMNS = {
     "created_at": ("Agregado", 120),
     "last_scanned": ("Últ. Escaneo", 120),
     "track_uid": ("Track UID", 180),
-    "replaygain_track_gain": ("RG Track", 80),
-    "replaygain_album_gain": ("RG Album", 80),
+    "replaygain_track": ("RG Track", 80),
+    "replaygain_album": ("RG Album", 80),
 }
 
 ItemDataRole = Qt.ItemDataRole
@@ -113,6 +113,8 @@ class MediaItemTableModel(QAbstractTableModel):
             self._status_cache = dict(status_cache)
         if fav_set is not None:
             self._fav_set = set(fav_set)
+        if not self._items or self.columnCount() <= 0:
+            return
         self.dataChanged.emit(self.index(0, 0),
                               self.index(len(self._items) - 1, self.columnCount() - 1),
                               [ItemDataRole.DisplayRole])
@@ -205,7 +207,7 @@ class MediaItemTableModel(QAbstractTableModel):
             return f"{val // 1000}k" if val else ""
         if key in ("bit_depth",):
             return f"{val}bit" if val else ""
-        if key in ("replaygain_track_gain", "replaygain_album_gain"):
+        if key in ("replaygain_track", "replaygain_album"):
             return f"{val:.2f} dB" if val else ""
         return str(val)
 

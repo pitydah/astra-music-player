@@ -30,6 +30,7 @@ class SongsController(QObject):
         services,  # AppServices-like container with .db, .playback, .workers, .context_svc, .toast
         open_metadata_for_files: Callable[[list[str]], None] | None = None,
         locate_file: Callable[[str], None] | None = None,
+        add_to_playlist_cb: Callable[[list[str]], None] | None = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -39,6 +40,7 @@ class SongsController(QObject):
         self._status_svc = SongsStatusService(self._db)
         self._open_metadata_cb = open_metadata_for_files
         self._locate_cb = locate_file
+        self._add_to_playlist_cb = add_to_playlist_cb
         self._all_items: list[MediaItem] = []
         self._filtered_items: list[MediaItem] = []
         self._current_filter = SongsFilterState()
@@ -92,7 +94,7 @@ class SongsController(QObject):
         return SongsViewState(
             items=self._filtered_items,
             favorite_track_ids=frozenset(self._status_svc.favorite_track_ids()),
-            status_cache=dict(self._status_svc._quality_cache),
+            status_cache=self._status_svc.status_cache(),
             filter_state=self._current_filter,
         )
 
@@ -156,10 +158,15 @@ class SongsController(QObject):
 
     def add_to_playlist(self, items: list):
         fps = self._filepaths(items)
-        if fps:
-            from ui.controllers.playlist_controller import PlaylistController
-            ctrl = PlaylistController(self._services)
-            ctrl.create_playlist_from_tracks(fps, "Nueva playlist")
+        if not fps:
+            return
+        if self._add_to_playlist_cb:
+            self._add_to_playlist_cb(fps)
+            return
+        # Fallback: show pending toast
+        toast = getattr(self._services, 'toast', None)
+        if toast and hasattr(toast, 'show'):
+            toast.show("Agregar a playlist: usa el menú contextual de la tabla", "info")
 
     def analyze_quality(self, items: list):
         fps = self._filepaths(items)

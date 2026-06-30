@@ -21,6 +21,9 @@ class TestSearchContext:
         win._search_text = "test"
         win._current_section_key = "library"
         win._current_route_key = "library"
+        # Ensure premium path is not active (on_results checks for these)
+        win._songs_ctrl = None
+        win._songs_premium_page = None
         from ui.routers.search_router import SearchRouter
         return SearchRouter(win), ctx_svc
 
