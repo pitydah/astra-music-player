@@ -40,7 +40,7 @@ class TestAlbumControllerActions:
         w = _MockWin()
         ctrl = AlbumController(w)
         tracks = [_make_track()]
-        with patch.object(w, "_play_filepaths") as mock_play:
+        with patch.object(w._ctx.playback, "enqueue") as mock_play:
             ctrl.play_album(tracks)
             mock_play.assert_called_once()
 

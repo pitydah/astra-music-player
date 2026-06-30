@@ -46,10 +46,8 @@ class TestAlbumCoverService:
         from library.album_cover_service import AlbumCoverService
         svc = AlbumCoverService()
         with patch("library.album_cover_service._find_local_cover", return_value=None), \
-             patch("library.cover_art_service.extract_embedded_cover",
-                   side_effect=ImportError("no module")), \
-             patch("library.artwork_cache.get_cached", return_value=None), \
              patch("library.album_art.make_default_cover") as mock_fb:
+            mock_fb.return_value = None
             tracks = [_make_track(filepath="/nonexistent/song.flac")]
-            svc.resolve_cover(tracks)
-            mock_fb.assert_called_once()
+            result = svc.resolve_cover(tracks)
+            assert result.source == "fallback"

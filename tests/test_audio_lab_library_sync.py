@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-import tempfile
 
 
 def _make_db():
@@ -87,7 +86,7 @@ class TestAudioLabLibrarySync:
 
     def test_cache_to_media_items(self):
         from core.audio_lab.diagnostics_service import (
-            DiagnosticsCache, reset_global_cache_for_tests, close_global_cache,
+            reset_global_cache_for_tests, close_global_cache,
         )
         from core.audio_lab.audio_lab_sync import sync_audio_lab_cache_to_media_items
         conn = _make_db()
@@ -96,7 +95,8 @@ class TestAudioLabLibrarySync:
 
         reset_global_cache_for_tests(":memory:")
         cache = _get_cache()
-        import os, tempfile as tf
+        import os
+        import tempfile as tf
         with tf.NamedTemporaryFile(suffix=".flac", delete=False) as f:
             tmp = f.name
         try:

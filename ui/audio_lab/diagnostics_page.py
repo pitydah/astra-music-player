@@ -449,10 +449,9 @@ class DiagnosticsPage(QWidget):
         synced = 0
         if self._db and hasattr(self._db, '_conn'):
             from core.audio_lab.audio_lab_sync import sync_audio_lab_cache_to_media_items
-            try:
+            import contextlib
+            with contextlib.suppress(Exception):
                 synced = sync_audio_lab_cache_to_media_items(self._db._conn)
-            except Exception:
-                pass
         msg = f"Análisis completado: {processed} archivos procesados."
         if synced:
             msg += f" {synced} registros sincronizados."
