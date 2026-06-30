@@ -44,6 +44,18 @@ CREATE TABLE IF NOT EXISTS audio_lab_quality_cache (
 """
 
 
+def _safe_load_json(value: str | None) -> list:
+    """Parse a JSON string to list, returning [] on any error."""
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Corrupt JSON in diagnostics cache: %s", value[:80])
+        return []
+
+
 class DiagnosticsCache:
     """SQLite cache for diagnostic results.
 
@@ -97,7 +109,7 @@ class DiagnosticsCache:
                 "channels": row["channels"] or 0,
                 "duration": row["duration"] or 0.0,
                 "bitrate": row["bitrate"] or 0,
-                "warnings": json.loads(row["warnings_json"] or "[]"),
+                "warnings": _safe_load_json(row["warnings_json"]),
             },
             "quality": {
                 "category": row["quality_category"] or "",
@@ -171,6 +183,27 @@ def _get_cache() -> DiagnosticsCache:
             logger.warning("DiagnosticsCache init failed: %s", e)
             _GLOBAL_CACHE = None  # type: ignore
     return _GLOBAL_CACHE  # type: ignore
+
+
+def close_global_cache():
+    """Close and reset the global diagnostics cache connection."""
+    global _GLOBAL_CACHE
+    if _GLOBAL_CACHE is not None:
+        import contextlib
+        with contextlib.suppress(Exception):
+            _GLOBAL_CACHE.close()
+        _GLOBAL_CACHE = None
+
+
+def reset_global_cache_for_tests(db_path: str | None = None):
+    """Reset the global cache. If db_path is given, recreates with a temporary DB.
+
+    Only for use in tests.
+    """
+    global _GLOBAL_CACHE
+    close_global_cache()
+    if db_path is not None:
+        _GLOBAL_CACHE = DiagnosticsCache(db_path)
 
 
 def analyse_file(filepath: str, use_cache: bool = True) -> dict[str, Any]:
