@@ -276,20 +276,35 @@ class ConversionPage(QWidget):
         self._dest_dir = dest
         self._total = len(self._queue)
         self._done = 0
+        self._succ = 0
+        self._fail = 0
         self._status_label.setText(f"Convirtiendo 0/{self._total}...")
         self._convert_next()
+
+    def _unique_path(self, path: str) -> str:
+        if not os.path.exists(path):
+            return path
+        base, ext = os.path.splitext(path)
+        n = 1
+        while os.path.exists(f"{base}_{n}{ext}"):
+            n += 1
+        return f"{base}_{n}{ext}"
 
     def _convert_next(self):
         if not self._queue:
             self._convert_btn.setEnabled(True)
+            self._progress.setValue(100)
             self._status_label.setText(
-                f"Conversión completada: {self._done} archivos."
+                f"Conversión finalizada: {self._succ} correctos, "
+                f"{self._fail} errores de {self._total} archivos."
             )
             return
 
         fp = self._queue.pop(0)
         base = os.path.splitext(os.path.basename(fp))[0]
-        out = os.path.join(self._dest_dir, f"{base}.{self._target_fmt}")
+        out = self._unique_path(
+            os.path.join(self._dest_dir, f"{base}.{self._target_fmt}")
+        )
         tgt = self._target_fmt
 
         if tgt == "wav":
@@ -314,16 +329,18 @@ class ConversionPage(QWidget):
 
     def _on_encode_finished(self, input_path: str, output_path: str):
         self._done += 1
+        self._succ += 1
         pct = int(self._done / self._total * 100)
         self._progress.setValue(pct)
         self._status_label.setText(
-            f"Convertidos {self._done}/{self._total}: "
+            f"Convertidos {self._succ}/{self._total}: "
             f"{os.path.basename(output_path)}"
         )
         self._convert_next()
 
     def _on_encode_error(self, input_path: str, error: str):
         self._done += 1
+        self._fail += 1
         logger.warning("Conversion error for %s: %s", input_path, error)
         self._status_label.setText(
             f"Error en {os.path.basename(input_path)}: {error}"
