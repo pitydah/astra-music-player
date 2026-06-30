@@ -202,6 +202,8 @@ MEDIA_ITEMS_MIGRATIONS = [
     ("acoustid_fingerprint", "TEXT DEFAULT ''"),
     ("key", "TEXT DEFAULT ''"),
     ("quality", "TEXT DEFAULT ''"),
+    ("analysis_status", "TEXT DEFAULT ''"),
+    ("spectral_verdict", "TEXT DEFAULT ''"),
 ]
 
 PLAYLISTS_MIGRATIONS = [

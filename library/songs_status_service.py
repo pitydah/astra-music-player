@@ -24,27 +24,19 @@ class SongsStatusService:
         self._fav_ids = set(fav_ids)
 
     def refresh_favorites(self):
-        """Sync favorite set from DB.
-
-        get_favorites() returns a list of track_id strings.
-        We store their integer ids for fast lookup, and filepath
-        strings for comparison with MediaItems.
-        """
+        """Sync favorite set from DB."""
         if not self._db:
             return
-        try:
+        import contextlib
+        with contextlib.suppress(Exception):
             favs = self._db.get_favorites()
             self._fav_ids = set()
             for f in favs:
                 if isinstance(f, str):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         self._fav_ids.add(int(f))
-                    except (ValueError, TypeError):
-                        pass
                 elif hasattr(f, 'id'):
                     self._fav_ids.add(int(f.id))
-        except Exception:
-            self._fav_ids = set()
 
     def favorite_ids(self) -> set[int]:
         return set(self._fav_ids)

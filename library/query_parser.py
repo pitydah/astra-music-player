@@ -61,6 +61,8 @@ FIELD_MAP: dict[str, str] = {
     "bit_depth": "bit_depth",
     "key": "key",
     "quality": "quality",
+    "analysis": "analysis_status",
+    "spectral": "spectral_verdict",
 }
 
 OPERATOR_PATTERN = re.compile(r'(>=|<=|!=|>|<|=)')

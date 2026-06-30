@@ -561,28 +561,32 @@ def analyse_directory_job(folder_path: str, job_manager=None,
     )
     job_id = job_manager.create_job(main_job)
 
-    def _handler(job, progress_cb):
-        files = job.params.get("files", [])
-        total = len(files)
-        for i, fp in enumerate(files):
-            job_from_db = job_manager.get_job(job.id)
-            if job_from_db and job_from_db.status == JobStatus.CANCELLED:
-                return {"cancelled": True, "processed": i, "total": total}
-            try:
-                result = analyse_file(fp)
-                if include_spectral and fp.lower().endswith((".wav", ".flac")):
-                    try:
-                        spec = analyse_spectral(fp)
-                        if spec:
-                            result["spectral"] = spec
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-            progress_cb((i + 1) / total)
-        return {"processed": total, "total": total}
+    # Register handler only if not already registered for this type
+    existing = getattr(job_manager, '_handlers', {}).get(JobType.QUALITY_ANALYSIS)
+    if existing is None:
+        def _handler(job, progress_cb):
+            files = job.params.get("files", [])
+            spectral = job.params.get("include_spectral", False)
+            total = len(files)
+            for i, fp in enumerate(files):
+                job_from_db = job_manager.get_job(job.id)
+                if job_from_db and job_from_db.status == JobStatus.CANCELLED:
+                    return {"cancelled": True, "processed": i, "total": total}
+                try:
+                    result = analyse_file(fp)
+                    if spectral and fp.lower().endswith(".wav"):
+                        try:
+                            spec = analyse_spectral(fp)
+                            if spec:
+                                result["spectral"] = spec
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                progress_cb((i + 1) / total)
+            return {"processed": total, "total": total}
+        job_manager.register_handler(JobType.QUALITY_ANALYSIS, _handler)
 
-    job_manager.register_handler(JobType.QUALITY_ANALYSIS, _handler)
     job_manager.start_job(job_id)
 
     return job_id
