@@ -79,7 +79,7 @@ class TestSongsStatusService:
     @patch("library.songs_status_service.SongsStatusService._has_cover",
            return_value=True)
     def test_classify_lossy(self, *_):
-        item = _make_item(ext=".mp3", bitrate=320000)
+        item = _make_item(ext=".mp3")
         svc = SongsStatusService(None)
         st = svc.compute_status(item)
         assert st["quality_category"] == "lossy"

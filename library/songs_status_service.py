@@ -69,7 +69,7 @@ class SongsStatusService:
         # Determine quality from metadata
         sr = item.sample_rate or 0
         bd = item.bit_depth or 0
-        ext = (item.ext or "").lower()
+        ext = (item.ext or "").lower().lstrip(".")
 
         lossless_exts = {"flac", "alac", "wav", "aiff", "ape", "wv"}
         lossy_exts = {"mp3", "aac", "ogg", "wma", "opus", "m4a"}
