@@ -176,6 +176,19 @@ class TestSpectralAnalysis:
         finally:
             os.unlink(path)
 
+    def test_analyse_spectral_flac_rejected(self):
+        import tempfile
+        import os
+        from core.audio_lab.diagnostics_service import analyse_spectral
+        with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
+            f.write(b"fLaC\x00\x00\x00\x22\x10\x00\x10\x00")
+            path = f.name
+        try:
+            result = analyse_spectral(path)
+            assert result["verdict"] == "ANALYSIS_ERROR"
+        finally:
+            os.unlink(path)
+
     def test_analyse_spectral_24bit_96khz(self):
         import tempfile
         import os

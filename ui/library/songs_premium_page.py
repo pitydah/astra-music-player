@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QSplitter, QTableView, QScrollArea,
+    QWidget, QVBoxLayout, QSplitter, QTableView,
 )
 
 from library.mediaitem_table_model import MediaItemTableModel
@@ -124,9 +124,9 @@ class SongsPremiumPage(QWidget):
         if not self._ctrl:
             return
         items = self._ctrl.apply_filter(**filters)
-        fav_ids = self._ctrl.status_service._fav_ids if self._ctrl else set()
-        status_cache = self._ctrl.status_service._quality_cache if self._ctrl else {}
-        self._model.populate(items, fav_ids=fav_ids, status_cache=status_cache)
+        state = self._ctrl.view_state()
+        self._model.populate(items, fav_ids=state["fav_ids"],
+                              status_cache=state["status_cache"])
         self._resize_columns()
 
     def _on_selection_changed(self, selected, _deselected):

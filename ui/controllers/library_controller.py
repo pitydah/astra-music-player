@@ -51,6 +51,17 @@ class LibraryController(QObject):
 
         self._record_reload_context(reason, len(w._all_items))
 
+        # Refresh songs premium page if it exists
+        songs_ctrl = getattr(w, '_songs_ctrl', None)
+        if songs_ctrl and hasattr(w, '_songs_premium_page') and w._songs_premium_page:
+            songs_ctrl.load()
+            state = songs_ctrl.view_state()
+            w._songs_premium_page.load_data(
+                songs_ctrl.get_display_items(),
+                fav_ids=state["fav_ids"],
+                status_cache=state["status_cache"],
+            )
+
     def _record_reload_context(self, reason: str, track_count: int) -> None:
         ctx = getattr(self._win, "_context_svc", None)
         if not ctx:
@@ -195,26 +206,25 @@ class LibraryController(QObject):
             from ui.library.songs_premium_page import SongsPremiumPage
             from ui.controllers.songs_controller import SongsController
 
-            # Create premium songs page + wrap with grid in a stack
             songs_ctrl = getattr(w, '_songs_ctrl', None)
             if songs_ctrl is None:
                 songs_ctrl = SongsController(w)
                 w._songs_ctrl = songs_ctrl
-            self._songs_premium_page = SongsPremiumPage()
-            self._songs_premium_page.set_controller(songs_ctrl)
 
-            # Replace _songs_stack with a new stacked widget
+            w._songs_premium_page = SongsPremiumPage()
+            w._songs_premium_page.set_controller(songs_ctrl)
+
             songs_stack = QStackedWidget()
-            songs_stack.addWidget(self._songs_premium_page)  # index 0 = premium list
-            songs_stack.addWidget(w._song_grid)              # index 1 = grid
+            songs_stack.addWidget(w._songs_premium_page)
+            songs_stack.addWidget(w._song_grid)
             w._songs_stack = songs_stack
 
             songs_ctrl.load()
-            fav_ids = songs_ctrl.status_service._fav_ids
-            status_cache = songs_ctrl.status_service._quality_cache
-            self._songs_premium_page.load_data(
+            state = songs_ctrl.view_state()
+            w._songs_premium_page.load_data(
                 songs_ctrl.get_display_items(),
-                fav_ids=fav_ids, status_cache=status_cache,
+                fav_ids=state["fav_ids"],
+                status_cache=state["status_cache"],
             )
 
             from ui.hubs.library_hub_page import LibraryHubPage

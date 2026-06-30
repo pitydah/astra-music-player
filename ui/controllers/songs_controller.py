@@ -26,8 +26,9 @@ class SongsController(QObject):
     def __init__(self, window: MainWindow):
         super().__init__(window)
         self._win = window
-        self._query_svc = SongsQueryService(window._db if hasattr(window, '_db') else None)
-        self._status_svc = SongsStatusService(window._db if hasattr(window, '_db') else None)
+        db = window._db if hasattr(window, '_db') else None
+        self._query_svc = SongsQueryService(db)
+        self._status_svc = SongsStatusService(db)
         self._all_items: list = []
         self._filtered_items: list = []
 
@@ -66,6 +67,18 @@ class SongsController(QObject):
     def get_display_items(self) -> list:
         return self._filtered_items
 
+    def favorite_ids(self) -> set[int]:
+        return self._status_svc.favorite_ids()
+
+    def status_cache(self) -> dict[int, dict]:
+        return dict(self._status_svc._quality_cache)
+
+    def view_state(self) -> dict:
+        return {
+            "fav_ids": self.favorite_ids(),
+            "status_cache": self.status_cache(),
+        }
+
     # ── Bulk actions ──
 
     def play_items(self, items: list):
@@ -76,11 +89,19 @@ class SongsController(QObject):
             w._playback_ctrl.play_filepaths(fps, play_now=True)
 
     def queue_items(self, items: list):
-        """Queue a list of MediaItems."""
+        """Queue a list of MediaItems with fallback."""
         w = self._win
         fps = [i.filepath for i in items if hasattr(i, 'filepath') and i.filepath]
-        if fps and hasattr(w, '_playback_ctrl') and w._playback_ctrl:
-            w._playback_ctrl.enqueue_with_context(fps, play_now=False, source="songs")
+        if not fps:
+            return
+        if hasattr(w, '_playback_ctrl') and w._playback_ctrl:
+            try:
+                w._playback_ctrl.enqueue_with_context(fps, play_now=False, source="songs")
+                return
+            except Exception:
+                pass
+        if hasattr(w, '_playback'):
+            w._playback.enqueue(fps, play_now=False)
 
     def toggle_favorite(self, item):
         """Toggle favorite status for a single item."""
@@ -102,8 +123,13 @@ class SongsController(QObject):
         """Open metadata editor for selected items."""
         w = self._win
         fps = [i.filepath for i in items if hasattr(i, 'filepath') and i.filepath]
-        if fps and hasattr(w, '_artist_ctrl'):
+        if not fps:
+            return
+        if hasattr(w, '_artist_ctrl') and hasattr(w._artist_ctrl, 'open_metadata_for_files'):
             w._artist_ctrl.open_metadata_for_files(fps)
+            return
+        if hasattr(w, '_open_metadata_for_files'):
+            w._open_metadata_for_files(fps)
 
     def locate_file(self, item):
         """Open file manager at the item's location."""
