@@ -117,7 +117,7 @@ class HubRouteController:
                 genres_widget=w._genres_stack,
                 folders_widget=w._folder_browser,
             )
-            page.tab_changed.connect(w._on_library_tab_changed)
+            page.tab_changed.connect(w._lib_ctrl._on_library_tab_changed)
             return page
         self._lazy("library_hub", _build)
 

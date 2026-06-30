@@ -50,7 +50,4 @@ class TestFolderContextEvents:
 
         from ui.window import MainWindow
         MainWindow._on_folder_scan_requested(win, "/home/user/Music/Rock")
-        call = ctx_svc.record_folder_scanned.call_args
-        kwargs = call[1] if call.kwargs else call[0][1]
-        # Should not matter — record_folder_scanned sanitizes internally
-        assert True
+        ctx_svc.record_folder_scanned.assert_called_once()

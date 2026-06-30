@@ -316,6 +316,8 @@ class MainWindow(QMainWindow):
         self._search_router = SearchRouter(self)
         from ui.routers.view_mode_router import ViewModeRouter
         self._view_router = ViewModeRouter(self)
+        from ui.controllers.devices_controller import DevicesController
+        self._devices_ctrl = DevicesController(self)
 
         from ui.controllers.hub_route_controller import HubRouteController
         self._hub_route_ctrl = HubRouteController(self)
@@ -791,37 +793,10 @@ class MainWindow(QMainWindow):
         self._fade_content("metadata_editor")
 
     def _show_playlist_detail(self, key):
-        pid = int(key.split(":", 1)[1])
-        self._current_playlist = pid
-        items = self._db.get_playlist_items(pid)
-        pl = next((p for p in self._db.get_playlists() if p["id"] == pid), {"name": "Playlist"})
-        self._playlist_detail.set_playlist(pl, items)
-        total_dur = int(sum(getattr(i, 'duration', 0) or 0 for i in items))
-        h = total_dur // 3600
-        m = (total_dur % 3600) // 60
-        dur_str = f"{h} h {m} min" if h > 0 else f"{m} min" if m > 0 else ""
-        subtitle = f"{len(items)} canciones"
-        if dur_str:
-            subtitle += f" · {dur_str}"
-        self._section_title.setText(pl.get("name", "Playlist"))
-        self._section_subtitle.setText(subtitle)
-        self._search.show()
-        self._fade_content("playlist_detail")
+        self._playlist_ctrl.show_playlist_detail(key)
 
     def _on_playlist_track_activated(self, row: int, filepath: str):
-        """Play entire playlist starting from the clicked track."""
-        pid = getattr(self, '_current_playlist', 0)
-        if not pid:
-            return
-        items = self._db.get_playlist_items(pid)
-        paths = [i.filepath for i in items if getattr(i, 'filepath', '')]
-        if not paths:
-            return
-        start_idx = max(0, min(row, len(paths) - 1))
-        if hasattr(self._playback, 'play_queue'):
-            self._playback.play_queue(paths, start_idx)
-        else:
-            self._play_filepaths(paths[start_idx:], play_now=True)
+        self._playlist_ctrl.on_playlist_track_activated(row, filepath)
 
     def _show_artists(self, key):
         self._show_library_hub_page()
@@ -839,24 +814,7 @@ class MainWindow(QMainWindow):
             self._library_hub_page.set_current_section("genres")
 
     def _show_folders(self, key):
-        from sources.folder_source import FolderSource
-        if not hasattr(self, '_folder_source') or self._folder_source is None:
-            roots = self._db.get_library_roots() if self._db else []
-            start_dir = roots[0] if roots else os.path.expanduser("~")
-            self._folder_source = FolderSource(start_dir, db=self._db)
-            self._search_ctrl.register("folders", self._folder_source)
-        else:
-            roots = self._db.get_library_roots() if self._db else []
-            if roots:
-                current_root = self._folder_source.root
-                if current_root not in roots:
-                    start_dir = roots[0]
-                    self._folder_source.root = start_dir
-                    self._search_ctrl.register("folders", self._folder_source)
-        self._search_ctrl.set_active("folders")
-        self._show_library_hub_page()
-        if self._library_hub_page:
-            self._library_hub_page.set_current_section("folders")
+        self._lib_ctrl.show_folders(key)
 
     def _show_radio(self, key):
         self._srv_ctrl.show_radio(key)
@@ -868,49 +826,7 @@ class MainWindow(QMainWindow):
         self._srv_ctrl.open_server(name)
 
     def _show_device(self, key):
-        mount = key.split(":", 1)[1]
-        import shutil
-        usage = shutil.disk_usage(mount) if os.path.exists(mount) else None
-        device_name = os.path.basename(mount)
-
-        self._section_title.setText(device_name)
-        self._section_subtitle.setText("Escaneando dispositivo...")
-        self._count.setText("...")
-        self._search.hide()
-        self._fade_content("library_hub")
-
-        self._model.populate([])
-        if hasattr(self, '_playback_ctrl') and self._playback_ctrl:
-            self._playback_ctrl.attach_track_table(self._table, self._model)
-        else:
-            self._table.setModel(self._model)
-
-        def _on_device_scanned(files: list[str]):
-            if not hasattr(self, '_model') or self._current_section_key != "devices":
-                return
-            refs = [TrackRef(uri=fp, title=os.path.basename(fp), duration=0.0) for fp in files]
-            self._model.populate(refs)
-            self._current_refs = refs
-            if usage:
-                total_gb = usage.total / (1024**3)
-                free_gb = usage.free / (1024**3)
-                used_pct = (1 - usage.free / usage.total) * 100
-                self._section_subtitle.setText(
-                    f"{free_gb:.1f} GB libre de {total_gb:.1f} GB · "
-                    f"{used_pct:.0f}% usado · {len(files)} canciones")
-            else:
-                self._section_subtitle.setText(f"{len(files)} canciones")
-            self._count.setText(f"{len(files)} archivos")
-            self._table.setColumnHidden(7, True)
-            self._search.show()
-
-        if self._workers:
-            from library.devices import scan_device_music
-            self._workers.run_task("device_scan", lambda: scan_device_music(mount),
-                                   on_done=_on_device_scanned)
-        else:
-            from library.devices import scan_device_music
-            _on_device_scanned(scan_device_music(mount))
+        self._devices_ctrl.show_device(key)
 
     def _show_discover(self, key):
         self._fade_content("discover")
@@ -1018,27 +934,7 @@ class MainWindow(QMainWindow):
         self._fade_content("library_hub")
 
     def _on_library_tab_changed(self, section_key: str, force: bool = False):
-        if section_key == getattr(self, '_last_lib_tab', None) and not force:
-            return
-        self._last_lib_tab = section_key
-        self._current_section_key = section_key if section_key in ("library", "albums", "artists", "genres", "folders") else self._current_section_key
-        config = _resolve_section_config(section_key, {})
-        views = config.get("views", [])
-        default = config.get("default", "list")
-        self._view_switcher.show()
-        self._view_switcher.set_available_modes(views, default, context=section_key)
-
-        # Lazy-load data for the active tab
-        if section_key == "albums":
-            self._show_album_grid()
-        elif section_key == "artists":
-            self._artist_repo.clear_current()
-            self._artist_repo.build(self._all_items)
-            self._artist_grid.set_artists(self._artist_repo.groups)
-        elif section_key == "genres":
-            self._lib_ctrl.refresh_genres()
-        elif section_key == "library":
-            self._apply_filters()
+        self._lib_ctrl._on_library_tab_changed(section_key, force)
 
     def _show_mix_hub_page(self, key=None):
         self._hub_route_ctrl.show_mix_hub(key)

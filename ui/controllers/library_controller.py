@@ -187,6 +187,55 @@ class LibraryController(QObject):
         w._song_grid.set_items(items, card_size=170)
         w._count.setText(f"{len(items)} canciones")
 
+    def show_folders(self, key: str = ""):
+        """Activate folder source and display folder browser."""
+        w = self._win
+        import os
+        from sources.folder_source import FolderSource
+        if not hasattr(w, '_folder_source') or w._folder_source is None:
+            roots = w._db.get_library_roots() if w._db else []
+            start_dir = roots[0] if roots else os.path.expanduser("~")
+            w._folder_source = FolderSource(start_dir, db=w._db)
+            w._search_ctrl.register("folders", w._folder_source)
+        else:
+            roots = w._db.get_library_roots() if w._db else []
+            if roots:
+                current_root = w._folder_source.root
+                if current_root not in roots:
+                    start_dir = roots[0]
+                    w._folder_source.root = start_dir
+                    w._search_ctrl.register("folders", w._folder_source)
+        w._search_ctrl.set_active("folders")
+        w._show_library_hub_page()
+        if w._library_hub_page:
+            w._library_hub_page.set_current_section("folders")
+
+    def _on_library_tab_changed(self, section_key: str, force: bool = False):
+        """Handle library tab switch — update header, lazy-load data."""
+        w = self._win
+        if section_key == getattr(w, '_last_lib_tab', None) and not force:
+            return
+        w._last_lib_tab = section_key
+        if section_key in ("library", "albums", "artists", "genres", "folders"):
+            w._current_section_key = section_key
+        from ui.controllers.navigation_controller import _resolve_section_config
+        config = _resolve_section_config(section_key, {})
+        views = config.get("views", [])
+        default = config.get("default", "list")
+        w._view_switcher.show()
+        w._view_switcher.set_available_modes(views, default, context=section_key)
+
+        if section_key == "albums":
+            w._show_album_grid()
+        elif section_key == "artists":
+            w._artist_repo.clear_current()
+            w._artist_repo.build(w._all_items)
+            w._artist_grid.set_artists(w._artist_repo.groups)
+        elif section_key == "genres":
+            self.refresh_genres()
+        elif section_key == "library":
+            w._apply_filters()
+
     # ── Callbacks ──
 
     def _on_backfill_done(self, count: int):

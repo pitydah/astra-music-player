@@ -467,6 +467,40 @@ class PlaylistController:
         w._playlist_hub.set_playlists(pls)
         w._fade_content("playlist_hub")
 
+    def show_playlist_detail(self, key: str):
+        """Load and display a specific playlist detail view."""
+        w = self._win
+        pid = int(key.split(":", 1)[1])
+        w._current_playlist = pid
+        items = w._db.get_playlist_items(pid)
+        pl = next((p for p in w._db.get_playlists() if p["id"] == pid), {"name": "Playlist"})
+        w._playlist_detail.set_playlist(pl, items)
+        total_dur = int(sum(getattr(i, 'duration', 0) or 0 for i in items))
+        h = total_dur // 3600
+        m = (total_dur % 3600) // 60
+        dur_str = f"{h} h {m} min" if h > 0 else f"{m} min" if m > 0 else ""
+        subtitle = f"{len(items)} canciones"
+        if dur_str:
+            subtitle += f" · {dur_str}"
+        w._section_title.setText(pl.get("name", "Playlist"))
+        w._section_subtitle.setText(subtitle)
+        w._search.show()
+        w._fade_content("playlist_detail")
+
+    def on_playlist_track_activated(self, row: int, filepath: str):
+        """Play entire playlist starting from the clicked track."""
+        w = self._win
+        pid = getattr(w, '_current_playlist', 0)
+        if not pid:
+            return
+        items = w._db.get_playlist_items(pid)
+        paths = [i.filepath for i in items if getattr(i, 'filepath', '')]
+        if not paths:
+            return
+        start_idx = max(0, min(row, len(paths) - 1))
+        if hasattr(w._playback, 'play_queue'):
+            w._playback.play_queue(paths, start_idx)
+
     def update_playlist(self, pid: int, **kwargs):
         """Update playlist metadata (name, description, cover_path, cover_type)."""
         self._ctx.db.update_playlist(pid, **kwargs)
