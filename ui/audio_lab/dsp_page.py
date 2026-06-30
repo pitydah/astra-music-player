@@ -154,7 +154,7 @@ class DSPPage(QWidget):
         for key, prof in PROFILES.items():
             label = f"{prof.name} {'🔒' if prof.bitperfect else ''}"
             self._profile_combo.addItem(label, key)
-        current = get_str("audio/profile", "standard")
+        current = get_str("audio/profile") or "standard"
         for i in range(self._profile_combo.count()):
             if self._profile_combo.itemData(i) == current:
                 self._profile_combo.setCurrentIndex(i)
@@ -262,7 +262,7 @@ class DSPPage(QWidget):
 
     def _refresh_status(self):
         try:
-            profile_key = get_str("audio/profile", "standard")
+            profile_key = get_str("audio/profile") or "standard"
             from audio.output_profiles import PROFILES
             prof = PROFILES.get(profile_key)
             self._status_lines["profile"].setText(
@@ -272,17 +272,17 @@ class DSPPage(QWidget):
                 "Sí" if prof and prof.bitperfect else "No"
             )
             self._status_lines["resample"].setText(
-                "Permitido" if get_bool("audio/allow_resample", False)
+                "Permitido" if get_bool("audio/allow_resample")
                 else "No permitido"
             )
             self._status_lines["eq"].setText(
-                "Activo" if get_bool("audio/eq/enabled", False) else "Inactivo"
+                "Activo" if get_bool("audio/eq/enabled") else "Inactivo"
             )
             self._status_lines["replaygain"].setText(
-                get_str("audio/replaygain/mode", "off")
+                get_str("audio/replaygain/mode") or "off"
             )
             self._status_lines["device"].setText(
-                get_str("audio/output_device", "auto")
+                get_str("audio/output_device") or "auto"
             )
         except Exception as e:
             logger.warning("Status refresh error: %s", e)

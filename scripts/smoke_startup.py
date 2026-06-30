@@ -189,6 +189,52 @@ def _check_audio_lab_routes():
     return errors
 
 
+def _check_audio_lab_page_instantiation():
+    """Instantiate Audio Lab page widgets to verify constructors work.
+
+    Requires QApplication (created by _check_qt step).
+    Only runs if MICHI_SMOKE_INCLUDE_AUDIO_LAB=1.
+    No hardware, no capture, no conversion is started.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+
+    errors = 0
+
+    pages = [
+        ("AudioLabPage", "ui.audio_lab.audio_lab_page", "AudioLabPage", {}),
+        ("AudioLabIdentifierPage", "ui.audio_lab.sub_pages", "AudioLabIdentifierPage", {}),
+        ("AudioLabBackupPage", "ui.audio_lab.sub_pages", "AudioLabBackupPage", {}),
+        ("AudioLabDiagnosticsPage", "ui.audio_lab.sub_pages", "AudioLabDiagnosticsPage", {}),
+        ("AudioLabOutputPage", "ui.audio_lab.sub_pages", "AudioLabOutputPage", {}),
+        ("IntelligencePage", "ui.audio_lab.intelligence_page", "IntelligencePage",
+         {"db": None, "worker_mgr": None}),
+        ("ArtworkPage", "ui.audio_lab.artwork_page", "ArtworkPage", {"db": None}),
+        ("ConversionPage", "ui.audio_lab.conversion_page", "ConversionPage", {}),
+        ("VinylLabPage", "ui.audio_lab.vinyl_lab_page", "VinylLabPage", {}),
+        ("DSPPage", "ui.audio_lab.dsp_page", "DSPPage", {}),
+    ]
+
+    for label, module_path, class_name, kwargs in pages:
+        try:
+            mod = __import__(module_path, fromlist=[class_name])
+            cls = getattr(mod, class_name)
+            cls(**kwargs)
+            msg = f"  ✓ {label}"
+            db_val = kwargs.get("db")
+            if db_val is not None:
+                msg += f" (db={db_val})"
+            print(msg)
+        except Exception as e:
+            print(f"  ✗ {label}: {e}")
+            errors += 1
+
+    return errors
+
+
 def main():
     errors = 0
     tmp_root = None
@@ -220,6 +266,8 @@ def main():
 
         if os.environ.get("MICHI_SMOKE_INCLUDE_AUDIO_LAB") == "1":
             errors += _run_step("[7/8] NAV_ROUTES (Audio Lab)", _check_audio_lab_routes)
+            print()
+            errors += _run_step("[8/8] Page instantiation (Audio Lab)", _check_audio_lab_page_instantiation)
         else:
             print()
             print("[7/7] NAV_ROUTES (Audio Lab) — skipped (set MICHI_SMOKE_INCLUDE_AUDIO_LAB=1 to enable)")
