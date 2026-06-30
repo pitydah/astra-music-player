@@ -278,6 +278,15 @@ class DiagnosticsPage(QWidget):
         self._spectral_result.setWordWrap(True)
         svl.addWidget(self._spectral_result)
 
+        self._spectral_graph_btn = QPushButton("Mostrar gráfico espectral")
+        self._spectral_graph_btn.setCursor(Qt.PointingHandCursor)
+        self._spectral_graph_btn.setStyleSheet(glass_button_qss("ghost"))
+        self._spectral_graph_btn.clicked.connect(self._show_spectral_graph)
+        self._spectral_graph_btn.setVisible(False)
+        svl.addWidget(self._spectral_graph_btn)
+
+        self._spectral_graph_widget = None
+
         cl.addWidget(spec_card)
 
         # Report
@@ -403,6 +412,48 @@ class DiagnosticsPage(QWidget):
             lines.append(f"Error: {error}")
 
         self._spectral_result.setText("\n".join(lines))
+        self._last_spectral_path = fp
+        self._spectral_graph_btn.setVisible(True)
+
+    def _show_spectral_graph(self):
+        fp = getattr(self, '_last_spectral_path', None)
+        if not fp:
+            return
+        try:
+            from core.audio_analysis.spectral_authenticator import _read_pcm_chunk
+            sr = 44100
+            ext = os.path.splitext(fp)[1].lower()
+            if ext == ".flac":
+                from core.audio_analysis.spectral_authenticator import (
+                    _decode_flac_to_wav_preserve,
+                )
+                tmp = _decode_flac_to_wav_preserve(fp, 44100, 16)
+                if tmp:
+                    samples = _read_pcm_chunk(tmp, 44100)
+                    import contextlib
+                    with contextlib.suppress(Exception):
+                        os.unlink(tmp)
+                else:
+                    return
+            else:
+                import wave
+                with wave.open(fp, "rb") as wf:
+                    sr = wf.getframerate()
+                samples = _read_pcm_chunk(fp, sr)
+            if samples is None or len(samples) < 256:
+                return
+
+            from ui.audio_lab.spectral_graph_widget import SpectralGraphWidget
+            if self._spectral_graph_widget is None:
+                self._spectral_graph_widget = SpectralGraphWidget()
+                self._spectral_graph_widget.setFixedHeight(180)
+                parent_w = self._spectral_graph_btn.parent()
+                if parent_w:
+                    parent_w.layout().addWidget(self._spectral_graph_widget)
+            self._spectral_graph_widget.set_data(samples, sr)
+            self._spectral_graph_widget.setVisible(True)
+        except Exception as e:
+            logger.warning("Spectral graph failed: %s", e)
 
     def _analyse_with_job_manager(self):
         if not self._job_manager:
