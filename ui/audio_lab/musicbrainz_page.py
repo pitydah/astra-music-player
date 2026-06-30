@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QLineEdit, QComboBox,
     QScrollArea,     QListWidget,
-    QProgressBar, QMessageBox,
+    QProgressBar, QMessageBox, QFileDialog,
 )
 
 from ui.central.central_styles import (
@@ -139,6 +139,51 @@ class MusicBrainzPage(QWidget):
 
         cl.addWidget(results_card)
 
+        # Apply section
+        apply_card = QFrame()
+        apply_card.setStyleSheet(glass_card_qss("mbApplyCard"))
+        avl = QVBoxLayout(apply_card)
+        avl.setContentsMargins(20, 16, 20, 16)
+        avl.setSpacing(10)
+
+        ap_label = QLabel("Aplicar metadatos")
+        ap_label.setStyleSheet(
+            "color: rgba(255,255,255,0.88); font-size: 14px; "
+            "font-weight: 600; background: transparent;"
+        )
+        avl.addWidget(ap_label)
+
+        file_row = QHBoxLayout()
+        self._file_label = QLabel("Ningún archivo seleccionado")
+        self._file_label.setStyleSheet(
+            "color: rgba(255,255,255,0.56); font-size: 11px; "
+            "background: transparent;"
+        )
+        file_row.addWidget(self._file_label, 1)
+
+        self._select_file_btn = QPushButton("Seleccionar archivo...")
+        self._select_file_btn.setCursor(Qt.PointingHandCursor)
+        self._select_file_btn.setStyleSheet(glass_button_qss("secondary"))
+        self._select_file_btn.clicked.connect(self._select_target_file)
+        file_row.addWidget(self._select_file_btn)
+
+        self._apply_btn = QPushButton("Aplicar metadatos")
+        self._apply_btn.setCursor(Qt.PointingHandCursor)
+        self._apply_btn.setStyleSheet(glass_button_qss("primary"))
+        self._apply_btn.clicked.connect(self._apply_metadata)
+        self._apply_btn.setEnabled(False)
+        file_row.addWidget(self._apply_btn)
+
+        avl.addLayout(file_row)
+        self._apply_status = QLabel("")
+        self._apply_status.setStyleSheet(
+            "color: rgba(255,255,255,0.56); font-size: 11px; "
+            "background: transparent;"
+        )
+        avl.addWidget(self._apply_status)
+
+        cl.addWidget(apply_card)
+
         cl.addStretch()
         scroll.setWidget(content)
         layout.addWidget(scroll)
@@ -216,3 +261,88 @@ class MusicBrainzPage(QWidget):
             self._results_list.addItem(f"Error: {e}")
 
         self._progress.setVisible(False)
+        self._apply_btn.setEnabled(bool(self._results))
+
+    def _select_target_file(self):
+        fp, _ = QFileDialog.getOpenFileName(
+            self, "Seleccionar archivo de audio", "",
+            "Audio (*.flac *.mp3 *.m4a *.ogg *.opus)"
+        )
+        if not fp:
+            return
+        self._target_file = fp
+        self._file_label.setText(fp.split("/")[-1])
+        self._apply_btn.setEnabled(bool(self._results))
+
+    def _apply_metadata(self):
+        if not self._results:
+            self._apply_status.setText("No hay resultados de búsqueda para aplicar.")
+            return
+        target = getattr(self, '_target_file', None)
+        if not target:
+            self._apply_status.setText("Selecciona un archivo de audio primero.")
+            return
+
+        idx = self._results_list.currentRow()
+        if idx < 0 or idx >= len(self._results):
+            self._apply_status.setText("Selecciona un resultado de la lista.")
+            return
+
+        result = self._results[idx]
+        search_type = self._search_type.currentText()
+        self._apply_status.setText("Aplicando metadatos...")
+
+        try:
+            from metadata.tag_writer import write_tags
+            from metadata.tag_model import TrackTags
+
+            tags = TrackTags(filepath=target)
+
+            if search_type == "Artista":
+                name = result.get("name", "")
+                if name:
+                    tags.artist = name
+                    tags.mark_dirty("artist")
+
+            elif search_type == "Álbum":
+                title = result.get("title", "")
+                artist = result.get("artist", "")
+                year = result.get("year", 0)
+                mbid = result.get("mbid", "")
+                if title:
+                    tags.album = title
+                    tags.mark_dirty("album")
+                if artist:
+                    tags.albumartist = artist
+                    tags.mark_dirty("albumartist")
+                if year:
+                    tags.date = str(year)
+                    tags.mark_dirty("date")
+                if mbid:
+                    tags.musicbrainz_albumid = mbid
+                    tags.mark_dirty("musicbrainz_albumid")
+
+            elif search_type == "Canción":
+                title = result.get("title", "")
+                artist = result.get("artist", "")
+                mbid = (result.get("recording_mbid") or
+                        result.get("mbid") or "")
+                if title:
+                    tags.title = title
+                    tags.mark_dirty("title")
+                if artist:
+                    tags.artist = artist
+                    tags.mark_dirty("artist")
+                if mbid:
+                    tags.musicbrainz_trackid = mbid
+                    tags.mark_dirty("musicbrainz_trackid")
+
+            write_tags(target, tags)
+            self._apply_status.setText(
+                f"Metadatos aplicados correctamente a {target.split('/')[-1]}"
+            )
+            logger.info("MusicBrainz metadata applied to %s", target)
+
+        except Exception as e:
+            logger.exception("Failed to apply MusicBrainz metadata")
+            self._apply_status.setText(f"Error: {e}")
