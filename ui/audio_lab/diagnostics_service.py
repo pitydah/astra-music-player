@@ -126,11 +126,32 @@ def analyse_directory(directory: str) -> list[dict[str, Any]]:
     return results
 
 
+def _read_wav_metadata(filepath: str) -> dict[str, Any]:
+    """Read real sample rate and bit depth from a WAV file."""
+    import wave
+    meta: dict[str, Any] = {"sample_rate": 0, "bit_depth": 16, "channels": 0, "duration": 0.0}
+    try:
+        with wave.open(filepath, "rb") as wf:
+            meta["sample_rate"] = wf.getframerate()
+            meta["channels"] = wf.getnchannels()
+            sampwidth = wf.getsampwidth()
+            meta["bit_depth"] = sampwidth * 8
+            n_frames = wf.getnframes()
+            if meta["sample_rate"] > 0:
+                meta["duration"] = n_frames / meta["sample_rate"]
+    except Exception:
+        pass
+    return meta
+
+
 def analyse_spectral(filepath: str) -> dict[str, Any]:
     """Run spectral authenticity analysis on a WAV file.
 
     Delegates to core/audio_analysis/spectral_authenticator.analyse_spectral.
     Only supports WAV files. Returns verdict or error.
+
+    Before calling the core analyser, obtains real sample rate and bit depth
+    from the file header so 96 kHz / 24-bit files are handled correctly.
     """
     if not os.path.isfile(filepath):
         return {"verdict": "ANALYSIS_ERROR", "label": "Error",
@@ -147,7 +168,25 @@ def analyse_spectral(filepath: str) -> dict[str, Any]:
                     "explanation": "El análisis espectral requiere un archivo WAV PCM.",
                     "error": "Formato no soportado"}
 
-        result = _analyse(filepath)
+        # Obtain real metadata before analysis
+        meta = _read_wav_metadata(filepath)
+        real_sr = meta["sample_rate"]
+        real_bd = meta["bit_depth"]
+        if real_sr <= 0:
+            return {"verdict": "ANALYSIS_ERROR", "label": "Error",
+                    "explanation": "No se pudo leer la frecuencia de muestreo del archivo.",
+                    "error": "sample_rate=0"}
+
+        result = _analyse(
+            filepath,
+            declared_sample_rate=real_sr,
+            declared_bit_depth=real_bd,
+        )
+        # Inject real metadata into result
+        if "metrics" not in result:
+            result["metrics"] = {}
+        result["metrics"]["declared_sample_rate"] = real_sr
+        result["metrics"]["declared_bit_depth"] = real_bd
         return result
 
     except ImportError as e:

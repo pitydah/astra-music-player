@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock
 
-from core.context.context_events import AppEvent
 from core.context import context_repository as repo
 
 
@@ -24,11 +23,8 @@ class TestPlaylistContextEvents:
         ctrl = PlaylistController(window=MagicMock(_ctx=ctx))
 
         ctrl._record_playlist_created(1, "Test Playlist", 10)
-        ctx_svc.record_event.assert_called_once()
-        args = ctx_svc.record_event.call_args
-        assert args[0][0] == AppEvent.PLAYLIST_CREATED
-        assert args[0][1]["playlist_id"] == 1
-        assert args[0][1]["name"] == "Test Playlist"
+        ctx_svc.record_playlist_created.assert_called_once_with(
+            playlist_id=1, name="Test Playlist", count=10)
 
     def test_playlist_played_event(self, tmp_path):
         import os

@@ -32,7 +32,12 @@ def _hann_window(n: int) -> np.ndarray:
 
 def _read_pcm_chunk(filepath: str, sample_rate: int,
                     duration_sec: float = 10.0) -> np.ndarray | None:
-    """Read a PCM chunk from a WAV file for spectral analysis."""
+    """Read a PCM chunk from a WAV file for spectral analysis.
+
+    Handles 8-bit (unsigned), 16-bit (signed), 24-bit (signed LE with sign extension),
+    and 32-bit (signed) PCM. Stereo/multichannel is averaged to mono.
+    Normalises output to approximate [-1.0, 1.0] range.
+    """
     try:
         import wave
         with wave.open(filepath, "rb") as wf:
@@ -47,29 +52,42 @@ def _read_pcm_chunk(filepath: str, sample_rate: int,
             raw = wf.readframes(n_frames)
 
             if sampwidth == 1:
-                dtype = np.uint8
+                # Unsigned 8-bit
+                samples = np.frombuffer(raw, dtype=np.uint8).astype(np.float64)
+                samples = (samples - 128.0) / 128.0
             elif sampwidth == 2:
-                dtype = np.int16
+                # Signed 16-bit LE
+                samples = np.frombuffer(raw, dtype=np.int16).astype(np.float64)
+                samples = samples / 32768.0
             elif sampwidth == 3:
-                raw_bytes = np.frombuffer(raw, dtype=np.uint8)
-                raw_bytes = raw_bytes.reshape(-1, 3)
-                padded = np.zeros((len(raw_bytes), 4), dtype=np.uint8)
-                padded[:, :3] = raw_bytes[:, :]
-                samples = padded.view(np.int32).flatten()
-                samples = samples / (2**31)
-                if n_channels > 1:
-                    samples = samples.reshape(-1, n_channels)
-                    samples = samples[:, 0]
-                return samples.astype(np.float64)
+                # Signed 24-bit LE — proper sign extension
+                raw_bytes = np.frombuffer(raw, dtype=np.uint8).reshape(-1, 3)
+                padded = np.zeros((len(raw_bytes), 4), dtype=np.int32)
+                # Copy 3 bytes into lower 24 bits
+                padded[:, 0] = raw_bytes[:, 0].astype(np.int32)
+                padded[:, 1] = raw_bytes[:, 1].astype(np.int32) << 8
+                padded[:, 2] = raw_bytes[:, 2].astype(np.int32) << 16
+                # Sign-extend bit 23 to bits 24-31
+                sign_mask = np.int32(0x80 << 16)  # bit 23
+                is_negative = (padded[:, 2] & sign_mask) != 0
+                samples = (padded[:, 0] | padded[:, 1] | padded[:, 2]).astype(np.float64)
+                samples[is_negative] -= 16777216.0  # 2^24
+                samples = samples / 8388608.0  # 2^23
             elif sampwidth == 4:
-                dtype = np.int32
+                # Signed 32-bit LE
+                samples = np.frombuffer(raw, dtype=np.int32).astype(np.float64)
+                samples = samples / 2147483648.0
             else:
                 return None
 
-            samples = np.frombuffer(raw, dtype=dtype).astype(np.float64)
+            # Average channels to mono
             if n_channels > 1:
-                samples = samples.reshape(-1, n_channels)
-                samples = samples[:, 0]
+                try:
+                    samples = samples.reshape(-1, n_channels).mean(axis=1)
+                except ValueError:
+                    # If not evenly divisible, take first channel
+                    pass
+
             return samples
     except Exception as e:
         logger.debug("Could not read WAV for spectral analysis: %s", e)
@@ -136,13 +154,32 @@ def _compute_spectral_analysis(samples: np.ndarray,
     if seg_count == 0:
         return {}
 
+    rolloff_95_val = float(np.median(rolloff_95_vals)) if rolloff_95_vals else 0.0
+    rolloff_99_val = float(np.median(rolloff_99_vals)) if rolloff_99_vals else 0.0
+    e_16k_val = float(energy_16k / total_energy) if total_energy > 0 else 0.0
+    e_18k_val = float(energy_18k / total_energy) if total_energy > 0 else 0.0
+    e_20k_val = float(energy_20k / total_energy) if total_energy > 0 else 0.0
+
+    # effective_ceiling_hz: frequency below which most energy is concentrated
+    effective_ceiling = max(rolloff_95_val, rolloff_99_val * 0.95) if rolloff_99_val > 0 else 0.0
+
+    # cutoff_detected: sharp drop in energy above effective ceiling
+    nyquist = sample_rate / 2.0
+    cutoff_detected = False
+    if nyquist > 0 and effective_ceiling > 0:
+        if effective_ceiling < nyquist * 0.6 and e_20k_val < 1e-6:
+            cutoff_detected = True
+
     metrics = {
-        "spectral_rolloff_95": float(np.median(rolloff_95_vals)) if rolloff_95_vals else 0.0,
-        "spectral_rolloff_99": float(np.median(rolloff_99_vals)) if rolloff_99_vals else 0.0,
-        "energy_above_16k": float(energy_16k / total_energy) if total_energy > 0 else 0.0,
-        "energy_above_18k": float(energy_18k / total_energy) if total_energy > 0 else 0.0,
-        "energy_above_20k": float(energy_20k / total_energy) if total_energy > 0 else 0.0,
+        "spectral_rolloff_95": rolloff_95_val,
+        "spectral_rolloff_99": rolloff_99_val,
+        "effective_ceiling_hz": round(effective_ceiling, 1),
+        "cutoff_detected": cutoff_detected,
+        "energy_above_16k": e_16k_val,
+        "energy_above_18k": e_18k_val,
+        "energy_above_20k": e_20k_val,
         "segments_analysed": seg_count,
+        "nyquist_hz": nyquist,
     }
     return metrics
 

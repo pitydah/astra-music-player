@@ -50,6 +50,8 @@ class TestSearchContext:
         router, ctx_svc = self._make_router(tmp_path)
         router._win._current_route_key = "albums"
         router._win._lib_ctrl = MagicMock()
+        # Remove rowCount to force started (no model)
+        router._win._model = None
 
         router.on_search("test")
 
@@ -61,6 +63,8 @@ class TestSearchContext:
         router, ctx_svc = self._make_router(tmp_path)
         router._win._current_route_key = "genres"
         router._win._lib_ctrl = MagicMock()
+        # Remove rowCount to force started (no model)
+        router._win._model = None
 
         router.on_search("test")
 
