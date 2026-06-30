@@ -45,13 +45,15 @@ class TrackRefTableModel(QStandardItemModel):
     COL_YEAR = 4
     COL_GENRE = 5
     COL_DURATION = 6
-    COL_URI = 7
+    COL_QUALITY = 7
+    COL_URI = 8
 
     def __init__(self, parent=None):
-        super().__init__(0, 8, parent)
+        super().__init__(0, 9, parent)
         self.setHorizontalHeaderLabels(
             ["Nº pista", "Título", "Artista", "Álbum",
-             "Año", "Género", "Duración", "Ruta"])
+             "Año", "Género", "Duración", "Calidad", "Ruta"])
+        self._quality_cache = {}
 
     def populate(self, items: list[TrackRef]):
         self.removeRows(0, self.rowCount())
@@ -100,9 +102,43 @@ class TrackRefTableModel(QStandardItemModel):
             else:
                 d.setText("—")
 
+            ql = QStandardItem()
+            ql.setEditable(False)
+            ql.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+            ql.setForeground(QBrush(QColor("#8e8e93")))
+            if item.uri:
+                badge = self._get_badge(item.uri)
+                if badge and badge.get("label"):
+                    ql.setText(badge["label"])
+                    kind = badge.get("kind", "")
+                    if kind == "hires":
+                        ql.setForeground(QBrush(QColor("#64DC64")))
+                    elif kind == "lossless":
+                        ql.setForeground(QBrush(QColor("#8FB7FF")))
+                    elif kind == "lossy":
+                        ql.setForeground(QBrush(QColor("#FFB347")))
+                    elif kind == "dsd":
+                        ql.setForeground(QBrush(QColor("#C084FC")))
+                    elif kind == "warning":
+                        ql.setForeground(QBrush(QColor("#FF8C42")))
+                    tooltip = badge.get("tooltip", "")
+                    if tooltip:
+                        ql.setToolTip(tooltip)
+
             uri = QStandardItem(item.uri)
             uri.setEditable(False)
-            self.appendRow([tr, t, a, al, y, g, d, uri])
+            self.appendRow([tr, t, a, al, y, g, d, ql, uri])
+
+    def _get_badge(self, uri: str) -> dict | None:
+        if uri in self._quality_cache:
+            return self._quality_cache[uri]
+        try:
+            from ui.audio_lab.diagnostics_service import get_badge_for_file
+            badge = get_badge_for_file(uri)
+            self._quality_cache[uri] = badge
+            return badge
+        except Exception:
+            return None
 
     def get_trackref(self, row: int) -> TrackRef | None:
         idx = self.index(row, self.COL_TITLE)
