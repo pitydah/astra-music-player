@@ -10,7 +10,6 @@ from vinyl.exporter import split_wav, encode_to_flac, encode_wav
 from vinyl.vinyl_types import (
     CaptureDevice,
     ProjectStatus,
-    RecordingStatus,
     TrackSplit,
     VinylProject,
     WaveformCache,
@@ -34,10 +33,7 @@ def _create_test_wav(filepath: str, duration_sec: float = 3.0,
     tone[:int(sample_rate * 0.5)] = 0.0  # 0.5s silence at start
     tone[int(sample_rate * 1.5):int(sample_rate * 2.0)] = 0.0  # 0.5s silence at 1.5s
 
-    if n_channels == 2:
-        data = np.column_stack((tone, tone))
-    else:
-        data = tone
+    data = np.column_stack((tone, tone)) if n_channels == 2 else tone
 
     with wave.open(filepath, "wb") as wf:
         wf.setnchannels(n_channels)

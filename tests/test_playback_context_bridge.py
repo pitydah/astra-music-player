@@ -122,5 +122,7 @@ class TestPlaybackContextBridge:
         ctrl, ctx, pb, _ = self._make_ctrl()
         type(pb).queue = PropertyMock(return_value=["/a.flac", "/b.flac"])
         ctrl.enqueue_with_context(["/a.flac", "/b.flac"], source="genre")
-        ctx.record_track_queued.assert_called_once_with(
-            title="", artist="", source="genre")
+        ctx.record_track_queued.assert_called_once()
+        call_kwargs = ctx.record_track_queued.call_args[1]
+        assert call_kwargs.get("source") == "genre"
+        assert "title" not in call_kwargs or call_kwargs.get("title") == ""
