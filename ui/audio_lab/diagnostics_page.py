@@ -712,3 +712,94 @@ class DiagnosticsPage(QWidget):
                 lines.append(f"  ... y {len(report['warnings']) - 5} más")
 
         self._report_label.setText("\n".join(lines))
+
+        self._export_txt_btn.setEnabled(True)
+        self._export_csv_btn.setEnabled(True)
+        self._export_json_btn.setEnabled(True)
+
+    def _export_report(self, fmt: str):
+        if not self._results:
+            return
+        from core.audio_lab.diagnostics_service import generate_report
+        report = generate_report(self._results)
+        ext_map = {"txt": "Textos (*.txt)", "csv": "CSV (*.csv)", "json": "JSON (*.json)"}
+        fp, _ = QFileDialog.getSaveFileName(
+            self, f"Exportar reporte como {fmt.upper()}", f"reporte.{fmt}", ext_map.get(fmt, ""),
+        )
+        if not fp:
+            return
+        try:
+            if fmt == "txt":
+                content = self._report_to_txt(report)
+            elif fmt == "csv":
+                content = self._report_to_csv(report)
+            elif fmt == "json":
+                content = self._report_to_json(report)
+            else:
+                return
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write(content)
+            self._report_label.setText(self._report_label.text() + f"\n\nReporte exportado a: {fp}")
+        except Exception as e:
+            self._report_label.setText(f"Error al exportar: {e}")
+
+    def _report_to_txt(self, report: dict) -> str:
+        lines = [
+            "=== Diagnóstico de Audio Lab ===",
+            f"Total archivos: {report['total_files']}",
+            f"Tamaño total: {report['total_size_mb']} MB",
+            f"Duración total: {report['total_duration_str']}",
+            "", "--- Formatos ---",
+        ]
+        for fmt_c, count in report["format_counts"].items():
+            lines.append(f"  .{fmt_c}: {count}")
+        lines.append("")
+        lines.append("--- Calidad ---")
+        for cat, count in report["quality_counts"].items():
+            lines.append(f"  {cat}: {count}")
+        if report["lossless_count"]:
+            lines.append(f"  Lossless: {report['lossless_count']}")
+        if report["hires_count"]:
+            lines.append(f"  Hi-Res: {report['hires_count']}")
+        if report["dsd_count"]:
+            lines.append(f"  DSD: {report['dsd_count']}")
+        if report["sample_rates"]:
+            lines.append(f"\nFrecuencias: {', '.join(str(s) for s in report['sample_rates'])} Hz")
+        if report["bit_depths"]:
+            lines.append(f"Profundidades: {', '.join(str(b) for b in report['bit_depths'])} bit")
+        if report["errors"]:
+            lines.append(f"\nErrores ({len(report['errors'])}):")
+            for e in report["errors"][:10]:
+                lines.append(f"  \u2717 {e}")
+        if report["warnings"]:
+            lines.append(f"\nAdvertencias ({len(report['warnings'])}):")
+            for fp_w, w in report["warnings"][:5]:
+                lines.append(f"  \u26a0 {fp_w}: {w}")
+        return "\n".join(lines)
+
+    def _report_to_csv(self, report: dict) -> str:
+        import csv
+        import io
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["Metrica", "Valor"])
+        w.writerow(["total_files", report["total_files"]])
+        w.writerow(["total_size_mb", report["total_size_mb"]])
+        w.writerow(["total_duration", report["total_duration_str"]])
+        w.writerow(["lossless", report["lossless_count"]])
+        w.writerow(["lossy", report["lossy_count"]])
+        w.writerow(["hires", report["hires_count"]])
+        w.writerow(["dsd", report["dsd_count"]])
+        w.writerow([])
+        w.writerow(["Formato", "Conteo"])
+        for fmt_c, count in report["format_counts"].items():
+            w.writerow([f".{fmt_c}", count])
+        w.writerow([])
+        w.writerow(["Calidad", "Conteo"])
+        for cat, count in report["quality_counts"].items():
+            w.writerow([cat, count])
+        return buf.getvalue()
+
+    def _report_to_json(self, report: dict) -> str:
+        import json
+        return json.dumps(report, indent=2, ensure_ascii=False)

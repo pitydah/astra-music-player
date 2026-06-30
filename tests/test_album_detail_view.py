@@ -44,7 +44,8 @@ class TestAlbumDetailView:
         t1.bit_depth = 16
         t1.track_number = 1
         view.set_album(title="Album", artist="Artist", tracks=[t1])
-        view._on_track_dbl(type("Idx", (), {"row": lambda: 0, "isValid": lambda: True})())
+        idx = type("Idx", (), {"row": lambda s: 0, "isValid": lambda s: True})()
+        view._on_track_dbl(idx)
         assert len(results) == 1
         assert results[0] == "/test/s1.flac"
 
@@ -66,8 +67,7 @@ class TestAlbumDetailView:
     def test_back_button_emits_back(self, qtbot):
         from ui.album_detail_view import AlbumDetailView
         view = AlbumDetailView()
-        qtbot.addWidget(view)
         results = []
-        view.back_requested.connect(results.append)
+        view.back_requested.connect(lambda: results.append(True))
         view.back_requested.emit()
         assert len(results) == 1
