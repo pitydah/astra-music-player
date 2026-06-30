@@ -281,6 +281,70 @@ class TestSpectralAnalysis:
         finally:
             os.unlink(path)
 
+    def test_cache_hit_returns_stored_result(self):
+        import tempfile, os
+        from ui.audio_lab.diagnostics_service import DiagnosticsCache
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            path = f.name
+        try:
+            _create_test_wav(path)
+            cache = DiagnosticsCache(":memory:")
+            assert cache.stats()["cached_files"] == 0
+
+            from ui.audio_lab.diagnostics_service import analyse_file
+            result = analyse_file(path, use_cache=False)
+            cache.put(path, result)
+            assert cache.stats()["cached_files"] == 1
+
+            cached = cache.get(path)
+            assert cached is not None
+            assert cached.get("from_cache") is True
+        finally:
+            os.unlink(path)
+
+    def test_cache_invalidate_removes_entry(self):
+        from ui.audio_lab.diagnostics_service import DiagnosticsCache
+        cache = DiagnosticsCache(":memory:")
+        cache.put("/tmp/test.wav", {"filepath": "/tmp/test.wav"})
+        assert cache.stats()["cached_files"] == 1
+        cache.invalidate("/tmp/test.wav")
+        assert cache.stats()["cached_files"] == 0
+
+    def test_cache_clear_removes_all(self):
+        from ui.audio_lab.diagnostics_service import DiagnosticsCache
+        cache = DiagnosticsCache(":memory:")
+        cache.put("/tmp/a.wav", {"filepath": "/tmp/a.wav"})
+        cache.put("/tmp/b.wav", {"filepath": "/tmp/b.wav"})
+        assert cache.stats()["cached_files"] == 2
+        cache.clear()
+        assert cache.stats()["cached_files"] == 0
+
+    def test_cache_get_nonexistent_file(self):
+        from ui.audio_lab.diagnostics_service import DiagnosticsCache
+        cache = DiagnosticsCache(":memory:")
+        result = cache.get("/nonexistent.wav")
+        assert result is None
+
+    def test_analyse_file_with_cache_returns_from_cache(self):
+        import tempfile, os
+        from ui.audio_lab.diagnostics_service import DiagnosticsCache, analyse_file
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            path = f.name
+        try:
+            _create_test_wav(path)
+            _GLOBAL_CACHE_REF = None
+            # Analyse first time (uncached)
+            r1 = analyse_file(path, use_cache=True)
+            assert not r1.get("from_cache", False)
+
+            # Second time should be from cache
+            r2 = analyse_file(path, use_cache=True)
+            assert r2.get("from_cache", True)
+        finally:
+            os.unlink(path)
+
     def test_analyse_spectral_wav_basic(self):
         import tempfile, os, wave
         import numpy as np

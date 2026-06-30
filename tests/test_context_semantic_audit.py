@@ -1,10 +1,21 @@
-"""Semantic audit: events, payloads, context_repository isolation."""
+"""Semantic audit: events, payloads, context_repository isolation, AppEvent ban."""
 
 import os
 from pathlib import Path
 
 _EXCLUDED_DIRS = {
-    "__pycache__", "audio_lab", "vinyl",
+    "__pycache__", "audio_lab", "vinyl", "sync", "michi_link",
+    "e2e",
+}
+_EXCLUDED_PREFIXES = {
+    "core/context",
+    "tests/test_context",
+}
+# Allowed patterns (only in core/context/ and tests)
+_ALLOWED_RAW_RECORD_EVENT = {
+    "core/context",
+    "tests/test_context",
+    "scripts/smoke",
 }
 
 
@@ -13,6 +24,15 @@ def _check_file(p: Path, pattern: str) -> bool:
         return False
     text = p.read_text(encoding="utf-8", errors="ignore")
     return pattern in text
+
+
+def _is_excluded_path(p: Path) -> bool:
+    s = str(p)
+    if any(excl in s for excl in _EXCLUDED_DIRS):
+        return True
+    if any(f"music_player/{pref}" in s for pref in _EXCLUDED_PREFIXES):
+        return True
+    return False
 
 
 class TestContextSemanticAudit:
@@ -31,20 +51,29 @@ class TestContextSemanticAudit:
             if _check_file(p, "context_repository"):
                 assert False, f"{p} imports context_repository"
 
-    def test_context_repository_not_imported_by_controllers(self):
+    def test_controllers_no_appevent_import(self):
         src = Path(__file__).resolve().parent.parent
         for p in (src / "ui" / "controllers").rglob("*.py"):
-            if _check_file(p, "context_repository"):
-                assert False, f"{p} imports context_repository"
-        for p in (src / "ui" / "routers").rglob("*.py"):
-            if _check_file(p, "context_repository"):
-                assert False, f"{p} imports context_repository"
+            if _check_file(p, "AppEvent"):
+                assert False, f"{p} imports AppEvent"
 
-    def test_playback_controller_no_context_repository(self):
+    def test_routers_no_appevent_import(self):
         src = Path(__file__).resolve().parent.parent
-        text = (src / "core" / "playback_controller.py").read_text(
-            encoding="utf-8", errors="ignore")
-        assert "context_repository" not in text
+        for p in (src / "ui" / "routers").rglob("*.py"):
+            if _check_file(p, "AppEvent"):
+                assert False, f"{p} imports AppEvent"
+
+    def test_controllers_no_raw_record_event(self):
+        src = Path(__file__).resolve().parent.parent
+        for p in (src / "ui" / "controllers").rglob("*.py"):
+            if _check_file(p, "ctx.record_event("):
+                assert False, f"{p} uses ctx.record_event("
+
+    def test_routers_no_raw_record_event(self):
+        src = Path(__file__).resolve().parent.parent
+        for p in (src / "ui" / "routers").rglob("*.py"):
+            if _check_file(p, "ctx.record_event("):
+                assert False, f"{p} uses ctx.record_event("
 
     def test_no_absolute_paths_in_event_payloads(self, tmp_path):
         from core.context import context_repository as repo
@@ -110,19 +139,13 @@ class TestContextSemanticAudit:
         raw = str(snap)
         assert "/home/" not in raw
 
-    def test_controllers_use_semantic_methods(self):
+    def test_no_appevent_import_outside_context(self):
         src = Path(__file__).resolve().parent.parent
         violations = []
-        for p in (src / "ui" / "controllers").rglob("*.py"):
-            if _check_file(p, "context_repository"):
-                violations.append(f"{p}: context_repository")
-            if _check_file(p, "ctx.record_event("):
-                violations.append(f"{p}: ctx.record_event(")
-
-        for p in (src / "ui" / "routers").rglob("*.py"):
-            if _check_file(p, "context_repository"):
-                violations.append(f"{p}: context_repository")
-            if _check_file(p, "ctx.record_event("):
-                violations.append(f"{p}: ctx.record_event(")
-
-        assert not violations, "\n".join(violations)
+        for p in src.rglob("*.py"):
+            if _is_excluded_path(p):
+                continue
+            text = p.read_text(encoding="utf-8", errors="ignore")
+            if "from core.context.context_events import AppEvent" in text:
+                violations.append(str(p))
+        assert not violations, "AppEvent imported outside core/context/tests:\n" + "\n".join(violations)

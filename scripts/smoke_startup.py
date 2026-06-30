@@ -253,12 +253,16 @@ def _check_context_core():
         from core.context.context_service import ContextService
         svc = ContextService()
         svc.record_scan_finished({"tracks": 0})
-        svc.record_queue_updated(count=0, source="test")
+        svc.record_queue_updated(count=5, source="test")
         svc.record_event("smoke_test", {"ok": True})
         snap = svc.get_home_snapshot()
         snap2 = svc.get_assistant_snapshot()
+        snap3 = svc.get_playback_context()
         assert "library_health" in snap
         assert "assistant_capabilities" in snap2
+        assert "queue" in snap3
+        assert not any("/" in str(v) for k, v in snap2.items() if isinstance(v, str))
+        assert snap.get("playback", {}).get("queue", {}).get("active") is True
         repo.close()
         print("  ✓ OK — events, home, assistant")
     except Exception as e:

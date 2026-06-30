@@ -6,9 +6,13 @@ No fake hi-res detection yet (SpectralAuthenticator is separate).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import time
 from typing import Any
+
+import sqlite3
 
 logger = logging.getLogger("michi.diagnostics.service")
 
@@ -17,16 +21,176 @@ AUDIO_EXTS = frozenset({
     ".m4a", ".aiff", ".wv", ".ape", ".dsf", ".dff",
 })
 
+_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS audio_lab_quality_cache (
+    path TEXT PRIMARY KEY,
+    mtime REAL NOT NULL DEFAULT 0,
+    size INTEGER NOT NULL DEFAULT 0,
+    container TEXT DEFAULT '',
+    codec TEXT DEFAULT '',
+    sample_rate INTEGER DEFAULT 0,
+    bit_depth INTEGER DEFAULT 0,
+    channels INTEGER DEFAULT 0,
+    duration REAL DEFAULT 0.0,
+    bitrate INTEGER DEFAULT 0,
+    quality_category TEXT DEFAULT '',
+    quality_label TEXT DEFAULT '',
+    warnings_json TEXT DEFAULT '[]',
+    error TEXT DEFAULT '',
+    analyzed_at TEXT DEFAULT ''
+);
+"""
 
-def analyse_file(filepath: str) -> dict[str, Any]:
+
+class DiagnosticsCache:
+    """SQLite cache for diagnostic results.
+
+    Avoids re-analysing files whose mtime and size haven't changed.
+    Thread-safe via single connection with WAL mode.
+    """
+
+    def __init__(self, db_path: str | None = None):
+        if db_path is None:
+            from core.paths import app_data_dir
+            db_path = os.path.join(app_data_dir(), "diagnostics_cache.db")
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.executescript(_SCHEMA_SQL)
+        self._conn.commit()
+
+    def get(self, filepath: str) -> dict[str, Any] | None:
+        """Return cached result if file hasn't changed, else None."""
+        try:
+            stat = os.stat(filepath)
+            mtime = stat.st_mtime
+            size = stat.st_size
+        except OSError:
+            return None
+
+        row = self._conn.execute(
+            "SELECT * FROM audio_lab_quality_cache WHERE path=?",
+            (filepath,),
+        ).fetchone()
+        if not row:
+            return None
+
+        if row["mtime"] != mtime or row["size"] != size:
+            return None
+
+        return {
+            "filepath": row["path"],
+            "exists": True,
+            "error": row["error"] or "",
+            "size_mb": round(row["size"] / (1024 * 1024), 1) if row["size"] else 0.0,
+            "from_cache": True,
+            "format_info": {
+                "container": row["container"] or "",
+                "codec": row["codec"] or "",
+                "sample_rate": row["sample_rate"] or 0,
+                "bit_depth": row["bit_depth"] or 0,
+                "channels": row["channels"] or 0,
+                "duration": row["duration"] or 0.0,
+                "bitrate": row["bitrate"] or 0,
+                "warnings": json.loads(row["warnings_json"] or "[]"),
+            },
+            "quality": {
+                "category": row["quality_category"] or "",
+                "label": row["quality_label"] or "",
+            },
+        }
+
+    def put(self, filepath: str, result: dict[str, Any]):
+        try:
+            stat = os.stat(filepath)
+            mtime = stat.st_mtime
+            size = stat.st_size
+        except OSError:
+            mtime = 0.0
+            size = 0
+
+        fi = result.get("format_info", {})
+        q = result.get("quality", {})
+        self._conn.execute(
+            """INSERT OR REPLACE INTO audio_lab_quality_cache
+            (path, mtime, size, container, codec, sample_rate, bit_depth,
+             channels, duration, bitrate, quality_category, quality_label,
+             warnings_json, error, analyzed_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                filepath, mtime, size,
+                fi.get("container", ""), fi.get("codec", ""),
+                fi.get("sample_rate", 0), fi.get("bit_depth", 0),
+                fi.get("channels", 0), fi.get("duration", 0.0),
+                fi.get("bitrate", 0),
+                q.get("category", ""), q.get("label", ""),
+                json.dumps(fi.get("warnings", [])),
+                result.get("error", ""),
+                time.strftime("%Y-%m-%dT%H:%M:%S"),
+            ),
+        )
+        self._conn.commit()
+
+    def invalidate(self, filepath: str):
+        self._conn.execute(
+            "DELETE FROM audio_lab_quality_cache WHERE path=?", (filepath,)
+        )
+        self._conn.commit()
+
+    def clear(self):
+        self._conn.execute("DELETE FROM audio_lab_quality_cache")
+        self._conn.commit()
+
+    def stats(self) -> dict[str, Any]:
+        row = self._conn.execute(
+            "SELECT COUNT(*) as total, "
+            "SUM(size) as total_bytes FROM audio_lab_quality_cache"
+        ).fetchone()
+        total = row["total"] if row else 0
+        total_bytes = row["total_bytes"] or 0 if row else 0
+        return {"cached_files": total, "total_bytes": total_bytes}
+
+    def close(self):
+        self._conn.close()
+
+
+_GLOBAL_CACHE: DiagnosticsCache | None = None
+
+
+def _get_cache() -> DiagnosticsCache:
+    global _GLOBAL_CACHE
+    if _GLOBAL_CACHE is None:
+        try:
+            _GLOBAL_CACHE = DiagnosticsCache()
+        except Exception as e:
+            logger.warning("DiagnosticsCache init failed: %s", e)
+            _GLOBAL_CACHE = None  # type: ignore
+    return _GLOBAL_CACHE  # type: ignore
+
+
+def analyse_file(filepath: str, use_cache: bool = True) -> dict[str, Any]:
     """Analyse a single audio file and return a technical report.
+
+    Args:
+        filepath: Path to audio file.
+        use_cache: If True, check cache before analysing.
 
     Returns dict with keys:
       - filepath, filename, exists, error
       - format_info: dict from format_probe
       - quality: dict from quality_classifier
-      - size_mb, duration_str
+      - size_mb, duration_str, from_cache (bool)
     """
+    if use_cache:
+        cache = _get_cache()
+        if cache:
+            cached = cache.get(filepath)
+            if cached:
+                return cached
+
     result: dict[str, Any] = {
         "filepath": filepath,
         "filename": os.path.basename(filepath),
@@ -36,6 +200,7 @@ def analyse_file(filepath: str) -> dict[str, Any]:
         "quality": {},
         "size_mb": 0.0,
         "duration_str": "",
+        "from_cache": False,
     }
 
     if not result["exists"]:
@@ -104,6 +269,15 @@ def analyse_file(filepath: str) -> dict[str, Any]:
                 result["quality"] = qc
         except Exception:
             pass
+
+    # Cache result
+    if use_cache and result["exists"] and not result.get("from_cache"):
+        cache = _get_cache()
+        if cache:
+            try:
+                cache.put(filepath, result)
+            except Exception:
+                pass
 
     return result
 
