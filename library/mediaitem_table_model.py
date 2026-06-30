@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
+from PySide6.QtGui import QBrush, QColor
 
 from library.media_item import MediaItem
 
@@ -160,6 +161,21 @@ class MediaItemTableModel(QAbstractTableModel):
             if col in (_COL_YEAR, _COL_DURATION):
                 return Qt.AlignCenter
             return Qt.AlignLeft | Qt.AlignVCenter
+
+        if role == Qt.ForegroundRole:
+            if col == _COL_QUALITY:
+                st = self._status_cache.get(item_id(item), {})
+                kind = st.get("quality_category", "")
+                color = {
+                    "hires": QColor("#64DC64"),
+                    "lossless": QColor("#8FB7FF"),
+                    "lossy": QColor("#FFB347"),
+                    "dsd": QColor("#C084FC"),
+                    "warning": QColor("#FF8C42"),
+                    "error": QColor("#FF6B6B"),
+                }.get(kind, QColor("#8e8e93"))
+                return QBrush(color)
+            return None
 
         return None
 
