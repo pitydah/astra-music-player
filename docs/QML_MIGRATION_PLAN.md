@@ -65,6 +65,17 @@ python main.py
 | 12 | Tests & smoke validation | ✅ |
 | 13 | Hardening Pass — PageStack rutas, qmldir, bridges endurecidos, nav por bridge, conexión botones, tests estructurales | ✅ |
 | 14 | Polish Pass + Premium Design — Header glass, ActionButton microinteracciones (scale, loading, focus), Sidebar glyphs (sin emojis), MichiGlass 2.0 (+15 tokens), Home sin emojis, externos grid 2x2, placeholders premium, route sync test, emoji prohibition test | ✅ |
+| 15 | Hardening Navegación + UI Clásica — NavigationHistory dedup (últimos 2 entries), Alt+Left/Right con guard de foco editable, menú contextual sin emojis, toggle_favorite_by_filepath seguro, SongsPremiumPage load_data con stale guard | ✅ |
+| 16 | Foundation Cierre Final — 41 tests QML, sidebar forbidden routes test, context menu emoji test, ruff 0 en ui_qml/ui_qml_bridge/tests | ✅ |
+
+## Commands
+```bash
+python -m pytest tests/qml/ -q    # 41 tests
+python -m ui_qml_bridge.qml_main  # launch QML UI
+python main.py --qml              # launch QML from main
+python main.py                    # classic QtWidgets
+ruff check ./ui_qml ./ui_qml_bridge/tests  # lint
+```
 
 ## Next Phases (Recommended)
 1. **Library QML** — models, grids, lists, search, FTS5
