@@ -77,8 +77,8 @@ class EcosystemController(QObject):
             return
         w = self._win
         workers = getattr(w, "_workers", None)
-        if workers is not None and hasattr(workers, "submit"):
-            workers.submit(self._diagnose_task, on_done=self._on_diagnose_done)
+        if workers is not None and hasattr(workers, "run_task"):
+            workers.run_task("ecosystem_diag", self._diagnose_task, on_done=self._on_diagnose_done)
         else:
             try:
                 self._on_diagnose_done(self._diagnose_task())

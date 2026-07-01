@@ -52,19 +52,23 @@ def build_playback_status(playback: Any = None, context_svc: Any = None) -> Play
         except Exception:
             pass
         try:
-            if hasattr(playback, "_position"):
-                position = getattr(playback, "_position", 0.0)
-                duration = getattr(playback, "_duration", 0.0)
+            if hasattr(playback, "duration"):
+                duration = playback.duration if callable(playback.duration) is False else 0.0
         except Exception:
             pass
 
     queue_active = False
     queue_count = 0
     try:
-        qs = playback.get_queue_state() if hasattr(playback, "get_queue_state") else None
-        if qs:
-            queue_active = qs.get("active", False) or qs.get("count", 0) > 0
-            queue_count = qs.get("count", 0)
+        if hasattr(playback, "get_queue_state"):
+            qs = playback.get_queue_state()
+            if isinstance(qs, tuple) and len(qs) == 2:
+                paths, idx = qs
+                queue_active = len(paths) > 0
+                queue_count = len(paths)
+            elif isinstance(qs, dict):
+                queue_active = qs.get("active", False) or qs.get("count", 0) > 0
+                queue_count = qs.get("count", 0)
     except Exception:
         pass
 

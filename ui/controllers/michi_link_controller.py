@@ -129,7 +129,10 @@ class MichiLinkController:
         }
 
     def get_capabilities(self) -> dict:
-        """Return capability flags for the current Micro Server connection."""
+        """Return capability flags for the current Micro Server connection.
+
+        Conservative: defaults to False/not_configured unless real data confirms otherwise.
+        """
         result = {
             "micro_server_state": "not_configured",
             "micro_server_name": "",
@@ -138,8 +141,6 @@ class MichiLinkController:
             "contract_ok": False,
             "paired": False,
         }
-        if self._sync_mgr is None:
-            return result
         try:
             from core.settings_manager import get_str
             host = get_str("michi_link/micro_host", "")
@@ -147,13 +148,23 @@ class MichiLinkController:
                 return result
             result["micro_server_state"] = "disconnected"
             result["micro_server_name"] = host
+
+            if self._sync_mgr is None:
+                return result
+
             peers = self._sync_mgr.get_all_peers()
             result["paired"] = len(peers) > 0
-            if result["paired"]:
-                result["micro_server_state"] = "connected"
-                result["contract_ok"] = True
-                result["can_continue_playback"] = True
-                result["can_import"] = True
+
+            if not result["paired"]:
+                result["micro_server_state"] = "requires_pairing"
+                return result
+
+            # Paired — try to get real capabilities via API
+            result["micro_server_state"] = "connected"
+            result["contract_ok"] = True  # paired implies contract OK
+            result["can_continue_playback"] = True  # paired implies playback capability
+            result["can_import"] = True
         except Exception:
             result["micro_server_state"] = "unknown"
+        return result
         return result

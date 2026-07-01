@@ -508,10 +508,13 @@ class HomePage(QWidget):
             self._card_audio.setVisible(True)
             return
 
-        items = QVBoxLayout()
-        items.setSpacing(2)
+        if audio.dac_active:
+            items.addWidget(QLabel("DAC activo"))
         if audio.output_device:
-            items.addWidget(QLabel(f"Salida: {audio.output_device}"))
+            label = f"Salida: {audio.output_device}"
+            if not audio.dac_active and audio.output_device != "Predeterminado":
+                label += " (salida configurada)"
+            items.addWidget(QLabel(label))
         if audio.output_profile:
             items.addWidget(QLabel(f"Perfil: {audio.output_profile}"))
         if audio.replaygain_enabled:
@@ -520,10 +523,40 @@ class HomePage(QWidget):
             items.addWidget(QLabel("Ecualizador activo"))
         if audio.dsp_active:
             items.addWidget(QLabel("Procesamiento DSP activo"))
-        if audio.bitperfect_state == "verified":
-            items.addWidget(QLabel("Bit-Perfect verificado"))
-        elif audio.bitperfect_state != "not_available":
-            items.addWidget(QLabel("Bit-Perfect no verificado"))
+        bp_labels = {
+            "intended": "Bit-Perfect solicitado",
+            "disabled": "Bit-Perfect desactivado por DSP/EQ/ReplayGain",
+            "not_verified": "Bit-Perfect no verificado",
+            "not_available": "",
+        }
+        bp_text = bp_labels.get(audio.bitperfect_state, "")
+
+items = QVBoxLayout()
+        items.setSpacing(2)
+        if audio.dac_active:
+            items.addWidget(QLabel("DAC activo"))
+        if audio.output_device:
+            label = f"Salida: {audio.output_device}"
+            if not audio.dac_active and audio.output_device != "Predeterminado":
+                label += " (salida configurada)"
+            items.addWidget(QLabel(label))
+        if audio.output_profile:
+            items.addWidget(QLabel(f"Perfil: {audio.output_profile}"))
+        if audio.replaygain_enabled:
+            items.addWidget(QLabel("ReplayGain activo"))
+        if audio.eq_enabled:
+            items.addWidget(QLabel("Ecualizador activo"))
+        if audio.dsp_active:
+            items.addWidget(QLabel("Procesamiento DSP activo"))
+        bp_labels = {
+            "intended": "Bit-Perfect solicitado",
+            "disabled": "Bit-Perfect desactivado por DSP/EQ/ReplayGain",
+            "not_verified": "Bit-Perfect no verificado",
+            "not_available": "",
+        }
+        bp_text = bp_labels.get(audio.bitperfect_state, "")
+        if bp_text:
+            items.addWidget(QLabel(bp_text))
 
         for i in range(items.count()):
             w = items.itemAt(i).widget()

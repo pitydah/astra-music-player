@@ -491,11 +491,11 @@ class ArtistGridWidget(QWidget):
             "Añadir a la cola": "queue",
             "Crear playlist": "playlist",
             "Crear mix del artista": "mix",
-            "—": None,
+            "_sep1": None,
             "Editar metadatos": "metadata",
             "Analizar discografía": "analyze",
             "Enviar a Micro Server": "send_to_server",
-            "—": None,
+            "_sep2": None,
             "Actualizar info externa": "refresh_info",
             "Resolver duplicados/alias": "resolve_aliases",
         }
@@ -540,9 +540,8 @@ class _ArtistCard(QFrame):
 
         external_img = None
         thumb_path = getattr(artist, 'thumb_path', '') or ''
-        if thumb_path:
-            if _os.path.exists(thumb_path):
-                external_img = QPixmap(thumb_path)
+        if thumb_path and _os.path.exists(thumb_path):
+            external_img = QPixmap(thumb_path)
 
         if external_img and not external_img.isNull():
             thumb_lbl = QLabel()

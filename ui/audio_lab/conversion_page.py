@@ -31,6 +31,7 @@ class ConversionPage(QWidget):
         self.setObjectName("conversionPage")
         self._files: list[str] = []
         self._encoder = encoder
+        self._cancelled = False
         self._build_ui()
 
     def _build_ui(self):
@@ -157,6 +158,13 @@ class ConversionPage(QWidget):
         self._convert_btn.clicked.connect(self._start_conversion)
         cl.addWidget(self._convert_btn)
 
+        self._cancel_conv_btn = QPushButton("Cancelar")
+        self._cancel_conv_btn.setCursor(Qt.PointingHandCursor)
+        self._cancel_conv_btn.setStyleSheet(glass_button_qss("danger"))
+        self._cancel_conv_btn.clicked.connect(self._cancel_conversion)
+        self._cancel_conv_btn.setVisible(False)
+        cl.addWidget(self._cancel_conv_btn)
+
         self._progress = QProgressBar()
         self._progress.setRange(0, 100)
         self._progress.setValue(0)
@@ -277,7 +285,9 @@ class ConversionPage(QWidget):
             self._encoder.encode_finished.connect(self._on_encode_finished)
             self._encoder.encode_error.connect(self._on_encode_error)
 
+        self._cancelled = False
         self._convert_btn.setEnabled(False)
+        self._cancel_conv_btn.setVisible(True)
         self._progress.setVisible(True)
         self._progress.setValue(0)
         self._queue = list(self._files)
@@ -299,9 +309,19 @@ class ConversionPage(QWidget):
             n += 1
         return f"{base}_{n}{ext}"
 
+    def _cancel_conversion(self):
+        self._cancelled = True
+        self._queue.clear()
+        self._cancel_conv_btn.setVisible(False)
+        self._convert_btn.setEnabled(True)
+        self._status_label.setText("Conversión cancelada.")
+
     def _convert_next(self):
+        if self._cancelled:
+            return
         if not self._queue:
             self._convert_btn.setEnabled(True)
+            self._cancel_conv_btn.setVisible(False)
             self._progress.setValue(100)
             self._status_label.setText(
                 f"Conversión finalizada: {self._succ} correctos, "

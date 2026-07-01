@@ -269,7 +269,8 @@ class DSPPage(QWidget):
                 prof.name if prof else profile_key
             )
             self._status_lines["bitperfect"].setText(
-                "Sí" if prof and prof.bitperfect else "No"
+                "Perfil bit-perfect solicitado" if prof and prof.bitperfect
+                else "No solicitado"
             )
             self._status_lines["resample"].setText(
                 "Permitido" if get_bool("audio/allow_resample")

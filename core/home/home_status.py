@@ -51,6 +51,7 @@ class AudioHomeStatus:
     eq_enabled: bool = False
     dsp_active: bool = False
     bitperfect_state: str = "not_available"
+    bitperfect_intended: bool = False
     format_label: str = ""
     sample_rate: int = 0
     bit_depth: int = 0

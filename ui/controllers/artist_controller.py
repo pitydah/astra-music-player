@@ -269,7 +269,7 @@ class ArtistController:
     def send_artist_to_micro_server(self, artist_key: str):
         try:
             from integrations.michi_link.services import (
-                ImportToServerService, DiagnosticsService, MicroServerService)
+                ImportToServerService, MicroServerService)
         except ImportError:
             self._ctx.toast.show("Michi Link no está disponible", "error")
             return
@@ -303,7 +303,7 @@ class ArtistController:
             session = import_svc.create_session(group.display_name)
             for fp in fps:
                 session.add_file(fp)
-            summary = session.preflight()
+            session.preflight()
             session.commit()
             self._ctx.toast.show(
                 f"Enviado {group.display_name} a Micro Server "
@@ -387,8 +387,7 @@ class ArtistController:
         if not filepaths:
             return
         try:
-            from integrations.michi_link.services import (
-                ImportToServerService, MicroServerService)
+            from integrations.michi_link.services import ImportToServerService
         except ImportError:
             self._ctx.toast.show("Michi Link no está disponible", "error")
             return

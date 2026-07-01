@@ -15,7 +15,7 @@ _COLLAB_RE = re.compile(
 _PAREN_RE = re.compile(r"\(.*?\)")
 _BRACKET_RE = re.compile(r"\[.*?\]")
 _SEP_RE = re.compile(r"\s*/\s*")
-_PUNCTUATION_RE = re.compile(r"[^\w\s'´`]")
+_PUNCTUATION_RE = re.compile(r"[^\w\s]")
 _MULTI_SPACE_RE = re.compile(r"\s+")
 
 
@@ -69,9 +69,10 @@ def detect_featured_artists(raw: str) -> list[str]:
     if len(parts) <= 1:
         return []
     featured = []
-    for p in parts[1:]:
-        p = p.strip()
-        if not p or p.lower() in ("", "various", "unknown", "desconocido"):
+    # parts[0] is the main artist, parts[1:] alternate between separator and featured artist
+    for i in range(1, len(parts)):
+        p = parts[i].strip()
+        if not p or p.lower() in ("feat", "feat.", "ft", "ft.", "featuring", "with", "vs", "vs.", "versus", "", "various", "unknown", "desconocido"):
             continue
         sub = _COLLAB_RE.split(p)
         featured.extend(s.strip() for s in sub if s.strip())
@@ -106,7 +107,7 @@ def find_artist_alias_candidates(groups: list[ArtistGroup]) -> list[tuple[str, s
         for j in range(i + 1, len(norm_names)):
             a, b = norm_names[i], norm_names[j]
             ratio = SequenceMatcher(None, a, b).ratio()
-            if 0.70 <= ratio <= 0.99:
+            if 0.75 <= ratio <= 0.99 and abs(len(a) - len(b)) <= 3:
                 candidates.append((normalized[a], normalized[b], round(ratio, 3)))
 
     seen_pairs = set()

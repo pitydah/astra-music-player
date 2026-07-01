@@ -69,6 +69,10 @@ class SongsController(QObject):
     def _refresh_status(self):
         self._status_svc.compute_batch(self._all_items)
 
+    def refresh_audio_lab_badges(self, paths: list[str] | None = None):
+        self._status_svc.invalidate_cache_for_paths(paths)
+        self._status_svc.compute_batch(self._all_items)
+
     def apply_filter(self, filter_state: SongsFilterState | None = None,
                      text: str = "", **filters):
         if filter_state is not None:

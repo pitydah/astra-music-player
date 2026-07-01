@@ -20,6 +20,7 @@ class SongsStatusService:
         self._fav_track_ids: set[str] = set()
         self._quality_cache: dict[int, dict] = {}
         self._cover_cache: dict[str, bool] = {}
+        self._path_to_id: dict[str, int] = {}
 
     def favorite_track_ids(self) -> set[str]:
         return set(self._fav_track_ids)
@@ -45,16 +46,18 @@ class SongsStatusService:
         if paths is None:
             self._quality_cache.clear()
             self._cover_cache.clear()
+            self._path_to_id.clear()
             return
         for fp in paths:
             self._cover_cache.pop(fp, None)
-        ids_to_remove = {iid for iid, cached in self._quality_cache.items()
-                         if any(p in str(cached) for p in paths)}
-        for iid in ids_to_remove:
-            self._quality_cache.pop(iid, None)
+            iid = self._path_to_id.pop(fp, None)
+            if iid is not None:
+                self._quality_cache.pop(iid, None)
 
     def compute_status(self, item: MediaItem, diag_badge: dict | None = None) -> dict:
         item_id = getattr(item, 'id', 0)
+        if item.filepath:
+            self._path_to_id[item.filepath] = item_id
         cached = self._quality_cache.get(item_id)
         if cached:
             result = dict(cached)

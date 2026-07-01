@@ -142,84 +142,8 @@ class HomeDashboardService:
         return "stopped"
 
     def _build_playback_status(self) -> PlaybackHomeStatus:
-        pb = self._playback
-        if pb is None:
-            return PlaybackHomeStatus()
-
-        try:
-            raw = getattr(pb, "state", "stopped") or "stopped"
-        except Exception:
-            raw = "unknown"
-        state = self._normalize_playback_state(raw)
-
-        has_current = state in ("playing", "paused")
-        state_value = state
-        title = ""
-        artist = ""
-        album = ""
-        position = 0.0
-        duration = 0.0
-
-        if has_current:
-            try:
-                cur = pb.current if hasattr(pb, "current") else None
-                if cur:
-                    title = getattr(cur, "title", "") or ""
-                    artist = getattr(cur, "artist", "") or ""
-                    album = getattr(cur, "album", "") or ""
-            except Exception:
-                pass
-            try:
-                if hasattr(pb, "duration"):
-                    duration = pb.duration if callable(pb.duration) is False else 0.0
-            except Exception:
-                pass
-
-        queue_active = False
-        queue_count = 0
-        try:
-            if hasattr(pb, "get_queue_state"):
-                qs = pb.get_queue_state()
-                if isinstance(qs, tuple) and len(qs) == 2:
-                    paths, idx = qs
-                    queue_active = len(paths) > 0
-                    queue_count = len(paths)
-                elif isinstance(qs, dict):
-                    queue_active = qs.get("active", False) or qs.get("count", 0) > 0
-                    queue_count = qs.get("count", 0)
-        except Exception:
-            pass
-
-        last_title = ""
-        last_artist = ""
-        ctx = self._context_svc
-        if ctx is not None and not has_current:
-            try:
-                snap = ctx.get_home_snapshot()
-                if snap and "playback" in snap:
-                    pb_snap = snap["playback"]
-                    np = pb_snap.get("now_playing", {}) or {}
-                    last_title = np.get("title", "")
-                    last_artist = np.get("artist", "")
-            except Exception:
-                pass
-
-        can_continue = has_current or bool(last_title)
-
-        return PlaybackHomeStatus(
-            has_current_track=has_current,
-            current_title=title,
-            current_artist=artist,
-            current_album=album,
-            current_position=position,
-            current_duration=duration,
-            queue_active=queue_active,
-            queue_count=queue_count,
-            last_track_title=last_title,
-            last_track_artist=last_artist,
-            can_continue=can_continue,
-            state=state_value,
-        )
+        from core.home.builders.playback_home_builder import build_playback_status
+        return build_playback_status(playback=self._playback, context_svc=self._context_svc)
 
     def _build_audio_status(self) -> AudioHomeStatus:
         output_device = ""
@@ -228,48 +152,28 @@ class HomeDashboardService:
         eq_enabled = False
         dsp_active = False
         bitperfect_state = "not_available"
+        bitperfect_intended = False
         warnings_list: list[str] = []
 
         try:
             from core.settings_manager import get_str, get_bool
-
             output_profile = get_str("audio/profile") or ""
             replaygain_enabled = get_bool("audio/replaygain_enabled")
         except Exception:
             pass
 
-        if self._player_engine is not None:
+        # Leer desde PlayerService (high-level API)
+        pb = self._playback
+        if pb is not None:
             try:
-                eng = self._player_engine
-                if hasattr(eng, "dsp_state") and eng.dsp_state is not None:
-                    dsp = eng.dsp_state
-                    eq_enabled = getattr(dsp, "eq_enabled", False)
-                    dsp_active = getattr(dsp, "is_dsp_active", lambda: False)()
-                    replaygain_enabled = (
-                        replaygain_enabled or getattr(dsp, "replaygain_enabled", False)
-                    )
-
-                if hasattr(eng, "current_format"):
-                    fmt = eng.current_format
-                    if fmt:
-                        bitperfect_state = "not_verified"
-                        if "bitperfect" in output_profile.lower():
-                            bitperfect_state = "verified"
-            except Exception:
-                pass
-
-        if self._playback is not None:
-            try:
-                pb = self._playback
                 if hasattr(pb, "get_output_device_id"):
                     oid = pb.get_output_device_id()
                     if oid:
                         output_device = str(oid)
                 if hasattr(pb, "get_audio_diagnostics"):
                     diag = pb.get_audio_diagnostics()
-                    if isinstance(diag, dict) and diag.get("warnings"):
-                        warnings_list = diag["warnings"]
-                # EQ from PlayerService public API
+                    if isinstance(diag, dict):
+                        warnings_list = diag.get("warnings", [])
                 if hasattr(pb, "get_eq_state"):
                     eq_state = pb.get_eq_state()
                     if isinstance(eq_state, dict):
@@ -278,16 +182,58 @@ class HomeDashboardService:
             except Exception:
                 pass
 
+        # PlayerEngine como fuente adicional de DSP/EQ
+        eng = self._player_engine
+        if eng is not None:
+            try:
+                if hasattr(eng, "dsp_state") and eng.dsp_state is not None:
+                    dsp = eng.dsp_state
+                    eq_enabled = eq_enabled or getattr(dsp, "eq_enabled", False)
+                    dsp_active = dsp_active or getattr(dsp, "is_dsp_active", lambda: False)()
+                    replaygain_enabled = replaygain_enabled or getattr(dsp, "replaygain_enabled", False)
+            except Exception:
+                pass
+
         if not output_device:
             output_device = "Predeterminado"
+
+        # DAC activo: dispositivo no predeterminado con nombre DAC
+        dac_active = False
+        dev_lower = output_device.lower()
+        dac_keywords = ("dac", "usb audio", "hi-fi", "hifi", "audioquest", "ifi",
+                        "topping", "schiit", "smsl", "rme", "focusrite",
+                        "scarlett", "motu", "benchmark", "apogee",
+                        "minidsp", "cmedia", "xmos")
+        if output_device != "Predeterminado":
+            for kw in dac_keywords:
+                if kw in dev_lower:
+                    dac_active = True
+                    break
+
+        # Semantica de Bit-Perfect honesta
+        is_bitperfect_profile = "bitperfect" in output_profile.lower()
+        if is_bitperfect_profile:
+            bitperfect_intended = True
+            if eq_enabled or dsp_active or replaygain_enabled:
+                bitperfect_state = "disabled"
+            elif dac_active:
+                bitperfect_state = "intended"
+            else:
+                bitperfect_state = "not_verified"
+        elif output_device != "Predeterminado":
+            bitperfect_state = "disabled" if (eq_enabled or dsp_active) else "not_verified"
+        else:
+            bitperfect_state = "not_available"
 
         return AudioHomeStatus(
             output_device=output_device,
             output_profile=output_profile,
+            dac_active=dac_active,
             replaygain_enabled=replaygain_enabled,
             eq_enabled=eq_enabled,
             dsp_active=dsp_active,
             bitperfect_state=bitperfect_state,
+            bitperfect_intended=bitperfect_intended,
             warnings=warnings_list,
         )
 

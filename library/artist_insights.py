@@ -170,8 +170,7 @@ def compute_metadata_health(group: ArtistGroup) -> ArtistMetadataHealth:
     album_titles = [a.title.lower().strip() for a in group.albums if a.title]
     seen = {}
     for a in album_titles:
-        if a in seen:
-            if a not in health.duplicate_album_candidates:
+        if a in seen and a not in health.duplicate_album_candidates:
                 health.duplicate_album_candidates.append(a)
         seen[a] = seen.get(a, 0) + 1
 

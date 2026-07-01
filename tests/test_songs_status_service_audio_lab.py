@@ -51,6 +51,7 @@ class TestBatchBadges:
         from library.songs_status_service import SongsStatusService
         svc = SongsStatusService()
         svc._quality_cache = {1: {"badges": ["/p1.flac"]}, 2: {"badges": ["/p2.wav"]}}
+        svc._path_to_id = {"/p1.flac": 1, "/p2.wav": 2}
         svc.invalidate_cache_for_paths(["/p1.flac"])
         assert 1 not in svc._quality_cache
         assert 2 in svc._quality_cache

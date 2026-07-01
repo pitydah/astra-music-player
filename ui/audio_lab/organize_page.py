@@ -10,6 +10,7 @@ import logging
 import os
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QComboBox, QFileDialog,
@@ -306,23 +307,35 @@ class OrganizePage(QWidget):
         self._preview = preview_rename(tags_list, pattern)
         self._preview_table.setRowCount(len(self._preview))
 
+        new_paths = [n for (_, n) in self._preview]
+        seen: set[str] = set()
+        collisions: set[str] = set()
+        for p in new_paths:
+            if p in seen:
+                collisions.add(p)
+            seen.add(p)
+
         changed = 0
         for i, (old_p, new_p) in enumerate(self._preview):
             self._preview_table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
-            short_old = old_p if len(old_p) < 80 else f"...{old_p[-77:]}"
             short_new = new_p if len(new_p) < 80 else f"...{new_p[-77:]}"
-            self._preview_table.setItem(i, 1, QTableWidgetItem(short_old))
-            self._preview_table.setItem(i, 2, QTableWidgetItem(short_new))
+            item = QTableWidgetItem(short_new)
+            if new_p in collisions:
+                item.setForeground(QColor("#FF6B6B"))
+                item.setToolTip("COLISIÓN — dos archivos renombrarían al mismo destino")
+            self._preview_table.setItem(i, 2, item)
             if old_p != new_p:
                 changed += 1
 
         self._preview_table.resizeColumnsToContents()
         self._preview_table.setColumnWidth(0, 40)
-        self._apply_btn.setEnabled(changed > 0)
+        self._apply_btn.setEnabled(changed > 0 and not collisions)
 
         status = f"Vista previa: {len(self._preview)} archivos"
         if changed:
             status += f", {changed} cambiarán"
+        if collisions:
+            status += f", ⚠ {len(collisions)} colisión(es) — no se puede aplicar"
         if errors:
             status += f", {errors} con errores de lectura"
         self._status_label.setText(status)
