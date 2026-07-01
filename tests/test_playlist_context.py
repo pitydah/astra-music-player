@@ -67,3 +67,14 @@ class TestPlaylistContextEvents:
 
         ctrl.hub_playlist_queue(1)
         ctx_svc.record_playlist_queued.assert_called_once()
+
+    def test_add_files_to_playlist_pure_logic(self, tmp_path):
+        from ui.controllers.playlist_controller import PlaylistController
+        db = MagicMock()
+        existing = tmp_path / "exists.flac"
+        existing.write_text("")
+        gone = tmp_path / "gone.flac"
+        count = PlaylistController._add_files_to_playlist(
+            db, 1, [str(existing), str(gone)])
+        assert count == 1
+        db.add_to_playlist.assert_called_once_with(1, str(existing))

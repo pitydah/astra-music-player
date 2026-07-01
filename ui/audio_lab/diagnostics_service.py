@@ -1,260 +1,32 @@
-"""Diagnostics service — analyse single files or directories using format_probe and quality_classifier.
+"""Diagnostics service wrapper — DEPRECATED.
 
-Reuses existing audio/format_probe.py and audio/quality_classifier.py.
-No fake hi-res detection yet (SpectralAuthenticator is separate).
+All logic has moved to core/audio_lab/diagnostics_service.py.
+This module is kept only for backward compatibility.
+Re-exports all public symbols from core.
 """
 
-from __future__ import annotations
+import warnings
 
-import logging
-import os
-from typing import Any
+warnings.warn(
+    "Import from 'core.audio_lab.diagnostics_service' instead of "
+    "'ui.audio_lab.diagnostics_service'.",
+    DeprecationWarning, stacklevel=2,
+)
 
-logger = logging.getLogger("michi.diagnostics.service")
+from core.audio_lab.diagnostics_service import (  # noqa: F401, E402
+    AUDIO_EXTS,
+    analyse_file,
+    analyse_spectral,
+    generate_report,
+    get_badge_for_file,
+    get_spectral_badge,
+)
 
-AUDIO_EXTS = frozenset({
-    ".flac", ".wav", ".mp3", ".ogg", ".opus",
-    ".m4a", ".aiff", ".wv", ".ape", ".dsf", ".dff",
-})
-
-
-def analyse_file(filepath: str) -> dict[str, Any]:
-    """Analyse a single audio file and return a technical report.
-
-    Returns dict with keys:
-      - filepath, filename, exists, error
-      - format_info: dict from format_probe
-      - quality: dict from quality_classifier
-      - size_mb, duration_str
-    """
-    result: dict[str, Any] = {
-        "filepath": filepath,
-        "filename": os.path.basename(filepath),
-        "exists": os.path.isfile(filepath),
-        "error": "",
-        "format_info": {},
-        "quality": {},
-        "size_mb": 0.0,
-        "duration_str": "",
-    }
-
-    if not result["exists"]:
-        result["error"] = "Archivo no encontrado"
-        return result
-
-    import contextlib
-    with contextlib.suppress(OSError):
-        result["size_mb"] = round(os.path.getsize(filepath) / (1024 * 1024), 1)
-
-    # Format probe
-    try:
-        from audio.format_probe import probe_format
-        fmt = probe_format(filepath)
-        if fmt:
-            result["format_info"] = {
-                "container": fmt.container or "",
-                "codec": fmt.codec or "",
-                "sample_rate": fmt.sample_rate or 0,
-                "bit_depth": fmt.bit_depth or 0,
-                "channels": fmt.channels or 0,
-                "bitrate": fmt.bitrate or 0,
-                "duration": fmt.duration or 0.0,
-                "is_lossless": fmt.is_lossless if hasattr(fmt, 'is_lossless') else False,
-                "is_dsd": fmt.is_dsd if hasattr(fmt, 'is_dsd') else False,
-                "warnings": fmt.warnings if hasattr(fmt, 'warnings') else [],
-            }
-            secs = fmt.duration or 0
-            m, s = divmod(int(secs), 60)
-            h, m = divmod(m, 60)
-            if h:
-                result["duration_str"] = f"{h}h {m}m {s}s"
-            else:
-                result["duration_str"] = f"{m}m {s}s"
-    except Exception as e:
-        logger.warning("format_probe failed for %s: %s", filepath, e)
-        result["format_info"] = {"error": str(e)}
-
-    # Quality classification
-    try:
-        from audio.quality_classifier import classify_audio_quality
-        qc = classify_audio_quality(filepath)
-        if isinstance(qc, dict):
-            result["quality"] = {
-                "category": qc.get("category", "unknown"),
-                "label": qc.get("label", ""),
-                "tooltip": qc.get("tooltip", ""),
-            }
-    except Exception as e:
-        logger.warning("quality_classifier failed for %s: %s", filepath, e)
-        result["quality"] = {"category": "error", "label": "Error", "tooltip": str(e)}
-
-    # If format_probe provided a TrackRef/MediaItem-like object, quality_classifier
-    # will work. Otherwise try with a basic dict.
-    if not result["quality"].get("category"):
-        try:
-            from audio.quality_classifier import classify_audio_quality
-            ext = os.path.splitext(filepath)[1].lower().lstrip(".")
-            qc = classify_audio_quality(type("obj", (), {
-                "ext": ext,
-                "sample_rate": result["format_info"].get("sample_rate", 0),
-                "bit_depth": result["format_info"].get("bit_depth", 0),
-                "bitrate": result["format_info"].get("bitrate", 0),
-            })())
-            if isinstance(qc, dict):
-                result["quality"] = qc
-        except Exception:
-            pass
-
-    return result
-
-
-def analyse_directory(directory: str) -> list[dict[str, Any]]:
-    """Analyse all audio files in a directory recursively.
-
-    Returns list of per-file analysis dicts.
-    """
-    if not os.path.isdir(directory):
-        return []
-
-    results = []
-    for root, _dirs, files in os.walk(directory):
-        for f in sorted(files):
-            ext = os.path.splitext(f)[1].lower()
-            if ext in AUDIO_EXTS:
-                fp = os.path.join(root, f)
-                results.append(analyse_file(fp))
-    return results
-
-
-def _read_wav_metadata(filepath: str) -> dict[str, Any]:
-    """Read real sample rate and bit depth from a WAV file."""
-    import wave
-    meta: dict[str, Any] = {"sample_rate": 0, "bit_depth": 16, "channels": 0, "duration": 0.0}
-    try:
-        with wave.open(filepath, "rb") as wf:
-            meta["sample_rate"] = wf.getframerate()
-            meta["channels"] = wf.getnchannels()
-            sampwidth = wf.getsampwidth()
-            meta["bit_depth"] = sampwidth * 8
-            n_frames = wf.getnframes()
-            if meta["sample_rate"] > 0:
-                meta["duration"] = n_frames / meta["sample_rate"]
-    except Exception:
-        pass
-    return meta
-
-
-def analyse_spectral(filepath: str) -> dict[str, Any]:
-    """Run spectral authenticity analysis on a WAV or FLAC file.
-
-    Delegates to core/audio_analysis/spectral_authenticator.analyse_spectral.
-    Supports WAV and FLAC files. Returns verdict or error.
-
-    Before calling the core analyser, obtains real sample rate and bit depth
-    from the file header so 96 kHz / 24-bit files are handled correctly.
-    """
-    if not os.path.isfile(filepath):
-        return {"verdict": "ANALYSIS_ERROR", "label": "Error",
-                "explanation": "Archivo no encontrado", "error": "Archivo no encontrado"}
-
-    try:
-        from core.audio_analysis.spectral_authenticator import (
-            analyse_spectral as _analyse,
-            can_analyse,
-        )
-
-        if not can_analyse(filepath):
-            return {"verdict": "ANALYSIS_ERROR", "label": "No soportado",
-                    "explanation": "El análisis espectral requiere un archivo WAV PCM.",
-                    "error": "Formato no soportado"}
-
-        # Obtain real metadata before analysis
-        meta = _read_wav_metadata(filepath)
-        real_sr = meta["sample_rate"]
-        real_bd = meta["bit_depth"]
-        if real_sr <= 0:
-            return {"verdict": "ANALYSIS_ERROR", "label": "Error",
-                    "explanation": "No se pudo leer la frecuencia de muestreo del archivo.",
-                    "error": "sample_rate=0"}
-
-        result = _analyse(
-            filepath,
-            declared_sample_rate=real_sr,
-            declared_bit_depth=real_bd,
-        )
-        # Inject real metadata into result
-        if "metrics" not in result:
-            result["metrics"] = {}
-        result["metrics"]["declared_sample_rate"] = real_sr
-        result["metrics"]["declared_bit_depth"] = real_bd
-        return result
-
-    except ImportError as e:
-        return {"verdict": "ANALYSIS_ERROR", "label": "Dependencia faltante",
-                "explanation": f"numpy no disponible: {e}",
-                "error": str(e)}
-    except Exception as e:
-        logger.exception("Spectral analysis failed")
-        return {"verdict": "ANALYSIS_ERROR", "label": "Error",
-                "explanation": str(e), "error": str(e)}
-
-
-def generate_report(results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Generate a summary report from a list of per-file analyses.
-
-    Returns dict with:
-      - total_files, total_size_mb, total_duration_str
-      - format_counts: {ext: count}
-      - quality_counts: {category: count}
-      - sample_rates: list of detected rates
-      - bit_depths: list of detected depths
-      - errors: list of filepaths with errors
-      - warnings: list of (filepath, warning) tuples
-    """
-    total = len(results)
-    total_size = 0.0
-    total_secs = 0.0
-    format_counts: dict[str, int] = {}
-    quality_counts: dict[str, int] = {}
-    sample_rates: set[int] = set()
-    bit_depths: set[int] = set()
-    errors: list[str] = []
-    warnings: list[tuple[str, str]] = []
-
-    for r in results:
-        total_size += r.get("size_mb", 0)
-        fi = r.get("format_info", {})
-        if fi.get("duration"):
-            total_secs += fi["duration"]
-        ext = os.path.splitext(r.get("filename", ""))[1].lower().lstrip(".")
-        if ext:
-            format_counts[ext] = format_counts.get(ext, 0) + 1
-        q = r.get("quality", {})
-        cat = q.get("category", "unknown")
-        quality_counts[cat] = quality_counts.get(cat, 0) + 1
-        sr = fi.get("sample_rate", 0)
-        if sr:
-            sample_rates.add(sr)
-        bd = fi.get("bit_depth", 0)
-        if bd:
-            bit_depths.add(bd)
-        if r.get("error"):
-            errors.append(r["filepath"])
-        for w in fi.get("warnings", []):
-            warnings.append((r["filepath"], w))
-
-    m, s = divmod(int(total_secs), 60)
-    h, m = divmod(m, 60)
-    dur = f"{h}h {m}m {s}s" if h else f"{m}m {s}s"
-
-    return {
-        "total_files": total,
-        "total_size_mb": round(total_size, 1),
-        "total_duration_str": dur,
-        "format_counts": dict(sorted(format_counts.items())),
-        "quality_counts": dict(sorted(quality_counts.items())),
-        "sample_rates": sorted(sample_rates),
-        "bit_depths": sorted(bit_depths),
-        "errors": errors,
-        "warnings": warnings,
-    }
+__all__ = [
+    "AUDIO_EXTS",
+    "analyse_file",
+    "analyse_spectral",
+    "generate_report",
+    "get_badge_for_file",
+    "get_spectral_badge",
+]

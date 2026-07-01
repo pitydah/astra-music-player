@@ -1,0 +1,8 @@
+"""Michi Ecosystem Manager — diagnose, plan, and configure the Michi ecosystem."""
+
+from integrations.michi_ecosystem.ecosystem_registry import EcosystemRegistry
+from integrations.michi_ecosystem.ecosystem_diagnostics import EcosystemDiagnostics
+from integrations.michi_ecosystem.ecosystem_health_graph import EcosystemHealthGraphBuilder
+from integrations.michi_ecosystem.ecosystem_config_planner import EcosystemConfigPlanner
+from integrations.michi_ecosystem.ecosystem_fix_suggester import EcosystemFixSuggester
+from integrations.michi_ecosystem.ecosystem_models import EcosystemService, EcosystemNode, EcosystemEdge, EcosystemHealthGraph as HealthGraphData

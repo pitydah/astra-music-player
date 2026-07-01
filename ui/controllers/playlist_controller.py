@@ -450,16 +450,23 @@ class PlaylistController:
             if not pl:
                 return
             pid = pl["id"]
+        count = self._add_files_to_playlist(self._ctx.db, pid, filepaths)
+        self._ctx.rebuild_sidebar()
+        self._toast(f"Agregados {count} temas a '{name}'", "success")
+        ctx = self._context()
+        if ctx:
+            ctx.record_track_added_to_playlist(playlist_id=pid, name=name, count=count)
+
+    @staticmethod
+    def _add_files_to_playlist(db, pid: int, filepaths: list[str]) -> int:
+        """Pure logic: add valid files to a playlist. Returns count of added files."""
+        import os
         valid = 0
         for fp in filepaths:
             if os.path.isfile(fp):
-                self._ctx.db.add_to_playlist(pid, fp)
+                db.add_to_playlist(pid, fp)
                 valid += 1
-        self._ctx.rebuild_sidebar()
-        self._toast(f"Agregados {valid} temas a '{name}'", "success")
-        ctx = self._context()
-        if ctx:
-            ctx.record_track_added_to_playlist(playlist_id=pid, name=name, count=valid)
+        return valid
 
     def metadata_saved(self, filepaths: list):
         self._toast(f"Metadatos guardados en {len(filepaths)} archivos", "success")

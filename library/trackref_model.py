@@ -57,6 +57,16 @@ class TrackRefTableModel(QStandardItemModel):
 
     def populate(self, items: list[TrackRef]):
         self.removeRows(0, self.rowCount())
+
+        paths = [i.uri for i in items if i.uri]
+        badges_by_uri = {}
+        if paths:
+            try:
+                from library.audio_lab_badges import get_audio_lab_badges_for_paths
+                badges_by_uri = get_audio_lab_badges_for_paths(paths)
+            except Exception:
+                pass
+
         for item in items:
             tr = QStandardItem()
             tr.setEditable(False)
@@ -107,7 +117,7 @@ class TrackRefTableModel(QStandardItemModel):
             ql.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
             ql.setForeground(QBrush(QColor("#8e8e93")))
             if item.uri:
-                badge = self._get_badge(item.uri)
+                badge = badges_by_uri.get(item.uri) or self._get_badge(item.uri)
                 if badge and badge.get("label"):
                     ql.setText(badge["label"])
                     kind = badge.get("kind", "")
@@ -128,6 +138,13 @@ class TrackRefTableModel(QStandardItemModel):
             uri = QStandardItem(item.uri)
             uri.setEditable(False)
             self.appendRow([tr, t, a, al, y, g, d, ql, uri])
+
+    def invalidate_quality_cache(self, paths: list[str] | None = None):
+        if paths:
+            for p in paths:
+                self._quality_cache.pop(p, None)
+        else:
+            self._quality_cache.clear()
 
     def _get_badge(self, uri: str) -> dict | None:
         if uri in self._quality_cache:

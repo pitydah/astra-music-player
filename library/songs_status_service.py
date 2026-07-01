@@ -39,7 +39,7 @@ class SongsStatusService:
     def invalidate_cache(self):
         self._quality_cache.clear()
 
-    def compute_status(self, item: MediaItem) -> dict:
+    def compute_status(self, item: MediaItem, diag_badge: dict | None = None) -> dict:
         item_id = getattr(item, 'id', 0)
         cached = self._quality_cache.get(item_id)
         if cached:
@@ -96,10 +96,10 @@ class SongsStatusService:
 
         # Audio Lab diagnostic enrichment
         if item.filepath:
-            diag_badge = self._get_diag_badge(item.filepath)
-            if diag_badge:
-                d_label = diag_badge.get("label", "")
-                d_kind = diag_badge.get("kind", "")
+            d_badge = diag_badge if diag_badge is not None else self._get_diag_badge(item.filepath)
+            if d_badge:
+                d_label = d_badge.get("label", "")
+                d_kind = d_badge.get("kind", "")
                 if d_kind in ("hires", "lossless", "dsd") and d_label:
                     quality_label = d_label
                     quality_category = d_kind
@@ -129,10 +129,29 @@ class SongsStatusService:
         self._quality_cache[item_id] = result
         return result
 
+    def invalidate_cache_for_paths(self, paths: list[str] | None = None):
+        if paths:
+            ids_to_remove = set()
+            for iid, cached in self._quality_cache.items():
+                if any(p in str(cached) for p in paths):
+                    ids_to_remove.add(iid)
+            for iid in ids_to_remove:
+                self._quality_cache.pop(iid, None)
+        else:
+            self._quality_cache.clear()
+
     def compute_batch(self, items: list[MediaItem]) -> dict[int, dict]:
         result = {}
+        paths = [i.filepath for i in items if i.filepath]
+        badges_by_path = {}
+        if paths:
+            try:
+                from library.audio_lab_badges import get_audio_lab_badges_for_paths
+                badges_by_path = get_audio_lab_badges_for_paths(paths)
+            except Exception:
+                pass
         for item in items:
-            st = self.compute_status(item)
+            st = self.compute_status(item, diag_badge=badges_by_path.get(item.filepath))
             iid = getattr(item, 'id', 0)
             result[iid] = st
         return result
