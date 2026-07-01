@@ -118,6 +118,8 @@ DEFAULTS = {
     "ai_assistant/require_confirmation": True,
     "ai_assistant/action_log_enabled": True,
     "ai_assistant/max_playlist_draft_tracks": 50,
+    "audio_lab/auto_analyze": False,
+    "audio_lab/interval_hours": 24,
     "ai_assistant/max_action_tracks": 100,
     "knowledge_broker/enabled": False,
     "knowledge_broker/offline_strict": True,

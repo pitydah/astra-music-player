@@ -341,6 +341,12 @@ class MainWindow(QMainWindow):
         self._file_watcher.files_modified.connect(self._library_watcher_ctrl.on_files_modified)
         self._shutdown.register("file_watcher", lambda: self._file_watcher.stop())
 
+        # Periodic analyzer for Audio Lab (background diagnostics)
+        from core.audio_lab.periodic_analyzer import PeriodicAnalyzer
+        self._periodic_analyzer = PeriodicAnalyzer(self._db, parent=self)
+        self._periodic_analyzer.start()
+        self._shutdown.register("periodic_analyzer", lambda: self._periodic_analyzer.stop())
+
     def _init_optional_services(self):
         """Music identifier, HomeAudioView, Snapcast, API, mDNS, enrichment, MPRIS."""
         import core.settings_manager as sm

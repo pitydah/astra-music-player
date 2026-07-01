@@ -107,9 +107,9 @@ class TestAlbumControllerActions:
         w = _MockWin()
         ctrl = AlbumController(w)
         tracks = [_make_track()]
-        with patch("PySide6.QtWidgets.QMessageBox.information") as mock_msg:
-            ctrl.analyze_album_quality(tracks)
-            assert mock_msg.called
+        ctrl.analyze_album_quality(tracks)
+        w._ctx.toast.show.assert_called_with("Analizando calidad...", "info")
+        # Result is async (2s timer), so we can't sync-assert QMessageBox
 
     def test_send_album_to_server_sin_config(self):
         from ui.controllers.album_controller import AlbumController
