@@ -27,6 +27,22 @@ def main():
     app.setPalette(build_plasma_palette())
     app.setStyleSheet(PLASMA_QSS)
 
+    # CrashReporter — captura integral de errores
+    from core.crash_reporter import CrashReporter
+    reporter = CrashReporter()
+    try:
+        from ui.dialogs.crash_dialog import CrashDialog
+
+        def _show_crash_dialog(report_path):
+            try:
+                dialog = CrashDialog(report_path)
+                dialog.exec()
+            except Exception:
+                pass
+        reporter.crash_occurred.connect(_show_crash_dialog)
+    except Exception:
+        pass  # dialogo no disponible, reporte silencioso
+
     font = QFont("Inter", 11)
     if not font.exactMatch():
         font = QFont("SF Pro Display", 11)
@@ -38,6 +54,12 @@ def main():
         from ui.window import MainWindow
         window = MainWindow()
         window.show()
+        # Conectar errores de workers al reporter
+        if hasattr(window, '_workers'):
+            window._workers.task_error.connect(
+                lambda tid, err: reporter.log_worker_error(tid, err))
+        if hasattr(window, '_crash_reporter'):
+            pass  # ya se instalo arriba
     except Exception as e:
         _log.exception("Fatal error creating MainWindow: %s", e)
         from PySide6.QtWidgets import QMessageBox
