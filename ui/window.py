@@ -107,6 +107,7 @@ class MainWindow(QMainWindow):
         self._initial_route_applied: bool = False
         self._ecosystem_page = None
         self._section_registry = None
+        self._ecosystem_ctrl = None
         self._kind_filter: str | None = None
         self._search_text = ""
         self._current_playlist: int | None = None

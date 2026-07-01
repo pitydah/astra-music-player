@@ -74,13 +74,19 @@ class TestPremiumEndToEnd:
     def test_duplicate_detected(self):
         from library.album_repository import AlbumRepository
         from library.album_duplicate_service import AlbumDuplicateService
-        repo = AlbumRepository()
-        repo.build([
-            _make_item(album="Same", artist="X", filepath="/a/1.flac"),
-            _make_item(album="Same", artist="X", filepath="/b/1.flac"),
-        ])
+        from library.album_identity import AlbumIdentity
+        from library.album_repository import AlbumGroup
+        # Two groups with same title/artist — should be detected as duplicates
         svc = AlbumDuplicateService()
-        cands = svc.find_duplicates(repo.list_groups())
+        g1 = AlbumGroup(
+            identity=AlbumIdentity(album_key="k1", display_title="Same", display_artist="X", year="2024"),
+            tracks=[_make_item()],
+        )
+        g2 = AlbumGroup(
+            identity=AlbumIdentity(album_key="k2", display_title="Same", display_artist="X", year="2024"),
+            tracks=[_make_item()],
+        )
+        cands = svc.find_duplicates([g1, g2])
         assert len(cands) >= 1
 
     def test_detail_show_no_crash(self, qtbot):

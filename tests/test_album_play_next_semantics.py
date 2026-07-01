@@ -4,6 +4,22 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 
+class _MockCtx:
+    toast = MagicMock()
+    playback = MagicMock()
+
+
+class _MockWin:
+    _ctx = _MockCtx()
+    _playback = MagicMock()
+    _playback_ctrl = MagicMock()
+    _metadata_editor = MagicMock()
+    _db = MagicMock()
+    _nav_ctrl = MagicMock()
+    _workers = MagicMock()
+    _workers.run_task = MagicMock()
+
+
 class TestEnqueueNext:
     def test_enqueue_next_inserts_after_current(self):
         from audio.player_service import PlayerService
@@ -27,8 +43,7 @@ class TestEnqueueNext:
 class TestPlayNextAlbum:
     def test_play_next_inserts_when_queue_exists(self):
         from ui.controllers.album_controller import AlbumController
-        w = MagicMock()
-        w._ctx.toast.show = MagicMock()
+        w = _MockWin()
         w._playback.get_queue.return_value = ["/existing/s.flac"]
         w._playback.enqueue_next = MagicMock()
         ctrl = AlbumController(w)
@@ -38,10 +53,8 @@ class TestPlayNextAlbum:
 
     def test_play_next_fallback_empty_queue(self):
         from ui.controllers.album_controller import AlbumController
-        w = MagicMock()
-        w._ctx.toast.show = MagicMock()
+        w = _MockWin()
         w._playback.get_queue.return_value = []
-        w._playback.enqueue = MagicMock()
         ctrl = AlbumController(w)
         tracks = [MagicMock(filepath="/album/t1.flac")]
         ctrl.play_next_album(tracks)
@@ -49,8 +62,7 @@ class TestPlayNextAlbum:
 
     def test_play_next_empty_tracks(self):
         from ui.controllers.album_controller import AlbumController
-        w = MagicMock()
-        w._ctx.toast.show = MagicMock()
+        w = _MockWin()
         ctrl = AlbumController(w)
         ctrl.play_next_album([])
         w._ctx.toast.show.assert_called()

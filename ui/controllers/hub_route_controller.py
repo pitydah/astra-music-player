@@ -35,10 +35,27 @@ class HubRouteController:
             w._views.register(name, factory())
         w._fade_content(name)
         self._refresh_suggestions(name)
+        self._insert_suggestion_bar(name)
 
     def _refresh_suggestions(self, section_key: str):
         ctrl = self._ensure_suggestion_ctrl()
         ctrl.set_section(section_key, title="")
+
+    def _insert_suggestion_bar(self, view_name: str):
+        if view_name in ("assistant", "ecosystem_hub"):
+            return
+        w = self._win
+        page = w._views.widget(view_name)
+        if page is None:
+            return
+        bar = self._ensure_suggestion_ctrl().bar()
+        if bar.parent() is page:
+            return
+        bar.setParent(page)
+        layout = page.layout()
+        if layout is not None and hasattr(layout, "insertWidget"):
+            layout.insertWidget(0, bar)
+        bar.show()
 
     # ── Delegate audio lab to AudioLabController ──
 
@@ -138,10 +155,13 @@ class HubRouteController:
         self._lazy("metadata_review", _build)
 
     def show_ecosystem_page(self, key: str = ""):
-        def _build():
-            from ui.ecosystem.ecosystem_page import EcosystemPage
-            return EcosystemPage()
-        self._lazy("ecosystem_hub", _build)
+        w = self._win
+        ctrl = getattr(w, '_ecosystem_ctrl', None)
+        if ctrl is None:
+            from ui.controllers.ecosystem_controller import EcosystemController
+            ctrl = EcosystemController(w)
+            w._ecosystem_ctrl = ctrl
+        ctrl.show()
 
     def show_assistant(self, key: str = ""):
         w = self._win

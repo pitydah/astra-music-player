@@ -39,21 +39,25 @@ class AlbumImportWorker(QObject):
     failed = Signal(str)
 
     def __init__(self, server: RemoteServerInfo, filepaths: list[str],
-                 import_service: ImportToServerService | None = None):
+                 import_service: ImportToServerService | None = None,
+                 session_id: str = ""):
         super().__init__()
         self._server = server
         self._filepaths = filepaths
         self._import = import_service or ImportToServerService()
+        self._session_id = session_id
 
     def run(self):
         try:
-            # Preflight + session creation
-            session_result = self._import.create_session(self._server, self._filepaths)
-            if not session_result.ok:
-                self.failed.emit(f"Preflight failed: {session_result.message}")
-                return
-            pd = session_result.data
-            sid = pd.get("session_id", "")
+            sid = self._session_id
+            if not sid:
+                # Session was not pre-created — create it now
+                session_result = self._import.create_session(self._server, self._filepaths)
+                if not session_result.ok:
+                    self.failed.emit(f"Preflight failed: {session_result.message}")
+                    return
+                pd = session_result.data
+                sid = pd.get("session_id", "")
 
             total = len(self._filepaths)
             uploaded = 0

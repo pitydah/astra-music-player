@@ -120,6 +120,24 @@ class AlbumGridWidget(QWidget):
         self._pending_items_sig = self._compute_items_sig()
         self._rebuild_grid()
 
+    def set_cover_items(self, cover_items, sort_key="title", filter_mode="all"):
+        """Set cover items directly (from AlbumRepository adapter).
+
+        Each cover item must have data.tracks, title, subtitle compatible with CoverFlowItem.
+        """
+        self._items = cover_items
+        self._cover_size = 200
+        self._sort_key = sort_key
+        self._filter_mode = filter_mode
+        self._group_mode = None
+        self._selected_index = -1
+        self._groups_cache = list(cover_items)
+        self._groups = list(cover_items)
+        self._last_sig = None
+        self._last_cols = -1
+        self._pending_covers = False
+        self._render_cards(cover_items)
+
     # ── responsive layout ──
 
     def resizeEvent(self, event):

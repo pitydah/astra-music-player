@@ -179,11 +179,16 @@ def should_group_as_compilation(tracks: list) -> bool:
     Returns True if any STRONG condition is met:
       1. albumartist is a Various Artists alias
       2. Any track has compilation=True tag
+      3. Multiple artists, same common folder, sequential track numbers
     """
     if not tracks:
         return False
-    return bool(any(is_various_artist_alias(aa) for aa in get_albumartist_values(tracks))
-                or has_compilation_tag(tracks))
+    if any(is_various_artist_alias(aa) for aa in get_albumartist_values(tracks)):
+        return True
+    if has_compilation_tag(tracks):
+        return True
+    artists = get_artist_values(tracks)
+    return len(artists) > 1 and get_common_album_folder(tracks) and has_sequential_track_numbers(tracks)
 
 
 def is_compilation(tracks: list) -> bool:

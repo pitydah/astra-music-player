@@ -255,14 +255,17 @@ class AlbumController:
                 self._toast("Sistema de workers no disponible", "error")
                 return
 
-            worker = AlbumImportWorker(server, fps, import_service=svc)
-            from PySide6.QtCore import QTimer
+            sid = pd.get("session_id", "")
+            worker = AlbumImportWorker(
+                server, fps, import_service=svc, session_id=sid)
+
+            self._active_album_import_worker = worker
 
             def _on_progress(progress: AlbumImportProgress):
                 dlg.set_progress(progress.current, progress.total)
 
             def _on_finished(result: AlbumImportResult):
-                timer.stop()
+                self._active_album_import_worker = None
                 if result.ok:
                     AlbumServerImportDialog.show_report(
                         self._win, "Importación completada", result.message, is_error=False)
@@ -271,7 +274,7 @@ class AlbumController:
                         self._win, "Importación fallida", result.message, is_error=True)
 
             def _on_failed(err: str):
-                timer.stop()
+                self._active_album_import_worker = None
                 AlbumServerImportDialog.show_report(
                     self._win, "Error de importación", err, is_error=True)
 
@@ -280,11 +283,6 @@ class AlbumController:
             worker.failed.connect(_on_failed)
 
             worker_mgr.run_task("album_import", worker.run)
-
-            # Poll for dialog progress from main thread
-            timer = QTimer(self._win)
-            timer.timeout.connect(lambda: None)
-            timer.start(500)
         except ImportError:
             self._toast("Michi Link no está disponible en esta versión", "info")
 
@@ -334,12 +332,18 @@ class AlbumController:
 
             candidates = svc.find_for_group(all_groups, target_group)
             if candidates:
-                msg_lines = ["Posibles duplicados encontrados:"]
+                msg_lines = [f"Posibles duplicados de: {target_group.identity.display_title} "
+                             f"— {target_group.identity.display_artist}"]
                 for c in candidates[:5]:
-                    msg_lines.append(f"• {c.left_key[:8]} vs {c.right_key[:8]} "
-                                     f"(confianza: {c.confidence:.0%}, {c.recommended_action})")
+                    left_g = repo.get_group(c.left_key)
+                    right_g = repo.get_group(c.right_key)
+                    left_name = f"{left_g.identity.display_title} — {left_g.identity.display_artist}" if left_g else c.left_key[:8]
+                    right_name = f"{right_g.identity.display_title} — {right_g.identity.display_artist}" if right_g else c.right_key[:8]
+                    msg_lines.append(f"\n{left_name}")
+                    msg_lines.append(f"vs {right_name}")
+                    msg_lines.append(f"Confianza: {c.confidence:.0%} · Acción: {c.recommended_action}")
                     for r in c.reasons[:3]:
-                        msg_lines.append(f"  - {r}")
+                        msg_lines.append(f"  • {r}")
                 from PySide6.QtWidgets import QMessageBox
                 QMessageBox.information(self._win, "Revisar duplicados", "\n".join(msg_lines))
             else:
@@ -388,16 +392,38 @@ class AlbumController:
         QMessageBox.information(self._win, "Detalles del álbum", msg)
 
     def show_album_detail_from_cover_item(self, cover_item):
-        import unicodedata
         w = self._win
         w._nav_ctrl.checkpoint()
         album = getattr(cover_item, 'title', '') or ''
         artist = getattr(cover_item, 'subtitle', '') or ''
         tracks = []
-        data = getattr(cover_item, 'data', None)
+        data = getattr(cover_item, 'data', None) or {}
         if isinstance(data, dict):
-            tracks = data.get("tracks", [])
+            album_group = data.get("album_group")
+            album_key = data.get("album_key", "")
+
+            # Priority 1: direct album_group reference
+            if album_group is not None:
+                tracks = album_group.tracks
+                album = album_group.identity.display_title
+                artist = album_group.identity.display_artist
+
+            # Priority 2: album_key from w._album_data_repo
+            elif album_key and hasattr(w, "_album_data_repo"):
+                repo = w._album_data_repo
+                group = repo.get_group(album_key) if repo else None
+                if group:
+                    tracks = group.tracks
+                    album = group.identity.display_title
+                    artist = group.identity.display_artist
+
+            # Priority 3: tracks from data dict
+            if not tracks:
+                tracks = data.get("tracks", [])
+
+        # Fallback: search by normalized title (last resort)
         if not tracks and hasattr(w, '_all_items'):
+            import unicodedata
             from library.album_art import group_by_album
             def _norm(s):
                 s = (s or '').strip().lower()
@@ -417,35 +443,42 @@ class AlbumController:
         year = str(tracks[0].year) if tracks and getattr(tracks[0], 'year', 0) else ""
         exts = set((getattr(t, 'ext', '') or '').upper().lstrip(".") for t in tracks if getattr(t, 'ext', ''))
         fmt = " · ".join(sorted(exts)) if exts else ""
+
         # Build quality and health info
         quality_info = None
         health_info = None
         try:
-            from library.album_repository import AlbumRepository
-            repo = AlbumRepository()
-            repo.build(tracks)
-            g = repo.list_groups()
-            if g:
-                q = g[0].quality
-                h = g[0].health
-                if q:
-                    q_parts = [f"Calidad: {q.dominant_quality.upper()}"]
-                    if q.dominant_sample_rate:
-                        q_parts.append(f"{q.dominant_sample_rate // 1000}.{q.dominant_sample_rate % 1000} kHz")
-                    if q.dominant_bit_depth:
-                        q_parts.append(f"{q.dominant_bit_depth}-bit")
-                    quality_info = " · ".join(q_parts)
-                if h:
-                    h_parts = []
-                    if h.status == "warning":
-                        h_parts.append("Requiere revisión")
-                    if h.missing_files:
-                        h_parts.append(f"{h.missing_files} archivo(s) faltante(s)")
-                    if h.missing_titles:
-                        h_parts.append(f"{h.missing_titles} pista(s) sin título")
-                    if not h.missing_files and h.status == "ok":
-                        h_parts.append("OK")
-                    health_info = " · ".join(h_parts) if h_parts else None
+            # Use album_group data if available
+            if album_group is not None:
+                g = [album_group]
+            elif album_key and hasattr(w, "_album_data_repo"):
+                g = [w._album_data_repo.get_group(album_key)] if w._album_data_repo.get_group(album_key) else []
+            else:
+                from library.album_repository import AlbumRepository
+                repo = AlbumRepository()
+                repo.build(tracks)
+                g = repo.list_groups()
+            group_obj = g[0] if g else None
+            if group_obj and group_obj.quality:
+                q = group_obj.quality
+                q_parts = [f"Calidad: {q.dominant_quality.upper()}"]
+                if q.dominant_sample_rate:
+                    q_parts.append(f"{q.dominant_sample_rate // 1000}.{q.dominant_sample_rate % 1000} kHz")
+                if q.dominant_bit_depth:
+                    q_parts.append(f"{q.dominant_bit_depth}-bit")
+                quality_info = " · ".join(q_parts)
+            if group_obj and group_obj.health:
+                h = group_obj.health
+                h_parts = []
+                if h.status == "warning":
+                    h_parts.append("Requiere revisión")
+                if h.missing_files:
+                    h_parts.append(f"{h.missing_files} archivo(s) faltante(s)")
+                if h.missing_titles:
+                    h_parts.append(f"{h.missing_titles} pista(s) sin título")
+                if not h.missing_files and h.status == "ok":
+                    h_parts.append("OK")
+                health_info = " · ".join(h_parts) if h_parts else None
         except Exception:
             pass
 

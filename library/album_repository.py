@@ -99,6 +99,7 @@ class AlbumHealthSummary:
 
     def _has_issues(self) -> bool:
         return any([
+            self.track_count <= 0,
             self.missing_files > 0,
             self.missing_titles > 0,
             self.missing_artists > 0,
@@ -361,6 +362,7 @@ def album_groups_to_cover_items(groups: list[AlbumGroup], cover_size: int = 200
     """Convert AlbumGroups to CoverFlowItem-compatible list for grid display.
 
     This adapter allows AlbumGridWidget to work directly with AlbumRepository data.
+    Each item includes full metadata (album_key, quality, health, summary, group).
     """
     from library.album_art import CoverFlowItem
     from PySide6.QtGui import QPixmap
@@ -373,7 +375,14 @@ def album_groups_to_cover_items(groups: list[AlbumGroup], cover_size: int = 200
             pixmap=pix,
             title=g.identity.display_title,
             subtitle=g.identity.display_artist or "",
-            data={"tracks": g.tracks},
+            data={
+                "tracks": g.tracks,
+                "album_key": g.identity.album_key,
+                "summary": g.summary,
+                "quality": g.quality,
+                "health": g.health,
+                "album_group": g,
+            },
         )
         items.append(item)
     return items

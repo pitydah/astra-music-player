@@ -118,6 +118,8 @@ class PlayerService(QObject):
 
     def enqueue_next(self, paths: list[str]):
         """Insert tracks after the currently playing track."""
+        if not paths:
+            return
         self._engine.enqueue_next(paths)
 
     def enqueue(self, paths: list, play_now: bool = True):

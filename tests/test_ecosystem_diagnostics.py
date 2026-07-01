@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
 
 from integrations.michi_ecosystem.ecosystem_diagnostics import EcosystemDiagnostics
 from integrations.michi_ecosystem.ecosystem_registry import EcosystemRegistry

@@ -111,7 +111,24 @@ class LibraryController(QObject):
 
     def refresh_albums(self):
         w = self._win
-        w._album_grid.set_items(self.album_items(), 200,
+        items = self.album_items()
+        if not items:
+            w._album_grid.set_items([], 200)
+            w._coverflow_cache_key = None
+            return
+
+        # Build AlbumRepository as common source
+        from library.album_repository import (
+            AlbumRepository, album_groups_to_cover_items,
+        )
+        repo = AlbumRepository()
+        repo.build(items)
+        w._album_data_repo = repo
+
+        groups = repo.list_groups()
+        cover_items = album_groups_to_cover_items(groups, cover_size=200)
+
+        w._album_grid.set_cover_items(cover_items,
             sort_key=getattr(w, '_album_sort_key', 'title'),
             filter_mode=getattr(w, '_album_filter_mode', 'all'))
         w._coverflow_cache_key = None

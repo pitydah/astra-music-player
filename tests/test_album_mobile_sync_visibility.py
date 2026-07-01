@@ -7,6 +7,7 @@ class TestMobileSyncDisabled:
         from ui.album_detail_view import AlbumDetailView
         view = AlbumDetailView()
         qtbot.addWidget(view)
+        view.set_album(title="Test", artist="Artist", tracks=[])
         row = view._action_row
         if len(row._buttons) >= 8:
             btn = row._buttons[7]

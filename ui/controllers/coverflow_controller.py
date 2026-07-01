@@ -41,16 +41,31 @@ class CoverFlowController:
         self._win._on_view_mode_changed("coverflow")
 
     def show(self):
-        items = self._win._lib_ctrl.filtered_album_items()
+        repo = getattr(self._win, "_album_data_repo", None)
+        if repo and repo.list_groups():
+            from library.album_repository import album_groups_to_cover_items
+            groups = repo.list_groups()
+            covers = album_groups_to_cover_items(groups, cover_size=260)
+        else:
+            items = self._win._lib_ctrl.filtered_album_items()
+            covers = load_covers_for_albums(items, 260, lazy=True)
 
         # Cache key — stable signature to skip rebuild when nothing changed
-        sig_parts = [str(len(items)), self._win._album_sort_key,
-                     self._win._album_filter_mode, self._win._search_text]
-        for i in items[:100]:  # only hash first 100 for performance
-            sig_parts.append(getattr(i, 'filepath', '') or '')
-            sig_parts.append(getattr(i, 'album', '') or '')
-            sig_parts.append(getattr(i, 'artist', '') or '')
-            sig_parts.append(str(getattr(i, 'mtime', 0) or 0))
+        if repo and repo.list_groups():
+            groups = repo.list_groups()
+            sig_parts = [str(len(groups)), self._win._album_sort_key,
+                         self._win._album_filter_mode, self._win._search_text]
+            for g in groups[:100]:
+                sig_parts.append(g.identity.album_key)
+        else:
+            items = self._win._lib_ctrl.filtered_album_items()
+            sig_parts = [str(len(items)), self._win._album_sort_key,
+                         self._win._album_filter_mode, self._win._search_text]
+            for i in items[:100]:
+                sig_parts.append(getattr(i, 'filepath', '') or '')
+                sig_parts.append(getattr(i, 'album', '') or '')
+                sig_parts.append(getattr(i, 'artist', '') or '')
+                sig_parts.append(str(getattr(i, 'mtime', 0) or 0))
         import hashlib
         cache_key = hashlib.sha1("|".join(sig_parts).encode()).hexdigest()
 
@@ -62,8 +77,6 @@ class CoverFlowController:
             self._win._coverflow.setFocus()
             return
         self._win._coverflow_cache_key = cache_key
-
-        covers = load_covers_for_albums(items, 260, lazy=True)
 
         if not covers:
             self._win._views.show("empty")
