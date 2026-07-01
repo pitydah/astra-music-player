@@ -39,15 +39,18 @@ class TestNormalize:
     def test_normalize_artist_simple(self):
         from library.album_identity import normalize_artist_name
         assert normalize_artist_name("  The Beatles  ") == "the beatles"
-        assert normalize_artist_name(None) == "various artists"
-        assert normalize_artist_name("") == "various artists"
+        assert normalize_artist_name(None) == ""
+        assert normalize_artist_name("") == ""
 
     def test_normalize_artist_va(self):
-        from library.album_identity import normalize_artist_name
-        assert normalize_artist_name("VA") == "various artists"
-        assert normalize_artist_name("V.A.") == "various artists"
-        assert normalize_artist_name("Various Artists") == "various artists"
-        assert normalize_artist_name("Varios Artistas") == "various artists"
+        from library.album_identity import is_various_artist_alias
+        assert is_various_artist_alias("VA") is True
+        assert is_various_artist_alias("V.A.") is True
+        assert is_various_artist_alias("Various Artists") is True
+        assert is_various_artist_alias("Varios Artistas") is True
+        assert is_various_artist_alias("The Beatles") is False
+        assert is_various_artist_alias(None) is False
+        assert is_various_artist_alias("") is False
 
 
 class TestDetectAlbumArtist:
@@ -79,7 +82,7 @@ class TestDetectAlbumArtist:
         from library.album_identity import detect_album_artist
         tracks = [_make_item(artist="")]
         result = detect_album_artist(tracks)
-        assert result in ("Artista desconocido", "Various Artists")
+        assert result == "Various Artists"  # fallback for empty artist
 
 
 class TestIsCompilation:
@@ -123,6 +126,43 @@ class TestAlbumIdentity:
         ]
         ident = compute_album_identity(tracks)
         assert ident.disc_count == 2
+
+    def test_same_title_different_artist_different_key(self):
+        from library.album_identity import compute_album_identity
+        q1 = [_make_item(album="Greatest Hits", artist="Queen")]
+        q2 = [_make_item(album="Greatest Hits", artist="ABBA")]
+        id1 = compute_album_identity(q1)
+        id2 = compute_album_identity(q2)
+        assert id1.album_key != id2.album_key
+
+    def test_compilation_with_various_albumartist(self):
+        from library.album_identity import compute_album_identity, is_compilation
+        tracks = [
+            _make_item(album="Comp", artist="A1", albumartist="Various Artists"),
+            _make_item(album="Comp", artist="A2", albumartist="Various Artists"),
+        ]
+        assert is_compilation(tracks) is True
+        ident = compute_album_identity(tracks)
+        assert ident.is_compilation is True
+
+    def test_multi_disc_same_identity(self):
+        from library.album_identity import make_canonical_album_identity
+        d1 = [_make_item(album="Album", artist="A", disc_number=1)]
+        d2 = [_make_item(album="Album", artist="A", disc_number=2)]
+        group = d1 + d2
+        key = make_canonical_album_identity(group)
+        k1 = make_canonical_album_identity(d1)
+        k2 = make_canonical_album_identity(d2)
+        assert k1 == k2  # same canonical key for both discs
+        assert key == k1
+
+    def test_remaster_stays_separate(self):
+        from library.album_identity import make_canonical_album_identity
+        orig = [_make_item(album="Album", artist="A")]
+        remaster = [_make_item(album="Album (Remastered)", artist="A")]
+        ko = make_canonical_album_identity(orig)
+        kr = make_canonical_album_identity(remaster)
+        assert ko != kr  # different keys
 
     def test_key_stable(self):
         from library.album_identity import compute_album_identity

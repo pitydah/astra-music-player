@@ -20,8 +20,6 @@ _EDITION_PATTERNS = [
     for tok in _EDITION_TOKENS
 ]
 _STRIP_PATTERN = re.compile(r"[\s\u00a0\u2000-\u200a\u202f\u205f\u3000]+")
-
-_STRIP_PATTERN = re.compile(r"[\s\u00a0\u2000-\u200a\u202f\u205f\u3000]+")
 _QUOTES_PATTERN = re.compile(r"[\u2018\u2019\u201a\u201b']")
 _DQUOTES_PATTERN = re.compile(r"[\u201c\u201d\u201e\u201f\u00ab\u00bb]")
 
@@ -49,14 +47,24 @@ def normalize_album_title(text: str, strip_edition: bool = False) -> str:
     return s
 
 
+_VA_ALIASES = frozenset({
+    "va", "v.a.", "v a", "varios artistas", "various", "various artists",
+})
+
+
+def is_various_artist_alias(text: str) -> bool:
+    """Check if a string is an alias for 'Various Artists'."""
+    s = _fold(text) if text else ""
+    return s in _VA_ALIASES
+
+
 def normalize_artist_name(text: str) -> str:
     """Normalize an artist name for comparison.
 
-    Normalizes Various Artists, VA, and empty artist to a common form.
+    Returns folded lowercase string, or empty string for empty/None input.
+    Does NOT automatically convert empty to 'various artists'.
     """
-    s = _fold(text)
-    if not s or s in ("va", "v.a.", "v a", "varios artistas", "various"):
-        return "various artists"
+    s = _fold(text) if text else ""
     return s
 
 
@@ -87,7 +95,7 @@ def detect_album_artist(tracks: list) -> str:
         best_aa_key = max(aa_candidates, key=aa_candidates.get)
         best_aa_count = aa_candidates[best_aa_key]
         total_aa = sum(aa_candidates.values())
-        if best_aa_key != "various artists" and best_aa_count > total_aa // 2:
+        if not is_various_artist_alias(best_aa_key) and best_aa_count > total_aa // 2:
             return _find_original(tracks, "albumartist", best_aa_key,
                                   default="Various Artists")
 
@@ -97,7 +105,10 @@ def detect_album_artist(tracks: list) -> str:
         total_ar = sum(artist_candidates.values())
         if len(artist_candidates) > 1 and best_ar_count <= total_ar // 2:
             return "Various Artists"
-        if best_ar_key != "various artists" or len(artist_candidates) <= 1:
+        if not is_various_artist_alias(best_ar_key):
+            return _find_original(tracks, "artist", best_ar_key,
+                                  default="Artista desconocido")
+        if len(artist_candidates) <= 1:
             return _find_original(tracks, "artist", best_ar_key,
                                   default="Artista desconocido")
 
@@ -112,10 +123,26 @@ def _find_original(tracks: list, attr: str, norm_key: str, default: str) -> str:
     return default
 
 
+def make_grouping_seed(item) -> tuple[str, str, str]:
+    """Generate a grouping seed for a single MediaItem.
+
+    Returns (artist_seed, title_seed, compilation_marker).
+    Seeds are normalized for safe grouping.
+    """
+    album = normalize_album_title(str(getattr(item, "album", "") or ""))
+    artist = normalize_artist_name(str(getattr(item, "artist", "") or ""))
+    albumartist = normalize_artist_name(str(getattr(item, "albumartist", "") or ""))
+    seed_artist = albumartist or artist
+    comp_marker = "comp" if (albumartist and is_various_artist_alias(albumartist)) or \
+                   (not albumartist and len({str(getattr(item, "artist", "") or "").strip()}) > 1) else ""
+    return seed_artist, album, comp_marker
+
+
 def make_canonical_album_identity(tracks: list) -> str:
     """Build a stable canonical album key from tracks.
 
     Uses albumartist + album title. Falls back to artist + album title.
+    Considers compilation and edition markers.
     """
     artist = detect_album_artist(tracks)
     title = str(getattr(tracks[0], "album", "") or "Álbum desconocido") if tracks else ""
@@ -135,7 +162,7 @@ def is_compilation(tracks: list) -> bool:
     artist_set = {a for a in artists if a}
     if len(artist_set) > 1:
         return True
-    return any(normalize_artist_name(aa) == "various artists" for aa in albumartists)
+    return any(is_various_artist_alias(aa) for aa in albumartists)
 
 
 @dataclass(frozen=True)

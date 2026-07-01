@@ -324,7 +324,7 @@ class UIBuilder:
             lambda group, _w=w: _w._album_ctrl.sync_album_to_mobile(
                 group.data.get("tracks", []) if group.data else []))
         w._album_grid.duplicate_review_requested.connect(
-            lambda group, _w=w: _w._album_ctrl.analyze_album_quality(
+            lambda group, _w=w: _w._album_ctrl.review_album_duplicates(
                 group.data.get("tracks", []) if group.data else []))
         w._album_grid.open_folder_requested.connect(
             lambda folder, _w=w: _w._album_ctrl.open_folder(folder))
@@ -378,6 +378,18 @@ class UIBuilder:
             lambda tracks, _w=w: _w._album_ctrl.send_album_to_server(tracks))
         w._album_detail_view.sync_mobile_requested.connect(
             lambda tracks, _w=w: _w._album_ctrl.sync_album_to_mobile(tracks))
+        w._album_detail_view.track_queue_requested.connect(
+            lambda fp, _w=w: _w._play_filepaths([fp], play_now=False))
+        w._album_detail_view.track_metadata_requested.connect(
+            lambda fp, _w=w: _w._open_metadata_for_files([fp]))
+        w._album_detail_view.track_analyze_requested.connect(
+            lambda fp, _w=w: _w._album_ctrl.analyze_album_quality(
+                [fp]))
+        w._album_detail_view.open_folder_requested.connect(
+            lambda folder, _w=w: _w._album_ctrl.open_folder([folder]))
+        w._album_detail_view.open_folder_requested.connect(
+            lambda folder, _w=w: __import__("subprocess").Popen(["xdg-open", folder])
+            if folder else None)
 
         w._albums_stack = QStackedWidget()
         w._albums_stack.setObjectName("albumsStack")

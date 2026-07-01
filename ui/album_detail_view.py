@@ -91,6 +91,8 @@ class AlbumDetailView(QWidget):
         self._table.setStyleSheet(table_qss() + table_header_qss())
         self._table.setMinimumHeight(120)
         self._table.doubleClicked.connect(self._on_track_dbl)
+        self._table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._table.customContextMenuRequested.connect(self._on_track_context_menu)
         cl.addWidget(self._table, 1)
 
         scroll.setWidget(content)
@@ -133,6 +135,39 @@ class AlbumDetailView(QWidget):
             fp = getattr(t, "filepath", "")
             if fp:
                 self.track_play_requested.emit(fp)
+
+    def _on_track_context_menu(self, pos):
+        idx = self._table.indexAt(pos)
+        if not idx.isValid():
+            return
+        t = self._tracks[idx.row()] if hasattr(self, '_tracks') else None
+        if not t:
+            return
+        fp = getattr(t, "filepath", "")
+        from PySide6.QtWidgets import QMenu
+        from ui.central.central_styles import menu_qss
+        menu = QMenu(self)
+        menu.setStyleSheet(menu_qss())
+        play_action = menu.addAction("Reproducir")
+        queue_action = menu.addAction("Añadir a cola")
+        menu.addSeparator()
+        metadata_action = menu.addAction("Editar metadata")
+        analyze_action = menu.addAction("Analizar calidad")
+        folder_action = menu.addAction("Abrir carpeta")
+        chosen = menu.exec(self._table.viewport().mapToGlobal(pos))
+        if fp:
+            if chosen == play_action:
+                self.track_play_requested.emit(fp)
+            elif chosen == queue_action:
+                self.track_queue_requested.emit(fp)
+            elif chosen == metadata_action:
+                self.track_metadata_requested.emit(fp)
+            elif chosen == analyze_action:
+                self.track_analyze_requested.emit(fp)
+            elif chosen == folder_action:
+                import os
+                folder = os.path.dirname(fp)
+                self.open_folder_requested.emit(folder)
 
     def _populate_tracks(self):
         self._table.setRowCount(len(self._tracks))

@@ -223,6 +223,47 @@ class AlbumController:
         except ImportError:
             self._toast("Michi Link no está disponible en esta versión", "info")
 
+    def tracks_from_group(self, group) -> list:
+        """Extract tracks list from a CoverFlowItem or AlbumGroup."""
+        if hasattr(group, "data") and isinstance(group.data, dict):
+            return group.data.get("tracks", [])
+        if isinstance(group, list):
+            return group
+        return []
+
+    def review_album_duplicates(self, tracks: list) -> None:
+        """Open duplicate review dialog or show toast fallback."""
+        if not tracks:
+            self._toast("No hay canciones para revisar duplicados", "error")
+            return
+        try:
+            from library.album_repository import AlbumRepository
+            from library.album_duplicate_service import AlbumDuplicateService
+            repo = AlbumRepository()
+            repo.build(tracks)
+            groups = repo.list_groups()
+            if len(groups) < 2:
+                self._toast("No se encontraron duplicados para este álbum", "info")
+                return
+            svc = AlbumDuplicateService()
+            candidates = svc.find_duplicates(groups)
+            if candidates:
+                msg_lines = ["Posibles duplicados:"]
+                for c in candidates[:5]:
+                    msg_lines.append(
+                        f"• {c.left_key[:8]} vs {c.right_key[:8]} "
+                        f"(confianza: {c.confidence:.0%}, "
+                        f"acción: {c.recommended_action})")
+                    for r in c.reasons[:3]:
+                        msg_lines.append(f"  - {r}")
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self._win, "Revisar duplicados", "\n".join(msg_lines))
+            else:
+                self._toast("No se encontraron duplicados", "info")
+        except Exception as e:
+            self._toast(f"Error al revisar duplicados: {e}", "error")
+
     def sync_album_to_mobile(self, tracks: list) -> None:
         self._toast("Sincronización con móvil: preparado en Michi Sync Suite (Fase 2)", "info")
 
@@ -293,10 +334,43 @@ class AlbumController:
         year = str(tracks[0].year) if tracks and getattr(tracks[0], 'year', 0) else ""
         exts = set((getattr(t, 'ext', '') or '').upper().lstrip(".") for t in tracks if getattr(t, 'ext', ''))
         fmt = " · ".join(sorted(exts)) if exts else ""
+        # Build quality and health info
+        quality_info = None
+        health_info = None
+        try:
+            from library.album_repository import AlbumRepository
+            repo = AlbumRepository()
+            repo.build(tracks)
+            g = repo.list_groups()
+            if g:
+                q = g[0].quality
+                h = g[0].health
+                if q:
+                    q_parts = [f"Calidad: {q.dominant_quality.upper()}"]
+                    if q.dominant_sample_rate:
+                        q_parts.append(f"{q.dominant_sample_rate // 1000}.{q.dominant_sample_rate % 1000} kHz")
+                    if q.dominant_bit_depth:
+                        q_parts.append(f"{q.dominant_bit_depth}-bit")
+                    quality_info = " · ".join(q_parts)
+                if h:
+                    h_parts = []
+                    if h.status == "warning":
+                        h_parts.append("Requiere revisión")
+                    if h.missing_files:
+                        h_parts.append(f"{h.missing_files} archivo(s) faltante(s)")
+                    if h.missing_titles:
+                        h_parts.append(f"{h.missing_titles} pista(s) sin título")
+                    if not h.missing_files and h.status == "ok":
+                        h_parts.append("OK")
+                    health_info = " · ".join(h_parts) if h_parts else None
+        except Exception:
+            pass
+
         w._album_detail_view.set_album(
             title=album, artist=artist, year=year,
             cover_pixmap=getattr(cover_item, 'pixmap', None),
-            tracks=tracks, total_duration=dur_str, format_info=fmt)
+            tracks=tracks, total_duration=dur_str, format_info=fmt,
+            quality_info=quality_info, health_info=health_info)
         w._albums_stack.setCurrentIndex(1)
 
         ctx = self._context_svc

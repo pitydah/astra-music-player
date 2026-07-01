@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 
 from library.album_identity import (
     AlbumIdentity, compute_album_identity, make_canonical_album_identity,
-    normalize_album_title,
+    normalize_album_title, normalize_artist_name,
+    is_compilation,
 )
 from metadata.album_summary import AlbumSummary
 
@@ -133,25 +134,41 @@ class AlbumRepository:
     def build(self, items: list) -> None:
         """Build album groups from a list of MediaItem-like objects."""
         self._groups = {}
-        groups: dict[str, list] = {}
 
         # First pass: group by album title
-        temp_groups: dict[str, list] = {}
+        by_title: dict[str, list] = {}
         for item in items:
             album = normalize_album_title(str(getattr(item, "album", "") or ""))
-            if album not in temp_groups:
-                temp_groups[album] = []
-            temp_groups[album].append(item)
+            if album not in by_title:
+                by_title[album] = []
+            by_title[album].append(item)
 
-        # Second pass: compute canonical key for each temp group
-        for _, track_list in temp_groups.items():
-            key = make_canonical_album_identity(track_list)
-            if key not in groups:
-                groups[key] = track_list
+        # Second pass: within each title group, further split by canonical identity
+        merged: dict[str, list] = {}
+        for _, title_group in by_title.items():
+            # Compute identity for the full title group
+            comp = is_compilation(title_group)
+            if comp:
+                # Compilation — single group if albumartist is Various Artists
+                key = make_canonical_album_identity(title_group)
+                merged[key] = title_group
             else:
-                groups[key].extend(track_list)
+                # Split by individual normalized artist
+                artist_subs: dict[str, list] = {}
+                for item in title_group:
+                    ar = normalize_artist_name(
+                        str(getattr(item, "albumartist", "") or "") or
+                        str(getattr(item, "artist", "") or ""))
+                    if ar not in artist_subs:
+                        artist_subs[ar] = []
+                    artist_subs[ar].append(item)
+                for sub_list in artist_subs.values():
+                    key = make_canonical_album_identity(sub_list)
+                    if key not in merged:
+                        merged[key] = []
+                    merged[key].extend(sub_list)
 
-        for key, track_list in groups.items():
+        for key, track_list in merged.items():
             identity = compute_album_identity(track_list)
             summary = self._build_summary(track_list, identity)
             quality = self._build_quality(track_list)
