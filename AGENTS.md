@@ -28,15 +28,19 @@ michi-music-player/
 │                     pipeline_factory.py, dac_manager.py, eq_*.py, replaygain.py,
 │                     quality_classifier.py, dsp_state.py, output_profiles.py (9 perfiles)
 ├── library/        → SQLite + indexer: library_db.py, indexer.py, search_engine.py,
-│                     coverflow.py, media_item.py, album_key.py
+│                     coverflow.py, media_item.py, album_key.py,
+│                     folder_index.py, folder_models.py, folder_health.py,
+│                     folder_integrity.py
 ├── recognition/    → Identificación: detection_service.py, providers/shazam|audd|acoustid
 ├── integrations/   → home_assistant/, snapcast/, michi_api/, artist_metadata/
-├── ui/             → window.py (MainWindow), controllers/ (14 controladores),
+├── ui/             → window.py (MainWindow), controllers/ (15 controladores),
+│                     folder_browser.py, folders/folder_problem_report.py,
 │                     style_tokens.py, qss.py, icon_registry.py, icon_loader.py,
 │                     central/ (central_styles.py, central_tokens.py),
 │                     sidebar/ (7 módulos: tokens, styles, item, section, panel, brand, search)
 ├── core/           → app_context.py (DI container), interfaces.py, settings_manager.py,
 │                     playback_controller.py, file_actions.py,
+│                     file_manager_service.py, safe_file_ops.py,
 │                     home/ (home_status.py dataclasses, home_dashboard_service.py),
 │                     audio_lab/ (diagnostics_helpers.py)
 ├── sources/        → base_source.py, local_source.py, radio_source.py, subsonic_source.py
@@ -50,7 +54,7 @@ michi-music-player/
 └── AGENTS.md       → This file
 ```
 
-**Total:** 14 controllers · 9 audio profiles · 3 recognition providers
+**Total:** 15 controllers · 9 audio profiles · 3 recognition providers
 **Verify:** `ruff check .` · `python -m compileall -q .` · `pytest -q`
 **Note:** Do not trust handwritten test/file counts — run the commands above.
 
@@ -239,6 +243,18 @@ PySide6 mutagen numpy shazamio pyaudio requests
 - No GStreamer imports in UI layers directly
 - No breaking `PlayerService` encapsulation
 - No new dependencies without updating `requirements.txt` and `install_*.sh`
+
+### Home Dashboard Rules
+- `HomeDashboardService` is the orchestrator; keep it lean — delegate to builders
+- `HomePage` renders snapshots only — no DB queries, no state logic
+- **NEVER** declare `bitperfect_state = "verified"` — there is no real monitor; use `intended` at most
+- **NEVER** mark `dac_active = True` based on profile name alone — use device name heuristics (keywords list)
+- Micro Server detection uses `MichiLinkController`, **NOT** `streaming.subsonic_client`
+- `can_continue_remote` requires: playback.can_continue + connected + contract_ok + can_continue_playback
+- Assistant suggestions with `requires_confirmation=True` for destructive actions (metadata edits, artwork, sync)
+- Safe mode: filter experimental features, show badge, disable remote capabilities
+- Always test: `tests/test_home_dashboard_service.py`, `tests/test_home_page.py`, `tests/test_home_routes_contract.py`
+- Before touching Home: `pytest tests/test_home_*.py -q` must pass
 
 ### Modules NOT to Touch (without explicit need)
 - Sidebar layout/structure
