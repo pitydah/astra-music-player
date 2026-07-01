@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QComboBox, QFileDialog,
     QScrollArea,     QListWidget,
-    QProgressBar, QCheckBox,
+    QProgressBar, QCheckBox, QMessageBox,
 )
 
 from ui.central.central_styles import (
@@ -26,11 +26,11 @@ AUDIO_EXTS = (".flac", ".wav", ".mp3", ".ogg", ".opus", ".m4a", ".aiff", ".wv")
 class ConversionPage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self):
+    def __init__(self, encoder=None):
         super().__init__()
         self.setObjectName("conversionPage")
         self._files: list[str] = []
-        self._encoder = None
+        self._encoder = encoder
         self._build_ui()
 
     def _build_ui(self):
@@ -261,6 +261,15 @@ class ConversionPage(QWidget):
         if not dest:
             dest = os.path.dirname(self._files[0])
             self._dest = dest
+
+        confirm = QMessageBox.question(
+            self, "Convertir archivos",
+            f"¿Convertir {len(self._files)} archivo(s) a {target.upper()}?\n\n"
+            "Los archivos originales NO se modificarán.",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
 
         if not self._encoder:
             from ui.audio_lab.services.encoder_service import EncoderService

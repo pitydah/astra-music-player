@@ -43,12 +43,12 @@ AUDIO_EXTS = frozenset({
 class OrganizePage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self):
+    def __init__(self, db=None):
         super().__init__()
         self.setObjectName("organizePage")
         self._files: list[str] = []
         self._preview: list[tuple[str, str]] = []
-        self._db = None
+        self._db = db
         self._build_ui()
 
     def _build_ui(self):

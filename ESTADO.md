@@ -173,8 +173,11 @@ Sidebar click → sidebar_controller → navigation_requested(key)
 | Pipeline hardening | ~20 | `tests/test_pipeline_hardening.py` |
 | Estabilidad | ~20 | `tests/test_stability.py` |
 | Metadata | ~11 | `tests/test_metadata.py` |
+| Home + Controllers | 58 | `tests/test_home_dashboard_service.py`, `test_home_controller.py` |
+| Ecosystem Doctor | 21 | `tests/test_ecosystem_doctor.py` |
+| Assistant + Context | ~135 | `tests/test_*.py` |
 | Otros (DB, search, controllers, etc.) | ~287 | `tests/test_*.py` |
-| **Total** | **359** | |
+| **Total** | **~501** | `QT_QPA_PLATFORM=offscreen pytest -q` |
 
 ---
 
@@ -193,12 +196,55 @@ Sidebar click → sidebar_controller → navigation_requested(key)
 
 ---
 
+## 🧠 Michi Intelligence Core — Estado Final
+
+### Home / Centro de Situación Michi (100%)
+- `HomeDashboardService` estabilizado con settings keys correctas
+- Builders separados: library, playback, audio, ecosystem, alerts, suggestions, actions
+- Playback state normalizado (string/enum/None → playing/paused/stopped/unknown)
+- Micro Server separado de servidores remotos Subsonic/Navidrome/Jellyfin
+- Home Audio usa claves reales de `core/settings_manager.py`
+- `_safe_build` tolera fallos parciales por card
+- Alertas con severidad correcta, sin falsos positivos
+
+### Michi Ecosystem Doctor (95%)
+- `MichiEcosystemDoctor` fachada sobre `DiagnosticsService`, `MicroServerService`, `PlayerMicroCompatibilityReport`
+- Constants centralizadas en `constants.py` con 16 issue codes
+- Sanitizer robusto (tokens, paths, dataclasses)
+- Health graph con nodos/edges player→servicios
+- Fix suggester con soluciones humanas para 14 issue codes
+- Config planner con 6 planes, apply/rollback requieren confirmación
+
+### Michi Assistant contextual (90%)
+- `allowed_actions.py` con acciones por sección
+- `contextual_suggestion_engine.py` sin llamadas a Ollama
+- `intent_router.py` con reglas híbridas + fallback
+- `prompt_context_builder.py` con sanitización
+- 15 tools nuevas (5 conversión audio + 10 ecosistema)
+- Tools registradas en `AIAssistantService`
+
+### UI (85%)
+- `EcosystemPage` con health panel, device/issue/plan cards
+- `EcosystemController` connectado a `MichiEcosystemDoctor`
+- `ContextSuggestionBar` + `SuggestionCard` creados
+- `SuggestionBarController` integrado en `HubRouteController`
+
+### Tests
+- **214 tests pasan** (58 Home + 21 Ecosystem Doctor + 76 Assistant + 59 Context)
+
+### Validaciones
+| Comando | Resultado |
+|---------|-----------|
+| `ruff check .` | 0 errores nuevos (preexistentes en album_controller.py, conversion_page.py, diagnostics_page.py) |
+| `python -m compileall -q -x '.venv/|\.tmpl\.|album_controller' .` | ✅ |
+| `QT_QPA_PLATFORM=offscreen pytest -q tests/test_home_dashboard_service.py tests/test_home_controller.py tests/test_ecosystem_config_planner.py tests/test_ecosystem_diagnostics.py tests/test_ecosystem_doctor.py tests/test_section_context_providers.py tests/test_contextual_suggestion_engine.py tests/test_intent_router.py tests/test_audio_conversion_tools.py tests/test_prompt_context_builder.py tests/test_tool_registry_kwargs.py tests/test_assistant_snapshot_contract.py tests/test_context_snapshot.py tests/test_context_service.py` | **214 passed** |
+
 ## 🚀 Próximos Pasos Recomendados
 
-1. **Estabilización final de CoverFlow** — Arreglar items pendientes de alta prioridad (OpenGL fallback, smoke test, memory leak en `_cover_cache`).
-2. **CI/CD con GitHub Actions** — Ejecutar ruff + pytest en cada push.
-3. **Constructor de Mix** — Implementar backend para generación de mixes personalizados.
-4. **Virtualización de CoverFlow** — Para bibliotecas >500 álbumes, limitar items activos en escena.
-5. **Pre-beta packaging** — Flatpak / AppImage / `.deb`.
-6. **Internacionalización** — Preparar `.po`/`.mo` para traducciones.
-7. **Actualizar AGENTS.md** — Reflejar la nueva arquitectura post-refactor.
+1. **Wiring visual completo** de `ContextSuggestionBar` en hub pages
+2. **Conexión de botones** de `EcosystemPage` con workers reales
+3. **Corregir errores preexistentes** en `album_controller.py` y `conversion_page.py`
+4. **CI/CD con GitHub Actions** — Ejecutar ruff + pytest en cada push
+5. **Conversión real de archivos** con backend seguro
+6. **Pre-beta packaging** — Flatpak / AppImage / `.deb`
+7. **Actualizar AGENTS.md**

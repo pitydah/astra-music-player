@@ -298,6 +298,106 @@ def _check_context_core():
     return errors
 
 
+def _check_audio_lab_integration():
+    """Validate Audio Lab integration points: pages, batch, filters."""
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+    errors = 0
+
+    try:
+        from ui.audio_lab.diagnostics_page import DiagnosticsPage
+        page = DiagnosticsPage(worker_mgr=None, job_manager=None, db=None)
+        assert hasattr(page, "diagnostics_updated")
+        assert hasattr(page, "navigate_requested")
+        print("  ✓ DiagnosticsPage constructor with kwargs")
+    except Exception as e:
+        print(f"  ✗ DiagnosticsPage constructor: {e}")
+        errors += 1
+
+    try:
+        from ui.audio_lab.sub_pages import AudioLabDiagnosticsPage
+        page = AudioLabDiagnosticsPage(worker_mgr=None, job_manager=None, db=None)
+        assert page._inner is not None
+        assert hasattr(page._inner, "diagnostics_updated")
+        print("  ✓ AudioLabDiagnosticsPage._inner not None")
+    except Exception as e:
+        print(f"  ✗ AudioLabDiagnosticsPage._inner: {e}")
+        errors += 1
+
+    try:
+        from PySide6.QtCore import Qt
+        from library.trackref_model import TrackRefTableModel
+        model = TrackRefTableModel()
+        header = model.headerData(model.COL_QUALITY, Qt.Horizontal)
+        assert header == "Calidad"
+        print(f"  ✓ TrackRefTableModel quality column: {header}")
+    except Exception as e:
+        print(f"  ✗ TrackRefTableModel quality column: {e}")
+        errors += 1
+
+    try:
+        from library.songs_status_service import SongsStatusService
+        svc = SongsStatusService()
+        result = svc.compute_batch([])
+        assert result == {}
+        print("  ✓ SongsStatusService.compute_batch([]) no crash")
+    except Exception as e:
+        print(f"  ✗ SongsStatusService.compute_batch: {e}")
+        errors += 1
+
+    try:
+        from library.query_parser import parse_query, FieldTerm
+        q1 = parse_query("quality:hires")
+        assert any(t.value == "hires" for t in q1.terms if t.field == "quality")
+        q2 = parse_query("analysis:pending")
+        assert any(t.value == "pending" for t in q2.terms if t.field in ("analysis", "analysis_status"))
+        q3 = parse_query("spectral:suspicious")
+        assert any(t.value == "suspicious" for t in q3.terms if t.field in ("spectral", "spectral_verdict"))
+        print("  ✓ Query parser filters: quality, analysis, spectral")
+    except Exception as e:
+        print(f"  ✗ Query parser filters: {e}")
+        errors += 1
+
+    try:
+        from core.audio_lab.diagnostics_service import analyse_file
+        r = analyse_file("/no/existe")
+        assert r["error"] == "Archivo no encontrado"
+        print("  ✓ analyse_file('/no/existe') returns error")
+    except Exception as e:
+        print(f"  ✗ analyse_file nonexistent: {e}")
+        errors += 1
+
+    try:
+        from core.audio_lab.diagnostics_service import attach_spectral_analysis
+        result = attach_spectral_analysis({"filepath": "/no/existe"}, persist=False)
+        assert result is not None
+        print("  ✓ attach_spectral_analysis invalid path no crash")
+    except Exception as e:
+        print(f"  ✗ attach_spectral_analysis: {e}")
+        errors += 1
+
+    import os as _os
+    lib_dir = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "library")
+    violations = []
+    for root, _dirs, files in _os.walk(lib_dir):
+        for fn in files:
+            if fn.endswith(".py"):
+                fp = _os.path.join(root, fn)
+                with open(fp) as fh:
+                    content = fh.read()
+                if "from ui.audio_lab" in content:
+                    violations.append(fp)
+    if violations:
+        print(f"  ✗ library/ imports from ui.audio_lab: {violations}")
+        errors += 1
+    else:
+        print("  ✓ library/ does not import from ui.audio_lab")
+
+    return errors
+
+
 def main():
     errors = 0
     tmp_root = None
@@ -332,6 +432,8 @@ def main():
             errors += _run_step("[7/7] NAV_ROUTES (Audio Lab)", _check_audio_lab_routes)
             print()
             errors += _run_step("[7/7] Page instantiation (Audio Lab)", _check_audio_lab_page_instantiation)
+            print()
+            errors += _run_step("[7/7] Integration (Audio Lab)", _check_audio_lab_integration)
         else:
             print()
             print("[7/7] NAV_ROUTES (Audio Lab) — skipped (set MICHI_SMOKE_INCLUDE_AUDIO_LAB=1 to enable)")

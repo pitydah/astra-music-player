@@ -124,7 +124,8 @@ Los resultados del diagnóstico se sincronizan automáticamente con `media_items
 `DiagnosticsPage` incluye un `SpectralGraphWidget` que muestra un gráfico de barras FFT logarítmico (60 bandas de 20 Hz a 20 kHz) para archivos WAV y FLAC analizados.
 
 - Los datos del gráfico preservan la resolución original del archivo.
-- El gráfico es estático (sin zoom/pan).
+- El gráfico soporta zoom (rueda del ratón) y pan (arrastrar). Doble
+  clic resetea la vista.
 
 ## Reporte exportable
 
@@ -135,14 +136,14 @@ El reporte técnico se puede exportar a:
 
 ## Limitaciones actuales
 
-- El gráfico espectral es estático (sin zoom/pan interactivo).
 - El análisis espectral FLAC requiere ffmpeg.
 - Los resultados espectrales son probabilísticos, no concluyentes.
 - El análisis masivo de bibliotecas muy grandes puede tardar.
-- No hay análisis periódico automático (solo bajo demanda o al indexar).
 
 ## Próximos pasos
 
-- Gráfico espectral interactivo con zoom y pan.
-- Análisis periódico automático programable.
+- Worker asíncrono para búsqueda MusicBrainz/LRCLIB (HTTP en UI).
+- Worker asíncrono para exportación de vinilo (split+encode).
+- Worker asíncrono para organización de archivos (rename+DB update).
+- Detección de colisiones en organización antes de aplicar.
 - Integración visual de advertencias espectrales en la tabla de canciones.

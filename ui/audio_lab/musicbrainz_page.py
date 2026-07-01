@@ -337,6 +337,21 @@ class MusicBrainzPage(QWidget):
                     tags.musicbrainz_trackid = mbid
                     tags.mark_dirty("musicbrainz_trackid")
 
+            dirty_fields = []
+            tracked_fields = {'title', 'artist', 'album', 'albumartist', 'date', 'musicbrainz_trackid', 'musicbrainz_albumid'}
+            for field, val in tags.__dict__.items():
+                dirty = getattr(tags, f"_{field}_dirty", False) if hasattr(tags, f"_{field}_dirty") else False
+                if dirty or (val and field in tracked_fields):
+                    dirty_fields.append(f"{field}={val}")
+            preview = ", ".join(dirty_fields) if dirty_fields else "todos los campos disponibles"
+            confirm = QMessageBox.question(
+                self, "Aplicar metadatos",
+                f"Aplicar los siguientes cambios a:\n{target}\n\n{preview}\n\n¿Continuar?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if confirm != QMessageBox.Yes:
+                return
+
             write_tags(target, tags)
             self._apply_status.setText(
                 f"Metadatos aplicados correctamente a {target.split('/')[-1]}"

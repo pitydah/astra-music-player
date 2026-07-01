@@ -437,18 +437,28 @@ class IntelligencePage(QWidget):
             db = self._db or LibraryDB(DB_PATH)
             items = db.get_all()
             energies = [
-                float(getattr(i, 'bpm', 0) or 0) for i in items
-                if getattr(i, 'bpm', 0)
+                float(getattr(i, 'energy', 0) or 0) for i in items
+                if getattr(i, 'energy', 0)
             ]
             if not energies:
+                try:
+                    rms_values = [
+                        float(getattr(i, 'rms_energy', 0) or 0) for i in items
+                        if getattr(i, 'rms_energy', 0)
+                    ]
+                    if rms_values:
+                        energies = rms_values
+                except Exception:
+                    pass
+            if not energies:
                 self._set_notice(
-                    "No hay datos de energía. "
-                    "Usa 'Analizar biblioteca' para extraer features."
+                    "No hay métrica de energía disponible todavía. "
+                    "Ejecuta análisis de features cuando el backend lo soporte."
                 )
                 return
             avg = sum(energies) / len(energies)
             self._set_notice(
-                f"Energía promedio: {avg:.1f} BPM. "
+                f"Energía promedio: {avg:.1f}. "
                 f"{len(energies)} canciones con datos."
             )
         except Exception as e:

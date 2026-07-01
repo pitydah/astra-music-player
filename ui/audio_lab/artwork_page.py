@@ -237,6 +237,15 @@ class ArtworkPage(QWidget):
             )
             return
 
+        confirm = QMessageBox.question(
+            self, "Incrustar carátula",
+            f"Incrustar la imagen seleccionada en {len(self._target_audio_files)} archivo(s)?\n\n"
+            "La carátula existente será reemplazada.",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
         try:
             from ui.audio_lab.services.tag_writer import TagWriter
             tw = TagWriter()
