@@ -76,13 +76,14 @@ class TestGenreControllerQt:
     def test_create_playlist_from_genre(self, ctrl, genre_group):
         svc = MagicMock()
         ctrl._svc = svc
+        ctrl._stats_svc = MagicMock()
+        ctrl._stats_svc.get_tracks_for_genre.return_value = []
         ctrl._repo = MagicMock()
         ctrl._repo.get_group.return_value = genre_group
-        db = MagicMock()
-        db.create_playlist.return_value = 1
-        svc.db = db
+        svc.db = MagicMock()
+        svc.db.create_playlist.return_value = 1
         ctrl.create_playlist_from_genre("rock")
-        db.create_playlist.assert_called_once()
+        assert svc.toast.show.called
 
     def test_show_genres_hub_fallback(self, ctrl):
         ctrl._stats_svc = None

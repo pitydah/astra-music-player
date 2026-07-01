@@ -26,6 +26,27 @@ class GenreController:
         self._stats_svc = genre_stats_service
         self._mix_svc = genre_mix_service
 
+        # DB-backed repos
+        self._db_genre_repo = None
+
+    def bind_pages(self, hub_page=None, detail_page=None, cleanup_page=None,
+                   cleanup_ctrl=None, db_genre_repo=None, stats_svc=None,
+                   mix_svc=None):
+        if hub_page is not None:
+            self._hub_page = hub_page
+        if detail_page is not None:
+            self._detail_page = detail_page
+        if cleanup_page is not None:
+            self._cleanup_page = cleanup_page
+        if cleanup_ctrl is not None:
+            self._cleanup_ctrl = cleanup_ctrl
+        if db_genre_repo is not None:
+            self._db_genre_repo = db_genre_repo
+        if stats_svc is not None:
+            self._stats_svc = stats_svc
+        if mix_svc is not None:
+            self._mix_svc = mix_svc
+
     @property
     def _context_svc(self):
         return (
@@ -55,39 +76,36 @@ class GenreController:
             return getattr(self._svc, attr)
         return getattr(self._ctx, attr, default)
 
-    # ── New hub-based navigation ──
+    def _db(self):
+        return self._ctx_or_svc("db", None)
+
+    # ── Hub navigation ──
 
     def show_genres_hub(self, mode: str = "hub"):
-        if not self._stats_svc or not self._hub_page:
-            self.show_genres_overview()
-            return
-        try:
-            self._stats_svc.invalidate()
-            overview = self._stats_svc.get_genres_overview()
-            health = self._stats_svc.get_health_summary()
-            self._hub_page.set_genres(overview, health)
-            # Check for cleanup issues
-            if hasattr(self, '_cleanup_svc') and self._cleanup_svc:
-                try:
-                    dups = self._cleanup_svc.detect_duplicates()
-                    junk = self._cleanup_svc.detect_junk()
-                    rare = self._cleanup_svc.detect_rare_genres()
-                    self._hub_page.set_health_issues(
-                        duplicates=len(dups), junk=len(junk), rare=len(rare))
-                except Exception:
-                    pass
-            self._ctx_or_svc("configure_header", lambda k: None)("genres")
-            self._ctx.show_library_hub()
-            self._ctx.set_library_tab("genres")
-        except Exception as e:
-            _log.warning("show_genres_hub failed: %s", e)
-            self.show_genres_overview()
+        if self._hub_page and self._stats_svc:
+            try:
+                self._stats_svc.invalidate()
+                overview = self._stats_svc.get_genres_overview()
+                health = self._stats_svc.get_health_summary()
+                self._hub_page.set_genres(overview, health)
+                self._hub_page.set_health_issues(
+                    duplicates=health.get("duplicate_groups", 0),
+                    junk=health.get("junk_values", 0),
+                    rare=health.get("rare_genres", 0),
+                )
+                self._ctx_or_svc("configure_header", lambda k: None)("genres")
+                self._ctx.show_library_hub()
+                self._ctx.set_library_tab("genres")
+                return
+            except Exception as e:
+                _log.warning("show_genres_hub failed: %s", e)
+        self.show_genres_overview()
 
-    # ── Legacy grid-based navigation ──
+    # ── Legacy grid-based navigation (fallback) ──
 
     def show_genres_overview(self, mode: str = "grid"):
         repo = self._genre_repo
-        db = self._ctx_or_svc("db", None)
+        db = self._db()
         all_items = db.get_all() if db else []
         repo.build(all_items)
         if self._genre_grid:
@@ -202,15 +220,36 @@ class GenreController:
         self._show_toast(f"No se pudo iniciar radio para {genre_key}", "warning")
 
     def create_playlist_from_genre(self, genre_key: str):
-        g = self._genre_repo.get_group(genre_key)
-        if not g:
+        db = self._db()
+        if not db:
             return
-        db = self._ctx_or_svc("db")
-        pid = db.create_playlist(g.name)
-        for fp in [t.filepath for t in g.tracks if os.path.isfile(t.filepath)]:
-            db.add_to_playlist(pid, fp)
+        # Try DB-backed first
+        tracks = []
+        if self._stats_svc:
+            tracks = self._stats_svc.get_tracks_for_genre(genre_key)
+        if not tracks:
+            g = self._genre_repo.get_group(genre_key)
+            if g:
+                tracks = g.tracks
+        if not tracks:
+            self._show_toast(f"No se encontraron canciones para {genre_key}", "warning")
+            return
+        pid = db.create_playlist(genre_key)
+        for t in tracks:
+            fp = getattr(t, 'filepath', '') or ''
+            if fp and os.path.isfile(fp):
+                db.add_to_playlist(pid, fp)
         self._ctx_or_svc("rebuild_sidebar", lambda: None)()
-        self._show_toast(f"Playlist creada: {g.name}", "success")
+        self._show_toast(f"Playlist creada: {genre_key}", "success")
+
+    def create_smart_playlist_from_genre(self, genre_key: str, rules: dict | None = None):
+        if self._mix_svc:
+            pid = self._mix_svc.create_smart_playlist(f"{genre_key} - Smart", genre_key, rules=rules)
+            if pid:
+                self._ctx_or_svc("rebuild_sidebar", lambda: None)()
+                self._show_toast(f"Playlist inteligente creada: {genre_key}", "success")
+                return
+        self._show_toast(f"No se pudo crear playlist inteligente para {genre_key}", "warning")
 
     # ── Metadata actions ──
 
@@ -223,9 +262,11 @@ class GenreController:
 
     def normalize_genre(self, genre_key: str):
         if self._cleanup_ctrl:
-            canonical = genre_key
-            self._cleanup_ctrl.execute_rename(genre_key, canonical)
-            self._show_toast(f"Género normalizado: {genre_key}", "success")
+            count = self._cleanup_ctrl.execute_rename(genre_key, genre_key)
+            if count:
+                self._show_toast(f"Género normalizado: {genre_key} ({count} tracks)", "success")
+            else:
+                self._show_toast(f"No se requirió normalización para {genre_key}", "info")
         else:
             self._show_toast(
                 f"Normalización de '{genre_key}': usa el Editor de metadatos para limpiar tags", "info")
@@ -243,15 +284,14 @@ class GenreController:
     # ── Helpers ──
 
     def _get_filepaths_for_genre(self, genre_key: str) -> list[str]:
-        repo = self._genre_repo
-        fps = repo.filepaths_for_genre(genre_key)
-        if fps:
-            return fps
         if self._stats_svc:
             tracks = self._stats_svc.get_tracks_for_genre(genre_key)
-            return [getattr(t, 'filepath', '') for t in tracks
-                    if getattr(t, 'filepath', '') and os.path.isfile(t.filepath)]
-        return []
+            fps = [getattr(t, 'filepath', '') for t in tracks
+                   if getattr(t, 'filepath', '') and os.path.isfile(t.filepath)]
+            if fps:
+                return fps
+        repo = self._genre_repo
+        return repo.filepaths_for_genre(genre_key)
 
     def _show_toast(self, message: str, level: str = "info"):
         toast = self._ctx_or_svc("toast", None)

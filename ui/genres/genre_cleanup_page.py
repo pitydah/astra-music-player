@@ -5,9 +5,7 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QFrame,
 )
 
-from ui.central.central_styles import (
-    glass_button_qss,
-)
+from ui.central.central_styles import glass_button_qss
 from ui.genres.genre_empty_states import GenreEmptyState
 
 _BG = "#090B11"
@@ -17,13 +15,12 @@ _TEXT3 = "rgba(255,255,255,0.62)"
 _ACCENT = "#8FB7FF"
 _WARN = "#FFB347"
 _ERROR = "#FF6B6B"
-_SUCCESS = "#6BCB6B"
 
 
 class GenreCleanupPage(QWidget):
     back_requested = Signal()
-    cleanup_requested = Signal(str, str)  # type, target
-    apply_genre_requested = Signal(list, str)  # track_ids, genre
+    merge_requested = Signal(list, str)
+    apply_genre_requested = Signal(list, str)
     refresh_requested = Signal()
 
     def __init__(self, parent=None):
@@ -49,16 +46,11 @@ class GenreCleanupPage(QWidget):
         self._build_header()
         self._build_scan_button()
 
-        self._untagged_section = self._make_section(
-            "Canciones sin género", "untagged")
-        self._duplicates_section = self._make_section(
-            "Duplicados probables", "duplicate")
-        self._junk_section = self._make_section(
-            "Géneros basura", "junk")
-        self._rare_section = self._make_section(
-            "Géneros raros", "rare")
-        self._multi_section = self._make_section(
-            "Separadores múltiples", "multi")
+        self._untagged_section = self._make_section("Canciones sin género", "untagged")
+        self._duplicates_section = self._make_section("Duplicados probables", "duplicate")
+        self._junk_section = self._make_section("Géneros basura", "junk")
+        self._rare_section = self._make_section("Géneros raros", "rare")
+        self._multi_section = self._make_section("Separadores múltiples", "multi")
 
         self._empty_state = GenreEmptyState()
         self._empty_state.setVisible(False)
@@ -91,7 +83,7 @@ class GenreCleanupPage(QWidget):
     def _build_scan_button(self):
         row = QHBoxLayout()
         row.setSpacing(8)
-        scan_btn = QPushButton("🔍 Escanear problemas")
+        scan_btn = QPushButton("Escanear problemas")
         scan_btn.setCursor(Qt.PointingHandCursor)
         scan_btn.setStyleSheet(glass_button_qss("primary"))
         scan_btn.setFixedHeight(30)
@@ -111,37 +103,47 @@ class GenreCleanupPage(QWidget):
         cv = QVBoxLayout(card)
         cv.setContentsMargins(18, 14, 18, 14)
         cv.setSpacing(8)
-
         hdr = QLabel(title)
         hdr.setStyleSheet(f"font-size: 15px; font-weight: 700; color: {_TEXT};")
         cv.addWidget(hdr)
-
         self._layout.addWidget(card)
         return {"card": card, "layout": cv, "key": key}
 
+    def _clear_layout(self, layout):
+        while layout.count() > 1:
+            item = layout.takeAt(1)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
+
     def set_untagged(self, data: dict):
+        self._clear_layout(self._untagged_section["layout"])
         if not data or not data.get("count"):
             self._untagged_section["card"].setVisible(False)
             return
         self._untagged_section["card"].setVisible(True)
-        self._populate_list_section(
-            self._untagged_section,
-            f"{data['count']} canciones sin género",
-            data.get("tracks", [])[:10],
-        )
+        label = QLabel(f"{data['count']} canciones sin género")
+        label.setStyleSheet(f"color: {_WARN}; font-size: 12px;")
+        self._untagged_section["layout"].addWidget(label)
+        for item in data.get("tracks", [])[:10]:
+            title = getattr(item, 'title', '') or getattr(item, 'filename', '') or ''
+            artist = getattr(item, 'artist', '') or ''
+            row_lbl = QLabel(f"{title} — {artist}")
+            row_lbl.setStyleSheet(f"color: {_TEXT2}; font-size: 11px;")
+            self._untagged_section["layout"].addWidget(row_lbl)
 
     def set_duplicates(self, duplicates: list[dict]):
+        self._clear_layout(self._duplicates_section["layout"])
         if not duplicates:
             self._duplicates_section["card"].setVisible(False)
             return
         self._duplicates_section["card"].setVisible(True)
-
         label = QLabel(f"{len(duplicates)} grupos de géneros duplicados")
         label.setStyleSheet(f"color: {_WARN}; font-size: 12px;")
         self._duplicates_section["layout"].addWidget(label)
 
         for dup in duplicates[:10]:
-            raw = ", ".join(dup.get("raw_values", [])[:4])
             row_lbl = QLabel(
                 f"Fusionar en: {dup.get('canonical', '?')} "
                 f"({dup.get('count', 0)} canciones)")
@@ -154,41 +156,38 @@ class GenreCleanupPage(QWidget):
             apply_btn.setCursor(Qt.PointingHandCursor)
             apply_btn.setStyleSheet(glass_button_qss("accent"))
             apply_btn.setFixedHeight(24)
+            sources = list(dup.get("raw_values", []))
             target = dup.get("canonical", "")
             apply_btn.clicked.connect(
-                lambda checked=False, t=target, r=raw:
-                self.cleanup_requested.emit("merge", t))
+                lambda checked=False, s=sources, t=target:
+                self.merge_requested.emit(s, t))
             btn_row.addWidget(apply_btn)
             btn_row.addStretch()
             self._duplicates_section["layout"].addLayout(btn_row)
 
     def set_junk(self, junk: list[dict]):
+        self._clear_layout(self._junk_section["layout"])
         if not junk:
             self._junk_section["card"].setVisible(False)
             return
         self._junk_section["card"].setVisible(True)
-
         label = QLabel(f"{len(junk)} valores no reconocidos como género")
         label.setStyleSheet(f"color: {_ERROR}; font-size: 12px;")
         self._junk_section["layout"].addWidget(label)
-
         for j in junk[:8]:
-            row_lbl = QLabel(
-                f"'{j.get('value', '?')}' — {j.get('count', 0)} canciones")
+            row_lbl = QLabel(f"'{j.get('value', '?')}' — {j.get('count', 0)} canciones")
             row_lbl.setStyleSheet(f"color: {_TEXT2}; font-size: 11px;")
             self._junk_section["layout"].addWidget(row_lbl)
 
     def set_rare(self, rare: list[dict]):
+        self._clear_layout(self._rare_section["layout"])
         if not rare:
             self._rare_section["card"].setVisible(False)
             return
         self._rare_section["card"].setVisible(True)
-
-        label = QLabel(
-            f"{len(rare)} géneros con menos de 3 canciones")
+        label = QLabel(f"{len(rare)} géneros con menos de 3 canciones")
         label.setStyleSheet(f"color: {_WARN}; font-size: 12px;")
         self._rare_section["layout"].addWidget(label)
-
         for r_item in rare[:10]:
             row_lbl = QLabel(
                 f"{r_item.get('genre', '?')} — {r_item.get('track_count', 0)} canciones")
@@ -196,38 +195,28 @@ class GenreCleanupPage(QWidget):
             self._rare_section["layout"].addWidget(row_lbl)
 
     def set_multi_genre(self, issues: list[dict]):
+        self._clear_layout(self._multi_section["layout"])
         if not issues:
             self._multi_section["card"].setVisible(False)
             return
         self._multi_section["card"].setVisible(True)
-
-        label = QLabel(
-            f"{len(issues)} canciones con géneros múltiples")
+        label = QLabel(f"{len(issues)} canciones con géneros múltiples")
         label.setStyleSheet(f"color: {_ACCENT}; font-size: 12px;")
         self._multi_section["layout"].addWidget(label)
-
         for issue in issues[:8]:
             title = issue.get("title", "")
             raw = issue.get("raw_genre", "")
             suggested = ", ".join(issue.get("suggested_genres", []))
-            row_lbl = QLabel(
-                f"{title}: '{raw}' → {suggested}")
+            row_lbl = QLabel(f"{title}: '{raw}' → {suggested}")
             row_lbl.setStyleSheet(f"color: {_TEXT2}; font-size: 11px;")
             self._multi_section["layout"].addWidget(row_lbl)
 
     def show_empty(self, message: str = "No se detectaron problemas de géneros"):
+        self._untagged_section["card"].setVisible(False)
+        self._duplicates_section["card"].setVisible(False)
+        self._junk_section["card"].setVisible(False)
+        self._rare_section["card"].setVisible(False)
+        self._multi_section["card"].setVisible(False)
         self._empty_state.setVisible(True)
         self._empty_state._title.setText(message)
-        self._empty_state._subtitle.setText(
-            "Tu biblioteca de géneros está en buen estado.")
-
-    def _populate_list_section(self, section: dict, summary: str, items: list):
-        label = QLabel(summary)
-        label.setStyleSheet(f"color: {_WARN}; font-size: 12px;")
-        section["layout"].addWidget(label)
-        for item in items:
-            title = getattr(item, 'title', '') or getattr(item, 'filename', '') or ''
-            artist = getattr(item, 'artist', '') or ''
-            row_lbl = QLabel(f"{title} — {artist}")
-            row_lbl.setStyleSheet(f"color: {_TEXT2}; font-size: 11px;")
-            section["layout"].addWidget(row_lbl)
+        self._empty_state._subtitle.setText("Tu biblioteca de géneros está en buen estado.")

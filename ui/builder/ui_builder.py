@@ -568,6 +568,17 @@ class UIBuilder:
         w._genre_detail_page = GenreDetailPage()
         w._genre_cleanup_page = GenreCleanupPage()
 
+        # Bind pages to controller AFTER creation so references exist
+        w._genre_ctrl.bind_pages(
+            hub_page=w._genre_hub_page,
+            detail_page=w._genre_detail_page,
+            cleanup_page=w._genre_cleanup_page,
+            cleanup_ctrl=getattr(w, '_genre_cleanup_ctrl', None),
+            db_genre_repo=getattr(w, '_db_genre_repo', None),
+            stats_svc=getattr(w, '_genre_stats_svc', None),
+            mix_svc=getattr(w, '_genre_mix_svc', None),
+        )
+
         w._genre_hub_page.genre_selected.connect(
             lambda key, _w=w: _w._genre_ctrl.open_genre_detail(key))
         w._genre_hub_page.genre_play_requested.connect(
@@ -610,9 +621,9 @@ class UIBuilder:
             lambda: (w._genre_ctrl.show_genres_hub(), w._nav_ctrl.navigate_back()))
         w._genre_cleanup_page.refresh_requested.connect(
             lambda: w._genre_ctrl.show_cleanup_page())
-        w._genre_cleanup_page.cleanup_requested.connect(
-            lambda sug_type, target, _w=w: _w._genre_cleanup_ctrl.execute_merge(
-                [], target) if target else None)
+        w._genre_cleanup_page.merge_requested.connect(
+            lambda sources, target, _w=w: _w._genre_cleanup_ctrl.execute_merge(
+                sources, target) if target and sources else None)
         w._genre_cleanup_page.apply_genre_requested.connect(
             lambda tids, genre, _w=w: _w._genre_cleanup_ctrl.execute_apply_genre(tids, genre))
 

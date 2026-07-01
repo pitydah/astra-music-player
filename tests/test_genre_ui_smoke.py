@@ -215,7 +215,7 @@ class TestGenreCleanupPageQt:
     def test_signals_defined(self, page):
         assert hasattr(page, 'back_requested')
         assert hasattr(page, 'refresh_requested')
-        assert hasattr(page, 'cleanup_requested')
+        assert hasattr(page, 'merge_requested')
 
     def test_refresh_signal(self, page, qtbot):
         with qtbot.waitSignal(page.refresh_requested, timeout=100):

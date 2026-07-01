@@ -64,21 +64,54 @@ class GenreStatsService:
         stats = self.get_stats()
         return stats.get(genre, {})
 
-    def get_health_summary(self) -> dict:
+    def get_health_summary(self, cleanup_svc=None) -> dict:
         stats = self.get_stats()
         total_tracks = sum(s.get("track_count", 0) for s in stats.values())
+        total_genres = len(stats)
         missing = sum(s.get("missing_metadata_count", 0) for s in stats.values())
         ok_count = sum(1 for s in stats.values() if s.get("health") == "ok")
         warning_count = sum(1 for s in stats.values() if s.get("health") != "ok")
-        total_genres = len(stats)
-        health_pct = int((ok_count / max(total_genres, 1)) * 100)
+
+        duplicate_groups = 0
+        junk_values = 0
+        rare_genres = 0
+        multi_genre_issues = 0
+        tracks_without_genre = 0
+
+        if cleanup_svc:
+            try:
+                tracks_without_genre = len(cleanup_svc.detect_untagged().get("tracks", []))
+                duplicate_groups = len(cleanup_svc.detect_duplicates())
+                junk_values = len(cleanup_svc.detect_junk())
+                rare_genres = len(cleanup_svc.detect_rare_genres())
+                multi_genre_issues = len(cleanup_svc.detect_multi_genre_issues())
+            except Exception:
+                pass
+
+        health = 100.0
+        if total_tracks > 0:
+            health -= (tracks_without_genre / max(total_tracks, 1)) * 30
+        health -= duplicate_groups * 2
+        health -= junk_values * 3
+        health -= rare_genres * 1
+        health -= multi_genre_issues * 0.5
+        health = max(0, min(100, int(health)))
+
         return {
+            "health_pct": health,
             "total_genres": total_genres,
             "total_tracks": total_tracks,
+            "tracks_with_genre": total_tracks - tracks_without_genre,
+            "tracks_without_genre": tracks_without_genre,
             "missing_metadata": missing,
+            "duplicate_groups": duplicate_groups,
+            "junk_values": junk_values,
+            "rare_genres": rare_genres,
+            "multi_genre_issues": multi_genre_issues,
             "healthy_count": ok_count,
             "warning_count": warning_count,
-            "health_pct": health_pct,
+            "album_inconsistencies": 0,
+            "artist_inconsistencies": 0,
         }
 
     def get_tracks_without_genre(self) -> list:

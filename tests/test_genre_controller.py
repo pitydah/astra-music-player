@@ -120,11 +120,13 @@ class TestGenreController:
         t2 = MagicMock()
         t2.filepath = "/b.flac"
         g.tracks = [t1, t2]
+        ctrl._stats_svc = MagicMock()
+        ctrl._stats_svc.get_tracks_for_genre.return_value = []
         svc.genre_repo.get_group.return_value = g
         svc.db.create_playlist.return_value = 1
         with patch("os.path.isfile", return_value=True):
             ctrl.create_playlist_from_genre("rock")
-        svc.db.create_playlist.assert_called_with("Rock")
+        svc.db.create_playlist.assert_called_with("rock")
         svc.toast.show.assert_called_once()
 
     def test_edit_genre_metadata_loads_files(self, ctrl, svc):

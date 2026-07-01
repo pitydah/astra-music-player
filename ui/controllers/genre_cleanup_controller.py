@@ -41,12 +41,28 @@ class GenreCleanupController:
             _log.warning("scan_and_show failed: %s", e)
 
     def execute_merge(self, source_genres: list[str], target: str) -> dict:
-        return self._cleanup_svc.execute_merge(source_genres, target)
+        if not source_genres or not target:
+            _log.warning("execute_merge called with empty sources or target")
+            return {"success": False, "affected": 0}
+        result = self._cleanup_svc.execute_merge(source_genres, target)
+        self._stats_svc.invalidate()
+        toast = getattr(self._win, '_toast_svc', None)
+        if toast:
+            toast.show(
+                f"Fusionados {result.get('affected', 0)} tracks en '{target}'",
+                "success")
+        return result
 
     def execute_rename(self, old: str, new: str) -> int:
-        return self._cleanup_svc.execute_rename(old, new)
+        count = self._cleanup_svc.execute_rename(old, new)
+        if count:
+            self._stats_svc.invalidate()
+        return count
 
     def execute_apply_genre(self, track_ids: list[int], genre: str,
                             write_tags: bool = False) -> int:
-        return self._cleanup_svc.execute_apply_genre(track_ids, genre,
-                                                      write_tags=write_tags)
+        count = self._cleanup_svc.execute_apply_genre(track_ids, genre,
+                                                       write_tags=write_tags)
+        if count:
+            self._stats_svc.invalidate()
+        return count
