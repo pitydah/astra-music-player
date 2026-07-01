@@ -160,15 +160,35 @@ class AlbumGridWidget(QWidget):
         import hashlib
         h = hashlib.sha1()
         for i in self._items:
-            raw = "|".join(map(str, [
-                getattr(i, "filepath", ""),
-                getattr(i, "album", ""),
-                getattr(i, "artist", ""),
-                getattr(i, "albumartist", ""),
-                getattr(i, "year", 0) or 0,
-                getattr(i, "duration", 0) or 0,
-                getattr(i, "mtime", 0) or 0,
-            ]))
+            data = getattr(i, "data", None)
+            if isinstance(data, dict):
+                album_key = str(data.get("album_key", "") or "")
+                summary = data.get("summary")
+                quality = data.get("quality")
+                health = data.get("health")
+                tracks = data.get("tracks", []) or []
+                raw = "|".join(map(str, [
+                    "coveritem",
+                    album_key,
+                    getattr(i, "title", ""),
+                    getattr(i, "subtitle", ""),
+                    len(tracks),
+                    getattr(summary, "track_count", ""),
+                    getattr(summary, "duration", ""),
+                    getattr(quality, "dominant_quality", ""),
+                    getattr(health, "status", ""),
+                ]))
+            else:
+                raw = "|".join(map(str, [
+                    "mediaitem",
+                    getattr(i, "filepath", ""),
+                    getattr(i, "album", ""),
+                    getattr(i, "artist", ""),
+                    getattr(i, "albumartist", ""),
+                    getattr(i, "year", 0) or 0,
+                    getattr(i, "duration", 0) or 0,
+                    getattr(i, "mtime", 0) or 0,
+                ]))
             h.update(raw.encode("utf-8", errors="ignore"))
         return (len(self._items), h.hexdigest())
 
@@ -220,8 +240,10 @@ class AlbumGridWidget(QWidget):
             self._render_cards([])
             return
 
+        items_are_cover_items = bool(self._items and hasattr(self._items[0], 'data'))
+
         # 1. Render albums immediately with placeholder covers
-        if self._items and hasattr(self._items[0], 'data'):
+        if items_are_cover_items:
             groups = list(self._items)
         else:
             groups = load_covers_for_albums(self._items, self._cover_size, lazy=True)
@@ -231,10 +253,13 @@ class AlbumGridWidget(QWidget):
         self._groups = groups
         self._rebuild_cards()
 
-        # 2. Load real covers in background
-        if self._worker_mgr:
+        # 2. Load real covers in background (only for MediaItem path)
+        if self._worker_mgr and not items_are_cover_items:
             self._pending_covers = True
+            self._pending_items_sig = self._compute_items_sig()
             self._worker_mgr.load_covers(self._items, self._cover_size)
+        else:
+            self._pending_covers = False
 
     def _render_cards(self, groups):
         cols = self._calculate_columns()

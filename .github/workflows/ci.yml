@@ -129,8 +129,30 @@ jobs:
           assert len(icons) > 0, 'No SVG icons found'
           "
 
-      - name: Tests (pytest) — anti-regression + packaging
+      - name: Album-focused tests (pure Python, no Qt)
         timeout-minutes: 2
+        run: |
+          source .venv/bin/activate
+          python3 -m pytest \
+            tests/test_album_final_closure.py \
+            tests/test_album_repository.py \
+            tests/test_album_repository_grouping_hard.py \
+            tests/test_album_identity.py \
+            tests/test_album_quality_service.py \
+            tests/test_album_duplicate_service.py \
+            tests/test_album_duplicates_library_scope.py \
+            tests/test_album_controller_actions.py \
+            tests/test_album_grid_cover_items.py \
+            tests/test_album_detail_identity_resolution.py \
+            tests/test_album_micro_server_cancel_rollback.py \
+            tests/test_album_mobile_sync_visibility.py \
+            tests/test_album_play_next_semantics.py \
+            tests/test_player_enqueue_next_semantics.py \
+            tests/test_album_server_import_dialog.py \
+            -q --timeout=60
+
+      - name: Tests (pytest) — anti-regression + packaging + intelligence
+        timeout-minutes: 3
         env:
           QT_QPA_PLATFORM: offscreen
           PYTHONUNBUFFERED: 1
@@ -140,7 +162,22 @@ jobs:
           MICHI_TEST_CONFIG_DIR: ${{ runner.temp }}/michi-test-config
         run: |
           source .venv/bin/activate
-          python3 -m pytest tests/test_post_refactor_regressions.py tests/test_packaging.py -q --timeout=60
+          python3 -m pytest \
+            tests/test_post_refactor_regressions.py \
+            tests/test_packaging.py \
+            tests/test_home_dashboard_service.py \
+            tests/test_home_controller.py \
+            tests/test_crash_reporter.py \
+            tests/test_ecosystem_doctor.py \
+            tests/test_ecosystem_config_planner.py \
+            tests/test_ecosystem_diagnostics.py \
+            tests/test_section_context_providers.py \
+            tests/test_contextual_suggestion_engine.py \
+            tests/test_intent_router.py \
+            tests/test_audio_conversion_tools.py \
+            tests/test_prompt_context_builder.py \
+            tests/test_context_suggestion_bar_smoke.py \
+            -q --timeout=60
 
       - name: Performance tests (optional)
         continue-on-error: true
