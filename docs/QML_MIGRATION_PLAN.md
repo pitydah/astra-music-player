@@ -67,14 +67,30 @@ python main.py
 | 14 | Polish Pass + Premium Design — Header glass, ActionButton microinteracciones (scale, loading, focus), Sidebar glyphs (sin emojis), MichiGlass 2.0 (+15 tokens), Home sin emojis, externos grid 2x2, placeholders premium, route sync test, emoji prohibition test | ✅ |
 | 15 | Hardening Navegación + UI Clásica — NavigationHistory dedup (últimos 2 entries), Alt+Left/Right con guard de foco editable, menú contextual sin emojis, toggle_favorite_by_filepath seguro, SongsPremiumPage load_data con stale guard | ✅ |
 | 16 | Foundation Cierre Final — 41 tests QML, sidebar forbidden routes test, context menu emoji test, ruff 0 en ui_qml/ui_qml_bridge/tests | ✅ |
+| 17 | Sidebar Final + Scope Compliance — Settings eliminado, Radio/Playlists como rutas principales, Michi AI como label visible, PageStack casos explícitos, ActionButton keyboard support, PlaceholderPage parametrizable, no-touch contract verificable, 53 tests | ✅ |
+
+## Sidebar Final
+```
+ 1. Inicio        route: home        glyph: IN
+ 2. Biblioteca    route: library     glyph: BL
+ 3. Mix           route: mix         glyph: MX
+ 4. Reproducción  route: playback    glyph: RP
+ 5. Conexiones    route: connections  glyph: SV
+ 6. Radio         route: radio       glyph: RD  (placeholder)
+ 7. Playlists     route: playlists   glyph: PL  (placeholder)
+ 8. Home Audio    route: home_audio  glyph: HA
+ 9. Michi AI      route: assistant   glyph: AI  (ruta interna assistant)
+10. Audio Lab     route: audio_lab   glyph: AL
+```
 
 ## Commands
 ```bash
-python -m pytest tests/qml/ -q    # 41 tests
+python -m pytest tests/qml/ -q    # 53 tests
+python scripts/check_no_touch_contract.py  # verify no-touch compliance
 python -m ui_qml_bridge.qml_main  # launch QML UI
 python main.py --qml              # launch QML from main
 python main.py                    # classic QtWidgets
-ruff check ./ui_qml ./ui_qml_bridge/tests  # lint
+ruff check ./ui_qml ./ui_qml_bridge ./tests/qml  # lint
 ```
 
 ## Next Phases (Recommended)

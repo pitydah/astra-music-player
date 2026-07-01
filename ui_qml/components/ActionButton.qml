@@ -16,6 +16,13 @@ Rectangle {
 
     signal clicked()
 
+    activeFocusOnTab: true
+    focus: false
+
+    Keys.onReturnPressed: root.clicked()
+    Keys.onEnterPressed: root.clicked()
+    Keys.onSpacePressed: root.clicked()
+
     implicitWidth: Math.max(minWidth, text !== "" ? contentText.implicitWidth + MichiSpacing.xl * 2 + (loading ? 24 : 0) : 40)
     height: 36
     radius: 10

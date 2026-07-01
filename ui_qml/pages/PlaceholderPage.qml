@@ -6,6 +6,10 @@ import "../components"
 Item {
     id: root
 
+    property string sectionTitle: "Sección en migración"
+    property string sectionDescription: "Esta sección aún usa la interfaz clásica de Michi Music Player. La migración a QML está en progreso."
+    property string sectionGlyph: "CL"
+
     Column {
         anchors.centerIn: parent
         spacing: MichiSpacing.lg
@@ -20,7 +24,7 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                text: "CL"
+                text: root.sectionGlyph
                 color: MichiColors.accentBlue
                 font.pixelSize: 18
                 font.weight: MichiTypography.weightBold
@@ -31,7 +35,7 @@ Item {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Sección en migración"
+            text: root.sectionTitle
             color: MichiColors.textPrimary
             font.pixelSize: MichiTypography.sectionTitleSize
             font.weight: MichiTypography.weightMedium
@@ -39,7 +43,7 @@ Item {
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Esta sección aún usa la interfaz clásica de Michi Music Player. La migración a QML está en progreso."
+            text: root.sectionDescription
             color: MichiColors.textSecondary
             font.pixelSize: MichiTypography.bodySize
             horizontalAlignment: Text.AlignHCenter
