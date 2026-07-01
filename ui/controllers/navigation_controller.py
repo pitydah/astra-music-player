@@ -32,9 +32,12 @@ SECTION_CONFIG: dict[str, dict] = {
     "folders":    {"title": "Carpetas", "subtitle": "Mantenimiento físico: salud, integridad y organización de tu biblioteca",
                    "icon": "sidebar_folders", "views": ["tree"],
                    "search": True, "default": "tree"},
-    "radio":      {"title": "Emisoras", "subtitle": "Radios por URL y mosaicos",
-                   "icon": "sidebar_radio", "views": ["grid", "list"],
-                   "search": True, "default": "grid"},
+     "radio":      {"title": "En vivo", "subtitle": "Emisoras y streams guardados",
+                    "icon": "sidebar_radio", "views": ["grid", "list"],
+                    "search": True, "default": "grid"},
+     "broadcast_hub": {"title": "Transmisiones", "subtitle": "Radio en vivo, podcasts y episodios",
+                       "icon": "sidebar_radio", "views": [],
+                       "search": True, "default": None},
     "identifier": {"title": "Identificador", "subtitle": "Detección musical",
                    "icon": "sidebar_identifier", "views": [],
                    "search": False, "default": None},
@@ -219,9 +222,9 @@ def resolve_sidebar_active_key(key: str) -> str:
         return "connections_hub"
     if key == "ecosystem_hub":
         return "connections_hub"
-    # Hijos de playback_hub
+    # Hijos de broadcast_hub
     if key == "radio":
-        return "playback_hub"
+        return "broadcast_hub"
     # Hijos de devices_page
     if key.startswith("dev:") or key in ("devices",):
         return "devices_page"

@@ -31,13 +31,15 @@ class TestBroadcastNav:
 
     def test_broadcast_section_config(self):
         from ui.controllers.navigation_controller import SECTION_CONFIG
-        # broadcast_hub no necesita SECTION_CONFIG, pero no debe crashear
-        assert "broadcast_hub" not in SECTION_CONFIG  # se maneja aparte
+        assert "broadcast_hub" in SECTION_CONFIG
+        assert SECTION_CONFIG["broadcast_hub"]["title"] == "Transmisiones"
 
 
 def _fake_card(*a, **kw):
-    from PySide6.QtWidgets import QFrame
-    return QFrame()
+    from PySide6.QtWidgets import QFrame, QLabel
+    card = QFrame()
+    card._value_label = QLabel("0")
+    return card
 
 @patch("ui.broadcast.broadcast_hub_page.summary_card", side_effect=_fake_card)
 def test_broadcast_page_renders(mock_card, qtbot):

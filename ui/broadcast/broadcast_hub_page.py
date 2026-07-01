@@ -14,15 +14,19 @@ from ui.central.central_styles import (
 )
 from ui.broadcast.broadcast_cards import summary_card
 from streaming.radio_manager import RadioManager
+from streaming.podcast_manager import PodcastManager
 
 
 class BroadcastHubPage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self, radio_manager: RadioManager | None = None, parent=None):
+    def __init__(self, radio_manager: RadioManager | None = None,
+                 podcast_manager: PodcastManager | None = None,
+                 parent=None):
         super().__init__(parent)
         self.setObjectName("broadcastHubPage")
         self._radio_manager = radio_manager
+        self._podcast_manager = podcast_manager
         self._tabs: list[str] = ["live", "podcasts", "episodes", "downloads", "history"]
         self._tab_widgets: dict[str, QWidget] = {}
         self._current_tab = "live"
@@ -74,19 +78,24 @@ class BroadcastHubPage(QWidget):
         self._add_podcast_btn = QPushButton("+ Anadir podcast RSS")
         self._add_podcast_btn.setCursor(Qt.PointingHandCursor)
         self._add_podcast_btn.setStyleSheet(glass_button_qss("secondary"))
-        self._add_podcast_btn.setVisible(False)
+        self._add_podcast_btn.clicked.connect(self._add_podcast)
         action_row.addWidget(self._add_podcast_btn)
 
         cl.addLayout(action_row)
 
-        summary_row = QHBoxLayout()
-        summary_row.setSpacing(10)
-        live_count = self._radio_manager.count() if self._radio_manager else 0
-        summary_row.addWidget(summary_card("En vivo", str(live_count)))
-        summary_row.addWidget(summary_card("Podcasts", "0"))
-        summary_row.addWidget(summary_card("Nuevos", "0", "#FFB347"))
-        summary_row.addWidget(summary_card("Descargas", "0", "#64DC64"))
-        cl.addLayout(summary_row)
+        self._summary_row = QHBoxLayout()
+        self._summary_row.setSpacing(10)
+        self._summary_cards: dict[str, QWidget] = {}
+        for key, label, accent in [
+            ("live", "En vivo", "rgba(143,183,255,0.90)"),
+            ("podcasts", "Podcasts", "rgba(143,183,255,0.90)"),
+            ("new", "Nuevos", "#FFB347"),
+            ("downloads", "Descargas", "#64DC64"),
+        ]:
+            card = summary_card(label, "0", accent)
+            self._summary_cards[key] = card
+            self._summary_row.addWidget(card)
+        cl.addLayout(self._summary_row)
 
         tab_row = QHBoxLayout()
         tab_row.setSpacing(4)
@@ -115,26 +124,28 @@ class BroadcastHubPage(QWidget):
 
         from ui.broadcast.radio_live_tab import RadioLiveTab
         live_tab = RadioLiveTab(self._radio_manager)
+        live_tab.add_station_requested.connect(self._add_station)
         self._tab_widgets["live"] = live_tab
         self._stack.addWidget(live_tab)
 
         from ui.broadcast.podcasts_tab import PodcastsTab
-        podcasts_tab = PodcastsTab()
+        podcasts_tab = PodcastsTab(self._podcast_manager)
+        podcasts_tab.add_feed_requested.connect(self._add_podcast)
         self._tab_widgets["podcasts"] = podcasts_tab
         self._stack.addWidget(podcasts_tab)
 
         from ui.broadcast.episodes_tab import EpisodesTab
-        ep_tab = EpisodesTab()
+        ep_tab = EpisodesTab(self._podcast_manager)
         self._tab_widgets["episodes"] = ep_tab
         self._stack.addWidget(ep_tab)
 
         from ui.broadcast.downloads_tab import DownloadsTab
-        dl_tab = DownloadsTab()
+        dl_tab = DownloadsTab(self._podcast_manager)
         self._tab_widgets["downloads"] = dl_tab
         self._stack.addWidget(dl_tab)
 
         from ui.broadcast.history_tab import HistoryTab
-        hist_tab = HistoryTab()
+        hist_tab = HistoryTab(self._podcast_manager)
         self._tab_widgets["history"] = hist_tab
         self._stack.addWidget(hist_tab)
 
@@ -143,6 +154,27 @@ class BroadcastHubPage(QWidget):
 
         scroll.setWidget(content)
         layout.addWidget(scroll)
+
+        self._refresh_counts()
+
+    def _refresh_counts(self):
+        live = self._radio_manager.count() if self._radio_manager else 0
+        self._set_summary("live", str(live))
+
+        if self._podcast_manager:
+            counts = self._podcast_manager.get_counts()
+            self._set_summary("podcasts", str(counts.get("shows", 0)))
+            self._set_summary("new", str(counts.get("unplayed", 0)))
+            self._set_summary("downloads", str(counts.get("downloaded", 0)))
+        else:
+            for k in ("podcasts", "new", "downloads"):
+                self._set_summary(k, "0")
+
+    def _set_summary(self, key: str, value: str):
+        card = self._summary_cards.get(key)
+        if card:
+            from ui.broadcast.broadcast_cards import _set_card_value
+            _set_card_value(card, value)
 
     def _switch_tab(self, tab_key: str):
         self._current_tab = tab_key
@@ -154,12 +186,31 @@ class BroadcastHubPage(QWidget):
             btn.setStyleSheet(self._tab_qss(checked))
 
     def _on_search(self, text: str):
-        if self._current_tab == "live" and "live" in self._tab_widgets:
-            self._tab_widgets["live"].set_filter(text)
+        tab = self._tab_widgets.get(self._current_tab)
+        if tab and hasattr(tab, 'set_filter'):
+            tab.set_filter(text)
 
     def _add_station(self):
-        if self._current_tab == "live" and "live" in self._tab_widgets:
-            self._tab_widgets["live"].add_station()
+        tab = self._tab_widgets.get("live")
+        if tab and hasattr(tab, 'add_station'):
+            tab.add_station()
+
+    def _add_podcast(self):
+        from ui.broadcast.add_feed_dialog import AddFeedDialog
+        dialog = AddFeedDialog(self._podcast_manager, self)
+        if dialog.exec() and dialog.feed_url:
+            result = self._podcast_manager.add_feed(dialog.feed_url)
+            if result.get("ok"):
+                self._refresh_counts()
+                podcasts_tab = self._tab_widgets.get("podcasts")
+                if podcasts_tab and hasattr(podcasts_tab, 'reload'):
+                    podcasts_tab.reload()
+            else:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "Error", result.get("error", "Error desconocido"))
+
+    def reload_counts(self):
+        self._refresh_counts()
 
     @staticmethod
     def _tab_qss(active: bool) -> str:

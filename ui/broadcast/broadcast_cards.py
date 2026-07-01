@@ -14,11 +14,13 @@ def summary_card(title: str, value: str, accent: str = "rgba(143,183,255,0.90)")
     layout.setSpacing(4)
 
     val = QLabel(value)
+    val.setObjectName("broadcastSummaryValue")
     val.setStyleSheet(
         f"color: {accent}; font-size: 26px; font-weight: 700; "
         f"background: transparent; border: none;"
     )
     layout.addWidget(val)
+    card._value_label = val
 
     lbl = QLabel(title)
     lbl.setStyleSheet(
@@ -27,6 +29,12 @@ def summary_card(title: str, value: str, accent: str = "rgba(143,183,255,0.90)")
     )
     layout.addWidget(lbl)
     return card
+
+
+def _set_card_value(card: QFrame, value: str):
+    label = getattr(card, '_value_label', None)
+    if label:
+        label.setText(value)
 
 
 def episode_row(

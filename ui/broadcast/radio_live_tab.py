@@ -11,6 +11,7 @@ from streaming.radio_manager import RadioManager
 
 class RadioLiveTab(QWidget):
     station_selected = Signal(str, str)
+    add_station_requested = Signal()
 
     def __init__(self, radio_manager: RadioManager | None = None, parent=None):
         super().__init__(parent)

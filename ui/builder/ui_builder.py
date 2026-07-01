@@ -642,8 +642,13 @@ class UIBuilder:
         w._views.register("empty", placeholder)
         w._views.register("remote", w._remote_placeholder)
         w._views.register("expanded", placeholder_expanded)
+        from streaming.podcast_manager import PodcastManager
+        from streaming.podcast_repository import PodcastRepository
         from ui.broadcast.broadcast_hub_page import BroadcastHubPage
-        w._broadcast_hub = BroadcastHubPage(radio_manager=w._radio_manager)
+        w._broadcast_hub = BroadcastHubPage(
+            radio_manager=w._radio_manager,
+            podcast_manager=PodcastManager(PodcastRepository()),
+        )
         w._views.register("broadcast_hub", w._broadcast_hub)
         w._views.register("radio", w._radio_widget)
         w._views.register("discover", w._discover)
