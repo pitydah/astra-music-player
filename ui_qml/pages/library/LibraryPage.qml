@@ -6,51 +6,81 @@ import "../../components"
 Item {
     id: root
 
+    property var libraryBridge: typeof libraryBridge !== "undefined" ? libraryBridge : null
+
     Column {
-        anchors.centerIn: parent
-        spacing: MichiSpacing.lg
-        width: 360
+        anchors.fill: parent
+        spacing: 0
 
         Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 48
+            width: parent.width
             height: 48
-            radius: 12
-            color: Qt.rgba(0.561, 0.718, 1.0, 0.08)
+            color: Qt.rgba(1.0, 1.0, 1.0, 0.02)
 
-            Text {
-                anchors.centerIn: parent
-                text: "BL"
-                color: MichiColors.accentBlue
-                font.pixelSize: 18
-                font.weight: MichiTypography.weightBold
-                font.letterSpacing: 1.5
-                opacity: 0.70
+            Row {
+                anchors.fill: parent
+                anchors.leftMargin: MichiSpacing.xl
+                spacing: MichiSpacing.md
+
+                Text {
+                    text: "Canciones"
+                    color: tabBar.currentIndex === 0 ? MichiColors.accentBlue : MichiColors.textSecondary
+                    font.pixelSize: MichiTypography.bodySize
+                    font.weight: tabBar.currentIndex === 0 ? MichiTypography.weightSemiBold : MichiTypography.weightNormal
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: tabBar.currentIndex = 0
+                    }
+                }
+
+                Text {
+                    text: "Álbumes"
+                    color: tabBar.currentIndex === 1 ? MichiColors.accentBlue : MichiColors.textSecondary
+                    font.pixelSize: MichiTypography.bodySize
+                    font.weight: tabBar.currentIndex === 1 ? MichiTypography.weightSemiBold : MichiTypography.weightNormal
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: tabBar.currentIndex = 1
+                    }
+                }
             }
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "Biblioteca"
-            color: MichiColors.textPrimary
-            font.pixelSize: MichiTypography.sectionTitleSize
-            font.weight: MichiTypography.weightMedium
+        SearchField {
+            width: parent.width
+            anchors.margins: MichiSpacing.md
+            placeholderText: "Buscar canciones..."
+            onSearchTextChanged: {
+                if (root.libraryBridge && typeof root.libraryBridge.search !== "undefined") {
+                    root.libraryBridge.search(text)
+                }
+            }
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "Esta sección aún usa la interfaz clásica de Michi Music Player. La migración a QML está en progreso."
-            color: MichiColors.textSecondary
-            font.pixelSize: MichiTypography.bodySize
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
-            lineHeight: 1.5
-        }
+        StackLayout {
+            id: tabBar
+            width: parent.width
+            height: parent.height - 48 - 38
+            currentIndex: 0
 
-        StatusBadge {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "Interfaz clásica"
-            kind: "info"
+            SongTable {
+                id: songsView
+                songs: root.libraryBridge ? [] : []
+                bridge: root.libraryBridge
+                onSongPlayRequested: console.log("[Library] Play:", filepath)
+            }
+
+            AlbumGrid {
+                id: albumView
+                albums: root.libraryBridge ? [] : []
+                bridge: root.libraryBridge
+            }
         }
     }
 }
