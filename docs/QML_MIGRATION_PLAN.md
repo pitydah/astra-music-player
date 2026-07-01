@@ -68,6 +68,7 @@ python main.py
 | 15 | Hardening Navegación + UI Clásica — NavigationHistory dedup (últimos 2 entries), Alt+Left/Right con guard de foco editable, menú contextual sin emojis, toggle_favorite_by_filepath seguro, SongsPremiumPage load_data con stale guard | ✅ |
 | 16 | Foundation Cierre Final — 41 tests QML, sidebar forbidden routes test, context menu emoji test, ruff 0 en ui_qml/ui_qml_bridge/tests | ✅ |
 | 17 | Sidebar Final + Scope Compliance — Settings eliminado, Radio/Playlists como rutas principales, Michi AI como label visible, PageStack casos explícitos, ActionButton keyboard support, PlaceholderPage parametrizable, no-touch contract verificable, 53 tests | ✅ |
+| 18 | Library QML Foundation + Michi AI Real — LibraryPage con tabs (Canciones/Álbumes), SongTable, AlbumGrid, bridges LibraryBridge/MichiAIBridge, chat funcional, 60 tests. Playlists backend separado a rama `playlists-premium-backend`. | ✅ |
 
 ## Sidebar Final
 ```
@@ -92,6 +93,11 @@ python main.py --qml              # launch QML from main
 python main.py                    # classic QtWidgets
 ruff check ./ui_qml ./ui_qml_bridge ./tests/qml  # lint
 ```
+
+## Scope Decisions
+- **Playlists backend**: Separado a rama `playlists-premium-backend`. Esta rama (`qml-migration-foundation-clean`) mantiene solo la ruta `playlists` como placeholder QML.
+- **Michi Link**: NO TOCADO en esta rama.
+- **Integrations/michi_link**: NO TOCADO en esta rama.
 
 ## Next Phases (Recommended)
 1. **ImageProvider** — cover art Python → QML (requires cpp/cython bridge)
