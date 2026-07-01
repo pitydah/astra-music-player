@@ -34,14 +34,10 @@ Item {
                 onScanClicked: {
                     if (typeof connectionsBridge !== "undefined" && connectionsBridge)
                         connectionsBridge.scanForServers()
-                    else
-                        console.log("[Connections] Buscar Michi Micro Server")
                 }
                 onManualAddClicked: {
                     if (typeof connectionsBridge !== "undefined" && connectionsBridge)
                         connectionsBridge.addManualServer()
-                    else
-                        console.log("[Connections] Agregar servidor manual")
                 }
             }
 
@@ -50,30 +46,33 @@ Item {
                 width: parent.width
             }
 
-            Column {
+            Grid {
                 width: parent.width
-                spacing: MichiSpacing.sm
+                columns: 2
+                columnSpacing: MichiSpacing.md
+                rowSpacing: MichiSpacing.md
 
                 ExternalServerCard {
-                    width: parent.width
+                    width: (parent.width - MichiSpacing.md) / 2
+                    height: 80
                     serverName: "Navidrome"
                     serverType: "Subsonic API"
                 }
-
                 ExternalServerCard {
-                    width: parent.width
+                    width: (parent.width - MichiSpacing.md) / 2
+                    height: 80
                     serverName: "Jellyfin"
                     serverType: "Jellyfin API"
                 }
-
                 ExternalServerCard {
-                    width: parent.width
+                    width: (parent.width - MichiSpacing.md) / 2
+                    height: 80
                     serverName: "Subsonic"
                     serverType: "Subsonic API"
                 }
-
                 ExternalServerCard {
-                    width: parent.width
+                    width: (parent.width - MichiSpacing.md) / 2
+                    height: 80
                     serverName: "Servidor manual"
                     serverType: "URL personalizada"
                 }
@@ -83,9 +82,6 @@ Item {
                 id: discoveryPanel
                 width: parent.width
                 discoveredServers: []
-                onServerSelected: function(index) {
-                    console.log("[Connections] Server selected:", index)
-                }
             }
 
             HomeAudioAccess {
@@ -93,8 +89,6 @@ Item {
                 onOpenHomeAudio: {
                     if (typeof navigationBridge !== "undefined" && navigationBridge)
                         navigationBridge.navigate("home_audio")
-                    else
-                        console.log("[Connections] Abrir Home Audio")
                 }
             }
         }
