@@ -417,4 +417,65 @@ class TestMichiAIBridge:
         assert len(bridge.suggestions) > 0
 
 
+class TestImageProvider:
+    def test_image_provider_exists(self):
+        from ui_qml_bridge.image_provider import MichiCoverImageProvider
+        assert MichiCoverImageProvider is not None
+
+    def test_register_function_exists(self):
+        from ui_qml_bridge.image_provider import register_image_provider
+        assert callable(register_image_provider)
+
+    def test_fallback_function_exists(self):
+        from ui_qml_bridge.image_provider import _generate_fallback
+        assert callable(_generate_fallback)
+
+
+class TestLibraryBridgeContract:
+    def test_importable_without_db(self):
+        bridge = LibraryBridge()
+        assert bridge is not None
+        assert bridge.songCount == 0
+        assert bridge.albumCount == 0
+
+    def test_songs_property_returns_list(self):
+        bridge = LibraryBridge()
+        songs = bridge.songs
+        assert isinstance(songs, list)
+
+    def test_albums_property_returns_list(self):
+        bridge = LibraryBridge()
+        albums = bridge.albums
+        assert isinstance(albums, list)
+
+    def test_refresh_does_not_crash_without_db(self):
+        bridge = LibraryBridge()
+        bridge.refresh()
+
+
+class TestAlbumGrid:
+    def test_album_grid_qml_exists(self):
+        assert (QML_DIR / "pages" / "library" / "AlbumGrid.qml").exists()
+
+    def test_album_grid_uses_michi_cover(self):
+        content = (QML_DIR / "pages" / "library" / "AlbumCard.qml").read_text()
+        assert "michi-cover" in content, "AlbumCard does not use michi-cover ImageProvider"
+
+    def test_album_grid_no_emoji(self):
+        content = (QML_DIR / "pages" / "library" / "AlbumCard.qml").read_text()
+        for ch in content:
+            if ord(ch) in set(range(0x1F300, 0x1FAFF)):
+                assert False, f"Emoji found in AlbumCard.qml: U+{ord(ch):04X}"
+
+
+class TestSongTable:
+    def test_song_table_qml_exists(self):
+        assert (QML_DIR / "pages" / "library" / "SongTable.qml").exists()
+
+    def test_song_table_structure(self):
+        content = (QML_DIR / "pages" / "library" / "SongTable.qml").read_text()
+        assert "songPlayRequested" in content
+        assert "SongRow" in content
+
+
 
