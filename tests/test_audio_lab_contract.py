@@ -103,3 +103,21 @@ class TestAudioLabContract:
             assert hasattr(ui.window.MainWindow, method_name), (
                 f"Orphan: {key} → {method_name}"
             )
+
+    def test_library_does_not_import_from_ui_audio_lab(self):
+        import os
+        import re
+        lib_dir = os.path.join(os.path.dirname(__file__), "..", "library")
+        errors = []
+        for root, _dirs, files in os.walk(os.path.abspath(lib_dir)):
+            for f in files:
+                if f.endswith(".py"):
+                    fp = os.path.join(root, f)
+                    with open(fp) as fh:
+                        content = fh.read()
+                    if "from ui.audio_lab" in content:
+                        errors.append(fp)
+        assert not errors, (
+            f"library/ must not import from ui.audio_lab. Found in:\n"
+            + "\n".join(errors)
+        )

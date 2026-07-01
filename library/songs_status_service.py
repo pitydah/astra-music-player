@@ -129,7 +129,7 @@ class SongsStatusService:
     @staticmethod
     def _get_diag_badge(filepath: str) -> dict | None:
         try:
-            from ui.audio_lab.diagnostics_service import get_badge_for_file
+            from library.audio_lab_badges import get_audio_lab_badge_for_path as get_badge_for_file
             return get_badge_for_file(filepath)
         except Exception:
             return None

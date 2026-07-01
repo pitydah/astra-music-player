@@ -133,7 +133,7 @@ class TrackRefTableModel(QStandardItemModel):
         if uri in self._quality_cache:
             return self._quality_cache[uri]
         try:
-            from ui.audio_lab.diagnostics_service import get_badge_for_file
+            from library.audio_lab_badges import get_audio_lab_badge_for_path as get_badge_for_file
             badge = get_badge_for_file(uri)
             self._quality_cache[uri] = badge
             return badge
