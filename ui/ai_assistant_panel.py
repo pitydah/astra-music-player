@@ -74,6 +74,22 @@ _SUGGESTION_RULES: list[tuple[list[str], list[dict]]] = [
         {"title": "Abrir Biblioteca", "desc": "Explora tu música local, álbumes, artistas y géneros.",
          "target": "library_hub", "kind": "navegación"},
     ]),
+    (["artista", "discografía", "álbumes del artista", "canciones del artista", "música de"], [
+        {"title": "Explorar Artistas", "desc": "Navega la sección Artistas de tu biblioteca.",
+         "target": "artists", "kind": "navegación"},
+        {"title": "Crear un mix del artista", "desc": "Genera una mezcla inteligente con las canciones principales.",
+         "target": "artists", "kind": "mix"},
+        {"title": "Analizar calidad de discografía", "desc": "Revisa formatos, bitrate y ReplayGain de sus álbumes.",
+         "target": "artists", "kind": "análisis"},
+    ]),
+    (["duplicados", "alias", "artista duplicado", "fusionar artista", "nombres repetidos"], [
+        {"title": "Resolver duplicados de artista", "desc": "Detecta y fusiona artistas con nombre similar.",
+         "target": "artists", "kind": "metadata"},
+    ]),
+    (["enriquecer", "info externa", "biografía", "musicbrainz", "wikipedia", "theaudiodb"], [
+        {"title": "Actualizar info externa de artistas", "desc": "Busca biografías, imágenes y metadatos en línea.",
+         "target": "artists", "kind": "metadata"},
+    ]),
 ]
 
 

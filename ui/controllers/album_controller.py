@@ -503,3 +503,30 @@ class AlbumController:
                 search_query="",
             )
         w._count.setText(album)
+
+    def navigate_to_album_by_title(self, album_title: str):
+        w = self._win
+        if not hasattr(w, '_all_items') or not w._all_items:
+            return
+        from collections import namedtuple
+        FakeItem = namedtuple("FakeCoverItem", ["title", "subtitle", "pixmap", "data"])
+        tracks = [
+            t for t in w._all_items
+            if (getattr(t, "album", "") or "").lower().strip() == album_title.lower().strip()
+        ]
+        if not tracks:
+            tracks = [
+                t for t in w._all_items
+                if album_title.lower().strip() in (getattr(t, "album", "") or "").lower().strip()
+            ]
+        if not tracks:
+            w._ctx.toast.show(f"Álbum \"{album_title}\" no encontrado", "warning")
+            return
+        artist = getattr(tracks[0], "artist", "") or getattr(tracks[0], "albumartist", "") or ""
+        fake = FakeItem(
+            title=album_title,
+            subtitle=artist,
+            pixmap=None,
+            data={"tracks": tracks},
+        )
+        self.show_album_detail_from_cover_item(fake)

@@ -517,6 +517,8 @@ class UIBuilder:
             lambda key, _w=w: _w._artist_ctrl.send_artist_to_micro_server(key))
         w._artist_detail.artist_resolve_aliases_requested.connect(
             lambda key, _w=w: _w._artist_ctrl.resolve_artist_aliases(key))
+        w._artist_detail.album_navigate_requested.connect(
+            lambda album_title, _w=w: _w._album_ctrl.navigate_to_album_by_title(album_title))
 
         # Build artists stacked widget: grid + detail inside Artistas tab
         w._artists_stack = QStackedWidget()

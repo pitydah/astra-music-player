@@ -53,6 +53,9 @@ class SongsController(QObject):
     def status_service(self) -> SongsStatusService:
         return self._status_svc
 
+    def status_cache(self) -> dict[int, dict]:
+        return self._status_svc.status_cache()
+
     def load(self, items: list[MediaItem] | None = None):
         """Load songs, compute status, refresh favorites."""
         if items is not None:

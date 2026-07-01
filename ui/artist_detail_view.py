@@ -98,6 +98,8 @@ class ArtistDetailView(QWidget):
     artist_send_to_server_requested = Signal(str)
     artist_resolve_aliases_requested = Signal(str)
 
+    album_navigate_requested = Signal(str)  # album title
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet(f"background: {_BG};")
@@ -593,7 +595,9 @@ class ArtistDetailView(QWidget):
         menu.exec(table.viewport().mapToGlobal(pos))
 
     def _navigate_to_album(self, track):
-        pass
+        album = getattr(track, "album", "") or ""
+        if album:
+            self.album_navigate_requested.emit(album)
 
     # ── Bio ──
 
@@ -949,7 +953,7 @@ class ArtistDetailView(QWidget):
         table.verticalHeader().setVisible(False)
         table.setShowGrid(False)
         table.setFrameShape(QFrame.NoFrame)
-        table.setSelectionMode(QAbstractItemView.SingleSelection)
+        table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setMinimumHeight(min(table_h, 420))
         if n_tracks > 12:
@@ -997,21 +1001,43 @@ class ArtistDetailView(QWidget):
         cv.addWidget(table)
         self._layout.addWidget(card)
 
+    def _selected_tracks(self) -> list:
+        if not self._artist:
+            return []
+        table = self._get_tracks_table()
+        if not table:
+            return []
+        rows = set()
+        for idx in table.selectedIndexes():
+            if idx.isValid():
+                rows.add(idx.row())
+        return [self._artist.all_tracks[r] for r in sorted(rows) if r < len(self._artist.all_tracks)]
+
+    def _get_tracks_table(self) -> QTableWidget | None:
+        for i in range(self._layout.count()):
+            w = self._layout.itemAt(i).widget()
+            if isinstance(w, QFrame) and hasattr(w, 'objectName') and w.objectName() == "artistTracks":
+                sub_layout = w.layout()
+                if sub_layout:
+                    for j in range(sub_layout.count()):
+                        sw = sub_layout.itemAt(j).widget()
+                        if isinstance(sw, QTableWidget):
+                            return sw
+        return None
+
     def _on_track_dbl_click(self, idx):
-        track = self._artist.all_tracks[idx.row()] if self._artist else None
-        if track:
-            self.track_play_requested.emit(track.filepath)
+        selected = self._selected_tracks()
+        if selected:
+            self.track_play_requested.emit(selected[0].filepath)
 
     def _on_track_context(self, pos):
         table = self.sender()
         if not isinstance(table, QTableWidget):
             return
-        idx = table.indexAt(pos)
-        if not idx.isValid() or not self._artist:
+        selected = self._selected_tracks()
+        if not selected:
             return
-        track = self._artist.all_tracks[idx.row()]
-        if not track:
-            return
+        track = selected[0] if len(selected) == 1 else None
 
         menu = QMenu(self)
         menu.setStyleSheet("""
@@ -1021,13 +1047,27 @@ class ArtistDetailView(QWidget):
             QMenu::item:selected { background: rgba(143,183,255,0.16); }
             QMenu::separator { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 8px; }
         """)
-        menu.addAction("Reproducir", lambda: self.track_play_requested.emit(track.filepath))
-        menu.addAction("Añadir a cola", lambda: self.track_queue_requested.emit(track.filepath))
-        menu.addSeparator()
-        menu.addAction("Editar metadatos", lambda: self.track_metadata_requested.emit(track.filepath))
-        menu.addSeparator()
-        menu.addAction("Analizar canción", lambda: self.track_analyze_requested.emit(track.filepath))
-        menu.addAction("Enviar a Micro Server", lambda: self.track_send_to_server_requested.emit(track.filepath))
+
+        n = len(selected)
+        if n == 1 and track:
+            menu.addAction("Reproducir", lambda: self.track_play_requested.emit(track.filepath))
+            menu.addAction("Añadir a cola", lambda: self.track_queue_requested.emit(track.filepath))
+            menu.addSeparator()
+            menu.addAction("Editar metadatos", lambda: self.track_metadata_requested.emit(track.filepath))
+            menu.addSeparator()
+            menu.addAction("Analizar canción", lambda: self.track_analyze_requested.emit(track.filepath))
+            menu.addAction("Enviar a Micro Server", lambda: self.track_send_to_server_requested.emit(track.filepath))
+        elif n > 1:
+            fps = [t.filepath for t in selected]
+            menu.addAction(f"Reproducir {n} canciones", lambda f=fps: self.track_play_requested.emit(f[0]))
+            menu.addAction(f"Añadir {n} a cola", lambda f=fps: self.track_queue_requested.emit(f[0]))
+            menu.addSeparator()
+            menu.addAction(f"Editar metadatos ({n})", lambda f=fps: self.metadata_files_requested.emit(f))
+            menu.addSeparator()
+            menu.addAction(f"Analizar ({n})", lambda f=fps: self.track_analyze_requested.emit(f[0]))
+            menu.addAction(f"Enviar a Micro Server ({n})", lambda f=fps: self.track_send_to_server_requested.emit(f[0]))
+        else:
+            menu.addAction("(Selecciona una canción)")
         menu.exec(table.viewport().mapToGlobal(pos))
 
     # ── Metadata health ──

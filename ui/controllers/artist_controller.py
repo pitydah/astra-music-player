@@ -314,7 +314,33 @@ class ArtistController:
     # ── Mobile sync ──
 
     def sync_artist_to_mobile(self, artist_key: str):
-        self._ctx.toast.show("Sincronización móvil próximamente", "info")
+        repo = self._ctx.artist_repo
+        group = repo.get_group(artist_key)
+        if not group:
+            return
+        fps = self.artist_filepaths(artist_key)
+        if not fps:
+            self._ctx.toast.show("No hay archivos para sincronizar", "warning")
+            return
+        w = self._win
+        sync_mgr = getattr(w, '_sync_manager', None)
+        if not sync_mgr:
+            self._ctx.toast.show(
+                "Sync móvil no disponible. Abre Conexiones > Michi Link para configurar.",
+                "warning")
+            return
+        try:
+            sync_mgr.set_manifest_provider(lambda: [
+                {"filepath": fp, "size": os.path.getsize(fp)}
+                for fp in fps if os.path.isfile(fp)
+            ])
+            if not sync_mgr.is_running:
+                sync_mgr.start()
+            self._ctx.toast.show(
+                f"Preparando sincronización de {group.display_name} "
+                f"({len(fps)} canciones)...", "info")
+        except Exception as e:
+            self._ctx.toast.show(f"Error al sincronizar: {e}", "error")
 
     # ── Alias resolution ──
 
@@ -348,12 +374,14 @@ class ArtistController:
 
     def _open_alias_dialog(self, artist_key: str, candidates: list):
         try:
-            from ui.dialogs.artist_match_dialog import ArtistMatchDialog
+            from ui.dialogs.alias_resolution_dialog import AliasResolutionDialog
             repo = self._ctx.artist_repo
             group = repo.get_group(artist_key)
             if not group:
                 return
-            dialog = ArtistMatchDialog(group.display_name, candidates, self._win)
+            dialog = AliasResolutionDialog(
+                group.display_name, candidates,
+                lambda k: repo.get_group(k), self._win)
             if dialog.exec() == dialog.Accepted:
                 target = dialog.selected_key()
                 if target:
