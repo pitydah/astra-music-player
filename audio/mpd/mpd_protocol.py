@@ -21,13 +21,15 @@ class MpdResponse:
         self.lists: dict[str, list[dict[str, str]]] = {}
         self._parse()
 
+    LIST_HEADER_KEYS = {"file", "directory", "playlist", "outputid"}
+
     def _parse(self):
         if not self.lines:
             raise MpdProtocolError("Empty response")
 
         last = self.lines[-1].strip()
 
-        if last == "OK":
+        if last == "OK" or last.startswith("OK MPD "):
             self.is_ok = True
             body = self.lines[:-1]
         elif last.startswith("ACK"):
@@ -78,6 +80,10 @@ class MpdResponse:
             if not first_key:
                 first_key = key
 
+            if first_key and key in self.LIST_HEADER_KEYS and current and key in current:
+                entries.append(current)
+                current = {}
+
             current[key] = value
 
         if current:
@@ -87,20 +93,23 @@ class MpdResponse:
 
         if len(entries) == 1:
             entry = entries[0]
-            for k, v in entry.items():
-                self.pairs[k] = v
-            if first_key:
-                self.lists[first_key] = entries
+            list_candidate = first_key
+            has_header = list_candidate in self.LIST_HEADER_KEYS
+            if has_header:
+                self.lists[list_candidate] = entries
+                for k, v in entry.items():
+                    if k not in self.LIST_HEADER_KEYS:
+                        self.pairs[k] = v
+            else:
+                for k, v in entry.items():
+                    self.pairs[k] = v
+                if first_key:
+                    self.lists[first_key] = entries
         elif len(entries) > 1:
             list_key = first_key or "entry"
             for entry in entries:
                 for k, v in entry.items():
-                    if k not in ("file", "directory", "playlist",
-                                 "outputid", "outputname", "outputenabled",
-                                 "songid", "song", "id",
-                                 "pos", "duration", "artist", "title",
-                                 "album", "track", "genre", "date",
-                                 "albumartist"):
+                    if k not in self.LIST_HEADER_KEYS:
                         self.pairs[k] = v
             self.lists[list_key] = entries
 

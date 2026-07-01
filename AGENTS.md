@@ -11,7 +11,8 @@ Written in Python 3.11+ with PySide6, GStreamer 1.0, SQLite FTS5, mutagen, shaza
 | Repository | https://github.com/pitydah/michi-music-player |
 | Python | 3.11+ |
 | UI toolkit | PySide6 (Qt 6) — native widgets only, no QML, no Electron |
-| Audio engine | GStreamer 1.28 (playbin, audioiirfilter, equalizer-nbands, rgvolume, tee, appsrc) |
+| Audio engine | Hybrid: GStreamer 1.28 (default) + MPD (Hi-Fi/bit-perfect) |
+| Hybrid engine | `audio/backends/` — `AudioBackend` API, `GStreamerBackend`, `MpdBackend`, `HybridAudioManager` |
 | Database | SQLite 3 (WAL mode) + FTS5 full-text search |
 | Metadata | mutagen (ID3, Vorbis, MP4, MusicBrainz, ReplayGain, BPM) |
 | Recognition | shazamio, AudD HTTP API, AcoustID fpcalc + Chromaprint |
@@ -24,9 +25,16 @@ Written in Python 3.11+ with PySide6, GStreamer 1.0, SQLite FTS5, mutagen, shaza
 
 ```
 michi-music-player/
-├── audio/          → Motor GStreamer: player.py, player_service.py,
-│                     pipeline_factory.py, dac_manager.py, eq_*.py, replaygain.py,
-│                     quality_classifier.py, dsp_state.py, output_profiles.py (9 perfiles)
+├── audio/          → Motor híbrido GStreamer + MPD
+│   ├── player.py, player_service.py → GStreamerEngine + PlayerService (fachada)
+│   ├── pipeline_factory.py, dac_manager.py → construcción de pipelines GStreamer
+│   ├── backends/   → AudioBackend API, GStreamerBackend, MpdBackend, HybridAudioManager
+│   ├── mpd/        → mpd_client.py, mpd_protocol.py, mpd_path_mapper.py,
+│   │                 mpd_config_builder.py, mpd_service_manager.py, mpd_discovery.py
+│   ├── diagnostics/ → alsa_hw_params.py, bitperfect_verifier.py, bitperfect_report.py
+│   ├── settings/   → audio_settings_schema.py, audio_settings_migrator.py
+│   ├── eq_*.py, replaygain.py, quality_classifier.py, dsp_state.py, etc.
+│   └── output_profiles.py (13 perfiles, 4 MPD)
 ├── library/        → SQLite + indexer: library_db.py, indexer.py, search_engine.py,
 │                     coverflow.py, media_item.py, album_key.py,
 │                     folder_index.py, folder_models.py, folder_health.py,
@@ -66,12 +74,30 @@ michi-music-player/
 - Pattern: `self._ctx.playback.toggle()`
 - Migration: controllers that receive `ctx` should stop accessing `self._win._ctx`
 
+### Hybrid Audio Engine Architecture
+```
+UI → PlayerService → HybridAudioManager
+                        ├── GStreamerBackend → GStreamerEngine (default, DSP, visual)
+                        └── MpdBackend → MPD (Hi-Fi, bit-perfect, DSD/DoP)
+```
+- Active backend chosen automatically by audio profile (13 profiles, 4 MPD)
+- Fallback: if MPD unavailable, GStreamer is used with warning
+- Queue is canonical in Michi, synced to MPD when MPD backend is active
+- `audio/backends/` — `AudioBackend` Protocol, `GStreamerBackend`, `MpdBackend`, `HybridAudioManager`
+- `audio/diagnostics/` — bit-perfect verifier reads `/proc/asound/*/hw_params`
+- `audio/mpd/` — TCP client, protocol parser, path mapper, config builder, service manager
+- `audio/settings/` — canonical audio settings schema with legacy migration
+- Blocked DSP in MPD mode: EQ, ReplayGain, Spectrum emit errors
+- MPRIS adapter uses `PlayerService` when MPD is active
+- Radio/streams always force GStreamer regardless of backend
+
 ### PlayerService as Single Facade
-- UI NEVER touches `GStreamerEngine` directly
+- UI NEVER touches `GStreamerEngine` or `MpdBackend` directly
 - All audio operations go through `PlayerService` (`audio/player_service.py`)
-- Public wrappers: play, pause, stop, seek, next, prev, set_volume, get_eq_state, 
-  set_eq_graphic, set_eq_parametric, set_eq_bypass, set_eq_preamp, 
-  set_transmit_device, set_output_device_id, set_spectrum_enabled
+- Public wrappers: play, pause, stop, seek, next, prev, set_volume, get_eq_state,
+  set_eq_graphic, set_eq_parametric, set_eq_bypass, set_eq_preamp,
+  set_transmit_device, set_output_device_id, set_spectrum_enabled,
+  switch_backend_for_profile, get_active_backend_id, start_mpd_service, etc.
 - Private engine attributes accessed only from `player_service.py`
 
 ### Controllers (ui/controllers/)

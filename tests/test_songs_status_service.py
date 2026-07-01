@@ -127,7 +127,7 @@ class TestSongsStatusService:
     def test_spectral_warning(self, *_):
         svc = SongsStatusService(None)
         item = _make_item()
-        setattr(item, 'spectral_verdict', "SUSPICIOUS_UPSAMPLING")
+        item.spectral_verdict = "SUSPICIOUS_UPSAMPLING"
         st = svc.compute_status(item)
         assert st["has_audio_lab_warning"] is True
         assert any("sospechoso" in b.lower() for b in st.get("badges", []))

@@ -9,7 +9,6 @@ import os
 import time
 import hashlib
 import logging
-from typing import Any
 
 from library.folder_models import (
     FolderIntegrityResult, FolderProblem,
@@ -165,7 +164,7 @@ class FolderIntegrityService:
             problems.append(FolderProblem(
                 path=fp, problem_type="mtime_mismatch",
                 severity="info",
-                description=f"Fecha modificación cambiada",
+                description="Fecha modificación cambiada",
                 suggested_action="scan_folder",
                 action_label="Escanear",
             ))
@@ -221,7 +220,7 @@ class FolderIntegrityService:
                         problems.append(FolderProblem(
                             path=path, problem_type="size_mismatch",
                             severity="warning",
-                            description=f"Tamaño diferente",
+                            description="Tamaño diferente",
                         ))
                     if abs(st.st_mtime - (db_mtime or 0)) > 1.0:
                         problems.append(FolderProblem(

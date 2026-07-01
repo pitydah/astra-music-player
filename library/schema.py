@@ -220,6 +220,9 @@ INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_media_directory ON media_items(directory)",
     "CREATE INDEX IF NOT EXISTS idx_media_genre ON media_items(genre)",
     "CREATE INDEX IF NOT EXISTS idx_media_year ON media_items(year)",
+]
+
+GENRE_INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_track_genres_track ON track_genres(track_id)",
     "CREATE INDEX IF NOT EXISTS idx_track_genres_genre ON track_genres(canonical_genre)",
     "CREATE INDEX IF NOT EXISTS idx_genre_aliases_canonical ON genre_aliases(canonical_genre)",
@@ -353,6 +356,11 @@ class Schema:
             TRACK_GENRES_SQL, GENRE_ALIASES_SQL, GENRE_STATS_CACHE_SQL,
             GENRE_CLEANUP_SUGGESTIONS_SQL, GENRE_OPERATION_LOG_SQL,
         ]:
+            conn.execute(sql)
+        conn.commit()
+
+        # Genre indexes (must run AFTER genre tables exist)
+        for sql in GENRE_INDEX_SQL:
             conn.execute(sql)
         conn.commit()
 

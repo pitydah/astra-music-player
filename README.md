@@ -202,9 +202,9 @@ michi-music-player/
 │   ├── eq_convert.py                 # Conversión gráfico ↔ paramétrico
 │   └── spectrum.py                   # Spectrum analyzer
 │
-├── library/                          # Biblioteca + indexer (17 archivos)
+├── library/                          # Biblioteca + indexer (21 archivos)
 │   ├── library_db.py                 # SQLite schema, migraciones, CRUD, search_advanced
-│   ├── indexer.py                    # Indexer 2.0 — pipeline de indexación
+│   ├── indexer.py                    # Indexer 2.0 — pipeline de indexación con force=True
 │   ├── index_state.py                # ScanState dataclass + ScanPhase enum
 │   ├── batch_writer.py               # BatchWriter — escritura SQLite en lotes
 │   ├── search_engine.py              # SearchEngine — FTS5 + field filters
@@ -219,7 +219,11 @@ michi-music-player/
 │   ├── cover_art_service.py          # Servicio de carátulas
 │   ├── album_grid.py                 # Grid de álbumes
 │   ├── album_art_worker.py           # Worker de extracción de carátulas
-│   └── tag_editor.py                 # Editor de tags Mutagen
+│   ├── tag_editor.py                 # Editor de tags Mutagen
+│   ├── folder_models.py              # Dataclasses puras: FolderEntry, FolderHealth, etc.
+│   ├── folder_index.py               # Listado FS, clasificación de archivos, walk recursivo
+│   ├── folder_health.py              # FolderHealthService — salud 0-100 con score
+│   └── folder_integrity.py           # FolderIntegrityService — verificación DB vs FS
 │
 ├── recognition/                      # Identificación de música (10 archivos)
 │   ├── detection_service.py          # Orquestador — captura + identificación continua
@@ -278,7 +282,12 @@ michi-music-player/
 │   ├── eq_panel.py                   # Diálogo de ecualizador
 │   ├── preferences_window.py         # 16 categorías de preferencias
 │   ├── settings_pages.py             # Páginas de settings (AudioPage, etc.)
-│   ├── controllers/                  # Controladores (14)
+│   ├── folder_browser.py             # FolderBrowserWidget — explorador + mantenimiento
+│   ├── folders/                       # Mantenimiento físico de Carpetas
+│   │   ├── __init__.py
+│   │   └── folder_problem_report.py   # Diálogo de reporte de problemas
+│   ├── controllers/                  # Controladores (15)
+│   │   ├── folder_controller.py      # Orquestación de Carpetas (salud, integridad, FS)
 │   │   ├── transmit_controller.py    # Dispositivos TransmitManager
 │   │   ├── audio_output_controller.py  # Selección de salida de audio local
 │   │   ├── snapcast_controller.py    # Ciclo de vida Snapcast
@@ -309,7 +318,9 @@ michi-music-player/
 │   ├── interfaces.py                 # IPlaybackController, IViewController
 │   ├── app_context.py                # AppContext DI container
 │   ├── playback_controller.py        # Control de reproducción + EQ
-│   └── file_actions.py               # Open, scan, drop, folder import
+│   ├── file_actions.py               # Open, scan, drop, folder import
+│   ├── file_manager_service.py       # Detección DE + apertura en gestor/terminal
+│   └── safe_file_ops.py              # Mover/renombrar seguro con preflight y rollback
 │
 ├── streaming/                        # Streaming & radio
 │   ├── subsonic_client.py / remote_browser.py / server_dialog.py
@@ -339,7 +350,8 @@ michi-music-player/
 │
 ├── docs/                             # Documentación
 │   ├── architecture.md
-│   └── roadmap.md
+│   ├── roadmap.md
+│   └── FOLDERS.md                    # Mantenimiento físico de Carpetas
 │
 └── icons/                            # Iconos SVG + PNG
     └── actions/                      # 38+ iconos

@@ -61,9 +61,10 @@ class GenreCleanupService:
             if raw in junk_set or is_junk_genre(raw):
                 counts[raw] += 1
                 if len(examples[raw]) < 3:
-                    examples[raw].append(
-                        getattr(item, 'filepath', '') or getattr(item, 'title', '') or ''
-                    )
+                    title = getattr(item, 'title', '') or getattr(item, 'filename', '') or ''
+                    artist = getattr(item, 'artist', '') or ''
+                    label = f"{title} - {artist}".strip(" -") or f"track #{getattr(item, 'id', 0)}"
+                    examples[raw].append(label)
         for val, cnt in sorted(counts.items(), key=lambda x: -x[1]):
             warnings.append({
                 "value": val,
@@ -93,8 +94,8 @@ class GenreCleanupService:
                 if len(genres) > 1:
                     issues.append({
                         "track_id": getattr(item, 'id', 0),
-                        "filepath": getattr(item, 'filepath', ''),
                         "title": getattr(item, 'title', '') or getattr(item, 'filename', ''),
+                        "artist": getattr(item, 'artist', '') or '',
                         "raw_genre": raw,
                         "suggested_genres": genres,
                     })

@@ -175,6 +175,7 @@ class MainWindow(QMainWindow):
         self._playback = PlayerService(self._player, self)
         self._playback.set_volume(70)
         self._player.set_library_db(self._db)
+        self._playback.backend_changed.connect(self._on_backend_changed)
         self._model = TrackRefTableModel(self)
         self._radio_manager = RadioManager()
         self._search_ctrl = SearchController(self)
@@ -362,6 +363,7 @@ class MainWindow(QMainWindow):
             db=self._db,
             file_actions=self._file_actions,
             context_svc=self._context_svc,
+            play_files=self._play_filepaths,
             parent=self,
         )
 
@@ -406,6 +408,32 @@ class MainWindow(QMainWindow):
             return
         self._folder_ctrl.connect(self._folder_browser)
         self._folder_ctrl.toast_requested.connect(self._on_folder_toast)
+        self._folder_ctrl.health_ready.connect(self._folder_browser.update_health)
+        self._folder_ctrl.integrity_ready.connect(self._on_folder_integrity_result)
+
+        fb = self._folder_browser
+        fb.files_for_metadata.connect(self._open_metadata_for_files)
+        fb.show_problem_report.connect(self._show_folder_problem_report)
+        fb.safe_rename_dialog.connect(self._on_safe_rename_folder)
+        fb.safe_move_dialog.connect(self._on_safe_move_folder)
+
+    def _on_folder_integrity_result(self, result):
+        if not result:
+            return
+        if result.errors:
+            msg = "\n".join(result.errors[:5])
+            self._toast_svc.warning(
+                f"Integridad: {len(result.errors)} errores.\n{msg}" if msg
+                else "Errores de integridad detectados", self)
+        elif result.changed_files:
+            self._toast_svc.info(
+                f"Integridad: {len(result.changed_files)} archivos cambiados", self)
+        elif result.passed:
+            self._toast_svc.success(
+                f"Integridad: {result.checked_files} archivos verificados, todo OK", self)
+        else:
+            self._toast_svc.info(
+                f"Integridad: {result.checked_files} revisados", self)
 
     def _on_folder_toast(self, message: str, kind: str = "info"):
         if kind == "success":
@@ -420,6 +448,14 @@ class MainWindow(QMainWindow):
         else:
             from ui.toast_notification import ToastNotification as T
             T.info(message, self)
+
+    def _on_backend_changed(self, old_id: str, new_id: str):
+        from ui.toast_notification import ToastNotification as T
+        T.info(f"Motor de audio: {old_id} → {new_id}", self)
+        if new_id == "mpd":
+            self._toast_svc.show(
+                "MPD Hi-Fi activo — EQ, ReplayGain y Spectrum desactivados",
+                timeout=5000)
 
     def _init_optional_services(self):
         """Music identifier, HomeAudioView, Snapcast, API, mDNS, enrichment, MPRIS."""

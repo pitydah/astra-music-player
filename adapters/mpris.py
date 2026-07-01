@@ -41,6 +41,21 @@ class MPRISObject(dbus.service.Object):
         engine.state_changed.connect(self._on_state)
         engine.duration_changed.connect(self._on_duration)
 
+    def set_player_service(self, player_service):
+        """Listen to PlayerService signals for MPD backend support."""
+        self._player_service = player_service
+
+    @property
+    def _playback_state(self):
+        if not self._engine:
+            return "Stopped"
+        s = self._engine.state
+        if s == PlaybackState.PLAYING:
+            return "Playing"
+        elif s == PlaybackState.PAUSED:
+            return "Paused"
+        return "Stopped"
+
     def set_metadata(self, title="", artist="", album="", duration=0):
         self._metadata = {
             "mpris:trackid": dbus.ObjectPath(f"/michi/{title or 'unknown'}"),
@@ -68,35 +83,55 @@ class MPRISObject(dbus.service.Object):
     def Previous(self):
         self._engine and self._engine.play_prev()
 
+    def _player_api(self):
+        ps = getattr(self, '_player_service', None)
+        return ps or self._engine
+
     @dbus.service.method(dbus_interface="org.mpris.MediaPlayer2.Player")
     def Pause(self):
-        self._engine and self._engine.pause()
+        api = self._player_api()
+        api and api.pause()
 
     @dbus.service.method(dbus_interface="org.mpris.MediaPlayer2.Player")
     def PlayPause(self):
-        self._engine and self._engine.toggle()
+        api = self._player_api()
+        api and api.toggle()
 
     @dbus.service.method(dbus_interface="org.mpris.MediaPlayer2.Player")
     def Stop(self):
-        self._engine and self._engine.stop()
+        api = self._player_api()
+        api and api.stop()
 
     @dbus.service.method(dbus_interface="org.mpris.MediaPlayer2.Player")
     def Play(self):
-        self._engine and self._engine.resume()
+        ps = getattr(self, '_player_service', None)
+        if ps:
+            ps.play_or_resume()
+        elif self._engine:
+            self._engine.resume()
 
     @dbus.service.method(dbus_interface="org.mpris.MediaPlayer2.Player",
                          in_signature="x")
     def Seek(self, offset):
-        pos_ns = self._engine.get_position_ns() if self._engine and hasattr(self._engine, 'get_position_ns') else 0
-        if pos_ns:
-            secs = pos_ns / 1e9 + offset / 1e6
-            self._engine.seek(max(0, secs))
+        ps = getattr(self, '_player_service', None)
+        if ps:
+            snap = ps.get_audio_diagnostics()
+            pos = getattr(snap, 'position_seconds', 0)
+            ps.seek(max(0, pos + offset / 1e6))
+        elif self._engine:
+            pos_ns = self._engine.get_position_ns() if hasattr(self._engine, 'get_position_ns') else 0
+            if pos_ns:
+                secs = pos_ns / 1e9 + offset / 1e6
+                self._engine.seek(max(0, secs))
 
     @dbus.service.method(dbus_interface="org.mpris.MediaPlayer2.Player",
                          in_signature="ox")
     def SetPosition(self, track_id, position):
-        # position is absolute in microseconds, convert to offset
-        current_us = (self._engine.get_position_ns() // 1000) if (self._engine and hasattr(self._engine, 'get_position_ns')) else 0
+        ps = getattr(self, '_player_service', None)
+        if ps:
+            ps.seek(position / 1e6)
+        elif self._engine:
+            current_us = (self._engine.get_position_ns() // 1000) if hasattr(self._engine, 'get_position_ns') else 0
         offset = position - current_us
         self.Seek(offset)
 
@@ -186,6 +221,17 @@ class MPRISObject(dbus.service.Object):
                 {"Metadata": dbus.Dictionary(self._metadata, signature="sv")}, [])
 
     def _get_status(self):
+        ps = getattr(self, '_player_service', None)
+        if ps:
+            state = getattr(ps, 'state', None)
+            if callable(state):
+                state = state()
+            if state == "playing":
+                return "Playing"
+            elif state == "paused":
+                return "Paused"
+            elif state == "stopped":
+                return "Stopped"
         if not self._engine:
             return "Stopped"
         s = self._engine.state

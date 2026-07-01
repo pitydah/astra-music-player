@@ -6,7 +6,6 @@ Pure service, no Qt imports. Uses subprocess with shlex.quote for safety.
 from __future__ import annotations
 
 import os
-import shlex
 import shutil
 import subprocess
 import logging
@@ -39,7 +38,6 @@ class FileManagerService:
         fm_list = FileManagerService.available_file_managers()
         if not fm_list:
             return None
-        names = {n.lower() for n, _ in fm_list}
         desktop = FileManagerService.detect_desktop().lower()
 
         if "kde" in desktop or "plasma" in desktop:
@@ -162,7 +160,6 @@ class FileManagerService:
     @staticmethod
     def _build_terminal_command(path: str) -> list[str] | None:
         """Build command list to open a terminal at path."""
-        quoted = shlex.quote(path)
         candidates = [
             (shutil.which("konsole"), ["konsole", "--workdir", path]),
             (shutil.which("gnome-terminal"),

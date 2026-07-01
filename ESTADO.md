@@ -1,8 +1,8 @@
 # Michi Music Player — Estado del Software
 
 > **Repositorio:** `pitydah/michi-music-player`  
-> **Última actualización:** 2026-06-30  
-> **Versión:** pre-alpha técnica  
+> **Última actualización:** 2026-07-01  
+> **Versión:** pre-alpha técnica — Hybrid Audio Engine implementado  
 > **Validación:** pendiente de confirmar en GitHub Actions.  
 > Para validar localmente ejecutar:  
 > `ruff check .`  
@@ -135,6 +135,17 @@ Sidebar click → sidebar_controller → navigation_requested(key)
 - [x] **`diagnose_coverflow.py` — probar que corre sin errores** — ✅ Script actualizado con API pública.
 - [ ] **CI/CD** — ¿Hay GitHub Actions configurado? Verificar que ruff + pytest corran en CI.
 - [x] **Memory leak en CoverFlow** — ✅ `_cover_cache.clear()` en `set_items()`.
+- [x] **Hybrid Audio Engine (GStreamer + MPD)** — ✅ 8 fases implementadas, 194 tests.
+  - `audio/backends/` — API común, GStreamerBackend, MpdBackend, HybridAudioManager
+  - `audio/mpd/` — Cliente MPD por socket, protocolo, path mapper, config builder, service manager
+  - `audio/diagnostics/` — Verificador bit-perfect con lectura real de `/proc/asound/*/hw_params`
+  - `audio/settings/` — Esquema canónico de settings con migrador de claves legacy
+  - Perfiles MPD en `output_profiles.py`: hifi, bitperfect, dsd, server renderer
+  - PlayerService rutea entre backends según perfil
+  - DSP bloqueado en modo MPD (EQ, ReplayGain, Spectrum)
+  - MPRIS compatible con backend híbrido
+  - UI: selector de backend, monitor bit-perfect, botones MPD start/stop
+  - Documentación técnica en `docs/audio/`
 
 ### Media Prioridad
 

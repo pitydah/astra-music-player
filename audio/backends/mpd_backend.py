@@ -16,7 +16,7 @@ from audio.backends.errors import BackendPlaybackError
 from audio.mpd.mpd_client import MpdClient
 from audio.mpd.mpd_errors import MpdConnectionError
 from audio.mpd.mpd_path_mapper import MpdPathMapper
-from audio.mpd.mpd_models import MpdStatus
+
 
 logger = logging.getLogger("michi.mpd.backend")
 
@@ -34,6 +34,8 @@ class MpdBackend:
         self._lock = threading.Lock()
         self._local_paths: list[str] = []
         self._queue_index: int = -1
+        self._dsd_mode: str = "pcm"
+        self._dop_enabled: bool = False
 
     @property
     def capabilities(self) -> BackendCapabilities:
@@ -62,6 +64,17 @@ class MpdBackend:
 
     def disconnect(self):
         self._client.disconnect()
+
+    def configure_dsd(self, mode: str, dop: bool = False):
+        """Configure MPD for DSD playback.
+
+        Args:
+            mode: "pcm", "dop", or "native"
+            dop: enable DoP (DSD over PCM)
+        """
+        self._dsd_mode = mode
+        self._dop_enabled = dop
+        logger.info("MPD DSD mode set to: %s (dop=%s)", mode, dop)
 
     # ── AudioBackend API ──
 
@@ -258,6 +271,8 @@ class MpdBackend:
         audio_parts = st.audio.split(":") if st.audio else []
         out_rate = int(audio_parts[0]) if len(audio_parts) > 0 else 0
 
+        dop_str = " (DoP)" if self._dop_enabled else ""
+
         return AudioDiagnostics(
             backend_id=self.backend_id,
             profile="mpd_hifi",
@@ -268,6 +283,7 @@ class MpdBackend:
             bitperfect_possible=True,
             bitperfect_status="requested",
             digital_volume_active=False,
+            input_sample_rate=out_rate,
         )
 
     def shutdown(self):

@@ -6,10 +6,13 @@ Captura:
 3. Mensajes Qt (qInstallMessageHandler) — qWarning, qCritical, qFatal
 4. Errores de workers Qt (WorkerManager.task_error)
 5. Senales del sistema (SIGSEGV, SIGABRT, SIGFPE) via signal.signal
-6. Estado completo del sistema al momento del error
+6. Estado del sistema al momento del error
 
-Los reportes se guardan en logs/crash_YYYYMMDD_HHMMSS.json
-Maximo 10 reportes, rotacion automatica.
+PRIVACIDAD:
+- Se redactan claves sensibles en env (token, key, secret, password, auth, bearer, credential).
+- Se redacta cwd si contiene /home/, /Users/ o rutas personales.
+- Se redactan tokens/rutas en argv, traceback, qt_messages y worker_errors.
+- No se almacena env completo sin redaccion.
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import signal
 import sys
 import threading
@@ -30,6 +34,26 @@ from PySide6.QtCore import qInstallMessageHandler, QtMsgType
 
 MAX_REPORTS = 10
 MAX_QT_MSGS = 50
+
+_SENSITIVE_ENV_RE = re.compile(r"(token|key|secret|password|auth|bearer|credential)", re.IGNORECASE)
+_HOME_PATH_RE = re.compile(r"/(home|Users)/[^/\"'\s)]+")
+_TOKEN_RE = re.compile(r"(token|key|secret|password|auth|bearer|credential)[=:]\s*\S+", re.IGNORECASE)
+_HEX_TOKEN_RE = re.compile(r"\b[a-fA-F0-9]{32,}\b")
+
+
+def _redact_env(env: dict[str, str]) -> dict[str, str]:
+    return {k: "[REDACTED]" if _SENSITIVE_ENV_RE.search(k) else (v[:500] if isinstance(v, str) else str(v)) for k, v in env.items()}
+
+
+def _redact_home_path(text: str) -> str:
+    return _HOME_PATH_RE.sub(r"/\1/[USER]", text)
+
+
+def _redact_sensitive_strings(text: str) -> str:
+    text = _TOKEN_RE.sub("[REDACTED]", text)
+    text = _HEX_TOKEN_RE.sub("[TOKEN]", text)
+    text = _redact_home_path(text)
+    return text
 
 
 class CrashReporter(QObject):
@@ -48,31 +72,22 @@ class CrashReporter(QObject):
     def _install_all_hooks(self):
         self._original_excepthook = sys.excepthook
         sys.excepthook = self._on_unhandled_exception
-
         self._original_thread_hook = threading.excepthook
         threading.excepthook = self._on_thread_exception
-
         for sig in (signal.SIGSEGV, signal.SIGABRT, signal.SIGFPE):
             import contextlib
             with contextlib.suppress(ValueError, OSError):
                 signal.signal(sig, self._on_system_signal)
-
         self._original_qt_handler = qInstallMessageHandler(self._on_qt_message)
-
         if self._worker_mgr and hasattr(self._worker_mgr, 'task_error'):
             self._worker_mgr.task_error.connect(self._on_worker_error)
 
     def _on_unhandled_exception(self, exc_type, exc_value, exc_tb):
-        # Evitar recursion si el hook se llama desde si mismo
         if getattr(self, '_handling_exception', False):
             return
         self._handling_exception = True
         try:
-            report = self._build_report(
-                exc_type=exc_type.__name__,
-                exc_value=str(exc_value),
-                traceback="".join(traceback.format_tb(exc_tb)),
-            )
+            report = self._build_report(exc_type=exc_type.__name__, exc_value=str(exc_value), traceback="".join(traceback.format_tb(exc_tb)))
             path = self._save_report(report)
             self.crash_occurred.emit(path)
         finally:
@@ -81,26 +96,12 @@ class CrashReporter(QObject):
             self._original_excepthook(exc_type, exc_value, exc_tb)
 
     def _on_thread_exception(self, args):
-        report = self._build_report(
-            exc_type=args.exc_type.__name__ if args.exc_type else "Unknown",
-            exc_value=str(args.exc_value) if args.exc_value else "",
-            traceback="".join(traceback.format_tb(args.exc_tb)) if args.exc_tb else "",
-            thread_name=args.thread.name if args.thread else "unknown",
-        )
+        report = self._build_report(exc_type=args.exc_type.__name__ if args.exc_type else "Unknown", exc_value=str(args.exc_value) if args.exc_value else "", traceback="".join(traceback.format_tb(args.exc_tb)) if args.exc_tb else "", thread_name=args.thread.name if args.thread else "unknown")
         self._save_report(report)
 
     def _on_system_signal(self, signum, frame):
-        sig_names = {
-            signal.SIGSEGV: "SIGSEGV",
-            signal.SIGABRT: "SIGABRT",
-            signal.SIGFPE: "SIGFPE",
-        }
-        report = self._build_report(
-            exc_type=sig_names.get(signum, f"Signal {signum}"),
-            exc_value="Signal received — probable crash del proceso",
-            traceback="".join(traceback.format_stack(frame)),
-            signal=sig_names.get(signum, str(signum)),
-        )
+        sig_names = {signal.SIGSEGV: "SIGSEGV", signal.SIGABRT: "SIGABRT", signal.SIGFPE: "SIGFPE"}
+        report = self._build_report(exc_type=sig_names.get(signum, f"Signal {signum}"), exc_value="Signal received", traceback="".join(traceback.format_stack(frame)), signal=sig_names.get(signum, str(signum)))
         path = self._save_report(report)
         self.crash_occurred.emit(path)
 
@@ -109,57 +110,38 @@ class CrashReporter(QObject):
             self._qt_messages.append(f"[{msg_type}] {message}")
             if len(self._qt_messages) > MAX_QT_MSGS:
                 self._qt_messages.pop(0)
-
         if msg_type == QtMsgType.QtFatalMsg:
-            report = self._build_report(
-                exc_type="QtFatal",
-                exc_value=message,
-                traceback="",
-            )
+            report = self._build_report(exc_type="QtFatal", exc_value=message, traceback="")
             self._save_report(report)
-
         if self._original_qt_handler:
             self._original_qt_handler(msg_type, context, message)
 
     def _on_worker_error(self, task_id: str, error: str):
-        self._worker_errors.append({
-            "task_id": task_id,
-            "error": error,
-            "timestamp": datetime.datetime.now().isoformat(),
-        })
+        self._worker_errors.append({"task_id": task_id, "error": error, "timestamp": datetime.datetime.now().isoformat()})
         self._log.error("Worker task '%s' failed: %s", task_id, error)
 
     def log_worker_error(self, task_id: str, error: str):
         self._on_worker_error(task_id, error)
 
-    def _build_report(
-        self,
-        *,
-        exc_type="",
-        exc_value="",
-        traceback="",
-        thread_name="main",
-        signal="",
-    ) -> dict:
+    def _build_report(self, *, exc_type="", exc_value="", traceback="", thread_name="main", signal="") -> dict:
+        cwd_raw = os.getcwd()
+        argv_raw = " ".join(sys.argv)
+        env_raw = {k: v for k, v in sorted(os.environ.items()) if not k.startswith("MICHI_TEST_")}
         info = {
             "timestamp": datetime.datetime.now().isoformat(),
             "type": exc_type,
-            "message": exc_value,
-            "traceback": traceback,
+            "message": _redact_sensitive_strings(str(exc_value)),
+            "traceback": _redact_sensitive_strings(traceback),
             "thread": thread_name,
             "signal": signal,
             "version": _get_version(),
             "python": sys.version.split()[0],
             "platform": sys.platform,
-            "cwd": os.getcwd(),
-            "argv": " ".join(sys.argv),
-            "qt_messages": list(self._qt_messages),
-            "worker_errors": list(self._worker_errors),
-            "env": {
-                k: v
-                for k, v in sorted(os.environ.items())
-                if not k.startswith("MICHI_TEST_")
-            },
+            "cwd": _redact_home_path(cwd_raw),
+            "argv": _redact_sensitive_strings(argv_raw),
+            "qt_messages": [_redact_sensitive_strings(m) for m in self._qt_messages],
+            "worker_errors": [{"task_id": e["task_id"], "error": _redact_sensitive_strings(e["error"]), "timestamp": e["timestamp"]} for e in self._worker_errors],
+            "env": _redact_env(env_raw),
         }
         if info["qt_messages"]:
             self._qt_messages.clear()
@@ -189,10 +171,7 @@ class CrashReporter(QObject):
 
 def _get_version() -> str:
     try:
-        version_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "VERSION",
-        )
+        version_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "VERSION")
         if os.path.isfile(version_path):
             with open(version_path) as f:
                 return f.read().strip()

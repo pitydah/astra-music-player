@@ -14,7 +14,8 @@ def _pix():
 
 def test_intelligence_no_bpm_as_energy():
     """Confirm _show_energy does NOT use BPM as energy."""
-    source = open("ui/audio_lab/intelligence_page.py").read()
+    with open("ui/audio_lab/intelligence_page.py") as f:
+        source = f.read()
     energy_def = ""
     in_func = False
     for line in source.split("\n"):

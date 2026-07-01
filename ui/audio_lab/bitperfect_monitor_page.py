@@ -76,7 +76,7 @@ class BitperfectMonitorPage(QWidget):
     def _build_card(self, card_title: str, panel: QWidget) -> QFrame:
         card = QFrame()
         card.setObjectName(f"bpCard_{card_title[:20]}")
-        card.setStyleSheet(glass_card_qss(card.object_name(), "base"))
+        card.setStyleSheet(glass_card_qss(card.objectName(), "base"))
         vl = QVBoxLayout(card)
         vl.setContentsMargins(20, 16, 20, 16)
         vl.setSpacing(10)

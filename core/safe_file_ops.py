@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import shutil
 import logging
-from typing import Any
 
 from library.folder_models import FolderMovePlan, FolderMoveResult
 
@@ -55,11 +54,10 @@ class SafeFileOperations:
             for root, dirs, files in os.walk(source):
                 plan.folders_to_move += len(dirs)
                 plan.files_to_move += len(files)
+                import contextlib
                 for f in files:
-                    try:
+                    with contextlib.suppress(OSError):
                         plan.total_size_bytes += os.path.getsize(os.path.join(root, f))
-                    except OSError:
-                        pass
 
         # Check DB impacts
         if self._db:
@@ -208,7 +206,6 @@ class SafeFileOperations:
             count += 1
         else:
             prefix = old_path + os.sep
-            new_prefix = new_path + os.sep
 
             # Media items
             rows = self._db.conn.execute(

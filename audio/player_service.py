@@ -1,45 +1,56 @@
-"""Player Service — single facade between UI and GStreamer engine."""
+"""Player Service — single facade between UI and HybridAudioManager.
+
+UI talks to PlayerService. PlayerService talks to HybridAudioManager.
+HybridAudioManager delegates to the active backend (GStreamer or MPD).
+"""
 
 from PySide6.QtCore import QObject, Signal, QTimer
-from audio.player import GStreamerEngine, PlaybackState
+
+from audio.player import PlaybackState
+from audio.backends.hybrid_audio_manager import HybridAudioManager
+from audio.backends.gstreamer_backend import GStreamerBackend
+from audio.backends.mpd_backend import MpdBackend
+from audio.mpd.mpd_service_manager import MpdServiceManager
+from audio.mpd.mpd_config_builder import build_mpd_config
+from audio.mpd.mpd_errors import MpdConnectionError
+from core.settings_manager import get
 
 
 class PlayerService(QObject):
-    # ── Signals (relayed from engine) ──
-    track_changed = Signal(str, str)    # title, artist
-    state_changed = Signal(str)         # playing/paused/stopped
-    position_changed = Signal(float)    # seconds
-    duration_changed = Signal(float)    # seconds
-    volume_changed = Signal(int)        # volume 0-100
+    track_changed = Signal(str, str)
+    state_changed = Signal(str)
+    position_changed = Signal(float)
+    duration_changed = Signal(float)
+    volume_changed = Signal(int)
     error_occurred = Signal(str)
-    queue_changed = Signal(list)        # list[dict]
+    queue_changed = Signal(list)
     finished = Signal()
+    backend_changed = Signal(str, str)
 
-    def __init__(self, engine: GStreamerEngine, parent=None):
+    def __init__(self, engine, parent=None):
         super().__init__(parent)
         self._engine = engine
-        self._retry_url: str | None = None
-        self._retry_title: str = ""
-        self._retry_artist: str = ""
+        self._retry_url = None
+        self._retry_title = ""
+        self._retry_artist = ""
         self._retry_timer = QTimer(self)
         self._retry_timer.setSingleShot(True)
         self._retry_timer.timeout.connect(self._do_retry)
 
-        # Relay engine signals
-        self._engine.position_changed.connect(
-            lambda s: self.position_changed.emit(s))
-        self._engine.duration_changed.connect(
-            lambda s: self.duration_changed.emit(s))
-        self._engine.state_changed.connect(self._on_state)
-        self._engine.queue_changed.connect(
-            lambda q: self.queue_changed.emit(q))
-        self._engine.finished.connect(
-            lambda: self.finished.emit())
+        self._gst_backend = GStreamerBackend(engine)
+        self._mpd_backend = None
+        self._mpd_service = None
+        self._hybrid = HybridAudioManager(default_backend=self._gst_backend)
+        self._active_backend_id = "gstreamer"
 
-        # Streaming retry — intercept errors
+        self._engine.position_changed.connect(lambda s: self.position_changed.emit(s))
+        self._engine.duration_changed.connect(lambda s: self.duration_changed.emit(s))
+        self._engine.state_changed.connect(self._on_state)
+        self._engine.queue_changed.connect(lambda q: self.queue_changed.emit(q))
+        self._engine.finished.connect(lambda: self.finished.emit())
         self._engine.error_occurred.connect(self._on_error)
 
-    def _on_state(self, state: PlaybackState):
+    def _on_state(self, state):
         s_map = {PlaybackState.PLAYING: "playing",
                  PlaybackState.PAUSED: "paused",
                  PlaybackState.STOPPED: "stopped"}
@@ -48,7 +59,7 @@ class PlayerService(QObject):
             self._retry_url = None
         self.state_changed.emit(s)
 
-    def _on_error(self, msg: str):
+    def _on_error(self, msg):
         if self._retry_url:
             self._retry_timer.start(2000)
         else:
@@ -64,129 +75,214 @@ class PlayerService(QObject):
             if title:
                 self.track_changed.emit(title, artist)
             import logging
-            logging.getLogger("michi.service").info(
-                "Retrying stream: %s", url)
+            logging.getLogger("michi.service").info("Retrying stream: %s", url)
 
-    # ── Core playback ──
+    def _ensure_mpd_service(self):
+        if self._mpd_service is not None:
+            return
+        self._mpd_service = MpdServiceManager()
+        host = get("audio/mpd/host") or "127.0.0.1"
+        port = get("audio/mpd/port") or 6600
+        password = get("audio/mpd/password") or ""
+        from audio.mpd.mpd_path_mapper import MpdPathMapper
+        mapper = MpdPathMapper()
+        self._mpd_backend = MpdBackend(host=host, port=int(port), password=password, path_mapper=mapper)
+        self._hybrid.register(self._mpd_backend)
 
-    def play(self, filepath: str, title: str = "", artist: str = ""):
+    def get_active_backend_id(self):
+        return self._hybrid.active_id
+
+    def get_backend_capabilities(self):
+        return self._hybrid.get_capabilities()
+
+    def switch_backend_for_profile(self, profile_key):
+        old_id = self._hybrid.active_id
+        target = self._hybrid.choose_backend_for_profile(profile_key)
+        if target == "mpd" and not self._mpd_backend:
+            self._ensure_mpd_service()
+        if target == "mpd" and self._mpd_backend:
+            if not self._mpd_backend.connected:
+                try:
+                    self._ensure_mpd_service()
+                    self._mpd_backend.connect()
+                except MpdConnectionError as e:
+                    self.error_occurred.emit(f"MPD connection failed: {e}")
+                    target = self._hybrid.choose_backend_for_profile("standard")
+                    self._hybrid._fallback_active = True
+        result = self._hybrid.switch_for_profile(profile_key)
+        new_id = self._hybrid.active_id
+        if new_id != old_id:
+            self._active_backend_id = new_id
+            self.backend_changed.emit(old_id, new_id)
+
+        if new_id == "mpd" and self._mpd_backend:
+            from audio.output_profiles import get_profile
+            prof = get_profile(profile_key)
+            dsd_mode = getattr(prof, 'dsd_mode', 'pcm') or 'pcm'
+            dop = get("audio/mpd/dop_enabled") or False
+            self._mpd_backend.configure_dsd(mode=dsd_mode, dop=dop)
+        return result
+
+    def start_mpd_service(self):
+        self._ensure_mpd_service()
+        if not self._mpd_service:
+            return False
+        music_dir = get("audio/mpd/music_directory")
+        device = get("audio/alsa_device") or "hw:0,0"
+        dop = get("audio/mpd/dop_enabled") or False
+        port = int(get("audio/mpd/port") or 6600)
+        config = build_mpd_config(music_dir=music_dir, device=device, dop=dop, port=port)
+        return self._mpd_service.start(config)
+
+    def stop_mpd_service(self):
+        if self._mpd_service:
+            self._mpd_service.stop()
+            return True
+        return False
+
+    def get_mpd_status(self):
+        if self._mpd_service:
+            return self._mpd_service.get_status()
+        return {"installed": False, "running": False}
+
+    def play(self, filepath, title="", artist=""):
         self._retry_url = None
-        self._engine.play(filepath)
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.play(filepath)
+        else:
+            self._hybrid.play(filepath)
         if title:
             self.track_changed.emit(title, artist)
 
     def pause(self):
-        self._engine.pause()
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.pause()
+        else:
+            self._hybrid.pause()
 
     def resume(self):
-        self._engine.resume()
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.resume()
+        else:
+            self._hybrid.resume()
 
     def play_or_resume(self):
-        from audio.player import PlaybackState
-        current = self._engine.current
-        state = getattr(self._engine, '_state', None)
-        if current:
-            if state == PlaybackState.PAUSED:
-                self._engine.resume()
-            elif state == PlaybackState.STOPPED:
-                self._engine.play(current)
+        if self._hybrid.active_id == "gstreamer":
+            current = self._engine.current
+            state = getattr(self._engine, '_state', None)
+            if current:
+                if state == PlaybackState.PAUSED:
+                    self._engine.resume()
+                else:
+                    self._engine.play(current)
             else:
-                self._engine.play(current)
+                self.error_occurred.emit("No hay archivo para reproducir")
         else:
-            self.error_occurred.emit("No hay archivo para reproducir")
+            self._hybrid.toggle()
 
     def toggle(self):
-        self._engine.toggle()
+        self._hybrid.toggle()
 
     def stop(self):
-        self._engine.stop()
+        self._hybrid.stop()
 
-    def seek(self, seconds: float):
-        self._engine.seek(seconds)
+    def seek(self, seconds):
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.seek(seconds)
+        else:
+            self._hybrid.seek(seconds)
 
-    def set_volume(self, vol: int):
-        self._engine.set_volume(vol)
+    def set_volume(self, vol):
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.set_volume(vol)
+        else:
+            self._hybrid.set_volume(vol)
         self.volume_changed.emit(vol)
 
-    # ── Queue ──
-
     def play_next(self):
-        self._engine.play_next()
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.play_next()
+        else:
+            self._hybrid.play_next()
 
     def play_prev(self):
-        self._engine.play_prev()
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.play_prev()
+        else:
+            self._hybrid.play_prev()
 
-    def enqueue_next(self, paths: list[str]):
-        """Insert tracks after the currently playing track."""
+    def enqueue_next(self, paths):
         if not paths:
             return
-        self._engine.enqueue_next(paths)
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.enqueue_next(paths)
+        else:
+            self._hybrid.enqueue_next(paths)
 
-    def enqueue(self, paths: list, play_now: bool = True):
+    def enqueue(self, paths, play_now=True):
         self._retry_url = None
-        clean: list[str] = []
-        for p in paths:
-            if not p:
-                continue
-            if isinstance(p, str):
-                clean.append(p)
+        clean = [p for p in paths if p and isinstance(p, str)]
         if not clean:
             self.error_occurred.emit("No hay archivos válidos para reproducir")
             return
-        self._engine.enqueue(clean, play_now)
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.enqueue(clean, play_now)
+        else:
+            self._hybrid.enqueue(clean, play_now)
 
-    def play_queue(self, filepaths: list[str], start_index: int = 0):
-        """Replace the queue with given tracks and start playing from index."""
+    def play_queue(self, filepaths, start_index=0):
         self._retry_url = None
-        self._engine.set_queue(filepaths, start_index)
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.set_queue(filepaths, start_index)
+        else:
+            self._hybrid.set_queue(filepaths, start_index)
 
     def clear_queue(self):
-        self._engine.clear_queue()
+        self._hybrid.clear_queue()
 
-    def get_queue(self) -> list[dict]:
-        return self._engine.get_queue()
+    def get_queue(self):
+        return self._hybrid.get_queue()
 
-    def get_queue_state(self) -> tuple[list[str], int]:
-        """Return (filepaths, current_index) for save/restore."""
-        queue = self._engine.get_queue()
+    def get_queue_state(self):
+        queue = self._hybrid.get_queue()
         paths = [q.get("filepath", "") for q in queue if q.get("filepath")]
-        idx = self._engine.get_queue_index()
+        idx = self._hybrid.get_queue_index()
         return paths, idx
 
-    def reorder_queue(self, filepaths: list[str]):
-        self._engine.reorder_queue(filepaths)
-
-    # ── Modes ──
+    def reorder_queue(self, filepaths):
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.reorder_queue(filepaths)
+        else:
+            self._hybrid.active.set_queue(filepaths)
 
     def toggle_shuffle(self):
-        self._engine.toggle_shuffle()
+        if self._hybrid.active_id == "gstreamer":
+            self._engine.toggle_shuffle()
 
-    def toggle_repeat(self) -> str:
-        """Toggle repeat. Returns new mode: 'off', 'one', 'all'."""
-        return self._engine.toggle_repeat()
+    def toggle_repeat(self):
+        if self._hybrid.active_id == "gstreamer":
+            return self._engine.toggle_repeat()
+        return "none"
 
-    # ── Streaming ──
-
-    def play_url(self, url: str, title: str = "", artist: str = ""):
+    def play_url(self, url, title="", artist=""):
         self._retry_url = url
         self._retry_title = title
         self._retry_artist = artist
-        self._engine.play_url(url)
+        if self._hybrid.active_id == "gstreamer" or url.startswith(("http://", "https://", "icy://")):
+            self._engine.play_url(url)
+        else:
+            self._hybrid.play(url)
         if title:
             self.track_changed.emit(title, artist)
 
-    # ── Output ──
-    # Use set_output_device_id() for local output, set_transmit_device() for network transmit
-
-    # ── Audio profile / DAC ──
-
-    def set_audio_profile(self, profile: str):
+    def set_audio_profile(self, profile):
         self._engine.set_audio_profile(profile)
+        self.switch_backend_for_profile(profile)
 
-    def set_output_device_id(self, device_id: str):
+    def set_output_device_id(self, device_id):
         self._engine.set_output_device_id(device_id)
 
-    def get_output_device_id(self) -> str:
+    def get_output_device_id(self):
         return self._engine.get_output_device_id()
 
     def get_audio_devices(self):
@@ -197,21 +293,21 @@ class PlayerService(QObject):
         return self.get_audio_devices()
 
     def get_audio_diagnostics(self):
+        if self._hybrid.active_id == "mpd" and self._mpd_backend:
+            return self._mpd_backend.get_diagnostics()
         return self._engine.get_audio_diagnostics()
 
-    def test_output_device(self, device_id: str) -> tuple:
+    def test_output_device(self, device_id):
         return True, "OK"
 
-    def set_dsd_mode(self, mode: str):
+    def set_dsd_mode(self, mode):
         self._engine.set_dsd_mode(mode)
 
-    def set_gapless_enabled(self, enabled: bool):
+    def set_gapless_enabled(self, enabled):
         self._engine.set_gapless_enabled(enabled)
 
-    def set_replaygain_mode(self, mode: str):
+    def set_replaygain_mode(self, mode):
         self._engine.set_replaygain_mode(mode)
-
-    # ── Transmit ──
 
     def set_transmit_device(self, device):
         self._engine.set_transmit_device(device)
@@ -219,37 +315,71 @@ class PlayerService(QObject):
     def get_transmit_device(self):
         return self._engine.get_transmit_device()
 
-    # ── EQ ──
-
     def set_eq_graphic(self, bands):
+        if self._is_mpd_active():
+            self.error_occurred.emit("EQ no disponible en modo MPD Hi-Fi")
+            return
         self._engine.set_eq_graphic(bands)
 
     def set_eq_parametric(self, bands):
+        if self._is_mpd_active():
+            self.error_occurred.emit("EQ no disponible en modo MPD Hi-Fi")
+            return
         self._engine.set_eq_parametric(bands)
 
-    def set_eq_bypass(self, bypass: bool):
+    def set_eq_bypass(self, bypass):
+        if self._is_mpd_active():
+            return
         self._engine.set_eq_bypass(bypass)
 
-    def set_eq_preamp(self, db: float):
+    def set_eq_preamp(self, db):
+        if self._is_mpd_active():
+            return
         self._engine.set_eq_preamp(db)
 
-    def get_eq_state(self) -> dict | None:
+    def get_eq_state(self):
         return self._engine.get_eq_state()
 
-    def set_spectrum_enabled(self, enabled: bool):
+    def set_spectrum_enabled(self, enabled):
+        if self._is_mpd_active():
+            self.error_occurred.emit("Spectrum no disponible en modo MPD Hi-Fi")
+            return
         self._engine.set_spectrum_enabled(enabled)
 
-    # ── Accessors ──
+    def _is_mpd_active(self):
+        return self._hybrid.active_id == "mpd"
 
     @property
     def state(self):
+        if self._hybrid.active_id == "mpd" and self._mpd_backend:
+            try:
+                return self._mpd_backend.get_snapshot().state
+            except Exception:
+                pass
         return self._engine.state
 
     @property
-    def current(self) -> str:
-        """Current playing filepath or URL."""
+    def current(self):
+        if self._hybrid.active_id == "mpd" and self._mpd_backend:
+            try:
+                return self._mpd_backend.get_snapshot().current_path
+            except Exception:
+                pass
         return self._engine.current
 
     @property
-    def duration(self) -> float:
-        return self._engine.duration if hasattr(self._engine, 'duration') else 0.0
+    def duration(self):
+        if self._hybrid.active_id == "mpd" and self._mpd_backend:
+            try:
+                return self._mpd_backend.get_snapshot().duration_seconds
+            except Exception:
+                pass
+        return getattr(self._engine, 'duration', 0.0) if hasattr(self._engine, 'duration') else 0.0
+
+    @property
+    def hybrid(self):
+        return self._hybrid
+
+    @property
+    def engine(self):
+        return self._engine

@@ -61,9 +61,7 @@ class MpdClient:
                 self._sock = socket.create_connection(
                     (self._host, self._port), timeout=self._timeout)
                 self._sock.settimeout(self._timeout)
-                raw = self._read_response()
-                resp = parse_response(raw)
-                self._version = resp.pairs.get("OK MPD", "")
+                self._version = self._read_greeting()
                 if self._password:
                     self._send_command(f"password {self._password}")
                     self._read_ok()
@@ -75,6 +73,16 @@ class MpdClient:
                 self._sock = None
                 raise MpdConnectionError(
                     f"Cannot connect to MPD at {self._host}:{self._port}: {e}")
+
+    def _read_greeting(self) -> str:
+        """Read the initial MPD greeting: 'OK MPD <version>'."""
+        line = self._read_line()
+        if not line:
+            raise MpdProtocolError("Empty MPD greeting")
+        stripped = line.strip()
+        if not stripped.startswith("OK MPD "):
+            raise MpdProtocolError(f"Invalid MPD greeting: {stripped}")
+        return stripped.removeprefix("OK MPD ").strip()
 
     def disconnect(self):
         """Close the connection."""
@@ -92,6 +100,11 @@ class MpdClient:
         self.disconnect()
         time.sleep(_RECONNECT_DELAY)
         self.connect()
+
+    def ensure_connected(self):
+        """Connect if not already connected. Raises MpdConnectionError on failure."""
+        if not self._connected:
+            self.connect()
 
     def ping(self) -> bool:
         """Test if MPD is responding. Returns True if OK."""

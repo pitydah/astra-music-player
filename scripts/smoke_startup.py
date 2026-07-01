@@ -348,6 +348,18 @@ def _check_audio_lab_integration():
         errors += 1
 
     try:
+        from ui.controllers.songs_controller import SongsController
+        svc = type('svc', (), {'db': None})()
+        songs = SongsController(svc)
+        assert hasattr(songs, 'refresh_audio_lab_badges')
+        songs.refresh_audio_lab_badges([])
+        songs.refresh_audio_lab_badges()
+        print("  ✓ SongsController.refresh_audio_lab_badges([]) no crash")
+    except Exception as e:
+        print(f"  ✗ SongsController.refresh_audio_lab_badges: {e}")
+        errors += 1
+
+    try:
         from library.query_parser import parse_query
         q1 = parse_query("quality:hires")
         assert any(t.value == "hires" for t in q1.terms if t.field == "quality")

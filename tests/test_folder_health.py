@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from library.folder_models import FolderEntry
 from library.folder_health import FolderHealthService
@@ -134,3 +134,84 @@ class TestHealthScoring:
         assert "FLAC" in fmts
         assert "MP3" in fmts
         assert len(fmts) == 2
+
+    def test_indexed_with_fake_db(self):
+        """File in DB should be counted as indexed."""
+        db = MagicMock()
+        db.get_library_roots.return_value = []
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fp = os.path.join(tmpdir, "song.flac")
+            open(fp, "w").close()
+            db.get_all_by_directory.return_value = []
+            conn = MagicMock()
+            db.conn = conn
+            conn.execute.return_value.fetchall.return_value = [
+                (fp, 42, 180.0, "Song", "Artist", "Album")]
+            health = self.service(db).analyze(tmpdir)
+            assert health.audio_count == 1
+            assert health.indexed_audio_count == 1
+            assert health.unindexed_audio_count == 0
+
+    def test_mixed_audio_one_indexed(self):
+        """One indexed file, one not — should get 1 and 1."""
+        db = MagicMock()
+        db.get_library_roots.return_value = []
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fp1 = os.path.join(tmpdir, "song.flac")
+            fp2 = os.path.join(tmpdir, "track.mp3")
+            open(fp1, "w").close()
+            open(fp2, "w").close()
+            conn = MagicMock()
+            db.conn = conn
+            conn.execute.return_value.fetchall.return_value = [
+                (fp1, 42, 180.0, "Song", "Artist", "Album")]
+            health = self.service(db).analyze(tmpdir)
+            assert health.audio_count == 2
+            assert health.indexed_audio_count == 1
+            assert health.unindexed_audio_count == 1
+
+    def test_score_higher_when_indexed(self):
+        """Same folder should score higher with DB connected and everything indexed."""
+        db = MagicMock()
+        db.get_library_roots.return_value = []
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fp = os.path.join(tmpdir, "song.flac")
+            open(fp, "w").close()
+            conn = MagicMock()
+            db.conn = conn
+            conn.execute.return_value.fetchall.return_value = [
+                (fp, 42, 180.0, "Song", "Artist", "Album")]
+            health_with_db = self.service(db).analyze(tmpdir)
+            health_without_db = self.service().analyze(tmpdir)
+            assert health_with_db.score > health_without_db.score
+
+    def test_no_scan_suggestion_when_all_indexed(self):
+        """If everything is indexed, don't recommend scanning."""
+        db = MagicMock()
+        db.get_library_roots.return_value = ["/some/root"]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fp = os.path.join(tmpdir, "song.flac")
+            open(fp, "w").close()
+            conn = MagicMock()
+            db.conn = conn
+            conn.execute.return_value.fetchall.return_value = [
+                (fp, 42, 180.0, "Song", "Artist", "Album")]
+            health = self.service(db).analyze(tmpdir)
+            actions = [r.action for r in health.recommended_actions]
+            assert "scan_folder" not in actions
+
+    def test_metadata_suggestion_when_missing(self):
+        """If indexed file has empty title, recommend metadata editor."""
+        db = MagicMock()
+        db.get_library_roots.return_value = ["/some/root"]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fp = os.path.join(tmpdir, "song.flac")
+            open(fp, "w").close()
+            conn = MagicMock()
+            db.conn = conn
+            conn.execute.return_value.fetchall.return_value = [
+                (fp, 42, 180.0, "", "Artist", "Album")]
+            health = self.service(db).analyze(tmpdir)
+            actions = [r.action for r in health.recommended_actions]
+            assert "open_metadata_editor" in actions
+            assert health.missing_metadata_count > 0

@@ -45,6 +45,25 @@
 - [ ] Multiple library support
 - [ ] Smart shuffle (weighted by play history)
 
+## v0.4 (Current — Carpetas / Audio Lab)
+
+- [x] **Carpetas — Mantenimiento físico de biblioteca** (docs/FOLDERS.md)
+  - [x] FolderEntry, FolderHealth, FolderIntegrity models
+  - [x] FolderHealthService — score 0-100 con 5 estados
+  - [x] FolderIntegrityService — quick + deep check
+  - [x] FileManagerService — Dolphin/Nautilus/Thunar + terminal
+  - [x] SafeFileOperations — mover/renombrar con preflight + rollback
+  - [x] FolderController — orquestación con señales Qt
+  - [x] FolderBrowserWidget rediseñado con panel de salud
+  - [x] FolderProblemReportDialog — reporte interactivo
+  - [x] Escanear, Reindexar (force=True preserva play_count/rating)
+  - [x] Agregar/quitar raíces de biblioteca
+  - [x] Abrir en gestor de archivos + terminal
+  - [x] Conexión con Metadata Editor
+  - [x] Conexión con Audio Lab
+  - [x] ContextService eventos de carpeta
+  - [x] 104 tests unitarios
+
 ## v1.0 (Target)
 
 - [ ] Stable API

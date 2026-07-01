@@ -68,6 +68,10 @@ class DSPPage(QWidget):
         self._status_card = self._build_card("Estado actual", self._build_status_panel())
         cl.addWidget(self._status_card)
 
+        # ── Hybrid engine ──
+        self._engine_card = self._build_card("Motor de audio", self._build_engine_panel())
+        cl.addWidget(self._engine_card)
+
         # ── Output profile ──
         self._profile_card = self._build_card("Perfil de salida", self._build_profile_panel())
         cl.addWidget(self._profile_card)
@@ -118,10 +122,9 @@ class DSPPage(QWidget):
             ("ReplayGain", "replaygain"),
             ("Upsampling", "upsampling"),
             ("Room Correction", "room"),
+            ("Motor", "engine"),
             ("Dispositivo", "device"),
         ]:
-            row = QHBoxLayout()
-            lbl = QLabel(f"{label}:")
             lbl.setStyleSheet(
                 "color: rgba(255,255,255,0.56); font-size: 11px; "
                 "background: transparent;"
@@ -142,6 +145,129 @@ class DSPPage(QWidget):
         self._refresh_btn.clicked.connect(self._refresh_status)
         wl.addWidget(self._refresh_btn)
         return w
+
+    def _build_engine_panel(self) -> QWidget:
+        w = QWidget()
+        wl = QVBoxLayout(w)
+        wl.setContentsMargins(0, 0, 0, 0)
+        wl.setSpacing(8)
+
+        row = QHBoxLayout()
+        lbl = QLabel("Backend activo:")
+        lbl.setStyleSheet("color: rgba(255,255,255,0.72); font-size: 13px; background: transparent;")
+        row.addWidget(lbl)
+        self._engine_status = QLabel("GStreamer")
+        self._engine_status.setStyleSheet("color: #8FB7FF; font-size: 13px; font-weight: 600; background: transparent;")
+        row.addWidget(self._engine_status)
+        row.addStretch()
+        wl.addLayout(row)
+
+        self._mpd_status_label = QLabel("")
+        self._mpd_status_label.setStyleSheet("color: rgba(255,255,255,0.56); font-size: 11px; background: transparent;")
+        self._mpd_status_label.setWordWrap(True)
+        wl.addWidget(self._mpd_status_label)
+
+        btn_row = QHBoxLayout()
+        self._mpd_start_btn = QPushButton("Iniciar MPD local")
+        self._mpd_start_btn.setCursor(Qt.PointingHandCursor)
+        self._mpd_start_btn.setStyleSheet(glass_button_qss("primary"))
+        self._mpd_start_btn.clicked.connect(self._start_mpd)
+        btn_row.addWidget(self._mpd_start_btn)
+
+        self._mpd_stop_btn = QPushButton("Detener MPD local")
+        self._mpd_stop_btn.setCursor(Qt.PointingHandCursor)
+        self._mpd_stop_btn.setStyleSheet(glass_button_qss("secondary"))
+        self._mpd_stop_btn.clicked.connect(self._stop_mpd)
+        btn_row.addWidget(self._mpd_stop_btn)
+
+        self._refresh_engine_btn = QPushButton("Actualizar")
+        self._refresh_engine_btn.setCursor(Qt.PointingHandCursor)
+        self._refresh_engine_btn.setStyleSheet(glass_button_qss("ghost"))
+        self._refresh_engine_btn.clicked.connect(self._refresh_engine_status)
+        btn_row.addWidget(self._refresh_engine_btn)
+
+        btn_row.addStretch()
+        wl.addLayout(btn_row)
+
+        hint = QLabel(
+            "Cambia a un perfil MPD (Hi-Fi MPD, Bit-Perfect MPD, etc.) "
+            "para activar el motor MPD automáticamente.")
+        hint.setStyleSheet("color: rgba(255,255,255,0.42); font-size: 11px; background: transparent;")
+        hint.setWordWrap(True)
+        wl.addWidget(hint)
+
+        return w
+
+    def _refresh_engine_status(self):
+        try:
+            from core.settings_manager import get_str
+            profile_key = get_str("audio/profile") or "standard"
+            from audio.output_profiles import get_profile
+            prof = get_profile(profile_key)
+            if prof.preferred_backend == "mpd":
+                self._engine_status.setText("MPD")
+                self._engine_status.setStyleSheet(
+                    "color: #4caf50; font-size: 13px; font-weight: 600; background: transparent;")
+                self._mpd_status_label.setText(
+                    "Modo Hi-Fi activo — EQ, ReplayGain, Spectrum y volumen digital desactivados")
+            else:
+                self._engine_status.setText("GStreamer")
+                self._engine_status.setStyleSheet(
+                    "color: #8FB7FF; font-size: 13px; font-weight: 600; background: transparent;")
+                self._mpd_status_label.setText(
+                    "Todas las funciones DSP disponibles")
+            self._update_mpd_buttons()
+        except Exception as e:
+            logger.warning("Engine status refresh error: %s", e)
+
+    def _update_mpd_buttons(self):
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if not app:
+            return
+        for w in app.topLevelWidgets():
+            ctx = getattr(w, '_ctx', None) or getattr(w, '_app_context', None)
+            if ctx and hasattr(ctx, 'playback') and ctx.playback:
+                try:
+                    status = ctx.playback.get_mpd_status()
+                    running = status.get("running", False)
+                    installed = status.get("installed", False)
+                    self._mpd_start_btn.setEnabled(installed and not running)
+                    self._mpd_stop_btn.setEnabled(running)
+                    self._mpd_start_btn.setText(
+                        "Iniciar MPD local" if not running else "MPD en ejecución")
+                except Exception:
+                    pass
+                break
+
+    def _start_mpd(self):
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if not app:
+            return
+        for w in app.topLevelWidgets():
+            ctx = getattr(w, '_ctx', None) or getattr(w, '_app_context', None)
+            if ctx and hasattr(ctx, 'playback') and ctx.playback:
+                ok = ctx.playback.start_mpd_service()
+                if ok:
+                    self._mpd_status_label.setText("MPD local iniciado")
+                else:
+                    self._mpd_status_label.setText("Error al iniciar MPD local")
+                self._update_mpd_buttons()
+                break
+
+    def _stop_mpd(self):
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if not app:
+            return
+        for w in app.topLevelWidgets():
+            ctx = getattr(w, '_ctx', None) or getattr(w, '_app_context', None)
+            if ctx and hasattr(ctx, 'playback') and ctx.playback:
+                ctx.playback.stop_mpd_service()
+                self._mpd_status_label.setText("MPD local detenido")
+                self._update_mpd_buttons()
+                break
 
     def _build_profile_panel(self) -> QWidget:
         w = QWidget()
@@ -286,6 +412,10 @@ class DSPPage(QWidget):
             self._status_lines["device"].setText(
                 get_str("audio/output_device") or "auto"
             )
+            self._status_lines["engine"].setText(
+                "MPD" if prof and prof.preferred_backend == "mpd" else "GStreamer"
+            )
+            self._refresh_engine_status()
         except Exception as e:
             logger.warning("Status refresh error: %s", e)
 
@@ -294,7 +424,12 @@ class DSPPage(QWidget):
         if key:
             set_("audio/profile", key)
             self._refresh_status()
-            logger.info("Audio profile set to: %s", key)
+            self._refresh_engine_status()
+            self._notify_backend_switch(key)
+            from audio.output_profiles import get_profile
+            prof = get_profile(key)
+            logger.info("Audio profile set to: %s (backend: %s)",
+                        key, prof.preferred_backend)
 
     def _set_bitperfect(self):
         set_("audio/profile", "bitperfect_pcm")
@@ -304,7 +439,24 @@ class DSPPage(QWidget):
                 self._profile_combo.setCurrentIndex(i)
                 break
         self._refresh_status()
+        self._refresh_engine_status()
+        self._notify_backend_switch("bitperfect_pcm")
         logger.info("Bit-perfect mode activated")
+
+    def _notify_backend_switch(self, profile_key: str):
+        """Notify PlayerService to switch backend for this profile."""
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if not app:
+            return
+        for w in app.topLevelWidgets():
+            ctx = getattr(w, '_ctx', None) or getattr(w, '_app_context', None)
+            if ctx and hasattr(ctx, 'playback') and ctx.playback:
+                try:
+                    ctx.playback.switch_backend_for_profile(profile_key)
+                except Exception as exc:
+                    logger.warning("Backend switch failed: %s", exc)
+                break
 
     def _load_impulse(self):
         fp, _ = QFileDialog.getOpenFileName(

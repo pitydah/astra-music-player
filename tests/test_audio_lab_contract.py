@@ -120,3 +120,31 @@ class TestAudioLabContract:
             "library/ must not import from ui.audio_lab. Found in:\n"
             + "\n".join(errors)
         )
+
+    def test_all_sections_have_valid_status(self):
+        from ui.audio_lab.audio_lab_page import _SECTIONS
+        valid = {"disponible", "experimental", "proximamente", "no_disponible"}
+        for sec in _SECTIONS:
+            assert sec["status"] in valid, (
+                f"{sec['key']} has invalid status '{sec['status']}'"
+            )
+
+    def test_all_sections_have_nonempty_nav(self):
+        from ui.audio_lab.audio_lab_page import _SECTIONS
+        for sec in _SECTIONS:
+            assert sec.get("nav"), f"{sec['key']} has empty nav"
+
+    def test_no_banned_texts_in_audio_lab(self):
+        banned = ["fraude", "fake confirmado", "archivo falso"]
+        errors = []
+        audio_lab_dir = os.path.join(os.path.dirname(__file__), "..", "ui", "audio_lab")
+        for root, _dirs, files in os.walk(os.path.abspath(audio_lab_dir)):
+            for f in files:
+                if f.endswith(".py"):
+                    fp = os.path.join(root, f)
+                    with open(fp) as fh:
+                        content = fh.read()
+                    for word in banned:
+                        if word in content.lower():
+                            errors.append(f"{fp}: contiene '{word}'")
+        assert not errors, "\n".join(errors)

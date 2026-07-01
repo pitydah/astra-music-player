@@ -15,8 +15,8 @@ _SECTIONS = [
     {
         "key": "audio_lab_diagnostics", "icon": "sidebar_identifier",
         "title": "Diagnóstico",
-        "subtitle": "Analiza calidad real, detecta formatos falsos\n"
-                     "y verifica la integridad de tu biblioteca.",
+        "subtitle": "Analiza calidad y coherencia espectral de\n"
+                     "archivos de audio. Experimental y probabilístico.",
         "status": "experimental", "nav": "audio_lab_diagnostics",
     },
     {
@@ -36,15 +36,15 @@ _SECTIONS = [
     {
         "key": "audio_lab_output", "icon": "home_audio",
         "title": "Perfiles de Salida",
-        "subtitle": "Configura salida bit-perfect, upsampling,\n"
-                     "corrección de sala y perfiles DAC.",
+        "subtitle": "Gestiona perfiles de salida, EQ y ReplayGain.\n"
+                     "Upsampling y Room Correction en fase preliminar.",
         "status": "experimental", "nav": "audio_lab_output",
     },
     {
         "key": "audio_lab_intelligence", "icon": "sidebar_mix",
         "title": "Inteligencia Local",
-        "subtitle": "Extrae BPM, key y energía. Genera radio\n"
-                     "local y recomendaciones musicales.",
+        "subtitle": "Analiza BPM, tonalidad y similitud acústica.\n"
+                     "Radio y mix inteligente con backend de análisis.",
         "status": "experimental", "nav": "audio_lab_intelligence",
     },
 ]

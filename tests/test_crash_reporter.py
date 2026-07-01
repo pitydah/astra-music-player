@@ -111,3 +111,64 @@ class TestCrashReporter:
         logs = self._logs_dir()
         reports = glob.glob(os.path.join(logs, "crash_*.json"))
         assert len(reports) >= 1
+
+
+class TestSanitization:
+
+    def test_redact_env_tokens(self):
+        from core.crash_reporter import _redact_env
+        env = {"HOME": "/home/user", "HA_TOKEN": "secret", "PATH": "/usr/bin", "API_KEY": "abc123"}
+        clean = _redact_env(env)
+        assert clean["HA_TOKEN"] == "[REDACTED]"
+        assert clean["API_KEY"] == "[REDACTED]"
+        assert clean["HOME"] == "/home/user"
+
+    def test_redact_home_paths(self):
+        from core.crash_reporter import _redact_home_path
+        result = _redact_home_path("/home/user/music/file.flac: error")
+        assert "[USER]" in result
+        result2 = _redact_home_path("/Users/john/Music/song.mp3")
+        assert "[USER]" in result2
+        result3 = _redact_home_path("/usr/bin/python3")
+        assert "[USER]" not in result3
+
+    def test_redact_sensitive_strings(self):
+        from core.crash_reporter import _redact_sensitive_strings
+        result = _redact_sensitive_strings("token=abc123def456 and /home/user/file.flac")
+        assert "abc123def456" not in result
+        assert "[USER]" in result
+
+    def test_build_report_redacts_env(self):
+        from core.crash_reporter import CrashReporter
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            os.environ["MY_TOKEN"] = "should_be_redacted"
+            reporter = CrashReporter()
+            reporter._logs_dir = lambda: tmp
+            report = reporter._build_report(exc_type="Test", exc_value="", traceback="")
+            assert report["env"].get("MY_TOKEN") == "[REDACTED]"
+
+    def test_worker_errors_redacted(self):
+        from core.crash_reporter import CrashReporter
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            reporter = CrashReporter()
+            reporter._logs_dir = lambda: tmp
+            reporter.log_worker_error("t1", "/home/user/secret.txt not found")
+            report = reporter._build_report(exc_type="Test", exc_value="", traceback="")
+            error = report["worker_errors"][0]["error"]
+            assert "/home/user/secret.txt" not in error
+            assert "[USER]" in error
+
+    def test_qt_messages_redacted(self):
+        from core.crash_reporter import CrashReporter
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            reporter = CrashReporter()
+            reporter._logs_dir = lambda: tmp
+            reporter._qt_messages.append("token=abc123def456")
+            reporter._qt_messages.append("/home/user/file.flac not found")
+            report = reporter._build_report(exc_type="Test", exc_value="", traceback="")
+            msgs = " ".join(report["qt_messages"])
+            assert "abc123def456" not in msgs
+            assert "[USER]" in msgs

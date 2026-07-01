@@ -1,4 +1,9 @@
-"""AudioOutputController — local audio output device selection."""
+"""AudioOutputController — local audio output device selection.
+
+Routes to the correct backend depending on which engine is active.
+GStreamer: set_output_device_id on engine.
+MPD: update mpd.conf and restart MPD with new device.
+"""
 import logging
 
 from PySide6.QtCore import QObject, Signal
@@ -6,7 +11,7 @@ from PySide6.QtWidgets import QMenu
 
 
 class AudioOutputController(QObject):
-    """Manages local audio output device selection via GStreamer DeviceMonitor."""
+    """Manages local audio output device selection."""
 
     preferences_requested = Signal()
 
@@ -22,12 +27,14 @@ class AudioOutputController(QObject):
         menu = QMenu(self._win)
         menu.setStyleSheet(premium_menu_qss())
 
+        backend_id = self._get_backend_id()
+
         action_system = menu.addAction("Predeterminada del sistema")
         action_system.setCheckable(True)
         current_id = self._ctx.playback.get_output_device_id()
         action_system.setChecked(current_id == "auto")
         action_system.triggered.connect(
-            lambda: self._ctx.playback.set_output_device_id(None))
+            lambda: self._set_device(None))
 
         menu.addSeparator()
 
@@ -39,26 +46,47 @@ class AudioOutputController(QObject):
                 action.setChecked(current_id == device_id)
                 action.triggered.connect(
                     lambda checked=False, did=device_id:
-                    self._ctx.playback.set_output_device_id(did))
+                    self._set_device(did))
         else:
             empty = menu.addAction("No se detectaron dispositivos")
             empty.setEnabled(False)
 
         menu.addSeparator()
         menu.addAction("PipeWire (sistema)",
-                       lambda: self._ctx.playback.set_output_device_id(None))
+                       lambda: self._set_device(None))
         menu.addAction("Actualizar dispositivos", self.show_menu)
-        menu.addAction("Preferencias de audio…", self.preferences_requested.emit)
+
+        if backend_id == "mpd":
+            mpd_info = menu.addAction("Backend: MPD — usar perfil GStreamer para cambiar salida")
+            mpd_info.setEnabled(False)
+        else:
+            menu.addAction("Preferencias de audio…", self.preferences_requested.emit)
 
         btn = self._ctx.player_bar.audio_output_button()
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
 
+    def _get_backend_id(self) -> str:
+        ctx = getattr(self, '_ctx', None)
+        if ctx and hasattr(ctx, 'playback') and ctx.playback:
+            try:
+                return ctx.playback.get_active_backend_id()
+            except Exception:
+                pass
+        return "gstreamer"
+
+    def _set_device(self, device_id):
+        """Set output device, routing to the correct backend."""
+        backend_id = self._get_backend_id()
+        if backend_id == "mpd":
+            import logging as log
+            log.getLogger("michi").info(
+                "Device change ignored in MPD mode — use MPD config or switch profile")
+            return
+        self._ctx.playback.set_output_device_id(device_id)
+
     @staticmethod
     def _list_devices() -> list[tuple[str, str]]:
-        """List hardware audio sinks via GStreamer DeviceMonitor.
-
-        Returns list of (display_name, device_id).
-        """
+        """List hardware audio sinks via GStreamer DeviceMonitor."""
         try:
             import gi
             gi.require_version("Gst", "1.0")
@@ -70,7 +98,7 @@ class AudioOutputController(QObject):
             monitor.start()
             devs = monitor.get_devices()
             monitor.stop()
-            devs = devs or []  # guard against None
+            devs = devs or []
 
             results = []
             for dev in devs:

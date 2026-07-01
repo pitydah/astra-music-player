@@ -25,18 +25,18 @@ class TestPreferredFileManager:
     def test_prefers_dolphin_on_kde(self):
         with patch.object(FileManagerService, 'available_file_managers',
                           return_value=[("Dolphin", "dolphin"),
-                                        ("Nautilus", "nautilus")]):
-            with patch.dict(os.environ, {"XDG_CURRENT_DESKTOP": "KDE"}, clear=True):
-                pref = FileManagerService.preferred_file_manager()
-                assert pref == ("Dolphin", "dolphin")
+                                        ("Nautilus", "nautilus")]), \
+             patch.dict(os.environ, {"XDG_CURRENT_DESKTOP": "KDE"}, clear=True):
+            pref = FileManagerService.preferred_file_manager()
+            assert pref == ("Dolphin", "dolphin")
 
     def test_prefers_nautilus_on_gnome(self):
         with patch.object(FileManagerService, 'available_file_managers',
                           return_value=[("Dolphin", "dolphin"),
-                                        ("Nautilus", "nautilus")]):
-            with patch.dict(os.environ, {"XDG_CURRENT_DESKTOP": "GNOME"}, clear=True):
-                pref = FileManagerService.preferred_file_manager()
-                assert pref == ("Nautilus", "nautilus")
+                                        ("Nautilus", "nautilus")]), \
+             patch.dict(os.environ, {"XDG_CURRENT_DESKTOP": "GNOME"}, clear=True):
+            pref = FileManagerService.preferred_file_manager()
+            assert pref == ("Nautilus", "nautilus")
 
     def test_fallback_to_first_available(self):
         with patch.object(FileManagerService, 'available_file_managers',
@@ -69,12 +69,12 @@ class TestOpenFolder:
 
     @patch("subprocess.Popen")
     def test_open_folder_calls_popen(self, mock_popen):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(FileManagerService, 'preferred_file_manager',
-                              return_value=("Dolphin", "dolphin")):
-                assert FileManagerService.open_folder(tmpdir) is True
-                mock_popen.assert_called_once_with(
-                    ["dolphin", tmpdir], start_new_session=True)
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.object(FileManagerService, 'preferred_file_manager',
+                          return_value=("Dolphin", "dolphin")):
+            assert FileManagerService.open_folder(tmpdir) is True
+            mock_popen.assert_called_once_with(
+                ["dolphin", tmpdir], start_new_session=True)
 
 
 class TestRevealFile:

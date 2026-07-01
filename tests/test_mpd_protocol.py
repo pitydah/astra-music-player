@@ -10,6 +10,12 @@ class TestParseResponse:
         assert resp.is_ok is True
         assert resp.is_ack is False
 
+    def test_greeting_ok_mpd(self):
+        from audio.mpd.mpd_protocol import parse_response
+        resp = parse_response("OK MPD 0.23.12\n")
+        assert resp.is_ok is True
+        assert resp.is_ack is False
+
     def test_ack_response(self):
         from audio.mpd.mpd_protocol import parse_response
         resp = parse_response("ACK [5@0] {play} current song is not in queue\n")
@@ -43,6 +49,51 @@ class TestParseResponse:
         assert len(resp.lists["file"]) == 2
         assert resp.lists["file"][0]["Title"] == "Song One"
         assert resp.lists["file"][1]["Title"] == "Song Two"
+
+    def test_playlistinfo_without_blank_lines(self):
+        """MPD returns playlistinfo without blank lines between songs."""
+        from audio.mpd.mpd_protocol import parse_response
+        raw = (
+            "file: A.flac\n"
+            "Title: Cancion A\n"
+            "Artist: Artista A\n"
+            "duration: 180\n"
+            "Pos: 0\n"
+            "Id: 1\n"
+            "file: B.flac\n"
+            "Title: Cancion B\n"
+            "Artist: Artista B\n"
+            "duration: 200\n"
+            "Pos: 1\n"
+            "Id: 2\n"
+            "OK\n"
+        )
+        resp = parse_response(raw)
+        assert "file" in resp.lists
+        assert len(resp.lists["file"]) == 2
+        assert resp.lists["file"][0]["Title"] == "Cancion A"
+        assert resp.lists["file"][1]["Title"] == "Cancion B"
+        assert resp.lists["file"][0]["Pos"] == "0"
+        assert resp.lists["file"][1]["Pos"] == "1"
+
+    def test_outputs_without_blank_lines(self):
+        from audio.mpd.mpd_protocol import parse_response
+        raw = (
+            "outputid: 0\n"
+            "outputname: ALSA\n"
+            "outputenabled: 1\n"
+            "outputplugin: alsa\n"
+            "outputid: 1\n"
+            "outputname: PipeWire\n"
+            "outputenabled: 0\n"
+            "outputplugin: pipewire\n"
+            "OK\n"
+        )
+        resp = parse_response(raw)
+        assert "outputid" in resp.lists
+        assert len(resp.lists["outputid"]) == 2
+        assert resp.lists["outputid"][0]["outputname"] == "ALSA"
+        assert resp.lists["outputid"][1]["outputname"] == "PipeWire"
 
     def test_empty_response_raises(self):
         from audio.mpd.mpd_protocol import parse_response

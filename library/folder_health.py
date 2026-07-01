@@ -7,14 +7,11 @@ from __future__ import annotations
 
 import os
 import logging
-from typing import Any
-
 from library.folder_index import (
-    list_folder_entries, list_audio_files, list_subfolders,
-    classify_file, walk_audio_files,
+    list_folder_entries, list_audio_files,
 )
 from library.folder_models import (
-    FolderEntry, FolderHealth, FolderProblem, FolderDbDiff,
+    FolderEntry, FolderHealth, FolderProblem,
     FolderActionRecommendation, classify_status,
 )
 
@@ -42,7 +39,10 @@ class FolderHealthService:
 
     def analyze(self, path: str, recursive: bool = False,
                 max_depth: int | None = 1) -> FolderHealth:
-        """Run a full health analysis on a folder."""
+        """Run a full health analysis on a folder.
+
+        Flow: gather entries → enrich with DB → compute health metrics → score.
+        """
         health = FolderHealth(path=path)
 
         if not path:
@@ -89,9 +89,31 @@ class FolderHealthService:
             deeper = walk_folder_entries(norm_path, max_depth=max_depth)
             entries = deeper
 
+        # Enrich with DB data BEFORE analysis
+        self._enrich_entries(entries)
+
+        # Analyze enriched entries
         self._analyze_entries(entries, health)
+
+        # Reconcile indexed counts
+        if health.audio_count > 0:
+            indexed_via_db = sum(1 for e in entries if e.kind == "audio" and e.is_indexed)
+            health.indexed_audio_count = indexed_via_db
+            health.unindexed_audio_count = max(0, health.audio_count - indexed_via_db)
+
+        # Detect missing cover
         self._detect_missing_cover(norm_path, health)
-        self._compare_with_db(norm_path, health)
+
+        # Compare DB paths (only for stale DB entries not on disk)
+        if self._db:
+            try:
+                audio_files = set(list_audio_files(norm_path))
+                db_items = self._db.get_all_by_directory(norm_path, exact=True)
+                db_paths = {i.filepath for i in db_items}
+                stale_db = db_paths - audio_files
+                health.missing_db_paths_count = len(stale_db)
+            except Exception as e:
+                logger.debug("compare_with_db failed for %s: %s", path, e)
 
         # Compute score
         health.score = self._compute_score(health)
@@ -111,8 +133,9 @@ class FolderHealthService:
         return entries
 
     def _analyze_entries(self, entries: list[FolderEntry], health: FolderHealth):
-        """Fill health fields from an entry list."""
+        """Fill health fields from enriched entry list."""
         formats = set()
+        missing_meta = 0
 
         for e in entries:
             if e.kind == "folder":
@@ -121,20 +144,17 @@ class FolderHealthService:
 
             if e.kind == "audio":
                 health.audio_count += 1
-                if e.db_id and e.is_indexed:
-                    health.indexed_audio_count += 1
-                else:
-                    health.unindexed_audio_count += 1
                 if e.ext:
                     formats.add(e.ext.lstrip(".").upper())
-                if e.problems:
-                    health.missing_metadata_count += 1
+                if "missing_" in str(e.problems):
+                    missing_meta += 1
                 continue
 
             if e.kind == "unsupported_audio":
                 health.unsupported_audio_count += 1
                 continue
 
+        health.missing_metadata_count = missing_meta
         if len(formats) > 1:
             health.mixed_formats = True
         health.formats = sorted(formats)
