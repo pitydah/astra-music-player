@@ -261,7 +261,7 @@ def resolve_sidebar_active_key(key: str) -> str:
 NAV_ROUTES: dict[str, str] = {
     "library": "_show_library_hub_page", "albums": "_show_albums",
     "artists": "_show_artists", "genres": "_show_genres",
-    "radio": "_show_radio", "home_audio": "_show_home_audio",
+    "radio": "_show_radio", "broadcast_hub": "_show_broadcast_hub", "home_audio": "_show_home_audio",
     "identifier": "_show_identifier", "discover": "_show_discover",
     "folders": "_show_folders", "playlist_hub": "_show_playlist_hub",
     "metadata_editor": "_show_metadata_editor",

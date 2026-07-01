@@ -937,6 +937,9 @@ class MainWindow(QMainWindow):
     def _show_folders(self, key):
         self._lib_ctrl.show_folders(key)
 
+    def _show_broadcast_hub(self, key):
+        self._views.show("broadcast_hub")
+
     def _show_radio(self, key):
         self._srv_ctrl.show_radio(key)
     def _show_add_server(self, key):
