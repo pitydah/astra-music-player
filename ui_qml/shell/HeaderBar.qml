@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import "../theme"
 import "../components"
+import "../materials"
 
 Item {
     id: root
@@ -12,13 +13,13 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: MichiColors.bgApp
+        color: Qt.rgba(0.027, 0.039, 0.063, 0.92)
 
         Rectangle {
             anchors.bottom: parent.bottom
             width: parent.width
             height: 1
-            color: MichiColors.borderSubtle
+            color: Qt.rgba(1.0, 1.0, 1.0, 0.04)
         }
 
         Row {
@@ -27,19 +28,31 @@ Item {
             anchors.rightMargin: MichiSpacing.xl
             spacing: MichiSpacing.lg
 
-            Text {
-                text: root.pageTitle
-                color: MichiColors.textPrimary
-                font.pixelSize: MichiTypography.pageTitleSize
-                font.weight: MichiTypography.weightSemiBold
+            Row {
                 anchors.verticalCenter: parent.verticalCenter
+                spacing: MichiSpacing.sm
+
+                Text {
+                    text: root.pageTitle
+                    color: MichiColors.textPrimary
+                    font.pixelSize: MichiTypography.pageTitleSize
+                    font.weight: MichiTypography.weightSemiBold
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                StatusBadge {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Experimental"
+                    kind: "experimental"
+                }
             }
 
-            Item { width: 1; height: 1; Layout.fillWidth: true }
+            Item { Layout.fillWidth: true; width: 1; height: 1 }
 
             SearchField {
                 anchors.verticalCenter: parent.verticalCenter
                 placeholderText: "Buscar en Michi..."
+                implicitWidth: Math.min(320, root.width * 0.25)
             }
         }
     }
