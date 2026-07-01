@@ -116,3 +116,18 @@ class TestSongsStatusService:
         assert len(result) == 2
         assert 1 in result
         assert 2 in result
+
+    @patch("library.songs_status_service.SongsStatusService._get_diag_badge",
+           return_value=None)
+    @patch("library.songs_status_service.SongsStatusService._has_cover",
+           return_value=True)
+    def test_status_cache_after_compute(self, *_):
+        svc = SongsStatusService(None)
+        item = _make_item(fid=1)
+        svc.compute_status(item)
+        cache = svc.status_cache()
+        assert isinstance(cache, dict)
+        assert 1 in cache
+        st = cache[1]
+        assert "quality_label" in st
+        assert "is_favorite" in st

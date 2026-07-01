@@ -119,6 +119,33 @@ class TestAlbumControllerActions:
         ctrl.send_album_to_server(tracks)
         w._ctx.toast.show.assert_called()
 
+    def test_review_album_duplicates_no_dup(self):
+        from ui.controllers.album_controller import AlbumController
+        w = _MockWin()
+        ctrl = AlbumController(w)
+        tracks = [_make_track()]
+        ctrl.review_album_duplicates(tracks)
+        w._ctx.toast.show.assert_called()
+
+    def test_review_album_duplicates_empty(self):
+        from ui.controllers.album_controller import AlbumController
+        w = _MockWin()
+        ctrl = AlbumController(w)
+        ctrl.review_album_duplicates([])
+        w._ctx.toast.show.assert_called_with(
+            "No hay canciones para revisar duplicados", "error")
+
+    def test_review_album_duplicates_with_candidates(self):
+        from ui.controllers.album_controller import AlbumController
+        w = _MockWin()
+        ctrl = AlbumController(w)
+        tracks = [_make_track(album="Same", artist="X"),
+                  _make_track(album="Same", artist="X"),
+                  _make_track(album="Different", artist="Y")]
+        with patch("PySide6.QtWidgets.QMessageBox.information") as mock_msg:
+            ctrl.review_album_duplicates(tracks)
+            assert mock_msg.called
+
     def test_open_album_folder(self):
         from ui.controllers.album_controller import AlbumController
         w = _MockWin()

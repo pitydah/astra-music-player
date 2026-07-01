@@ -106,7 +106,8 @@ class TestAudioLabLibrarySync:
         )
         conn = _make_db()
         paths = []
-        import os, tempfile
+        import os
+        import tempfile
         for _ in range(3):
             with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
                 paths.append(f.name)
@@ -134,7 +135,8 @@ class TestAudioLabLibrarySync:
             reset_global_cache_for_tests, close_global_cache, _get_cache,
         )
         conn = _make_db()
-        import os, tempfile
+        import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
             p = f.name
         try:
@@ -177,7 +179,8 @@ class TestSpectralCachePersistence:
                 "metrics": {"spectral_rolloff_99": 18000.0, "nyquist_hz": 48000.0},
             },
         }
-        import os, tempfile
+        import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             tmp = f.name
         try:
@@ -197,7 +200,8 @@ class TestSpectralCachePersistence:
     def test_get_many_includes_spectral(self):
         from core.audio_lab.diagnostics_service import DiagnosticsCache
         cache = DiagnosticsCache(":memory:")
-        import os, tempfile
+        import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             tmp = f.name
         try:
@@ -218,7 +222,8 @@ class TestSpectralCachePersistence:
     def test_cache_without_spectral_returns_empty_dict(self):
         from core.audio_lab.diagnostics_service import DiagnosticsCache
         cache = DiagnosticsCache(":memory:")
-        import os, tempfile
+        import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
             tmp = f.name
         try:

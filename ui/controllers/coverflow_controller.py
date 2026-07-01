@@ -14,13 +14,16 @@ logger = logging.getLogger("michi.coverflow_controller")
 
 
 def _album_key(item, tracks: list = None) -> str:
-    """Stable SHA1 album key from albumartist/artist + album title."""
+    """Stable SHA1 album key using make_album_key for consistency with grid/detail."""
+    from library.album_key import make_album_key
+    if tracks:
+        aa = getattr(tracks[0], 'albumartist', '') or ''
+        ar = getattr(tracks[0], 'artist', '') or ''
+        album = getattr(tracks[0], 'album', '') or item.title or ''
+        return make_album_key(aa, ar, album)
     artist_val = ""
     album = item.title or ""
-    if tracks:
-        artist_val = getattr(tracks[0], 'albumartist', '') or getattr(
-            tracks[0], 'artist', '') or ""
-    if not artist_val and item.subtitle:
+    if item.subtitle:
         artist_val = item.subtitle.split(" \u00b7 ")[0]
     raw = f"{artist_val}|{album}".lower().strip()
     return hashlib.sha1(raw.encode()).hexdigest()[:16]

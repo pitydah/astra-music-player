@@ -33,7 +33,8 @@ class TestAlbumQualityService:
         assert result.dominant_format == ""
 
     def test_analyze_album_with_mocks(self):
-        import tempfile, os
+        import tempfile
+        import os
         from library.album_quality_service import AlbumQualityService
         svc = AlbumQualityService()
         with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
