@@ -37,6 +37,7 @@ class HomeDashboardService:
         features=None,
         settings_mgr=None,
         michi_link_ctrl=None,
+        ecosystem_doctor=None,
     ):
         self._db = db
         self._playback = playback
@@ -47,6 +48,7 @@ class HomeDashboardService:
         self._features = features
         self._settings_mgr = settings_mgr
         self._michi_link_ctrl = michi_link_ctrl
+        self._ecosystem_doctor = ecosystem_doctor
 
     def build_snapshot(self) -> HomeDashboardSnapshot:
         errors: list[HomeCardError] = []

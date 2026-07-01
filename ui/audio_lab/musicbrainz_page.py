@@ -27,10 +27,11 @@ logger = logging.getLogger("michi.musicbrainz.ui")
 class MusicBrainzPage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self):
+    def __init__(self, worker_mgr=None):
         super().__init__()
         self.setObjectName("musicbrainzPage")
         self._kb = None
+        self._worker_mgr = worker_mgr
         self._results: list[dict] = []
         self._build_ui()
 
@@ -218,50 +219,78 @@ class MusicBrainzPage(QWidget):
         self._results_list.clear()
         self._results.clear()
         self._progress.setVisible(True)
+        self._search_btn.setEnabled(False)
 
+        if self._worker_mgr:
+            def fetch():
+                if search_type == "Artista":
+                    return kb.lookup_artist(query)
+                if search_type == "Álbum":
+                    return kb.lookup_album(query)
+                return kb.lookup_recording(query)
+            self._worker_mgr.run_task(
+                f"mb:{search_type}:{query[:30]}",
+                fetch,
+                on_done=lambda r: self._on_search_result(r, search_type, query),
+                on_error=lambda e: self._on_search_error(e),
+            )
+        else:
+            self._search_sync(kb, search_type, query)
+
+    def _format_result_item(self, result, search_type, query):
+        if search_type == "Artista":
+            item_text = result.get("name", query)
+            if result.get("mbid"):
+                item_text += f"  [{result['mbid'][:8]}...]"
+            if result.get("disambiguation"):
+                item_text += f"  — {result['disambiguation']}"
+        elif search_type == "Álbum":
+            item_text = result.get("title", query)
+            if result.get("artist"):
+                item_text += f"  — {result['artist']}"
+            if result.get("year"):
+                item_text += f"  ({result['year']})"
+        else:
+            item_text = result.get("title", query)
+            if result.get("artist"):
+                item_text += f"  — {result['artist']}"
+        return item_text
+
+    def _on_search_result(self, result, search_type, query):
         try:
-            if search_type == "Artista":
-                result = kb.lookup_artist(query)
-                if result and isinstance(result, dict):
-                    item_text = result.get("name", query)
-                    if result.get("mbid"):
-                        item_text += f"  [{result['mbid'][:8]}...]"
-                    if result.get("disambiguation"):
-                        item_text += f"  — {result['disambiguation']}"
-                    self._results.append(result)
-                    self._results_list.addItem(item_text)
-
-            elif search_type == "Álbum":
-                result = kb.lookup_album(query)
-                if result and isinstance(result, dict):
-                    item_text = result.get("title", query)
-                    if result.get("artist"):
-                        item_text += f"  — {result['artist']}"
-                    if result.get("year"):
-                        item_text += f"  ({result['year']})"
-                    self._results.append(result)
-                    self._results_list.addItem(item_text)
-
-            elif search_type == "Canción":
-                result = kb.lookup_recording(query)
-                if result and isinstance(result, dict):
-                    item_text = result.get("title", query)
-                    if result.get("artist"):
-                        item_text += f"  — {result['artist']}"
-                    self._results.append(result)
-                    self._results_list.addItem(item_text)
-
+            if result and isinstance(result, dict):
+                item_text = self._format_result_item(result, search_type, query)
+                self._results.append(result)
+                self._results_list.addItem(item_text)
             if self._results_list.count() == 0:
                 self._results_list.addItem(
                     "(Sin resultados. Intenta con otro término.)"
                 )
-
         except Exception as e:
-            logger.exception("MusicBrainz search failed")
+            logger.exception("MusicBrainz display failed")
             self._results_list.addItem(f"Error: {e}")
+        finally:
+            self._progress.setVisible(False)
+            self._search_btn.setEnabled(True)
+            self._apply_btn.setEnabled(bool(self._results))
 
+    def _on_search_error(self, error):
+        logger.exception("MusicBrainz search failed")
+        self._results_list.addItem(f"Error: {error}")
         self._progress.setVisible(False)
-        self._apply_btn.setEnabled(bool(self._results))
+        self._search_btn.setEnabled(True)
+
+    def _search_sync(self, kb, search_type, query):
+        try:
+            if search_type == "Artista":
+                result = kb.lookup_artist(query)
+            elif search_type == "Álbum":
+                result = kb.lookup_album(query)
+            else:
+                result = kb.lookup_recording(query)
+            self._on_search_result(result, search_type, query)
+        except Exception as e:
+            self._on_search_error(e)
 
     def _select_target_file(self):
         fp, _ = QFileDialog.getOpenFileName(

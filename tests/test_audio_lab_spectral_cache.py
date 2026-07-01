@@ -68,7 +68,7 @@ class TestSpectralCache:
             p2 = os.path.join(tmp, "b.wav")
             _create_test_wav(p1)
             _create_test_wav(p2)
-            from core.audio_lab.diagnostics_service import analyse_directory, _get_cache, close_global_cache
+            from core.audio_lab.diagnostics_service import analyse_directory, close_global_cache
             close_global_cache()
             results = analyse_directory(tmp, include_spectral=True)
             assert len(results) == 2

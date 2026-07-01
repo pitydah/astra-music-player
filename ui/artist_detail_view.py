@@ -1,4 +1,4 @@
-"""Artist Detail View — premium artist page with hero, bio, albums and full tracklist."""
+"""Artist Detail View — premium editorial artist page with hero, bio, quality, albums, tracks, collaborations and metadata health."""
 import os as _os
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
@@ -10,6 +10,9 @@ from PySide6.QtWidgets import (
 
 from library.artist_grouping import ArtistGroup, ArtistAlbumGroup
 from library.album_art import load_cover_pixmap
+from library.artist_insights import (
+    ArtistInsight, ArtistQualitySummary, ArtistMetadataHealth,
+)
 from ui.central.central_styles import glass_button_qss
 
 _BG = "#090B11"
@@ -22,27 +25,31 @@ _TEXT3 = "rgba(255,255,255,0.62)"
 _ACCENT = "#8FB7FF"
 _ACCENT_BG = "rgba(143,183,255,0.12)"
 _ACCENT_BORDER = "rgba(143,183,255,0.18)"
+_SUCCESS = "rgba(72,199,142,0.14)"
+_SUCCESS_TEXT = "rgba(72,199,142,0.70)"
+_WARNING = "rgba(255,180,50,0.14)"
+_WARNING_TEXT = "rgba(255,180,50,0.70)"
+_ERROR = "rgba(255,82,82,0.14)"
+_ERROR_TEXT = "rgba(255,82,82,0.70)"
 
 _MAX_CHIPS = 6
 _MAX_CHIP_LEN = 22
 
+_LOSSLESS_EXTS = {"flac", "alac", "wav", "aiff", "ape", "wv", "dsd", "dff", "dsf"}
+
 
 def _normalize_artist_tags(artist: ArtistGroup) -> list[str]:
-    """Collect, deduplicate and normalize display tags for an artist."""
     seen = set()
     tags = []
-
     for genre in (artist.genres or []):
         g = genre.strip()
         if g and g.lower() not in seen:
             seen.add(g.lower())
             tags.append(g)
-
     ext_genre = (getattr(artist, 'genre', '') or getattr(artist, 'style', '') or '').strip()
     if ext_genre and ext_genre.lower() not in seen:
         seen.add(ext_genre.lower())
         tags.append(ext_genre)
-
     return tags
 
 
@@ -53,6 +60,14 @@ def _format_dur(secs: float) -> str:
     h = s // 3600
     m = (s % 3600) // 60
     return f"{h} h {m} min" if h > 0 else f"{m} min"
+
+
+def _format_short_dur(secs: float) -> str:
+    if secs <= 0:
+        return ""
+    m = int(secs // 60)
+    s = int(secs % 60)
+    return f"{m}:{s:02d}"
 
 
 class ArtistDetailView(QWidget):
@@ -71,10 +86,23 @@ class ArtistDetailView(QWidget):
     track_queue_requested = Signal(str)
     track_metadata_requested = Signal(str)
 
+    album_metadata_requested = Signal(list)
+    album_analyze_requested = Signal(list)
+    album_send_to_server_requested = Signal(list)
+
+    track_analyze_requested = Signal(str)
+    track_send_to_server_requested = Signal(str)
+
+    artist_mix_requested = Signal(str)
+    artist_analyze_requested = Signal(str)
+    artist_send_to_server_requested = Signal(str)
+    artist_resolve_aliases_requested = Signal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet(f"background: {_BG};")
         self._artist: ArtistGroup | None = None
+        self._insight: ArtistInsight | None = None
         self._bio_expanded = False
         self._bio_full = ""
 
@@ -105,11 +133,17 @@ class ArtistDetailView(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(self._scroll)
 
-    def set_artist(self, artist: ArtistGroup):
+    def set_artist(self, artist: ArtistGroup, insight: ArtistInsight | None = None):
         self._artist = artist
+        self._insight = insight
         self._bio_expanded = False
         self._bio_full = getattr(artist, 'bio', '') or ''
         self._rebuild()
+
+    def set_insight(self, insight: ArtistInsight | None):
+        self._insight = insight
+        if self._artist:
+            self._rebuild()
 
     def set_external_info(self, info):
         if not self._artist or not info:
@@ -149,19 +183,33 @@ class ArtistDetailView(QWidget):
         self._build_banner(artist)
         self._build_actions(artist)
 
+        if self._insight:
+            self._build_smart_summary(self._insight)
+
+        if self._insight and self._insight.quality.total_tracks > 0:
+            self._build_quality_section(self._insight.quality)
+
+        if self._insight and self._insight.top_tracks:
+            self._build_top_tracks(artist, self._insight.top_tracks)
+
+        if artist.albums:
+            self._build_albums_section(artist)
+
+        if self._insight and self._insight.collaborations:
+            self._build_collaborations(self._insight.collaborations)
+
         if self._bio_full:
             self._build_bio(artist)
         elif getattr(artist, 'enrichment_status', '') != "loaded":
             self._build_no_bio_placeholder(artist)
 
-        if artist.albums:
-            self._build_albums_section(artist)
-
         if artist.all_tracks:
             self._build_all_tracks(artist)
 
-        self._build_info_card(artist)
+        if self._insight and self._insight.health.total_issues > 0:
+            self._build_metadata_health(artist, self._insight.health)
 
+        self._build_info_card(artist)
         self._layout.addStretch()
 
     # ── Banner ──
@@ -172,7 +220,6 @@ class ArtistDetailView(QWidget):
         overlay_layout.setContentsMargins(28, 24, 28, 24)
         overlay_layout.setSpacing(8)
 
-        # Banner background
         banner_path = getattr(artist, 'banner_path', '') or ''
         if not banner_path:
             fanart = getattr(artist, 'fanart_paths', []) or []
@@ -191,7 +238,6 @@ class ArtistDetailView(QWidget):
         if bg_img:
             card.setStyleSheet(card.styleSheet() + bg_img)
 
-        # Avatar + name row
         top_row = QHBoxLayout()
         top_row.setSpacing(16)
 
@@ -200,7 +246,8 @@ class ArtistDetailView(QWidget):
             thumb_lbl = QLabel()
             thumb_pix = QPixmap(thumb_path)
             if not thumb_pix.isNull():
-                thumb_lbl.setPixmap(thumb_pix.scaled(72, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                thumb_lbl.setPixmap(
+                    thumb_pix.scaled(72, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             thumb_lbl.setFixedSize(72, 72)
             thumb_lbl.setAlignment(Qt.AlignCenter)
             thumb_lbl.setStyleSheet(
@@ -220,28 +267,31 @@ class ArtistDetailView(QWidget):
                 cp = load_cover_pixmap(artist.cover_paths[ci], 33)
                 cl = QLabel()
                 if cp and not cp.isNull():
-                    cl.setPixmap(cp.scaled(31, 31, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                    cl.setPixmap(
+                        cp.scaled(31, 31, Qt.KeepAspectRatio, Qt.SmoothTransformation))
                 cl.setAlignment(Qt.AlignCenter)
                 avl.addWidget(cl, ci // 2, ci % 2)
             top_row.addWidget(avatar)
 
-        # Name
         name = QLabel(artist.display_name)
-        name.setStyleSheet(f"color: {_TEXT}; font-size: 28px; font-weight: 700;")
+        name.setStyleSheet(
+            f"color: {_TEXT}; font-size: 28px; font-weight: 700; background: transparent;")
         top_row.addWidget(name, 1)
         top_row.addStretch()
         overlay_layout.addLayout(top_row)
 
-        # Subtitle
         dur = _format_dur(artist.total_duration)
         sub = f"{artist.album_count} álbumes · {artist.track_count} canciones"
         if dur:
             sub += f" · {dur}"
+        if artist.years:
+            y_str = f"{artist.years[0]}–{artist.years[-1]}" if len(artist.years) > 1 else str(artist.years[0])
+            sub += f" · {y_str}"
         sub_lbl = QLabel(sub)
-        sub_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 12px; font-weight: 500;")
+        sub_lbl.setStyleSheet(
+            f"color: {_TEXT3}; font-size: 12px; font-weight: 500; background: transparent;")
         overlay_layout.addWidget(sub_lbl)
 
-        # Chips — normalized and limited
         tags = _normalize_artist_tags(artist)
         chips_info = []
         for t in tags[:(_MAX_CHIPS - 3)]:
@@ -279,29 +329,271 @@ class ArtistDetailView(QWidget):
         row = QHBoxLayout()
         row.setSpacing(8)
 
-        for label, slot in [
-            ("▶ Reproducir todo", lambda: self.play_all_requested.emit(artist.key)),
-            ("🔀 Aleatorio", lambda: self.shuffle_all_requested.emit(artist.key)),
-            ("+ Cola", lambda: self.queue_all_requested.emit(artist.key)),
-            ("♫ Crear playlist", lambda: self.playlist_artist_requested.emit(artist.key)),
-            ("✏ Editar metadatos", lambda: self.metadata_artist_requested.emit(artist.key)),
-        ]:
+        btn_specs = [
+            ("▶ Reproducir", lambda: self.play_all_requested.emit(artist.key), "primary"),
+            ("🔀 Aleatorio", lambda: self.shuffle_all_requested.emit(artist.key), "secondary"),
+            ("+ Cola", lambda: self.queue_all_requested.emit(artist.key), "secondary"),
+            ("♫ Mix", lambda: self.artist_mix_requested.emit(artist.key), "secondary"),
+        ]
+        for label, slot, kind in btn_specs:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(glass_button_qss("secondary"))
+            btn.setStyleSheet(glass_button_qss(kind))
             btn.clicked.connect(slot)
             row.addWidget(btn)
 
+        more_menu_btn = QPushButton("•••")
+        more_menu_btn.setCursor(Qt.PointingHandCursor)
+        more_menu_btn.setStyleSheet(glass_button_qss("ghost"))
+        more_menu_btn.setFixedWidth(36)
+
+        more_menu = QMenu(self)
+        more_menu.setStyleSheet("""
+            QMenu { background: rgba(20,22,28,0.97); border: 1px solid rgba(255,255,255,0.06);
+              border-radius: 10px; padding: 6px 4px; color: rgba(255,255,255,0.88); font-size: 12.5px; }
+            QMenu::item { padding: 7px 28px 7px 14px; border-radius: 6px; }
+            QMenu::item:selected { background: rgba(143,183,255,0.16); }
+            QMenu::separator { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 8px; }
+        """)
+        more_menu.addAction(
+            "Crear playlist",
+            lambda: self.playlist_artist_requested.emit(artist.key))
+        more_menu.addAction(
+            "Editar metadatos",
+            lambda: self.metadata_artist_requested.emit(artist.key))
+        more_menu.addAction(
+            "Analizar discografía",
+            lambda: self.artist_analyze_requested.emit(artist.key))
+        more_menu.addAction(
+            "Enviar a Micro Server",
+            lambda: self.artist_send_to_server_requested.emit(artist.key))
+        more_menu.addSeparator()
+        more_menu.addAction(
+            "Actualizar info externa",
+            lambda: self.artist_enrich_requested.emit(artist.key))
+        more_menu.addAction(
+            "Resolver duplicados/alias",
+            lambda: self.artist_resolve_aliases_requested.emit(artist.key))
+        more_menu_btn.setMenu(more_menu)
+        row.addWidget(more_menu_btn)
+
         row.addStretch()
-
-        refresh_btn = QPushButton("↻ Actualizar metadatos externos")
-        refresh_btn.setCursor(Qt.PointingHandCursor)
-        refresh_btn.setStyleSheet(
-            glass_button_qss("ghost"))
-        refresh_btn.clicked.connect(lambda: self.artist_enrich_requested.emit(artist.key))
-        row.addWidget(refresh_btn)
-
         self._layout.addLayout(row)
+
+    # ── Smart summary ──
+
+    def _build_smart_summary(self, insight: ArtistInsight):
+        card = _SectionCard("artistSmartSummary")
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(20, 16, 20, 16)
+        cl.setSpacing(10)
+
+        title = QLabel("Resumen")
+        title.setStyleSheet(
+            f"color: {_TEXT}; font-size: 15px; font-weight: 700; background: transparent; border: none;")
+        cl.addWidget(title)
+
+        grid = QGridLayout()
+        grid.setSpacing(8)
+
+        artist = self._artist
+        items_data = [
+            ("Biblioteca", f"{artist.album_count} álbumes · {artist.track_count} canciones" if artist else ""),
+        ]
+        if insight.active_year_range:
+            items_data.append((
+                "Actividad",
+                f"{insight.active_year_range[0]}–{insight.active_year_range[1]}"))
+        if insight.primary_genres:
+            items_data.append(("Géneros", ", ".join(insight.primary_genres[:3])))
+        dur = _format_dur(artist.total_duration) if artist else ""
+        if dur:
+            items_data.append(("Duración", dur))
+        items_data.append(("Canciones principales", str(len(insight.top_tracks))))
+        items_data.append((
+            "Info externa",
+            "Disponible" if artist and artist.enrichment_status == "loaded" else "No disponible"))
+        items_data.append((
+            "Metadata",
+            "OK" if insight.health.total_issues == 0 else f"{insight.health.total_issues} incidencias"))
+        items_data.append(("Colaboraciones", str(len(insight.collaborations))))
+
+        for ri, (label, value) in enumerate(items_data):
+            kl = QLabel(label)
+            kl.setStyleSheet(
+                f"color: {_TEXT3}; font-size: 11px; background: transparent; border: none;")
+            vl = QLabel(value)
+            vl.setStyleSheet(
+                f"color: {_TEXT2}; font-size: 11px; font-weight: 600; background: transparent; border: none;")
+            vl.setWordWrap(True)
+            grid.addWidget(kl, ri // 2, (ri % 2) * 2, Qt.AlignTop)
+            grid.addWidget(vl, ri // 2, (ri % 2) * 2 + 1, Qt.AlignTop)
+
+        cl.addLayout(grid)
+        self._layout.addWidget(card)
+
+    # ── Quality section ──
+
+    def _build_quality_section(self, quality: ArtistQualitySummary):
+        card = _SectionCard("artistQuality")
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(20, 16, 20, 16)
+        cl.setSpacing(10)
+
+        title = QLabel("Calidad de biblioteca")
+        title.setStyleSheet(
+            f"color: {_TEXT}; font-size: 15px; font-weight: 700; background: transparent; border: none;")
+        cl.addWidget(title)
+
+        data_rows = []
+        data_rows.append(("Formato principal", quality.dominant_format.upper() if quality.dominant_format else "—"))
+        data_rows.append(("Lossless", f"{quality.lossless_count} ({quality.lossless_ratio:.0%})"))
+        data_rows.append(("Hi-Res", str(quality.hi_res_count)))
+        data_rows.append(("Bitrate promedio", f"{quality.average_bitrate} kbps" if quality.average_bitrate else "—"))
+        data_rows.append(("Sample rate máx.", f"{quality.max_sample_rate} Hz" if quality.max_sample_rate else "—"))
+        data_rows.append(("ReplayGain", f"{quality.replaygain_count} ({quality.replaygain_ratio:.0%})"))
+        data_rows.append(("Calidad desconocida", str(quality.unknown_quality_count)))
+
+        # Quality badges
+        badge_row = QHBoxLayout()
+        badge_row.setSpacing(4)
+        if quality.lossless_count > 0:
+            bl = QLabel(f"Lossless {quality.lossless_count}")
+            bl.setStyleSheet(
+                f"background: {_SUCCESS}; color: {_SUCCESS_TEXT};"
+                f"font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 8px;")
+            badge_row.addWidget(bl)
+        if quality.lossy_count > 0:
+            bl = QLabel(f"Lossy {quality.lossy_count}")
+            bl.setStyleSheet(
+                f"background: {_WARNING}; color: {_WARNING_TEXT};"
+                f"font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 8px;")
+            badge_row.addWidget(bl)
+        if quality.hi_res_count > 0:
+            bl = QLabel(f"Hi-Res {quality.hi_res_count}")
+            bl.setStyleSheet(
+                f"background: {_ACCENT_BG}; color: {_ACCENT};"
+                f"font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 8px;")
+            badge_row.addWidget(bl)
+        if quality.formats:
+            for fmt, cnt in sorted(quality.formats.items(), key=lambda x: -x[1]):
+                if cnt > 0:
+                    fl = QLabel(f"{fmt.upper()} {cnt}")
+                    fl.setStyleSheet(
+                        f"background: rgba(255,255,255,0.04); color: {_TEXT3};"
+                        f"font-size: 9px; font-weight: 600; border-radius: 6px; padding: 2px 6px;")
+                    badge_row.addWidget(fl)
+        badge_row.addStretch()
+        cl.addLayout(badge_row)
+
+        grid = QGridLayout()
+        grid.setSpacing(3)
+        for ri, (label, value) in enumerate(data_rows):
+            kl = QLabel(label)
+            kl.setStyleSheet(
+                f"color: {_TEXT3}; font-size: 11px; background: transparent; border: none;")
+            vl = QLabel(value)
+            vl.setStyleSheet(
+                f"color: {_TEXT2}; font-size: 11px; font-weight: 600; background: transparent; border: none;")
+            grid.addWidget(kl, ri, 0, Qt.AlignTop)
+            grid.addWidget(vl, ri, 1, Qt.AlignTop)
+
+        cl.addLayout(grid)
+        self._layout.addWidget(card)
+
+    # ── Top tracks ──
+
+    def _build_top_tracks(self, artist: ArtistGroup, top_tracks: list):
+        card = _SectionCard("artistTopTracks")
+        cv = QVBoxLayout(card)
+        cv.setContentsMargins(20, 16, 20, 16)
+        cv.setSpacing(8)
+
+        header = QLabel(f"Canciones principales ({len(top_tracks)})")
+        header.setStyleSheet(
+            f"color: {_TEXT}; font-size: 15px; font-weight: 700; background: transparent; border: none;")
+        cv.addWidget(header)
+
+        table = QTableWidget()
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["Nº", "Título", "Álbum", "Año", "Dur."])
+        table.setRowCount(len(top_tracks))
+        table.verticalHeader().setVisible(False)
+        table.setShowGrid(False)
+        table.setFrameShape(QFrame.NoFrame)
+        table.setSelectionMode(QAbstractItemView.SingleSelection)
+        table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        table.setFixedHeight(min(len(top_tracks), 8) * 28 + 30)
+        table.setStyleSheet(f"""
+            QTableWidget {{ background: transparent; color: {_TEXT}; border: none;
+              gridline-color: transparent;
+              selection-background-color: {_ACCENT_BG}; selection-color: {_TEXT}; }}
+            QTableWidget::item {{ padding: 4px; color: {_TEXT2}; font-size: 11px; border: none; }}
+            QHeaderView::section {{
+                background: rgba(255,255,255,0.025); color: {_TEXT3}; border: none;
+                border-bottom: 1px solid rgba(255,255,255,0.03); padding: 5px 6px; font-size: 10.5px;
+            }}
+        """)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+        table.setColumnWidth(0, 38)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        table.setColumnWidth(2, 130)
+        table.setColumnWidth(3, 50)
+        table.setColumnWidth(4, 55)
+
+        for ti, track in enumerate(top_tracks):
+            tn = getattr(track, "track_number", 0) or 0
+            dur_v = getattr(track, "duration", 0) or 0
+            dur_s = _format_short_dur(dur_v) if dur_v else ""
+            year_s = str(getattr(track, "year", 0)) if getattr(track, "year", 0) else "—"
+            album_s = getattr(track, "album", "") or "—"
+            table.setItem(ti, 0, _cell(str(tn) if tn else "—"))
+            table.setItem(ti, 1, _cell(track.title or track.filename))
+            table.setItem(ti, 2, _cell(album_s))
+            table.setItem(ti, 3, _cell(year_s))
+            table.setItem(ti, 4, _cell(dur_s))
+
+        table.doubleClicked.connect(lambda idx, t=top_tracks: self._on_top_track_dbl_click(idx, t))
+        table.setContextMenuPolicy(Qt.CustomContextMenu)
+        table.customContextMenuRequested.connect(
+            lambda pos, t=top_tracks: self._on_top_track_context(pos, t))
+
+        cv.addWidget(table)
+        self._layout.addWidget(card)
+
+    def _on_top_track_dbl_click(self, idx, tracks):
+        if 0 <= idx.row() < len(tracks):
+            self.track_play_requested.emit(tracks[idx.row()].filepath)
+
+    def _on_top_track_context(self, pos, tracks):
+        table = self.sender()
+        if not isinstance(table, QTableWidget):
+            return
+        idx = table.indexAt(pos)
+        if not idx.isValid() or idx.row() >= len(tracks):
+            return
+        track = tracks[idx.row()]
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background: rgba(20,22,28,0.97); border: 1px solid rgba(255,255,255,0.06);
+              border-radius: 10px; padding: 6px 4px; color: rgba(255,255,255,0.88); font-size: 12.5px; }
+            QMenu::item { padding: 7px 28px 7px 14px; border-radius: 6px; }
+            QMenu::item:selected { background: rgba(143,183,255,0.16); }
+            QMenu::separator { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 8px; }
+        """)
+        menu.addAction("Reproducir", lambda: self.track_play_requested.emit(track.filepath))
+        menu.addAction("Añadir a cola", lambda: self.track_queue_requested.emit(track.filepath))
+        menu.addSeparator()
+        menu.addAction("Editar metadatos", lambda: self.track_metadata_requested.emit(track.filepath))
+        menu.addSeparator()
+        menu.addAction("Ir al álbum", lambda: self._navigate_to_album(track))
+        menu.addAction("Analizar canción", lambda: self.track_analyze_requested.emit(track.filepath))
+        menu.addAction("Enviar a Micro Server", lambda: self.track_send_to_server_requested.emit(track.filepath))
+        table.viewport().mapToGlobal(pos)
+        menu.exec(table.viewport().mapToGlobal(pos))
+
+    def _navigate_to_album(self, track):
+        pass
 
     # ── Bio ──
 
@@ -318,7 +610,8 @@ class ArtistDetailView(QWidget):
 
         if getattr(artist, 'enrichment_status', '') == "loaded":
             src = QLabel("Información externa")
-            src.setStyleSheet(f"color: {_TEXT3}; font-size: 10px; background: transparent; border: none;")
+            src.setStyleSheet(
+                f"color: {_TEXT3}; font-size: 10px; background: transparent; border: none;")
             bl.addWidget(src)
 
         display_bio = self._bio_full
@@ -350,7 +643,8 @@ class ArtistDetailView(QWidget):
         bl.setContentsMargins(20, 16, 20, 16)
         bl.setSpacing(6)
         t = QLabel("No hay reseña disponible. Puedes actualizar la información externa.")
-        t.setStyleSheet(f"color: {_TEXT3}; font-size: 12px; background: transparent; border: none;")
+        t.setStyleSheet(
+            f"color: {_TEXT3}; font-size: 12px; background: transparent; border: none;")
         t.setWordWrap(True)
         bl.addWidget(t)
         btn = QPushButton("Actualizar metadatos externos")
@@ -372,7 +666,7 @@ class ArtistDetailView(QWidget):
         cv.setContentsMargins(20, 16, 20, 16)
         cv.setSpacing(12)
 
-        header = QLabel("Álbumes")
+        header = QLabel("Discografía")
         header.setStyleSheet(
             f"color: {_TEXT}; font-size: 15px; font-weight: 700; background: transparent; border: none;")
         cv.addWidget(header)
@@ -381,13 +675,25 @@ class ArtistDetailView(QWidget):
         grid = QGridLayout()
         grid.setSpacing(12)
 
-        for i, album in enumerate(artist.albums):
+        loose_tracks = artist.loose_tracks
+        sorted_albums = list(artist.albums)
+        sorted_albums.sort(key=lambda a: (a.year or 9999, a.title.lower()))
+
+        for i, album in enumerate(sorted_albums):
             album_card = self._make_album_card(album)
             row = i // cols
             col = i % cols
             grid.addWidget(album_card, row, col, Qt.AlignTop)
 
         cv.addLayout(grid)
+
+        if loose_tracks:
+            loose_header = QLabel(f"Canciones sin álbum ({len(loose_tracks)})")
+            loose_header.setStyleSheet(
+                f"color: {_TEXT3}; font-size: 11px; font-weight: 600;"
+                f"background: transparent; border: none; margin-top: 8px;")
+            cv.addWidget(loose_header)
+
         self._layout.addWidget(card)
 
     def _make_album_card(self, album: ArtistAlbumGroup) -> QFrame:
@@ -420,16 +726,19 @@ class ArtistDetailView(QWidget):
         cover_lbl.setAlignment(Qt.AlignCenter)
         pix = load_cover_pixmap(album.cover_path, 64) if album.cover_path else None
         if pix and not pix.isNull():
-            cover_lbl.setPixmap(pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            cover_lbl.setPixmap(
+                pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             cover_lbl.setStyleSheet("border-radius: 10px;")
         else:
-            cover_lbl.setStyleSheet("background: rgba(255,255,255,0.03); border-radius: 10px;")
+            cover_lbl.setStyleSheet(
+                "background: rgba(255,255,255,0.03); border-radius: 10px;")
         top_row.addWidget(cover_lbl)
 
         title_info = QVBoxLayout()
         title_info.setSpacing(2)
         title_lbl = QLabel(album.title)
-        title_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 13px; font-weight: 700;")
+        title_lbl.setStyleSheet(
+            f"color: {_TEXT}; font-size: 13px; font-weight: 700;")
         title_lbl.setWordWrap(True)
         title_info.addWidget(title_lbl)
 
@@ -441,11 +750,8 @@ class ArtistDetailView(QWidget):
         meta_lbl = QLabel(meta)
         meta_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 11px;")
         title_info.addWidget(meta_lbl)
-        title_info.addStretch()
-        top_row.addLayout(title_info, 1)
-        v.addLayout(top_row)
 
-        # Format badges — soft chips
+        # Format badges
         if album.formats:
             fmts_row = QHBoxLayout()
             fmts_row.setSpacing(4)
@@ -457,9 +763,13 @@ class ArtistDetailView(QWidget):
                     f"border-radius: 5px; padding: 1px 6px;")
                 fmts_row.addWidget(fb)
             fmts_row.addStretch()
-            v.addLayout(fmts_row)
+            title_info.addLayout(fmts_row)
 
-        # Track preview — simple rows, no QTableWidget
+        title_info.addStretch()
+        top_row.addLayout(title_info, 1)
+        v.addLayout(top_row)
+
+        # Track preview
         preview_count = min(len(album.tracks), 4)
         for ti in range(preview_count):
             track = album.tracks[ti]
@@ -467,7 +777,7 @@ class ArtistDetailView(QWidget):
             tr.setSpacing(6)
             tn = getattr(track, "track_number", 0) or 0
             dur_v = getattr(track, "duration", 0) or 0
-            dur_s = f"{int(dur_v // 60)}:{int(dur_v % 60):02d}" if dur_v else ""
+            dur_s = _format_short_dur(dur_v) if dur_v else ""
             tn_lbl = QLabel(str(tn) if tn else "—")
             tn_lbl.setFixedWidth(24)
             tn_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 10px;")
@@ -484,7 +794,8 @@ class ArtistDetailView(QWidget):
 
         if len(album.tracks) > preview_count:
             more = QLabel(f"+{len(album.tracks) - preview_count} más")
-            more.setStyleSheet(f"color: {_TEXT3}; font-size: 10px; font-style: italic;")
+            more.setStyleSheet(
+                f"color: {_TEXT3}; font-size: 10px; font-style: italic;")
             v.addWidget(more)
 
         # Buttons
@@ -499,7 +810,8 @@ class ArtistDetailView(QWidget):
             f"  border: 1px solid {_ACCENT_BORDER}; border-radius: 8px;"
             f"  padding: 5px 10px; font-size: 11px; font-weight: 600; }}"
             f"QPushButton:hover {{ background: rgba(143,183,255,0.20); }}")
-        play_btn.clicked.connect(lambda c=False, f=fps: self.play_album_requested.emit(f))
+        play_btn.clicked.connect(
+            lambda c=False, f=fps: self.play_album_requested.emit(f))
         btn_row.addWidget(play_btn)
 
         queue_btn = QPushButton("+ Cola")
@@ -509,13 +821,98 @@ class ArtistDetailView(QWidget):
             f"  border: 1px solid rgba(255,255,255,0.04); border-radius: 8px;"
             f"  padding: 5px 10px; font-size: 11px; font-weight: 600; }}"
             f"QPushButton:hover {{ background: rgba(255,255,255,0.08); }}")
-        queue_btn.clicked.connect(lambda c=False, f=fps: self.queue_album_requested.emit(f))
+        queue_btn.clicked.connect(
+            lambda c=False, f=fps: self.queue_album_requested.emit(f))
         btn_row.addWidget(queue_btn)
+
+        # More album actions
+        album_more = QPushButton("•••")
+        album_more.setCursor(Qt.PointingHandCursor)
+        album_more.setStyleSheet(
+            f"QPushButton {{ background: transparent; color: {_TEXT3};"
+            f"  border: 1px solid transparent; border-radius: 8px;"
+            f"  padding: 5px 8px; font-size: 11px; }}"
+            f"QPushButton:hover {{ background: rgba(255,255,255,0.05); }}")
+        album_more_menu = QMenu(self)
+        album_more_menu.setStyleSheet("""
+            QMenu { background: rgba(20,22,28,0.97); border: 1px solid rgba(255,255,255,0.06);
+              border-radius: 10px; padding: 6px 4px; color: rgba(255,255,255,0.88); font-size: 12.5px; }
+            QMenu::item { padding: 7px 28px 7px 14px; border-radius: 6px; }
+            QMenu::item:selected { background: rgba(143,183,255,0.16); }
+        """)
+        album_more_menu.addAction(
+            "Editar metadatos",
+            lambda: self.album_metadata_requested.emit(fps))
+        album_more_menu.addAction(
+            "Analizar álbum",
+            lambda: self.album_analyze_requested.emit(fps))
+        album_more_menu.addAction(
+            "Enviar a Micro Server",
+            lambda: self.album_send_to_server_requested.emit(fps))
+        album_more.setMenu(album_more_menu)
+        btn_row.addWidget(album_more)
 
         btn_row.addStretch()
         v.addLayout(btn_row)
 
         return card
+
+    # ── Collaborations ──
+
+    def _build_collaborations(self, collaborations: list):
+        card = _SectionCard("artistCollaborations")
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(20, 16, 20, 16)
+        cl.setSpacing(8)
+
+        header = QLabel(f"Colaboraciones y apariciones ({len(collaborations)})")
+        header.setStyleSheet(
+            f"color: {_TEXT}; font-size: 15px; font-weight: 700; background: transparent; border: none;")
+        cl.addWidget(header)
+
+        table = QTableWidget()
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["Título", "Artista", "Álbum", "Año", "Tipo"])
+        table.setRowCount(len(collaborations))
+        table.verticalHeader().setVisible(False)
+        table.setShowGrid(False)
+        table.setFrameShape(QFrame.NoFrame)
+        table.setSelectionMode(QAbstractItemView.SingleSelection)
+        table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        visible = min(len(collaborations), 6)
+        table.setFixedHeight(visible * 28 + 30)
+        table.setStyleSheet(f"""
+            QTableWidget {{ background: transparent; color: {_TEXT}; border: none;
+              gridline-color: transparent;
+              selection-background-color: {_ACCENT_BG}; selection-color: {_TEXT}; }}
+            QTableWidget::item {{ padding: 4px; color: {_TEXT2}; font-size: 11px; border: none; }}
+            QHeaderView::section {{
+                background: rgba(255,255,255,0.025); color: {_TEXT3}; border: none;
+                border-bottom: 1px solid rgba(255,255,255,0.03); padding: 5px 6px; font-size: 10.5px;
+            }}
+        """)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        table.setColumnWidth(1, 100)
+        table.setColumnWidth(2, 100)
+        table.setColumnWidth(3, 50)
+        table.setColumnWidth(4, 70)
+
+        for ci, collab in enumerate(collaborations):
+            table.setItem(ci, 0, _cell(collab.title))
+            table.setItem(ci, 1, _cell(collab.artist))
+            table.setItem(ci, 2, _cell(collab.album))
+            table.setItem(ci, 3, _cell(str(collab.year) if collab.year else "—"))
+            table.setItem(ci, 4, _cell(collab.reason))
+
+        table.doubleClicked.connect(
+            lambda idx, c=collaborations: self._on_collab_dbl_click(idx, c))
+
+        cl.addWidget(table)
+        self._layout.addWidget(card)
+
+    def _on_collab_dbl_click(self, idx, collaborations):
+        if 0 <= idx.row() < len(collaborations):
+            self.track_play_requested.emit(collaborations[idx.row()].filepath)
 
     # ── All tracks ──
 
@@ -535,13 +932,13 @@ class ArtistDetailView(QWidget):
         if dur:
             sub += f" · {dur}"
         sub_lbl = QLabel(sub)
-        sub_lbl.setStyleSheet(f"color: {_TEXT3}; font-size: 11px; background: transparent; border: none;")
+        sub_lbl.setStyleSheet(
+            f"color: {_TEXT3}; font-size: 11px; background: transparent; border: none;")
         cv.addWidget(sub_lbl)
 
         all_tracks = artist.all_tracks
         n_tracks = len(all_tracks)
 
-        # Height: header(30) + rows(n) * 28 + padding(12), max 420px
         visible_rows = min(n_tracks, 12)
         table_h = 30 + visible_rows * 28 + 12
 
@@ -581,7 +978,7 @@ class ArtistDetailView(QWidget):
         for ti, track in enumerate(all_tracks):
             tn = getattr(track, "track_number", 0) or 0
             dur_v = getattr(track, "duration", 0) or 0
-            dur_s = f"{int(dur_v // 60)}:{int(dur_v % 60):02d}" if dur_v else ""
+            dur_s = _format_short_dur(dur_v) if dur_v else ""
             ext = (getattr(track, "ext", "") or "").upper().lstrip(".")
             year_s = str(getattr(track, "year", 0)) if getattr(track, "year", 0) else "—"
             album_s = getattr(track, "album", "") or "—"
@@ -628,7 +1025,88 @@ class ArtistDetailView(QWidget):
         menu.addAction("Añadir a cola", lambda: self.track_queue_requested.emit(track.filepath))
         menu.addSeparator()
         menu.addAction("Editar metadatos", lambda: self.track_metadata_requested.emit(track.filepath))
+        menu.addSeparator()
+        menu.addAction("Analizar canción", lambda: self.track_analyze_requested.emit(track.filepath))
+        menu.addAction("Enviar a Micro Server", lambda: self.track_send_to_server_requested.emit(track.filepath))
         menu.exec(table.viewport().mapToGlobal(pos))
+
+    # ── Metadata health ──
+
+    def _build_metadata_health(self, artist: ArtistGroup, health: ArtistMetadataHealth):
+        card = _SectionCard("artistMetadataHealth")
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(20, 16, 20, 16)
+        cl.setSpacing(8)
+
+        header = QLabel("Salud de metadatos")
+        header.setStyleSheet(
+            f"color: {_TEXT}; font-size: 15px; font-weight: 700; background: transparent; border: none;")
+        cl.addWidget(header)
+
+        alerts = []
+        if health.missing_genre_count:
+            alerts.append((f"{health.missing_genre_count} canciones sin género", "warning"))
+        if health.missing_year_count:
+            alerts.append((f"{health.missing_year_count} canciones sin año", "warning"))
+        if health.missing_album_count:
+            alerts.append((f"{health.missing_album_count} canciones sin álbum", "warning"))
+        if health.missing_artwork_count:
+            alerts.append((f"{health.missing_artwork_count} álbumes sin portada", "warning"))
+        if health.missing_track_number_count:
+            alerts.append((f"{health.missing_track_number_count} canciones sin nº de pista", "info"))
+        if health.missing_files_count:
+            alerts.append((f"{health.missing_files_count} archivos no encontrados", "error"))
+        if health.duplicate_album_candidates:
+            for dup in health.duplicate_album_candidates[:3]:
+                alerts.append((f"Posible álbum duplicado: {dup}", "warning"))
+        if health.alias_candidates:
+            for alias in health.alias_candidates[:3]:
+                alerts.append((f"Posible alias: {alias}", "info"))
+
+        for alert_text, severity in alerts:
+            alert_frame = QFrame()
+            border_color = _ERROR if severity == "error" else (_WARNING if severity == "warning" else "rgba(143,183,255,0.30)")
+            alert_frame.setStyleSheet(f"""
+                QFrame {{
+                    background: rgba(255,255,255,0.02);
+                    border-left: 3px solid {border_color};
+                    border-radius: 4px;
+                    padding: 6px 10px;
+                }}
+                QFrame QLabel {{ background: transparent; border: none; }}
+            """)
+            al = QHBoxLayout(alert_frame)
+            al.setContentsMargins(8, 4, 8, 4)
+            al_lbl = QLabel(alert_text)
+            al_lbl.setStyleSheet(
+                f"color: {_TEXT2}; font-size: 11px; font-weight: 500;")
+            al.addWidget(al_lbl, 1)
+            cl.addWidget(alert_frame)
+
+        # Action row
+        action_row = QHBoxLayout()
+        action_row.setSpacing(6)
+
+        if health.total_issues > 0:
+            edit_btn = QPushButton("Abrir Metadata Editor")
+            edit_btn.setCursor(Qt.PointingHandCursor)
+            edit_btn.setStyleSheet(glass_button_qss("secondary"))
+            edit_btn.clicked.connect(
+                lambda: self.metadata_artist_requested.emit(artist.key))
+            action_row.addWidget(edit_btn)
+
+        if health.alias_candidates:
+            alias_btn = QPushButton("Resolver alias")
+            alias_btn.setCursor(Qt.PointingHandCursor)
+            alias_btn.setStyleSheet(glass_button_qss("ghost"))
+            alias_btn.clicked.connect(
+                lambda: self.artist_resolve_aliases_requested.emit(artist.key))
+            action_row.addWidget(alias_btn)
+
+        action_row.addStretch()
+        cl.addLayout(action_row)
+
+        self._layout.addWidget(card)
 
     # ── Info card ──
 
@@ -653,6 +1131,8 @@ class ArtistDetailView(QWidget):
             data_rows.append(("Formación", str(artist.formed_year)))
         if getattr(artist, 'mood', ''):
             data_rows.append(("Mood", artist.mood))
+        if getattr(artist, 'website', ''):
+            data_rows.append(("Web", artist.website))
         if getattr(artist, 'years', []):
             years = artist.years
             yr = f"{years[0]}–{years[-1]}" if len(years) > 1 else str(years[0])
@@ -666,14 +1146,18 @@ class ArtistDetailView(QWidget):
             data_rows.append(("MusicBrainz ID", artist.mbid))
         if getattr(artist, 'external_id', ''):
             data_rows.append(("ID externo", artist.external_id))
+        if getattr(artist, 'last_enriched_at', ''):
+            data_rows.append(("Últ. actualización", artist.last_enriched_at))
 
         grid = QGridLayout()
         grid.setSpacing(3)
         for ri, (label, value) in enumerate(data_rows):
             kl = QLabel(label)
-            kl.setStyleSheet(f"color: {_TEXT3}; font-size: 11px; background: transparent; border: none;")
+            kl.setStyleSheet(
+                f"color: {_TEXT3}; font-size: 11px; background: transparent; border: none;")
             vl = QLabel(value)
-            vl.setStyleSheet(f"color: {_TEXT2}; font-size: 11px; font-weight: 600; background: transparent; border: none;")
+            vl.setStyleSheet(
+                f"color: {_TEXT2}; font-size: 11px; font-weight: 600; background: transparent; border: none;")
             vl.setWordWrap(True)
             grid.addWidget(kl, ri, 0, Qt.AlignTop)
             grid.addWidget(vl, ri, 1, Qt.AlignTop)

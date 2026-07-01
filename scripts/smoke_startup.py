@@ -348,7 +348,7 @@ def _check_audio_lab_integration():
         errors += 1
 
     try:
-        from library.query_parser import parse_query, FieldTerm
+        from library.query_parser import parse_query
         q1 = parse_query("quality:hires")
         assert any(t.value == "hires" for t in q1.terms if t.field == "quality")
         q2 = parse_query("analysis:pending")

@@ -1,7 +1,11 @@
-"""EcosystemController — orchestrate EcosystemPage with MichiEcosystemDoctor."""
+"""EcosystemController — orchestrate EcosystemPage with MichiEcosystemDoctor.
+
+Diagnostics run in a worker thread to avoid blocking the UI.
+"""
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import TYPE_CHECKING
 
@@ -34,14 +38,19 @@ class EcosystemController(QObject):
             w = self._win
             from integrations.michi_link.services.diagnostics_service import DiagnosticsService
             from integrations.michi_link.services.micro_server_service import MicroServerService
+            ha_client = None
+            with contextlib.suppress(Exception):
+                from integrations.home_assistant.client import HomeAssistantClient
+                ha_client = getattr(w, "_ha_client", None) or HomeAssistantClient()
             self._doctor = MichiEcosystemDoctor(
                 diagnostics_service=DiagnosticsService(),
                 micro_server_service=MicroServerService(),
                 sync_mgr=getattr(w, "_sync_mgr", None),
                 device_registry=getattr(w, "_device_registry", None),
-                settings=getattr(w, "_settings_mgr", None),
+                settings_provider=getattr(w, "_settings_mgr", None),
                 snapcast_manager=getattr(w, "_snapserver", None),
-                ha_client=getattr(w, "_ha_client", None),
+                ha_client=ha_client,
+                michi_link_ctrl=getattr(w, "_michi_link_ctrl", None),
             )
         return self._doctor
 
@@ -66,27 +75,40 @@ class EcosystemController(QObject):
         page = self._page
         if page is None:
             return
+        w = self._win
+        workers = getattr(w, "_workers", None)
+        if workers is not None and hasattr(workers, "submit"):
+            workers.submit(self._diagnose_task, on_done=self._on_diagnose_done)
+        else:
+            try:
+                self._on_diagnose_done(self._diagnose_task())
+            except Exception:
+                logger.exception("Ecosystem diagnosis failed")
+                page.set_health_summary({"overall": "error", "total": 0, "ok": 0, "warning": 0, "error": 1})
+
+    def _diagnose_task(self):
+        doctor = self._ensure_doctor()
+        report = doctor.diagnose_ecosystem()
+        return report
+
+    def _on_diagnose_done(self, report):
+        page = self._page
+        if page is None:
+            return
         try:
-            doctor = self._ensure_doctor()
-            report = doctor.diagnose_ecosystem()
             graph = build_health_graph(report)
             summary = summarize_health(graph)
             page.set_health_summary(summary)
-
-            nodes = []
-            for node in graph.nodes:
-                nodes.append({"name": node.label, "type": node.type, "status": node.status})
+            nodes = [{"name": node.label, "type": node.type, "status": node.status} for node in graph.nodes]
             page.set_devices(nodes)
-
             issues = []
             for node in graph.nodes:
                 if node.issue_code:
                     from integrations.michi_ecosystem.fix_suggester import suggest_next_steps
-                    fix = suggest_next_steps(node.issue_code)
-                    issues.append(fix)
+                    issues.append(suggest_next_steps(node.issue_code))
             page.set_issues(issues)
         except Exception:
-            logger.exception("Ecosystem diagnosis failed")
+            logger.exception("Ecosystem diagnosis result processing failed")
             page.set_health_summary({"overall": "error", "total": 0, "ok": 0, "warning": 0, "error": 1})
 
     def _on_diagnose(self):

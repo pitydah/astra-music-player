@@ -31,11 +31,16 @@ class HubRouteController:
 
     def _lazy(self, name: str, factory: Callable):
         w = self._win
-        if not w._views.widget(name):
+        was_new = not w._views.widget(name)
+        if was_new:
             w._views.register(name, factory())
         w._fade_content(name)
         self._refresh_suggestions(name)
-        self._insert_suggestion_bar(name)
+        if was_new:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(120, lambda: self._insert_suggestion_bar(name))
+        else:
+            self._insert_suggestion_bar(name)
 
     def _refresh_suggestions(self, section_key: str):
         ctrl = self._ensure_suggestion_ctrl()
@@ -50,8 +55,16 @@ class HubRouteController:
             return
         bar = self._ensure_suggestion_ctrl().bar()
         if bar.parent() is page:
+            bar.raise_()
+            bar.show()
             return
         bar.setParent(page)
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(50, lambda: self._do_insert_bar(page, bar))
+
+    def _do_insert_bar(self, page, bar):
+        if bar.parent() is not page:
+            bar.setParent(page)
         layout = page.layout()
         if layout is not None and hasattr(layout, "insertWidget"):
             layout.insertWidget(0, bar)

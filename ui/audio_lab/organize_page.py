@@ -25,6 +25,24 @@ from metadata.tag_model import TrackTags
 
 logger = logging.getLogger("michi.organize.ui")
 
+
+def _do_rename_and_db(changes, db):
+    """Rename files and update DB. Runs in worker thread."""
+    from metadata.rename_engine import apply_rename
+    ok_count, fail_count = apply_rename(changes)
+    db_ok = 0
+    db_fail = 0
+    if db is not None:
+        for old_p, new_p in changes:
+            try:
+                if db.update_filepath(old_p, new_p):
+                    db_ok += 1
+                else:
+                    db_fail += 1
+            except Exception:
+                db_fail += 1
+    return {"ok": ok_count, "fail": fail_count, "db_ok": db_ok, "db_fail": db_fail}
+
 _PATTERNS = {
     "Artista - Título": "%artist% - %title%",
     "Artista/Álbum/Nº - Título": "%artist%/%album%/%track% - %title%",
@@ -43,11 +61,12 @@ AUDIO_EXTS = frozenset({
 class OrganizePage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self, db=None):
+    def __init__(self, db=None, worker_mgr=None):
         super().__init__()
         self.setObjectName("organizePage")
         self._files: list[str] = []
         self._preview: list[tuple[str, str]] = []
+        self._worker_mgr = worker_mgr
         self._db = db
         self._build_ui()
 
@@ -312,8 +331,6 @@ class OrganizePage(QWidget):
         if not self._preview:
             return
 
-        from metadata.rename_engine import apply_rename
-
         changes = [(o, n) for o, n in self._preview if o != n]
         if not changes:
             return
@@ -332,36 +349,33 @@ class OrganizePage(QWidget):
         self._progress.setVisible(True)
         self._progress.setValue(0)
 
-        ok_count, fail_count = apply_rename(changes)
-        self._progress.setValue(50)
+        if self._worker_mgr:
+            self._worker_mgr.run_task(
+                "organize_rename",
+                _do_rename_and_db, changes, self._db,
+                on_done=lambda r: self._on_rename_done(r, changes),
+                on_error=lambda e: self._on_rename_error(e),
+            )
+        else:
+            self._apply_rename_sync(changes)
 
-        # Update DB
-        db_ok = 0
-        db_fail = 0
-        if self._db is None:
-            try:
-                from library.library_db import LibraryDB, DB_PATH
-                self._db = LibraryDB(DB_PATH)
-            except Exception:
-                pass
-
-        if self._db:
-            for old_p, new_p in changes:
-                if self._db.update_filepath(old_p, new_p):
-                    db_ok += 1
-                else:
-                    db_fail += 1
-
+    def _on_rename_done(self, result, changes):
+        ok_count = result.get("ok", 0)
+        fail_count = result.get("fail", 0)
         self._progress.setValue(100)
-
         msg = f"Renombrados: {ok_count} OK, {fail_count} errores"
-        if db_ok:
-            msg += f" | DB actualizada: {db_ok} registros"
-        if db_fail:
-            msg += f" | DB fallos: {db_fail}"
         self._status_label.setText(msg)
-
         logger.info("Organize completed: %s", msg)
         self._preview.clear()
         self._preview_table.setRowCount(0)
         self._apply_btn.setEnabled(False)
+        self._progress.setVisible(False)
+
+    def _on_rename_error(self, error):
+        self._status_label.setText(f"Error al renombrar: {error}")
+        self._progress.setVisible(False)
+        self._apply_btn.setEnabled(True)
+
+    def _apply_rename_sync(self, changes):
+        result = _do_rename_and_db(changes, self._db)
+        self._on_rename_done(result, changes)

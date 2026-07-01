@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from integrations.ai_assistant.schemas import ToolResult
 from integrations.michi_ecosystem.ecosystem_diagnostics import EcosystemDiagnostics
@@ -83,7 +82,7 @@ def create_ecosystem_config_plan(db=None, plan_type: str = "", context: dict | N
     try:
         plan = _planner.create_plan(plan_type, context)
         return ToolResult(name="create_ecosystem_config_plan", success=True, data={"message": f"Plan '{plan.title}' creado (ID: {plan.plan_id}). Requiere confirmacion.", "plan_id": plan.plan_id, "plan": {"title": plan.title, "description": plan.description, "changes": [{"key": c.key, "description": c.description, "risk": c.risk} for c in plan.changes]}})
-    except ValueError as e:
+    except ValueError:
         available = _planner.list_plan_types() if _planner else []
         return ToolResult(name="create_ecosystem_config_plan", success=True, data={"message": f"Tipo de plan no valido. Planos disponibles: {[p['type'] for p in available]}", "available_plans": available})
     except Exception as e:

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 from integrations.michi_ecosystem.ecosystem_doctor import MichiEcosystemDoctor
 from integrations.michi_ecosystem import constants as C

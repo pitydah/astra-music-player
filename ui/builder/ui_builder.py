@@ -475,6 +475,10 @@ class UIBuilder:
         w._artist_grid.artist_playlist_requested.connect(lambda key, _w=w: _w._artist_ctrl.create_playlist_from_artist(key))
         w._artist_grid.artist_metadata_requested.connect(lambda key, _w=w: _w._artist_ctrl.edit_artist_metadata(key))
         w._artist_grid.artist_enrich_requested.connect(w._refresh_artist_info)
+        w._artist_grid.artist_mix_requested.connect(lambda key, _w=w: _w._artist_ctrl.create_artist_mix(key))
+        w._artist_grid.artist_analyze_requested.connect(lambda key, _w=w: _w._artist_ctrl.analyze_artist_discography(key))
+        w._artist_grid.artist_send_to_server_requested.connect(lambda key, _w=w: _w._artist_ctrl.send_artist_to_micro_server(key))
+        w._artist_grid.artist_resolve_aliases_requested.connect(lambda key, _w=w: _w._artist_ctrl.resolve_artist_aliases(key))
         w._artist_detail.back_requested.connect(lambda: w._nav_ctrl.navigate_back())
         w._artist_detail.play_all_requested.connect(lambda key, _w=w: _w._artist_ctrl.play_artist(key))
         w._artist_detail.shuffle_all_requested.connect(lambda key, _w=w: _w._artist_ctrl.play_artist(key, shuffle=True))
@@ -494,6 +498,25 @@ class UIBuilder:
             lambda fp, _w=w: _w._play_filepaths([fp], play_now=False))
         w._artist_detail.track_metadata_requested.connect(
             lambda fp, _w=w: _w._open_metadata_for_files([fp]))
+        # New detail signals
+        w._artist_detail.album_metadata_requested.connect(
+            lambda fps, _w=w: _w._artist_ctrl.open_metadata_for_files(fps))
+        w._artist_detail.album_analyze_requested.connect(
+            lambda fps, _w=w: _w._artist_ctrl.analyze_artist_album(fps))
+        w._artist_detail.album_send_to_server_requested.connect(
+            lambda fps, _w=w: _w._artist_ctrl.send_artist_album_to_micro_server(fps))
+        w._artist_detail.track_analyze_requested.connect(
+            lambda fp, _w=w: _w._artist_ctrl.analyze_artist_track(fp))
+        w._artist_detail.track_send_to_server_requested.connect(
+            lambda fp, _w=w: _w._artist_ctrl.send_artist_track_to_micro_server(fp))
+        w._artist_detail.artist_mix_requested.connect(
+            lambda key, _w=w: _w._artist_ctrl.create_artist_mix(key))
+        w._artist_detail.artist_analyze_requested.connect(
+            lambda key, _w=w: _w._artist_ctrl.analyze_artist_discography(key))
+        w._artist_detail.artist_send_to_server_requested.connect(
+            lambda key, _w=w: _w._artist_ctrl.send_artist_to_micro_server(key))
+        w._artist_detail.artist_resolve_aliases_requested.connect(
+            lambda key, _w=w: _w._artist_ctrl.resolve_artist_aliases(key))
 
         # Build artists stacked widget: grid + detail inside Artistas tab
         w._artists_stack = QStackedWidget()

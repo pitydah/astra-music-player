@@ -1,7 +1,6 @@
 """Contract tests for Backup area — safety, dependency handling, honesty."""
 
 import os
-import sys
 
 
 class TestBackupContract:

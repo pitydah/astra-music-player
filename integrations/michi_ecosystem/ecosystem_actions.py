@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 SAFE_ACTIONS = frozenset({"open_section", "diagnose_ecosystem", "diagnose_mobile_sync", "diagnose_micro_server", "diagnose_home_audio", "get_ecosystem_health_summary", "suggest_fix"})
 

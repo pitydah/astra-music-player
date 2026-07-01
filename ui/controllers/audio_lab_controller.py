@@ -149,41 +149,48 @@ class AudioLabController:
 
     def show_lyrics(self, key: str = ""):
         def _build():
+            w = self._win
             from ui.audio_lab.lyrics_page import LyricsPage
-            page = LyricsPage()
+            page = LyricsPage(worker_mgr=getattr(w, '_workers', None))
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
             return page
         self._lazy("audio_lab_lyrics", _build)
 
     def show_artwork(self, key: str = ""):
         def _build():
+            w = self._win
             from ui.audio_lab.artwork_page import ArtworkPage
-            page = ArtworkPage()
+            page = ArtworkPage(db=getattr(w, '_db', None),
+                               worker_mgr=getattr(w, '_workers', None))
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
             return page
         self._lazy("audio_lab_artwork", _build)
 
     def show_musicbrainz(self, key: str = ""):
         def _build():
+            w = self._win
             from ui.audio_lab.musicbrainz_page import MusicBrainzPage
-            page = MusicBrainzPage()
+            page = MusicBrainzPage(worker_mgr=getattr(w, '_workers', None))
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
             return page
         self._lazy("audio_lab_musicbrainz", _build)
 
     def show_organize(self, key: str = ""):
         def _build():
+            w = self._win
             from ui.audio_lab.organize_page import OrganizePage
-            page = OrganizePage(db=self._win._db if hasattr(self._win, '_db') else None)
+            page = OrganizePage(db=getattr(w, '_db', None),
+                                worker_mgr=getattr(w, '_workers', None))
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
             return page
         self._lazy("audio_lab_organize", _build)
 
     def show_conversion(self, key: str = ""):
         def _build():
+            w = self._win
             from ui.audio_lab.conversion_page import ConversionPage
             page = ConversionPage(
-                encoder=self._win._encoder if hasattr(self._win, '_encoder') else None,
+                encoder=getattr(w, '_encoder', None),
             )
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
             return page
@@ -191,8 +198,9 @@ class AudioLabController:
 
     def show_vinyl_lab(self, key: str = ""):
         def _build():
+            w = self._win
             from ui.audio_lab.vinyl_lab_page import VinylLabPage
-            page = VinylLabPage()
+            page = VinylLabPage(worker_mgr=getattr(w, '_workers', None))
             page.navigate_requested.connect(self._win._on_sidebar_navigate)
             return page
         self._lazy("audio_lab_vinyl_lab", _build)

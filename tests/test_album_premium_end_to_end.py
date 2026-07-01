@@ -72,7 +72,6 @@ class TestPremiumEndToEnd:
         assert len(repo.list_groups()) == 2
 
     def test_duplicate_detected(self):
-        from library.album_repository import AlbumRepository
         from library.album_duplicate_service import AlbumDuplicateService
         from library.album_identity import AlbumIdentity
         from library.album_repository import AlbumGroup

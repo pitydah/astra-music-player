@@ -131,6 +131,31 @@ def encode_to_flac(wav_path: str, output_dir: str,
         return None
 
 
+def export_side(input_path: str, export_dir: str, split_points: list,
+                tracks: list, fmt: str = "flac") -> dict:
+    """Run full export pipeline: split + encode + cleanup.
+    Returns dict with keys: exported (list[str]), errors (list[str]).
+    """
+    result: dict = {"exported": [], "errors": []}
+    try:
+        split_files = split_wav(input_path, export_dir, split_points, tracks)
+    except Exception as e:
+        result["errors"].append(f"split failed: {e}")
+        return result
+    for wav_path in split_files:
+        try:
+            out = encode_wav(wav_path, export_dir, fmt)
+            if out:
+                result["exported"].append(out)
+            if os.path.exists(wav_path) and fmt != "wav":
+                import contextlib
+                with contextlib.suppress(Exception):
+                    os.remove(wav_path)
+        except Exception as e:
+            result["errors"].append(f"{wav_path}: {e}")
+    return result
+
+
 def encode_wav(wav_path: str, output_dir: str, output_format: str = "flac",
                tags: dict | None = None) -> str | None:
     """Encode a WAV file to the specified format."""

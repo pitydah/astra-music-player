@@ -22,10 +22,11 @@ logger = logging.getLogger("michi.lyrics.ui")
 class LyricsPage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self):
+    def __init__(self, worker_mgr=None):
         super().__init__()
         self.setObjectName("lyricsPage")
         self._client = None
+        self._worker_mgr = worker_mgr
         self._current_lyrics = ""
         self._current_title = ""
         self._current_artist = ""
@@ -177,10 +178,29 @@ class LyricsPage(QWidget):
         self._search_progress.setVisible(True)
         self._search_btn.setEnabled(False)
 
+        if self._worker_mgr:
+            def fetch():
+                client = self._get_client()
+                return client.get_lyrics(title, artist, "", 0)
+            self._worker_mgr.run_task(
+                f"lyrics:{title}:{artist}",
+                fetch,
+                on_done=lambda r: self._on_search_done(r, title, artist),
+                on_error=lambda e: self._on_search_error(e),
+            )
+        else:
+            self._search_sync(title, artist)
+
+    def _search_sync(self, title, artist):
         try:
             client = self._get_client()
             result = client.get_lyrics(title, artist, "", 0)
+            self._on_search_done(result, title, artist)
+        except Exception as e:
+            self._on_search_error(e)
 
+    def _on_search_done(self, result, title, artist):
+        try:
             if result and (result.plain or result.lines):
                 if result.lines:
                     lrc_lines = "\n".join(
@@ -206,11 +226,16 @@ class LyricsPage(QWidget):
                 self._info_label.setText(
                     f"No se encontraron letras para \"{title}\"."
                 )
-
         except Exception as e:
-            logger.exception("Lyrics search failed")
+            logger.exception("Lyrics display failed")
             self._info_label.setText(f"Error: {e}")
+        finally:
+            self._search_progress.setVisible(False)
+            self._search_btn.setEnabled(True)
 
+    def _on_search_error(self, error):
+        logger.exception("Lyrics search failed")
+        self._info_label.setText(f"Error: {error}")
         self._search_progress.setVisible(False)
         self._search_btn.setEnabled(True)
 

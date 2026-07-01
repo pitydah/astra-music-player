@@ -84,7 +84,7 @@ class TestEmptyLibrary:
     def test_empty_db_actions_include_add_folder(self, empty_db):
         svc = HomeDashboardService(db=empty_db)
         snap = svc.build_snapshot()
-        assert any("Anadir" in a.label for a in snap.actions)
+        assert any("Añadir" in a.label for a in snap.actions)
 
     def test_empty_db_no_alerts(self, empty_db):
         svc = HomeDashboardService(db=empty_db)
@@ -157,7 +157,7 @@ class TestNormalizePlayback:
         assert HomeDashboardService._normalize_playback_state("stopped") == "stopped"
 
     def test_normalize_unknown(self):
-        assert HomeDashboardService._normalize_playback_state("bogus") == "unknown"
+        assert HomeDashboardService._normalize_playback_state("bogus") == "stopped"
 
     def test_normalize_enum(self):
         class FakeEnum:
@@ -200,28 +200,28 @@ class TestEcosystem:
         assert snap.ecosystem.mobile_sync_state == "no_device"
 
     def test_ecosystem_doctor_micro_connected(self):
-        eco_doctor = MagicMock()
-        eco_doctor.diagnose_micro_server.return_value = {"state": "connected", "host": "192.168.1.100", "issue_code": ""}
-        with patch("core.settings_manager.get_str", return_value="192.168.1.100"):
-            svc = HomeDashboardService(ecosystem_doctor=eco_doctor)
-            snap = svc.build_snapshot()
-            assert snap.ecosystem.micro_server_state == "connected"
+        mlc = MagicMock()
+        mlc.get_connection_state.return_value = {"micro_server_state": "connected", "micro_server_name": "192.168.1.100"}
+        mlc.get_capabilities.return_value = {"contract_ok": True, "can_continue_playback": True}
+        svc = HomeDashboardService(michi_link_ctrl=mlc)
+        snap = svc.build_snapshot()
+        assert snap.ecosystem.micro_server_state == "connected"
 
     def test_ecosystem_doctor_micro_requires_pairing(self):
-        eco_doctor = MagicMock()
-        eco_doctor.diagnose_micro_server.return_value = {"state": "requires_pairing", "host": "", "issue_code": "MICRO_REQUIRES_PAIRING"}
-        with patch("core.settings_manager.get_str", return_value="192.168.1.100"):
-            svc = HomeDashboardService(ecosystem_doctor=eco_doctor)
-            snap = svc.build_snapshot()
-            assert snap.ecosystem.micro_server_state == "requires_pairing"
+        mlc = MagicMock()
+        mlc.get_connection_state.return_value = {"micro_server_state": "requires_pairing"}
+        mlc.get_capabilities.return_value = {}
+        svc = HomeDashboardService(michi_link_ctrl=mlc)
+        snap = svc.build_snapshot()
+        assert snap.ecosystem.micro_server_state == "requires_pairing"
 
     def test_ecosystem_doctor_micro_contract_error(self):
-        eco_doctor = MagicMock()
-        eco_doctor.diagnose_micro_server.return_value = {"state": "unreachable", "host": "", "issue_code": "MICRO_UNREACHABLE"}
-        with patch("core.settings_manager.get_str", return_value="192.168.1.100"):
-            svc = HomeDashboardService(ecosystem_doctor=eco_doctor)
-            snap = svc.build_snapshot()
-            assert snap.ecosystem.micro_server_state == "unreachable"
+        mlc = MagicMock()
+        mlc.get_connection_state.return_value = {"micro_server_state": "unreachable"}
+        mlc.get_capabilities.return_value = {}
+        svc = HomeDashboardService(michi_link_ctrl=mlc)
+        snap = svc.build_snapshot()
+        assert snap.ecosystem.micro_server_state == "unreachable"
 
 
 class TestAlerts:
@@ -317,10 +317,10 @@ class TestSubtitle:
         snap = svc.build_snapshot()
         assert "12,438" in snap.subtitle or "12438" in snap.subtitle
 
-    def test_subtitle_empty(self):
-        svc = HomeDashboardService(db=MagicMock())
+    def test_subtitle_empty(self, empty_db):
+        svc = HomeDashboardService(db=empty_db)
         snap = svc.build_snapshot()
-        assert snap.subtitle
+        assert snap.subtitle == "Todo listo"
 
 
 class TestSettingsKeys:

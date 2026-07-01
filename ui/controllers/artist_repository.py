@@ -1,5 +1,10 @@
 """Artist repository — holds artist groups state and provides lookup methods."""
 from library.artist_grouping import ArtistGroup, build_artist_groups
+from library.artist_insights import (
+    ArtistInsight, ArtistQualitySummary, ArtistMetadataHealth,
+    build_artist_insight,
+)
+from library.artist_aliases import find_artist_alias_candidates
 
 
 class ArtistRepository:
@@ -7,10 +12,18 @@ class ArtistRepository:
         self._groups: list[ArtistGroup] = []
         self._by_key: dict[str, ArtistGroup] = {}
         self._current_key: str | None = None
+        self._all_items: list = []
+        self._insights_by_key: dict[str, ArtistInsight] = {}
+        self._insight_dirty = True
 
     def build(self, items: list):
         self._groups = build_artist_groups(items)
         self._by_key = {g.key: g for g in self._groups}
+        self._all_items = items
+        self._insight_dirty = True
+
+    def invalidate_insights(self):
+        self._insight_dirty = True
 
     @property
     def groups(self) -> list[ArtistGroup]:
@@ -109,22 +122,11 @@ class ArtistRepository:
         return group.all_tracks if group else []
 
     def top_tracks_for_artist(self, key: str, limit: int = 10) -> list:
+        from library.artist_insights import rank_top_tracks
         group = self.get_group(key)
         if not group:
             return []
-        tracks = group.all_tracks[:]
-        # Order by play_count if available, else by album year + track number
-        for t in tracks:
-            if not hasattr(t, 'play_count') or t.play_count is None:
-                t.play_count = 0
-        tracks.sort(key=lambda t: (
-            -(getattr(t, 'play_count', 0) or 0),
-            getattr(t, 'year', 0) or 0,
-            getattr(t, 'album', '') or '',
-            getattr(t, 'disc_number', 1) or 1,
-            getattr(t, 'track_number', 0) or 0,
-        ))
-        return tracks[:limit]
+        return rank_top_tracks(group, limit)
 
     def genres_for_artist(self, key: str) -> list[str]:
         group = self.get_group(key)
@@ -133,3 +135,60 @@ class ArtistRepository:
     def years_for_artist(self, key: str) -> list[int]:
         group = self.get_group(key)
         return group.years if group else []
+
+    # ── Insight methods ──
+
+    def _ensure_insights(self):
+        if not self._insight_dirty:
+            return
+        self._insights_by_key = {}
+        for group in self._groups:
+            self._insights_by_key[group.key] = build_artist_insight(
+                group, self._all_items)
+        self._insight_dirty = False
+
+    def insight_for_artist(self, key: str) -> ArtistInsight | None:
+        self._ensure_insights()
+        return self._insights_by_key.get(key)
+
+    def quality_summary_for_artist(self, key: str) -> ArtistQualitySummary | None:
+        insight = self.insight_for_artist(key)
+        return insight.quality if insight else None
+
+    def metadata_health_for_artist(self, key: str) -> ArtistMetadataHealth | None:
+        insight = self.insight_for_artist(key)
+        return insight.health if insight else None
+
+    def collaborations_for_artist(self, key: str) -> list:
+        insight = self.insight_for_artist(key)
+        return insight.collaborations if insight else []
+
+    def alias_candidates_for_artist(self, key: str) -> list[tuple[str, str, float]]:
+        candidates = find_artist_alias_candidates(self._groups)
+        return [(k1, k2, s) for k1, k2, s in candidates if k1 == key or k2 == key]
+
+    def artists_with_warnings(self) -> list[ArtistGroup]:
+        self._ensure_insights()
+        result = []
+        for group in self._groups:
+            insight = self._insights_by_key.get(group.key)
+            if insight and insight.health.total_issues > 0:
+                result.append(group)
+        return result
+
+    def artists_with_missing_info(self) -> list[ArtistGroup]:
+        return [g for g in self._groups if not g.enrichment_status]
+
+    def artists_with_external_info(self) -> list[ArtistGroup]:
+        return [g for g in self._groups if g.enrichment_status == "loaded"]
+
+    def artists_by_quality(self) -> list[ArtistGroup]:
+        self._ensure_insights()
+        sorted_groups = sorted(
+            self._groups,
+            key=lambda g: (
+                -(self._insights_by_key.get(g.key).quality.lossless_ratio
+                  if self._insights_by_key.get(g.key) else 0),
+            ),
+        )
+        return sorted_groups

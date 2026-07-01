@@ -30,9 +30,10 @@ logger = logging.getLogger("michi.vinyl.ui")
 class VinylLabPage(QWidget):
     navigate_requested = Signal(str)
 
-    def __init__(self):
+    def __init__(self, worker_mgr=None):
         super().__init__()
         self.setObjectName("vinylLabPage")
+        self._worker_mgr = worker_mgr
         self._capture = None
         self._project_id = ""
         self._side_a_path = ""
@@ -584,58 +585,67 @@ class VinylLabPage(QWidget):
 
         fmt = self._export_format.currentData() or "flac"
         self._export_progress.setVisible(True)
-        self._export_progress.setValue(10)
-
-        # TODO: mover split + encode a WorkerManager para no bloquear UI
-        from vinyl.exporter import split_wav, encode_wav
+        self._export_progress.setValue(5)
 
         tracks = [
             {"track_number": i + 1, "title": f"Track {i + 1}"}
             for i in range(len(self._split_points) - 1)
         ]
 
-        split_files = split_wav(fp, export_dir, self._split_points, tracks)
-        self._export_progress.setValue(50)
-
-        exported = []
-        for wav_path in split_files:
-            result = encode_wav(wav_path, export_dir, fmt)
-            if result:
-                exported.append(result)
-            if os.path.exists(wav_path) and fmt != "wav":
-                import contextlib
-                with contextlib.suppress(Exception):
-                    os.remove(wav_path)
-
-        self._export_progress.setValue(80)
-
-        # Import to library
-        imported = 0
-        try:
-            from ui.audio_lab.services.library_importer import LibraryImporter
-            importer = LibraryImporter()
-            result = importer.import_tracks(
-                exported, {}, destination=export_dir
+        if self._worker_mgr:
+            from vinyl.exporter import export_side
+            self._export_btn.setEnabled(False)
+            self._export_progress.setRange(0, 0)
+            self._export_progress.setValue(0)
+            self._worker_mgr.run_task(
+                "vinyl_export",
+                export_side, fp, export_dir, self._split_points, tracks, fmt,
+                on_done=lambda r: self._on_export_done(r, export_dir, fmt),
+                on_error=lambda e: self._on_export_error(e),
             )
-            imported = len(result.get("ok", []))
-            if imported:
-                importer.add_to_library(result["ok"])
-        except Exception as e:
-            logger.warning("Library import failed: %s", e)
+        else:
+            self._export_sync(fp, export_dir, fmt, tracks)
 
+    def _export_sync(self, fp, export_dir, fmt, tracks):
+        from vinyl.exporter import export_side
+        result = export_side(fp, export_dir, self._split_points, tracks, fmt)
+        self._on_export_done(result, export_dir, fmt)
+
+    def _on_export_done(self, result, export_dir, fmt):
+        self._export_progress.setRange(0, 100)
+        self._export_progress.setValue(80)
+        self._export_btn.setEnabled(True)
+        exported = result.get("exported", [])
+        errors = result.get("errors", [])
+        imported = 0
+        if exported:
+            try:
+                from ui.audio_lab.services.library_importer import LibraryImporter
+                importer = LibraryImporter()
+                r = importer.import_tracks(exported, {}, destination=export_dir)
+                imported = len(r.get("ok", []))
+                if imported:
+                    importer.add_to_library(r["ok"])
+            except Exception as e:
+                logger.warning("Library import failed: %s", e)
         self._export_progress.setValue(100)
-
         msg = (
             f"Exportación completada.\n"
             f"{len(exported)} pistas exportadas a {fmt.upper()} en:\n"
             f"{export_dir}"
         )
+        if errors:
+            msg += f"\n\n{len(errors)} error(es):\n" + "\n".join(errors[:3])
         if imported:
             msg += f"\n\n{imported} pista(s) importada(s) a la biblioteca."
         else:
             msg += "\n\n(Importación a biblioteca no disponible)"
-
         QMessageBox.information(self, "Vinyl Lab", msg)
+
+    def _on_export_error(self, error):
+        self._export_btn.setEnabled(True)
+        self._export_progress.setVisible(False)
+        QMessageBox.warning(self, "Vinyl Lab", f"Error de exportación:\n{error}")
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

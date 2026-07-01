@@ -4,6 +4,13 @@ from collections import defaultdict
 
 from library.library_db import MediaItem
 
+_ALIAS_ENABLED = True
+
+
+def set_alias_resolution(enabled: bool):
+    global _ALIAS_ENABLED
+    _ALIAS_ENABLED = enabled
+
 
 @dataclass
 class ArtistAlbumGroup:
@@ -72,6 +79,17 @@ def normalize_artist_name(name: str) -> str:
     return n.lower()
 
 
+def _resolve_artist_key(key: str, display_name: str) -> str:
+    if not _ALIAS_ENABLED:
+        return key
+    try:
+        from library.artist_aliases import resolve_alias
+        resolved = resolve_alias(display_name, key)
+        return resolved
+    except Exception:
+        return key
+
+
 def _artist_key(item: MediaItem) -> str:
     """Get the grouping key for an item's artist. Prefers MusicBrainz ID."""
     mb_raw = getattr(item, "mb_albumartist_id", None)  # noqa: B009
@@ -79,7 +97,11 @@ def _artist_key(item: MediaItem) -> str:
         return "mb:" + mb_raw.strip()
     ai = str(getattr(item, "albumartist", "") or "")
     ar = str(item.artist or "")
-    return normalize_artist_name(ai or ar) or "artista desconocido"
+    base = normalize_artist_name(ai or ar) or "artista desconocido"
+    if base == "artista desconocido":
+        return base
+    display = ai or ar or "Artista desconocido"
+    return _resolve_artist_key(base, display)
 
 
 def _artist_display(item: MediaItem) -> str:

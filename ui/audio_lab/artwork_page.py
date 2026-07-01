@@ -17,6 +17,22 @@ from ui.central.central_styles import (
     glass_card_qss, glass_button_qss, glass_progress_qss,
 )
 
+logger = logging.getLogger("michi.artwork")
+
+
+def _scan_missing_albums(rows, resolver):
+    """Scan albums for missing artwork. Runs in worker thread."""
+    missing = []
+    for album, artist, directory in rows:
+        if not directory or not os.path.isdir(directory):
+            continue
+        covers = resolver.search_album_art({
+            "album": album, "artist": artist, "directory": directory,
+        })
+        if not covers:
+            missing.append(f"{artist} — {album}" if artist else album)
+    return missing
+
 logger = logging.getLogger("michi.artwork.ui")
 
 _AUDIO_FILTER = "Audio (*.flac *.mp3 *.m4a *.mp4 *.ogg *.oga *.opus)"
@@ -32,11 +48,12 @@ class ArtworkPage(QWidget):
 
     navigate_requested = Signal(str)
 
-    def __init__(self, db=None):
+    def __init__(self, db=None, worker_mgr=None):
         super().__init__()
         self.setObjectName("artworkPage")
         self._resolver = None
         self._db = db
+        self._worker_mgr = worker_mgr
         self._new_artwork_path = ""
         self._target_audio_files: list[str] = []
         self._build_ui()
@@ -280,7 +297,66 @@ class ArtworkPage(QWidget):
         self._missing_list.clear()
         self._missing_progress.setVisible(True)
         self._missing_progress.setValue(0)
+        self._scan_missing_btn.setEnabled(False)
 
+        if self._worker_mgr:
+            db = self._db
+            rows = []
+            temp_db = None
+            try:
+                if db is None:
+                    from library.library_db import LibraryDB, DB_PATH
+                    temp_db = LibraryDB(DB_PATH)
+                    db = temp_db
+                rows = db._conn.execute(
+                    "SELECT DISTINCT album, albumartist, directory "
+                    "FROM media_items WHERE deleted_at IS NULL "
+                    "AND album IS NOT NULL AND album != ''"
+                ).fetchall()
+            except Exception as e:
+                self._missing_list.addItem(f"Error: {e}")
+                self._missing_progress.setVisible(False)
+                self._scan_missing_btn.setEnabled(True)
+                return
+            finally:
+                if temp_db is not None:
+                    import contextlib
+                    with contextlib.suppress(Exception):
+                        temp_db.close()
+
+            resolver = self._get_resolver()
+            self._worker_mgr.run_task(
+                "artwork_scan_missing",
+                _scan_missing_albums, rows, resolver,
+                on_done=lambda r: self._on_scan_done(r),
+                on_error=lambda e: self._on_scan_error(e),
+            )
+        else:
+            self._scan_missing_sync()
+
+    def _on_scan_done(self, missing):
+        self._missing_list.clear()
+        if missing:
+            for entry in missing[:100]:
+                self._missing_list.addItem(entry)
+            if len(missing) > 100:
+                self._missing_list.addItem(
+                    f"... y {len(missing) - 100} más"
+                )
+        else:
+            self._missing_list.addItem(
+                "Todos los álbumes tienen carátula."
+            )
+        self._missing_progress.setVisible(False)
+        self._scan_missing_btn.setEnabled(True)
+
+    def _on_scan_error(self, error):
+        logger.exception("Missing artwork scan failed")
+        self._missing_list.addItem(f"Error: {error}")
+        self._missing_progress.setVisible(False)
+        self._scan_missing_btn.setEnabled(True)
+
+    def _scan_missing_sync(self):
         temp_db = None
         db = self._db
         try:
@@ -288,53 +364,18 @@ class ArtworkPage(QWidget):
                 from library.library_db import LibraryDB, DB_PATH
                 temp_db = LibraryDB(DB_PATH)
                 db = temp_db
-
             rows = db._conn.execute(
                 "SELECT DISTINCT album, albumartist, directory "
                 "FROM media_items WHERE deleted_at IS NULL "
                 "AND album IS NOT NULL AND album != ''"
             ).fetchall()
-
             resolver = self._get_resolver()
-            missing = []
-            total = max(1, len(rows))
-
-            for i, (album, artist, directory) in enumerate(rows):
-                if (i + 1) % 10 == 0:
-                    pct = int((i + 1) / total * 100)
-                    self._missing_progress.setValue(pct)
-                    from PySide6.QtCore import QCoreApplication
-                    QCoreApplication.processEvents()
-
-                if not directory or not os.path.isdir(directory):
-                    continue
-
-                covers = resolver.search_album_art({
-                    "album": album, "artist": artist, "directory": directory,
-                })
-                if not covers:
-                    missing.append(f"{artist} — {album}" if artist else album)
-
-            self._missing_list.clear()
-            if missing:
-                for entry in missing[:100]:
-                    self._missing_list.addItem(entry)
-                if len(missing) > 100:
-                    self._missing_list.addItem(
-                        f"... y {len(missing) - 100} más"
-                    )
-            else:
-                self._missing_list.addItem(
-                    "Todos los álbumes tienen carátula."
-                )
-
+            missing = _scan_missing_albums(rows, resolver)
+            self._on_scan_done(missing)
         except Exception as e:
-            logger.exception("Missing artwork scan failed")
-            self._missing_list.addItem(f"Error: {e}")
+            self._on_scan_error(e)
         finally:
             if temp_db is not None:
-                try:
+                import contextlib
+                with contextlib.suppress(Exception):
                     temp_db.close()
-                except Exception:
-                    logger.debug("Temporary artwork DB close failed", exc_info=True)
-            self._missing_progress.setVisible(False)
