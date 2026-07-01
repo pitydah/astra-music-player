@@ -1,7 +1,7 @@
 """SongsStatusDelegate — paints quality text with category-based colors."""
 
 from PySide6.QtCore import Qt, QModelIndex
-from PySide6.QtGui import QColor, QPainter
+from PySide6.QtGui import QColor, QPainter, QPalette
 from PySide6.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem
 
 _QUALITY_COLORS = {
@@ -33,7 +33,7 @@ class SongsStatusDelegate(QStyledItemDelegate):
             if st:
                 category = st.get("quality_category", "unknown")
                 color = _QUALITY_COLORS.get(category, _QUALITY_COLORS["unknown"])
-                option.palette.setColor(option.palette.Text, color)
+                option.palette.setColor(QPalette.ColorRole.Text, color)
 
         super().paint(painter, option, index)
 

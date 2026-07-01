@@ -68,9 +68,16 @@ class TestArtistGridWidgetQt:
         grid.set_artists([group])
         assert grid._filtered == [group]
 
-    def test_empty_state_shown_when_no_artists(self, grid):
+    def test_empty_state_shown_when_no_artists(self, grid, qtbot):
         grid.set_artists([])
-        assert grid._empty_frame.isVisible()
+        qtbot.wait(10)
+        assert not grid._empty_frame.isHidden()
+
+    def test_empty_state_hidden_with_artists(self, grid, qtbot):
+        group = _make_group()
+        grid.set_artists([group])
+        qtbot.wait(10)
+        assert grid._empty_frame.isHidden()
 
     def test_search_filters_artists(self, grid):
         a1 = _make_group(key="beatles", display_name="The Beatles",
@@ -90,13 +97,18 @@ class TestArtistGridWidgetQt:
         grid._apply_filters()
         assert grid._filtered[0].key == "a"
 
-    def test_view_mode_switching(self, grid):
+    def test_view_mode_switching(self, grid, qtbot):
+        group = _make_group()
+        grid.set_artists([group])
+        qtbot.wait(10)
         grid.set_view_mode("list")
+        qtbot.wait(10)
         assert grid._view_mode == "list"
-        assert not grid._scroll.isVisible()
+        assert grid._scroll.isHidden()
         grid.set_view_mode("grid")
+        qtbot.wait(10)
         assert grid._view_mode == "grid"
-        assert grid._scroll.isVisible()
+        assert not grid._scroll.isHidden()
 
     def test_artist_selected_signal(self, grid, qtbot):
         group = _make_group()

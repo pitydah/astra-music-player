@@ -361,6 +361,18 @@ class ArtistGridWidget(QWidget):
     # ── Render ──
 
     def _refresh(self):
+        if not self._filtered:
+            self._list.hide()
+            self._scroll.hide()
+            if not self._artists:
+                self._empty_frame.show()
+                self._empty_filter_frame.hide()
+            else:
+                self._empty_frame.hide()
+                self._empty_filter_frame.show()
+            return
+        self._empty_frame.hide()
+        self._empty_filter_frame.hide()
         if self._view_mode == "grid":
             self._list.hide()
             self._scroll.show()
