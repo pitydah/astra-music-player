@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, qml-migration-foundation-clean]
   pull_request:
-    branches: [main]
+    branches: [main, qml-migration-foundation-clean]
 
 jobs:
   # ── Job 1: packaging — validates pyproject.toml, deps, ruff, compile ──
