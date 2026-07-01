@@ -101,7 +101,8 @@ class HomeDashboardService:
         playback.can_continue_remote = bool(
             playback.can_continue
             and ecosystem.micro_server_state == "connected"
-            and ecosystem.diagnostics_available
+            and ecosystem.micro_server_contract_ok
+            and ecosystem.micro_server_can_continue
         )
 
         return HomeDashboardSnapshot(
@@ -120,55 +121,8 @@ class HomeDashboardService:
         )
 
     def _build_library_status(self) -> LibraryHomeStatus:
-        ctx = self._context_svc
-        db = self._db
-
-        if ctx is not None:
-            try:
-                snap = ctx.get_home_snapshot()
-                if snap and "library_health" in snap:
-                    lh = snap["library_health"]
-                    return LibraryHomeStatus(
-                        track_count=lh.get("track_count", 0),
-                        album_count=lh.get("album_count", 0),
-                        artist_count=lh.get("artist_count", 0),
-                        genre_count=lh.get("genre_count", 0),
-                        active_roots_count=lh.get("active_roots_count", 0),
-                        last_scan=lh.get("last_scan"),
-                        index_error_count=lh.get("index_error_count", 0),
-                        missing_file_count=lh.get("missing_file_count", 0),
-                        missing_metadata_count=lh.get("missing_metadata_count", 0),
-                        missing_cover_count=lh.get("missing_cover_count", 0),
-                        tracks_without_audio_features=lh.get(
-                            "tracks_without_audio_features", 0
-                        ),
-                        new_tracks_count=lh.get("new_tracks_count", 0),
-                        is_empty=lh.get("track_count", 0) == 0,
-                        is_healthy=(
-                            lh.get("index_error_count", 0) == 0
-                            and lh.get("missing_file_count", 0) == 0
-                        ),
-                    )
-            except Exception:
-                logger.debug("ContextService snapshot unavailable, falling back to DB")
-
-        if db is not None:
-            try:
-                from core.home.home_helpers import get_db_stats
-                ds = get_db_stats(db)
-                tc = ds.get("total_songs", ds.get("total", 0))
-                return LibraryHomeStatus(
-                    track_count=tc,
-                    album_count=ds.get("total_albums", 0),
-                    artist_count=ds.get("total_artists", 0),
-                    missing_metadata_count=ds.get("missing_metadata", 0),
-                    is_empty=tc == 0,
-                    is_healthy=True,
-                )
-            except Exception:
-                logger.debug("DB stats unavailable")
-
-        return LibraryHomeStatus(is_empty=True, is_healthy=True)
+        from core.home.builders.library_home_builder import build_library_status
+        return build_library_status(db=self._db, context_svc=self._context_svc)
 
     @staticmethod
     def _normalize_playback_state(state) -> str:
@@ -360,6 +314,9 @@ class HomeDashboardService:
         except Exception:
             pass
 
+        contract_ok = False
+        can_continue = False
+
         # Use Michi Link controller for real Micro Server state
         mlc = self._michi_link_ctrl
         if mlc is not None:
@@ -376,6 +333,10 @@ class HomeDashboardService:
                         micro_state = "contract_error"
                     elif ms == "disconnected":
                         micro_state = "disconnected"
+                caps = mlc.get_capabilities()
+                if caps:
+                    contract_ok = caps.get("contract_ok", False)
+                    can_continue = caps.get("can_continue_playback", False)
             except Exception:
                 pass
 
@@ -426,6 +387,8 @@ class HomeDashboardService:
             micro_server_state=micro_state,
             micro_server_name=micro_name,
             micro_server_issue_code=micro_issue_code,
+            micro_server_contract_ok=contract_ok,
+            micro_server_can_continue=can_continue,
             remote_music_server_state=remote_music_state,
             remote_music_server_count=remote_music_count,
             remote_music_server_name=remote_music_name,
@@ -574,18 +537,21 @@ class HomeDashboardService:
                 ),
             )
 
-        if len(alerts) > 5:
-            extra = len(alerts) - 5
-            alerts = alerts[:5]
-            alerts.append(
+        MAX_HOME_ALERTS = 5
+
+        if len(alerts) > MAX_HOME_ALERTS:
+            extra = len(alerts) - (MAX_HOME_ALERTS - 1)
+            alerts = alerts[:MAX_HOME_ALERTS - 1] + [
                 HomeAlert(
                     severity="info",
-                    kind="playlists",
+                    kind="additional",
                     title="Problemas adicionales",
                     message=f"Hay {extra} problemas adicionales",
                     count=extra,
+                    target_route="audio_lab_diagnostics",
+                    action_label="Ver todo",
                 )
-            )
+            ]
 
         return alerts
 

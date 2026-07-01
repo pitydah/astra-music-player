@@ -62,6 +62,8 @@ class EcosystemHomeStatus:
     micro_server_state: str = "not_configured"
     micro_server_name: str = ""
     micro_server_issue_code: str = ""
+    micro_server_contract_ok: bool = False
+    micro_server_can_continue: bool = False
     remote_music_server_state: str = "not_configured"
     remote_music_server_count: int = 0
     remote_music_server_name: str = ""

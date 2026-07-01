@@ -1,6 +1,18 @@
 """Contract tests — every route emitted from Home must exist in NAV_ROUTES."""
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QPushButton
+
+from core.home.home_status import (
+    AssistantSuggestion,
+    AudioHomeStatus,
+    EcosystemHomeStatus,
+    HomeAlert,
+    HomeDashboardSnapshot,
+    LibraryHomeStatus,
+    PlaybackHomeStatus,
+)
 from ui.hubs.home_page import HomePage
 
 
@@ -12,9 +24,70 @@ class TestHomeRoutesContract:
         "assistant", "mix_hub", "devices_page",
     }
 
+    ROUTE_BY_BUTTON = {
+        "homeContinueButton": "playback_hub",
+        "homeQueueButton": "playback_hub",
+        "homeExploreLibraryButton": "library_hub",
+        "homeCreateMixButton": "mix_hub",
+        "homeViewLibraryButton": "library_hub",
+        "homeReviewProblemsButton": "audio_lab_diagnostics",
+        "homeAudioOutputButton": "audio_lab_output",
+        "homeAudioLabButton": "audio_lab",
+        "homeConnectServerButton": "connections_hub",
+        "homeSyncMobileButton": "devices_page",
+        "homeConnectionDiagnosticsButton": "connections_hub",
+        "homeAssistantOpenButton": "assistant",
+    }
+
+    @staticmethod
+    def _make_snapshot(
+        alerts: list | None = None,
+        suggestions: list | None = None,
+        actions: list | None = None,
+        micro_state: str = "disconnected",
+        has_playback: bool = True,
+    ) -> HomeDashboardSnapshot:
+        return HomeDashboardSnapshot(
+            overall_state="ready",
+            headline="Michi está listo",
+            subtitle="100 canciones",
+            library=LibraryHomeStatus(
+                track_count=100, album_count=10, artist_count=5,
+                genre_count=3, active_roots_count=1, last_scan="today",
+                index_error_count=0, missing_file_count=0,
+                missing_metadata_count=0, missing_cover_count=0,
+                tracks_without_audio_features=0, new_tracks_count=0,
+                is_empty=False, is_healthy=True,
+            ),
+            playback=PlaybackHomeStatus(
+                has_current_track=has_playback,
+                current_title="Test Song" if has_playback else "",
+                current_artist="Artist" if has_playback else "",
+                state="playing" if has_playback else "stopped",
+                queue_active=True,
+                queue_count=5,
+                can_continue=has_playback,
+            ),
+            audio=AudioHomeStatus(
+                output_device="USB DAC",
+                output_profile="hifi_pcm",
+                dac_active=True,
+            ),
+            ecosystem=EcosystemHomeStatus(
+                micro_server_state=micro_state,
+                micro_server_name="MyServer" if micro_state == "connected" else "",
+                diagnostics_available=micro_state == "connected",
+            ),
+            alerts=alerts or [],
+            assistant_suggestions=suggestions or [],
+            actions=actions or [],
+            errors=[],
+        )
+
     def test_all_nav_routes_valid(self, qtbot):
         page = HomePage()
         qtbot.addWidget(page)
+        page.show()
         emitted = set()
 
         def capture(route):
@@ -28,104 +101,82 @@ class TestHomeRoutesContract:
         for route in emitted:
             assert route in self.NAV_ROUTES, f"Route '{route}' not in NAV_ROUTES"
 
-    def test_no_orphan_routes(self, qtbot):
+    def test_buttons_emit_correct_routes(self, qtbot):
         page = HomePage()
         qtbot.addWidget(page)
-        from core.home.home_status import (
-            HomeDashboardSnapshot,
-            LibraryHomeStatus,
-            PlaybackHomeStatus,
-            AudioHomeStatus,
-            EcosystemHomeStatus,
-            HomeAlert,
-            AssistantSuggestion,
-        )
-
-        snap = HomeDashboardSnapshot(
-            overall_state="needs_attention",
-            headline="Michi requiere atención",
-            library=LibraryHomeStatus(
-                track_count=1000,
-                is_empty=False,
-                is_healthy=False,
-                index_error_count=3,
-                missing_metadata_count=100,
-            ),
-            playback=PlaybackHomeStatus(
-                has_current_track=True,
-                current_title="Test",
-                current_artist="Artist",
-                state="playing",
-                queue_active=True,
-                queue_count=5,
-            ),
-            audio=AudioHomeStatus(
-                output_device="USB DAC",
-                output_profile="hifi_pcm",
-                dac_active=True,
-            ),
-            ecosystem=EcosystemHomeStatus(
-                micro_server_state="disconnected",
-            ),
+        page.show()
+        snap = self._make_snapshot(
             alerts=[
                 HomeAlert(
-                    severity="critical",
-                    kind="index_errors",
-                    title="Error",
-                    message="test",
-                    target_route="audio_lab_diagnostics",
-                    action_label="Revisar",
+                    severity="critical", kind="index_errors",
+                    title="Error", message="test",
+                    target_route="audio_lab_diagnostics", action_label="Revisar",
                 ),
             ],
-            assistant_suggestions=[
+            suggestions=[
                 AssistantSuggestion(
-                    title="Sugerencia",
-                    target_route="metadata_editor",
+                    title="Sugerencia", target_route="metadata_editor",
                 ),
             ],
         )
         page.render_snapshot(snap)
-        assert page._snapshot is not None
+        emitted = []
+        page.navigation_requested.connect(lambda r: emitted.append(r))
 
-    def test_assistant_open_button_exists(self, qtbot):
+        for obj_name, expected_route in self.ROUTE_BY_BUTTON.items():
+            btn = page.findChild(QPushButton, obj_name)
+            if btn and btn.isVisible():
+                qtbot.mouseClick(btn, Qt.LeftButton)
+                assert expected_route in emitted, (
+                    f"Button '{obj_name}' should emit '{expected_route}', got {emitted}"
+                )
+                emitted.clear()
+
+    def test_connect_server_for_not_configured(self, qtbot):
         page = HomePage()
         qtbot.addWidget(page)
-        snap = type("snap", (), {
-            "overall_state": "ready",
-            "headline": "Ready",
-            "subtitle": "",
-            "library": type("lib", (), {
-                "track_count": 100, "album_count": 10, "artist_count": 5,
-                "genre_count": 3, "active_roots_count": 1, "last_scan": "today",
-                "index_error_count": 0, "missing_file_count": 0,
-                "missing_metadata_count": 0, "missing_cover_count": 0,
-                "tracks_without_audio_features": 0, "new_tracks_count": 0,
-                "is_empty": False, "is_healthy": True,
-            })(),
-            "playback": type("pb", (), {
-                "has_current_track": False, "current_title": "", "current_artist": "",
-                "current_album": "", "current_cover_id": "", "current_position": 0.0,
-                "current_duration": 0.0, "queue_active": False, "queue_count": 0,
-                "last_track_title": "", "last_track_artist": "",
-                "can_continue": False, "can_continue_remote": False,
-                "source": "", "state": "stopped",
-            })(),
-            "audio": type("au", (), {
-                "output_device": "", "output_profile": "", "dac_active": False,
-                "replaygain_enabled": False, "eq_enabled": False, "dsp_active": False,
-                "bitperfect_state": "not_available", "format_label": "",
-                "sample_rate": 0, "bit_depth": 0, "warnings": [],
-            })(),
-            "ecosystem": type("ec", (), {
-                "micro_server_state": "disconnected", "micro_server_name": "",
-                "mobile_sync_state": "no_device", "mobile_device_count": 0,
-                "api_state": "unknown", "home_audio_state": "disabled",
-                "last_sync": None, "diagnostics_available": False,
-            })(),
-            "alerts": [],
-            "assistant_suggestions": [],
-            "actions": [],
-            "errors": [],
-            "generated_at": 0.0,
-        })()
+        page.show()
+        snap = self._make_snapshot(micro_state="not_configured")
         page.render_snapshot(snap)
+        btn = page.findChild(QPushButton, "homeConnectServerButton")
+        assert btn is not None
+        emitted = []
+        page.navigation_requested.connect(lambda r: emitted.append(r))
+        btn.click()
+        assert "connections_hub" in emitted
+
+    def test_connect_server_for_unreachable(self, qtbot):
+        page = HomePage()
+        qtbot.addWidget(page)
+        page.show()
+        snap = self._make_snapshot(micro_state="unreachable")
+        page.render_snapshot(snap)
+        btn = page.findChild(QPushButton, "homeConnectServerButton")
+        assert btn is not None
+
+    def test_connect_server_for_requires_pairing(self, qtbot):
+        page = HomePage()
+        qtbot.addWidget(page)
+        page.show()
+        snap = self._make_snapshot(micro_state="requires_pairing")
+        page.render_snapshot(snap)
+        btn = page.findChild(QPushButton, "homeConnectServerButton")
+        assert btn is not None
+
+    def test_connect_server_for_contract_error(self, qtbot):
+        page = HomePage()
+        qtbot.addWidget(page)
+        page.show()
+        snap = self._make_snapshot(micro_state="contract_error")
+        page.render_snapshot(snap)
+        btn = page.findChild(QPushButton, "homeConnectServerButton")
+        assert btn is not None
+
+    def test_connect_server_hidden_when_connected(self, qtbot):
+        page = HomePage()
+        qtbot.addWidget(page)
+        page.show()
+        snap = self._make_snapshot(micro_state="connected")
+        page.render_snapshot(snap)
+        btn = page.findChild(QPushButton, "homeConnectServerButton")
+        assert btn is None

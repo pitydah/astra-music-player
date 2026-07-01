@@ -575,17 +575,15 @@ class HomePage(QWidget):
 
         lines = []
 
-        if eco.micro_server_state == "connected":
-            name = eco.micro_server_name or "Conectado"
-            lines.append(f"Micro Server: {name}")
-        elif eco.micro_server_state == "disconnected":
-            lines.append("Micro Server: No conectado")
-        elif eco.micro_server_state == "requires_pairing":
-            lines.append("Micro Server: Requiere pairing")
-        elif eco.micro_server_state == "contract_error":
-            lines.append("Micro Server: Contrato incompatible")
-        else:
-            lines.append("Micro Server: Desconocido")
+        micro_labels = {
+            "not_configured": "Micro Server: No configurado",
+            "unreachable": "Micro Server: No alcanzable",
+            "disconnected": "Micro Server: No conectado",
+            "requires_pairing": "Micro Server: Requiere pairing",
+            "contract_error": "Micro Server: Contrato incompatible",
+            "connected": f"Micro Server: {eco.micro_server_name or 'Conectado'}",
+        }
+        lines.append(micro_labels.get(eco.micro_server_state, "Micro Server: Estado desconocido"))
 
         if eco.mobile_sync_state == "no_device":
             lines.append("Sync móvil: Sin dispositivos")
@@ -624,7 +622,11 @@ class HomePage(QWidget):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
 
-        if eco.micro_server_state == "disconnected":
+        show_connect = eco.micro_server_state in (
+            "not_configured", "unreachable", "disconnected",
+            "requires_pairing", "contract_error",
+        )
+        if show_connect:
             conn = QPushButton("Conectar servidor")
             conn.setObjectName("homeConnectServerButton")
             conn.setCursor(Qt.PointingHandCursor)
@@ -940,12 +942,23 @@ class HomePage(QWidget):
             ecosystem=EcosystemHomeStatus(
                 micro_server_state=eco.get("micro_server_state", "unknown"),
                 micro_server_name=eco.get("micro_server_name", ""),
+                micro_server_issue_code=eco.get("micro_server_issue_code", ""),
+                micro_server_contract_ok=eco.get("micro_server_contract_ok", False),
+                micro_server_can_continue=eco.get("micro_server_can_continue", False),
+                remote_music_server_state=eco.get("remote_music_server_state", "not_configured"),
+                remote_music_server_count=eco.get("remote_music_server_count", 0),
+                remote_music_server_name=eco.get("remote_music_server_name", ""),
                 mobile_sync_state=eco.get("mobile_sync_state", "no_device"),
                 mobile_device_count=eco.get("mobile_device_count", 0),
                 api_state=eco.get("api_state", "unknown"),
                 home_audio_state=eco.get("home_audio_state", "disabled"),
+                big_server_state=eco.get("big_server_state", "not_configured"),
+                stream_receiver_count=eco.get("stream_receiver_count", 0),
                 last_sync=eco.get("last_sync"),
                 diagnostics_available=eco.get("diagnostics_available", False),
+                overall_ecosystem_status=eco.get("overall_ecosystem_status", "unknown"),
+                warning_count=eco.get("warning_count", 0),
+                error_count=eco.get("error_count", 0),
             ),
             alerts=[_alert(a) for a in alerts_raw if isinstance(a, dict)],
             assistant_suggestions=[_sug(s) for s in suggestions_raw if isinstance(s, dict)],

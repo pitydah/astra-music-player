@@ -26,8 +26,9 @@ Sidebar "Inicio"
 
 | Capa | Archivo | Responsabilidad |
 |------|---------|-----------------|
-| Dataclasses | `core/home/home_status.py` | 9 tipos: HomeDashboardSnapshot, LibraryHomeStatus, PlaybackHomeStatus, AudioHomeStatus, EcosystemHomeStatus, HomeAlert, AssistantSuggestion, HomeAction, HomeCardError |
-| Servicio | `core/home/home_dashboard_service.py` | Construye el snapshot desde servicios existentes. Tolerancia total a fallos parciales |
+| Dataclasses | `core/home/home_status.py` | 9+ tipos: HomeDashboardSnapshot, LibraryHomeStatus, PlaybackHomeStatus, AudioHomeStatus, EcosystemHomeStatus, HomeAlert, AssistantSuggestion, HomeAction, HomeCardError |
+| Builders | `core/home/builders/` | 7 builders individuales (library, playback, audio, ecosystem, alerts, suggestions, actions) |
+| Servicio | `core/home/home_dashboard_service.py` | Orquesta builders, captura errores parciales, compone snapshot |
 | Controlador | `ui/controllers/home_controller.py` | Coordina ciclo de vida, refresh, señales, importación |
 | Vista | `ui/hubs/home_page.py` | Renderiza 7 cards desde el snapshot. Sin lógica de negocio |
 | Estilos | `ui/central/central_styles.py` | Funciones QSS: home_page_qss, home_headline_qss, home_badge_qss, home_metric_value/label, home_alert_item |
@@ -84,16 +85,36 @@ Sidebar "Inicio"
 - Botones: Configurar salida, Abrir Audio Lab, Diagnóstico
 
 ### E. Ecosistema Michi
-- Michi Micro Server (conectado/desconectado/pairing/error)
+
+#### Micro Server
+Estados: `not_configured`, `unreachable`, `disconnected`, `connected`, `requires_pairing`, `contract_error`, `unknown`
+
+El botón "Conectar servidor" aparece para todos los estados excepto `connected`.
+
+`can_continue_remote` solo es `true` si:
+- `playback.can_continue` es `true`
+- `ecosystem.micro_server_state == "connected"`
+- `ecosystem.micro_server_contract_ok` es `true`
+- `ecosystem.micro_server_can_continue` es `true`
+
+**Importante:** Micro Server usa `MichiLinkController.get_capabilities()`, no Subsonic.
+
+#### Remote music servers
+Servidores Subsonic/Navidrome/Jellyfin se muestran como `remote_music_server_state`, separados del Micro Server.
+
+#### Otros
 - Mobile Sync (dispositivos, estado)
 - API local (activa/inactiva)
 - Home Audio (activo/experimental/desactivado)
+- Big Server (appliance dedicado)
+- Stream receivers (ESP32, RPi)
 - Botones: Conectar servidor, Sincronizar móvil, Diagnóstico
 
 ### F. Atención requerida
-- Máximo 5 alertas priorizadas: critical > warning > info
+- Máximo **5** alertas (constante `MAX_HOME_ALERTS = 5`)
+- Prioridad: critical > warning > info
 - Cada alerta tiene título, mensaje, acción y ruta
-- Si hay más de 5, resumen con "Ver todo"
+- Si hay más de 5: 4 alertas reales + 1 resumen (kind=`additional`, target `audio_lab_diagnostics`)
 
 ### G. Michi Assistant
 - Máximo 3 sugerencias contextuales
@@ -144,10 +165,10 @@ Estados: `active` (configurado), `experimental` (no configurado pero disponible)
 
 ### Tests unitarios
 ```bash
-python -m pytest tests/test_home_dashboard_service.py -q   # 41 tests
+python -m pytest tests/test_home_dashboard_service.py -q   # 44 tests
 python -m pytest tests/test_home_controller.py -q         # 19 tests
 python -m pytest tests/test_home_page.py -q               # 24 tests
-python -m pytest tests/test_home_routes_contract.py -q    # 3 tests
+python -m pytest tests/test_home_routes_contract.py -q    # 11 tests (incluye mouseClick)
 python -m pytest tests/test_spectral_analysis.py -q       # 18 tests
 python -m pytest tests/test_post_refactor_regressions.py -q # 4 tests
 ```

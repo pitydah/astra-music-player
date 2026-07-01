@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
 from core.home.home_status import HomeAlert, LibraryHomeStatus, AudioHomeStatus, EcosystemHomeStatus
 

@@ -118,7 +118,42 @@ class MichiLinkController:
 
     def get_connection_state(self) -> dict:
         """Return a compact connection state dict for UI/context."""
+        caps = self.get_capabilities()
         return {
             "sync_active": self._sync_mgr is not None,
             "api_active": self._state_store is not None,
+            "micro_server_state": caps.get("micro_server_state", "not_configured"),
+            "micro_server_name": caps.get("micro_server_name", ""),
+            "can_continue": caps.get("can_continue_playback", False),
+            "can_import": caps.get("can_import", False),
         }
+
+    def get_capabilities(self) -> dict:
+        """Return capability flags for the current Micro Server connection."""
+        result = {
+            "micro_server_state": "not_configured",
+            "micro_server_name": "",
+            "can_continue_playback": False,
+            "can_import": False,
+            "contract_ok": False,
+            "paired": False,
+        }
+        if self._sync_mgr is None:
+            return result
+        try:
+            from core.settings_manager import get_str
+            host = get_str("michi_link/micro_host", "")
+            if not host:
+                return result
+            result["micro_server_state"] = "disconnected"
+            result["micro_server_name"] = host
+            peers = self._sync_mgr.get_all_peers()
+            result["paired"] = len(peers) > 0
+            if result["paired"]:
+                result["micro_server_state"] = "connected"
+                result["contract_ok"] = True
+                result["can_continue_playback"] = True
+                result["can_import"] = True
+        except Exception:
+            result["micro_server_state"] = "unknown"
+        return result
