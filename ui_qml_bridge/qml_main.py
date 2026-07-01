@@ -13,6 +13,7 @@ from ui_qml_bridge.command_bus import CommandBus
 from ui_qml_bridge.theme_bridge import ThemeBridge
 from ui_qml_bridge.library_bridge import LibraryBridge
 from ui_qml_bridge.michi_ai_bridge import MichiAIBridge
+from ui_qml_bridge.image_provider import register_image_provider
 
 
 def main():
@@ -35,6 +36,8 @@ def main():
     engine.rootContext().setContextProperty("themeBridge", theme_bridge)
     engine.rootContext().setContextProperty("libraryBridge", library_bridge)
     engine.rootContext().setContextProperty("michiAiBridge", michi_ai_bridge)
+
+    register_image_provider(engine)
 
     qml_dir = Path(__file__).resolve().parent.parent / "ui_qml"
     engine.addImportPath(str(qml_dir))

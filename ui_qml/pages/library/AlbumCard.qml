@@ -44,11 +44,11 @@ Item {
 
                 Image {
                     anchors.fill: parent
-                    source: root.coverId ? "image://michi/" + root.coverId : ""
+                    source: root.coverId ? "image://michi-cover/album/" + root.coverId : "image://michi-cover/fallback/" + (root.albumTitle || "COVER")
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
-                    sourceSize.width: 180
-                    sourceSize.height: 180
+                    sourceSize.width: 512
+                    sourceSize.height: 512
                 }
 
                 Text {

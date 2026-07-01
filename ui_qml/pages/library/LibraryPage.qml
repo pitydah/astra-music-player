@@ -8,6 +8,14 @@ Item {
 
     property var libraryBridge: typeof libraryBridge !== "undefined" ? libraryBridge : null
 
+    function refreshData() {
+        if (root.libraryBridge && typeof root.libraryBridge.refresh !== "undefined") {
+            root.libraryBridge.refresh()
+        }
+    }
+
+    Component.onCompleted: refreshData()
+
     Column {
         anchors.fill: parent
         spacing: 0
@@ -71,14 +79,13 @@ Item {
 
             SongTable {
                 id: songsView
-                songs: root.libraryBridge ? [] : []
+                songs: root.libraryBridge ? root.libraryBridge.songs : []
                 bridge: root.libraryBridge
-                onSongPlayRequested: console.log("[Library] Play:", filepath)
             }
 
             AlbumGrid {
                 id: albumView
-                albums: root.libraryBridge ? [] : []
+                albums: root.libraryBridge ? root.libraryBridge.albums : []
                 bridge: root.libraryBridge
             }
         }

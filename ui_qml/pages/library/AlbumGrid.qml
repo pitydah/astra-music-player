@@ -21,10 +21,10 @@ Item {
         delegate: AlbumCard {
             width: 180
             height: 240
-            albumTitle: modelData.album || modelData.album_key || ""
+            albumTitle: modelData.title || modelData.album_key || ""
             albumArtist: modelData.artist || ""
             trackCount: modelData.track_count || 0
-            coverId: modelData.album_key || modelData.filepath || ""
+            coverId: modelData.cover_key || modelData.album_key || ""
         }
     }
 }

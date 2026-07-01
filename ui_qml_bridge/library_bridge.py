@@ -21,6 +21,37 @@ class LibraryBridge(QObject):
     def albumCount(self):
         return len(self._albums)
 
+    @Property("QVariantList", notify=dataChanged)
+    def songs(self):
+        result = []
+        for s in self._songs[:500]:
+            result.append({
+                "title": getattr(s, 'title', None) or getattr(s, 'filepath', '') or '',
+                "artist": getattr(s, 'artist', '') or '',
+                "album": getattr(s, 'album', '') or '',
+                "album_key": getattr(s, 'album_key', '') or '',
+                "duration": getattr(s, 'duration', 0) or 0,
+                "filepath": getattr(s, 'filepath', '') or '',
+                "format": getattr(s, 'format', '') or '',
+                "cover_key": getattr(s, 'album_key', '') or getattr(s, 'filepath', '') or '',
+            })
+        return result
+
+    @Property("QVariantList", notify=dataChanged)
+    def albums(self):
+        result = []
+        for a in self._albums[:200]:
+            key = getattr(a, 'album_key', None) or getattr(a, 'album', '') or ''
+            result.append({
+                "title": getattr(a, 'album', '') or key,
+                "artist": getattr(a, 'artist', '') or '',
+                "album_key": key,
+                "year": getattr(a, 'year', 0) or 0,
+                "track_count": getattr(a, 'track_count', 0) or 0,
+                "cover_key": key,
+            })
+        return result
+
     @Slot(str)
     def search(self, query: str):
         self._search_query = query
@@ -28,27 +59,23 @@ class LibraryBridge(QObject):
             results = self._search_engine.search(query)
             self._songs = results if results else []
         elif self._db and not query:
-            self._songs = self._db.fetch_all() if hasattr(self._db, 'fetch_all') else []
+            if hasattr(self._db, 'fetch_all'):
+                self._songs = self._db.fetch_all() or []
         self._refresh_albums()
         self.dataChanged.emit()
 
     @Slot()
     def refresh(self):
-        if self._db:
-            self._songs = self._db.fetch_all() if hasattr(self._db, 'fetch_all') else []
+        if self._db and hasattr(self._db, 'fetch_all'):
+            self._songs = self._db.fetch_all() or []
         self._refresh_albums()
         self.dataChanged.emit()
 
-    @Slot(str)
-    def play_song(self, filepath: str):
-        if self._playback_ctrl and hasattr(self._playback_ctrl, 'play_file'):
-            self._playback_ctrl.play_file(filepath)
-
     def _refresh_albums(self):
-        seen = set()
+        seen = {}
         self._albums = []
         for s in self._songs:
-            key = getattr(s, 'album_key', None) or getattr(s, 'album', '')
+            key = getattr(s, 'album_key', None) or getattr(s, 'album', '') or ''
             if key and key not in seen:
-                seen.add(key)
+                seen[key] = True
                 self._albums.append(s)
