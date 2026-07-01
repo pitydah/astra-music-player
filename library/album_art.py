@@ -229,12 +229,19 @@ def _extract_embedded_cover_from_file(filepath: str, size: int = 280) -> QPixmap
     return None
 
 
-def group_by_album(items: list[MediaItem]) -> list[tuple[str, str, list[MediaItem]]]:
-    """Group media items by (album, artist). Returns sorted list of groups."""
-    groups: dict[tuple[str, str], list[MediaItem]] = {}
+def group_by_album(items: list) -> list[tuple[str, str, list]]:
+    """Group media items by (album, artist). Returns sorted list of groups.
+    Accepts MediaItem (has .album/.artist) or CoverFlowItem (has .title/.subtitle)."""
+    groups: dict[tuple[str, str], list] = {}
 
     for item in items:
-        key = (item.album or "Sin álbum", item.artist or "Artista desconocido")
+        if hasattr(item, 'album'):
+            album = item.album or "Sin álbum"
+            artist = item.artist or "Artista desconocido"
+        else:
+            album = getattr(item, 'title', '') or "Sin álbum"
+            artist = getattr(item, 'subtitle', '').split('·')[0].strip() or "Artista desconocido"
+        key = (album, artist)
         if key not in groups:
             groups[key] = []
         groups[key].append(item)
@@ -260,7 +267,7 @@ def load_covers_for_albums(items: list[MediaItem],
             albumartist=getattr(first, "albumartist", "") or artist)
 
         subtitle_parts = [artist]
-        year = first.year
+        year = getattr(first, 'year', 0) or 0
         if year:
             subtitle_parts.append(str(year))
         subtitle_parts.append(f"{len(tracks)} ♪")

@@ -125,15 +125,20 @@ tests/
 | `test_artist_aliases.py` | 14 | ✅ Pasan |
 | `test_artist_repository_insights.py` | 8 | ✅ Pasan |
 | `test_artist_controller_actions.py` | 7 | ✅ Pasan |
+| `test_artist_grid_qt.py` | 8 | ✅ Pasan |
+| `test_artist_detail_view_qt.py` | 9 | ✅ Pasan |
+| `test_alias_dialog_qt.py` | 4 | ✅ Pasan |
 
-**Total: 42 tests nuevos, 64 tests de artista en total (incluyendo 22 existentes)**
+**Total: 63 tests nuevos, 86 tests de artista en total (incluyendo 22 existentes)**
 
 ## 9. Validaciones ejecutadas
 
 | Comando | Resultado |
 |---------|-----------|
-| `python -m compileall -q library/ ui/ tests/` | ✅ Sin errores |
-| `python -m pytest tests/test_artist_*.py -q` | ✅ 64 passed |
+| `python -m compileall -q .` | ✅ Sin errores |
+| `ruff check .` | ✅ Solo errores pre-existentes en otros archivos |
+| `python -m pytest tests/test_artist_*.py tests/test_alias_dialog_qt.py -q` | ✅ 86 passed |
+| `python -m pytest tests/test_album_*.py -q` | ✅ 19 passed |
 
 ## 10. Decisiones técnicas
 
@@ -146,10 +151,14 @@ tests/
 
 ## 11. Limitaciones restantes
 
-1. **Fusión automática de artistas** — No implementada. La detección de alias existe pero la fusión requiere confirmación manual vía diálogo.
-2. **Selección múltiple en tabla de tracks** — La tabla usa `SingleSelection` por simplicidad. Multi-selección requeriría refactor.
-3. **Sync móvil** — `sync_artist_to_mobile()` muestra placeholder informativo. Depende de Sync Suite.
-4. **Michi Assistant** — El ContextService se actualiza al abrir artista, pero Assistant no tiene sugerencias específicas de artista todavía.
+Todas las limitaciones anteriores han sido resueltas:
+
+1. ~~Fusión automática de artistas~~ → **Resuelto**: nuevo `AliasResolutionDialog` funcional con selección de nombre canónico.
+2. ~~Selección múltiple en tabla de tracks~~ → **Resuelto**: `ExtendedSelection` con acciones bulk en menú contextual.
+3. ~~Sync móvil~~ → **Resuelto**: integración real con `SyncManager` y manifest provider por artista.
+4. ~~Michi Assistant~~ → **Resuelto**: reglas de sugerencia para artista, duplicados y enriquecimiento.
+5. ~~Navegación a álbum~~ → **Resuelto**: nueva señal `album_navigate_requested` + `AlbumController.navigate_to_album_by_title`.
+6. ~~Tests UI~~ → **Resuelto**: 21 tests pytest-qt para grid, detail view y diálogo de alias.
 
 ## 12. Porcentaje final estimado
 

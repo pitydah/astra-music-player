@@ -311,8 +311,8 @@ class LibraryController(QObject):
         w._last_lib_tab = section_key
         if section_key in ("library", "albums", "artists", "genres", "folders"):
             w._current_section_key = section_key
-        from ui.controllers.navigation_controller import _resolve_section_config
-        config = _resolve_section_config(section_key, {})
+        from ui.controllers.navigation_controller import resolve_section_config
+        config = resolve_section_config(section_key, {})
         views = config.get("views", [])
         default = config.get("default", "list")
         w._view_switcher.show()

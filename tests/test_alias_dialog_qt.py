@@ -2,7 +2,6 @@
 
 Requires pytest-qt.
 """
-import pytest
 from PySide6.QtWidgets import QDialog
 
 from library.artist_grouping import ArtistGroup

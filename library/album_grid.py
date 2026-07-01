@@ -221,7 +221,10 @@ class AlbumGridWidget(QWidget):
             return
 
         # 1. Render albums immediately with placeholder covers
-        groups = load_covers_for_albums(self._items, self._cover_size, lazy=True)
+        if self._items and hasattr(self._items[0], 'data'):
+            groups = list(self._items)
+        else:
+            groups = load_covers_for_albums(self._items, self._cover_size, lazy=True)
         groups = self._apply_filter(groups)
         self._sort_groups(groups)
         self._groups_cache = groups
