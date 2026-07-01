@@ -576,22 +576,29 @@ python main.py --qml
 python main.py
 
 # Tests
-python -m pytest tests/qml/ -q    # 41 tests
+python -m pytest tests/qml/ -q    # 60 tests
 ruff check ./ui_qml ./ui_qml_bridge ./tests/qml
+python scripts/check_no_touch_contract.py
 ```
 
 ### Current QML Status (Jul 2026)
-- **41 tests** — bridges, structural, emoji/sidebar prohibition
+- **60 tests** — bridges, structural, emoji/sidebar prohibition, Library, Michi AI
 - **0 ruff errors** in QML/bridge/tests
 - **0 compileall errors** in QML/bridge/tests
-- PageStack with safe relative paths (`../pages/...`)
-- NavigationBridge with VALID_ROUTES, invalid routes → placeholder
+- **Sidebar final** (10 items): Inicio, Biblioteca, Mix, Reproducción, Conexiones, Radio, Playlists, Home Audio, Michi AI, Audio Lab
+- **Labels**: No "Settings", no "Ajustes", no "Asistente". "Michi AI" as visible label, "assistant" as internal route
+- **PageStack** with explicit radio/playlists → PlaceholderPage, no settings
+- **NavigationBridge** with VALID_ROUTES, invalid routes → placeholder
+- **Library QML**: LibraryPage with tabs (Songs/Albums), SongTable, AlbumGrid, LibraryBridge
+- **Michi AI real**: ChatBubble, SuggestionCard, AssistantPage with functional chat and contextual suggestions
+- **Placeholders**: Radio ("sección de streaming y emisoras"), Playlists ("gestión editorial de listas")
+- **No backend playlists** in this branch (separated to `playlists-premium-backend`)
+- **No Michi Link** modified in this branch
 - Sidebar with glyph system (no emojis), forbidden routes check
 - Header with glass/smoked background, search field, experimental badge
-- ActionButton with scale 0.985, loading spinner, focus ring, 6 variants
+- ActionButton with scale 0.985, loading spinner, focus ring, 6 variants, keyboard support
 - MichiGlass 2.0: 30+ color tokens, microinteractions (Behavior on color/border)
 - Home, Connections, HomeAudio pages fully migrated with bridge navigation
-- Placeholders for Library, Assistant, AudioLab, Settings
 - Context menu without emojis, toggle_favorite_by_filepath secure method
 - SongsPremiumPage.load_data with stale result guard (`_load_counter`)
 
