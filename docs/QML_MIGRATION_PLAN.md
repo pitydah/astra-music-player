@@ -69,6 +69,7 @@ python main.py
 | 16 | Foundation Cierre Final — 41 tests QML, sidebar forbidden routes test, context menu emoji test, ruff 0 en ui_qml/ui_qml_bridge/tests | ✅ |
 | 17 | Sidebar Final + Scope Compliance — Settings eliminado, Radio/Playlists como rutas principales, Michi AI como label visible, PageStack casos explícitos, ActionButton keyboard support, PlaceholderPage parametrizable, no-touch contract verificable, 53 tests | ✅ |
 | 18 | Library QML Foundation + Michi AI Real — LibraryPage con tabs (Canciones/Álbumes), SongTable, AlbumGrid, bridges LibraryBridge/MichiAIBridge, chat funcional, 60 tests. Playlists backend separado a rama `playlists-premium-backend`. | ✅ |
+| 19 | ImageProvider Attempt — PySide6 no exporta QQuickImageProvider. Se usa fallback QML premium con gradiente+glyph. LibraryBridge robusto con QVariantList. 70 tests. | ✅ |
 
 ## Sidebar Final
 ```
@@ -86,7 +87,7 @@ python main.py
 
 ## Commands
 ```bash
-python -m pytest tests/qml/ -q    # 60 tests
+python -m pytest tests/qml/ -q    # 70 tests
 python scripts/check_no_touch_contract.py  # verify no-touch compliance
 python -m ui_qml_bridge.qml_main  # launch QML UI
 python main.py --qml              # launch QML from main
