@@ -166,11 +166,25 @@ def has_compilation_tag(tracks: list) -> bool:
 
 
 def has_sequential_track_numbers(tracks: list) -> bool:
-    """Check if track numbers form a reasonable sequence (1..n)."""
-    nums = sorted(int(getattr(t, "track_number", 0) or 0) for t in tracks if getattr(t, "track_number", 0) or False)
-    if not nums:
+    """Check if track numbers form a reasonable sequence (1..n per disc)."""
+    by_disc: dict[int, list[int]] = {}
+    for t in tracks:
+        disc = int(getattr(t, "disc_number", 0) or 1)
+        tn = int(getattr(t, "track_number", 0) or 0)
+        if tn <= 0:
+            continue
+        by_disc.setdefault(disc, []).append(tn)
+
+    if not by_disc:
         return False
-    return nums == list(range(1, len(nums) + 1))
+
+    for nums in by_disc.values():
+        cleaned = sorted(set(nums))
+        if len(cleaned) != len(nums):  # duplicates
+            return False
+        if cleaned != list(range(1, len(cleaned) + 1)):
+            return False
+    return True
 
 
 def should_group_as_compilation(tracks: list) -> bool:
@@ -188,7 +202,7 @@ def should_group_as_compilation(tracks: list) -> bool:
     if has_compilation_tag(tracks):
         return True
     artists = get_artist_values(tracks)
-    return len(artists) > 1 and get_common_album_folder(tracks) and has_sequential_track_numbers(tracks)
+    return bool(len(artists) > 1 and get_common_album_folder(tracks) and has_sequential_track_numbers(tracks))
 
 
 def is_compilation(tracks: list) -> bool:

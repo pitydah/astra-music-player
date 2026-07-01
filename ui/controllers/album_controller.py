@@ -244,6 +244,10 @@ class AlbumController:
             dlg = AlbumServerImportDialog(
                 self._win, album_title, len(fps), existing, needs)
             if not dlg.exec() or not dlg.was_confirmed():
+                sid = pd.get("session_id", "")
+                if sid:
+                    with contextlib.suppress(Exception):
+                        svc.rollback(sid)
                 return
 
             # Use AlbumImportWorker via WorkerManager
@@ -421,19 +425,30 @@ class AlbumController:
             if not tracks:
                 tracks = data.get("tracks", [])
 
-        # Fallback: search by normalized title (last resort)
+        # Fallback: search by normalized title (last resort, safe mode)
         if not tracks and hasattr(w, '_all_items'):
             import unicodedata
             from library.album_art import group_by_album
             def _norm(s):
                 s = (s or '').strip().lower()
                 return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii')
+            exact = []
+            partial = []
             for a, ar, tr in group_by_album(w._lib_ctrl.filtered_album_items()):
-                if _norm(album) == _norm(a) or (album and _norm(album) in _norm(a)):
-                    tracks = tr
-                    album = a
-                    artist = ar
-                    break
+                if _norm(album) == _norm(a):
+                    exact.append((a, ar, tr))
+                elif album and _norm(album) in _norm(a):
+                    partial.append((a, ar, tr))
+            if exact:
+                album, artist, tracks = exact[0]
+            elif len(partial) == 1:
+                album, artist, tracks = partial[0]
+            elif len(partial) > 1:
+                self._toast(
+                    "Hay varios álbumes parecidos. "
+                    "Abre el álbum desde el grid para evitar ambigüedad.", "info")
+                w._count.setText("Selecciona un álbum")
+                return
         if not tracks:
             w._count.setText("Selecciona un álbum")
             return
