@@ -145,11 +145,10 @@ class TestEmptyLibrary:
         assert snap.audio.bitperfect_state == "not_available"
 
     def test_empty_db_ecosystem_defaults(self, empty_db):
-        with patch("streaming.subsonic_client.load_servers", return_value=[]):
-            svc = HomeDashboardService(db=empty_db)
-            snap = svc.build_snapshot()
-            assert snap.ecosystem.micro_server_state == "disconnected"
-            assert snap.ecosystem.mobile_sync_state == "no_device"
+        svc = HomeDashboardService(db=empty_db)
+        snap = svc.build_snapshot()
+        assert snap.ecosystem.micro_server_state == "not_configured"
+        assert snap.ecosystem.mobile_sync_state == "no_device"
 
     def test_empty_db_no_alerts(self, empty_db):
         svc = HomeDashboardService(db=empty_db)
@@ -185,12 +184,11 @@ class TestHealthyLibrary:
             snap = svc.build_snapshot()
             assert "12,438" in snap.subtitle or "12438" in snap.subtitle
 
-    def test_healthy_has_micro_server_alert_when_not_connected(self, healthy_db):
-        with patch("streaming.subsonic_client.load_servers", return_value=[]):
-            svc = HomeDashboardService(db=healthy_db)
-            snap = svc.build_snapshot()
-            kinds = [a.kind for a in snap.alerts]
-            assert "micro_server" in kinds
+    def test_healthy_has_no_micro_server_alert_if_not_configured(self, healthy_db):
+        svc = HomeDashboardService(db=healthy_db)
+        snap = svc.build_snapshot()
+        kinds = [a.kind for a in snap.alerts]
+        assert "micro_server" not in kinds
 
     def test_actions_include_view_library(self, healthy_db):
         svc = HomeDashboardService(db=healthy_db)
@@ -258,10 +256,9 @@ class TestAudio:
 
 class TestEcosystem:
     def test_no_servers_disconnected(self, empty_db):
-        with patch("streaming.subsonic_client.load_servers", return_value=[]):
-            svc = HomeDashboardService(db=empty_db)
-            snap = svc.build_snapshot()
-            assert snap.ecosystem.micro_server_state == "disconnected"
+        svc = HomeDashboardService(db=empty_db)
+        snap = svc.build_snapshot()
+        assert snap.ecosystem.micro_server_state == "not_configured"
 
     def test_with_servers_connected(self, empty_db):
         srv = MagicMock()
@@ -270,8 +267,10 @@ class TestEcosystem:
         with patch("streaming.subsonic_client.load_servers", return_value=[srv]):
             svc = HomeDashboardService(db=empty_db)
             snap = svc.build_snapshot()
-            assert snap.ecosystem.micro_server_state == "connected"
-            assert snap.ecosystem.micro_server_name == "MyServer"
+            assert snap.ecosystem.remote_music_server_state == "configured"
+            assert snap.ecosystem.remote_music_server_name == "MyServer"
+            assert snap.ecosystem.remote_music_server_count == 1
+            assert snap.ecosystem.micro_server_state == "not_configured"
 
     def test_sync_with_peers(self, empty_db, sync_mgr_with_peers):
         with patch("streaming.subsonic_client.load_servers", return_value=[]):
@@ -406,11 +405,10 @@ class TestPartialFailure:
             assert len(snap.errors) > 0
 
     def test_ecosystem_failure_defaults(self):
-        with patch("streaming.subsonic_client.load_servers", return_value=[]):
-            svc = HomeDashboardService()
-            svc._build_ecosystem_status = lambda: (_ for _ in ()).throw(RuntimeError("Eco failure"))
-            snap = svc.build_snapshot()
-            assert snap.ecosystem.micro_server_state == "unknown"
+        svc = HomeDashboardService()
+        svc._build_ecosystem_status = lambda: (_ for _ in ()).throw(RuntimeError("Eco failure"))
+        snap = svc.build_snapshot()
+        assert snap.ecosystem.micro_server_state == "not_configured"
 
 
 class TestAssistantSuggestions:

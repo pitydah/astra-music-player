@@ -325,6 +325,7 @@ class HomeDashboardService:
         micro_state = "not_configured"
         micro_name = ""
         micro_issue_code = ""
+        micro_host = ""
         remote_music_state = "not_configured"
         remote_music_count = 0
         remote_music_name = ""
