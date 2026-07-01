@@ -65,6 +65,7 @@ class OrganizePage(QWidget):
     def __init__(self, db=None, worker_mgr=None):
         super().__init__()
         self.setObjectName("organizePage")
+        self.setStyleSheet("#organizePage { background: #090B11; }")
         self._files: list[str] = []
         self._preview: list[tuple[str, str]] = []
         self._worker_mgr = worker_mgr

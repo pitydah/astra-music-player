@@ -51,6 +51,7 @@ class ArtworkPage(QWidget):
     def __init__(self, db=None, worker_mgr=None):
         super().__init__()
         self.setObjectName("artworkPage")
+        self.setStyleSheet("#artworkPage { background: #090B11; }")
         self._resolver = None
         self._db = db
         self._worker_mgr = worker_mgr

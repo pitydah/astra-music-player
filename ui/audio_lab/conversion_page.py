@@ -29,6 +29,7 @@ class ConversionPage(QWidget):
     def __init__(self, encoder=None):
         super().__init__()
         self.setObjectName("conversionPage")
+        self.setStyleSheet("#conversionPage { background: #090B11; }")
         self._files: list[str] = []
         self._encoder = encoder
         self._cancelled = False

@@ -28,6 +28,7 @@ class DSPPage(QWidget):
     def __init__(self):
         super().__init__()
         self.setObjectName("dspPage")
+        self.setStyleSheet("#dspPage { background: #090B11; }")
         self._build_ui()
 
     def _build_ui(self):

@@ -29,6 +29,7 @@ class IntelligencePage(QWidget):
     def __init__(self, db=None, worker_mgr=None):
         super().__init__()
         self.setObjectName("intelligencePage")
+        self.setStyleSheet("#intelligencePage { background: #090B11; }")
         self._db = db
         self._worker_mgr = worker_mgr
         self._analysis = None

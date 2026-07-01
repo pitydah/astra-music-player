@@ -76,6 +76,7 @@ class DiagnosticsPage(QWidget):
     def __init__(self, worker_mgr=None, job_manager=None, db=None):
         super().__init__()
         self.setObjectName("diagnosticsPage")
+        self.setStyleSheet("#diagnosticsPage { background: #090B11; }")
         self._worker_mgr = worker_mgr
         self._job_manager = job_manager
         self._db = db

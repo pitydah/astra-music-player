@@ -332,9 +332,12 @@ class UIBuilder:
             lambda group, _w=w: _w._album_ctrl.show_details(group))
         w._album_grid.add_folder_requested.connect(
             lambda: w._library_import.add_folder(w))
-        import contextlib
-        with contextlib.suppress(TypeError, RuntimeError):
-            w._album_grid.album_selected.disconnect()
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            import contextlib
+            with contextlib.suppress(TypeError, RuntimeError):
+                w._album_grid.album_selected.disconnect()
         w._album_grid.album_selected.connect(
             lambda group, _w=w: _w._album_ctrl.show_album_detail_from_cover_item(group))
 

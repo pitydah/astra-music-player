@@ -30,6 +30,7 @@ class MusicBrainzPage(QWidget):
     def __init__(self, worker_mgr=None):
         super().__init__()
         self.setObjectName("musicbrainzPage")
+        self.setStyleSheet("#musicbrainzPage { background: #090B11; }")
         self._kb = None
         self._worker_mgr = worker_mgr
         self._results: list[dict] = []

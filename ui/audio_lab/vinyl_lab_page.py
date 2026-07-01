@@ -33,6 +33,7 @@ class VinylLabPage(QWidget):
     def __init__(self, worker_mgr=None):
         super().__init__()
         self.setObjectName("vinylLabPage")
+        self.setStyleSheet("#vinylLabPage { background: #090B11; }")
         self._worker_mgr = worker_mgr
         self._capture = None
         self._project_id = ""

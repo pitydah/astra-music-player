@@ -25,6 +25,7 @@ class LyricsPage(QWidget):
     def __init__(self, worker_mgr=None):
         super().__init__()
         self.setObjectName("lyricsPage")
+        self.setStyleSheet("#lyricsPage { background: #090B11; }")
         self._client = None
         self._worker_mgr = worker_mgr
         self._current_lyrics = ""
