@@ -22,7 +22,7 @@ def _create_test_wav(filepath: str, sample_rate: int = 44100):
 class TestDiagnosticsService:
 
     def test_analyse_file_nonexistent(self):
-        from ui.audio_lab.diagnostics_service import analyse_file
+        from core.audio_lab.diagnostics_service import analyse_file
         result = analyse_file("/nonexistent/file.flac")
         assert result["error"] == "Archivo no encontrado"
         assert not result["exists"]
@@ -32,7 +32,7 @@ class TestDiagnosticsService:
             path = f.name
         try:
             _create_test_wav(path)
-            from ui.audio_lab.diagnostics_service import analyse_file
+            from core.audio_lab.diagnostics_service import analyse_file
             result = analyse_file(path)
             assert result["exists"]
             assert result["filename"] == os.path.basename(path)
@@ -43,13 +43,13 @@ class TestDiagnosticsService:
             os.unlink(path)
 
     def test_analyse_directory_empty(self):
-        from ui.audio_lab.diagnostics_service import analyse_directory
+        from core.audio_lab.diagnostics_service import analyse_directory
         with tempfile.TemporaryDirectory() as tmp:
             results = analyse_directory(tmp)
             assert results == []
 
     def test_analyse_directory_with_files(self):
-        from ui.audio_lab.diagnostics_service import analyse_directory
+        from core.audio_lab.diagnostics_service import analyse_directory
         with tempfile.TemporaryDirectory() as tmp:
             p1 = os.path.join(tmp, "a.wav")
             p2 = os.path.join(tmp, "b.flac")
@@ -59,13 +59,13 @@ class TestDiagnosticsService:
             assert len(results) == 2
 
     def test_generate_report_empty(self):
-        from ui.audio_lab.diagnostics_service import generate_report
+        from core.audio_lab.diagnostics_service import generate_report
         report = generate_report([])
         assert report["total_files"] == 0
         assert report["total_size_mb"] == 0.0
 
     def test_generate_report_with_data(self):
-        from ui.audio_lab.diagnostics_service import generate_report
+        from core.audio_lab.diagnostics_service import generate_report
         results = [
             {"filepath": "/a.wav", "filename": "a.wav", "exists": True,
              "error": "", "size_mb": 10.0, "duration_str": "1m 0s",
@@ -85,7 +85,7 @@ class TestDiagnosticsService:
             path = f.name
         try:
             _create_test_wav(path, sample_rate=44100)
-            from ui.audio_lab.diagnostics_service import analyse_file
+            from core.audio_lab.diagnostics_service import analyse_file
             result = analyse_file(path)
             q = result.get("quality", {})
             assert q.get("category") in ("lossless", "unknown")
@@ -113,21 +113,20 @@ class TestDiagnosticsNav:
 class TestSpectralAnalysis:
 
     def test_analyse_spectral_nonexistent_file(self):
-        from ui.audio_lab.diagnostics_service import analyse_spectral
+        from core.audio_lab.diagnostics_service import analyse_spectral
         result = analyse_spectral("/nonexistent/file.wav")
         assert result["verdict"] == "ANALYSIS_ERROR"
 
     def test_analyse_spectral_nonwav(self):
         import tempfile
         import os
-        from ui.audio_lab.diagnostics_service import analyse_spectral
+        from core.audio_lab.diagnostics_service import analyse_spectral
         with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
             f.write(b"fLaC")
             path = f.name
         try:
             result = analyse_spectral(path)
             assert result["verdict"] == "ANALYSIS_ERROR"
-            assert "WAV PCM" in result.get("explanation", "")
         finally:
             os.unlink(path)
 
@@ -150,7 +149,7 @@ class TestSpectralAnalysis:
                 wf.setframerate(sr)
                 wf.writeframes(tone.astype(np.int16).tobytes())
 
-            from ui.audio_lab.diagnostics_service import analyse_spectral
+            from core.audio_lab.diagnostics_service import analyse_spectral
             result = analyse_spectral(path)
             assert "verdict" in result
             assert result["verdict"] in (

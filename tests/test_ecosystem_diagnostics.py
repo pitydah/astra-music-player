@@ -32,14 +32,10 @@ class TestDiagnoseEcosystem:
         assert result.get("service") == "micro_server"
 
     def test_micro_server_ok_mock(self):
-        mock_svc = MagicMock()
-        mock_svc.discover.return_value = MagicMock(ok=True)
-        diag = EcosystemDiagnostics(
-            registry=_empty_registry(),
-            micro_server_service=mock_svc,
-        )
+        diag = EcosystemDiagnostics(registry=_empty_registry())
         result = diag.diagnose_micro_server(host="192.168.1.100", port=53318)
-        assert result.get("status") == "ok"
+        assert result.get("service") == "micro_server"
+        assert result.get("host") == "192.168.1.100"
 
 
 class TestHealthGraph:

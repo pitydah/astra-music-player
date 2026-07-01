@@ -1,4 +1,4 @@
-"""Audio conversion tools for Michi AI Assistant."""
+"""Audio conversion tools — recommend profiles, never convert files."""
 
 from __future__ import annotations
 
@@ -6,143 +6,120 @@ from typing import Any
 
 from integrations.ai_assistant.schemas import ToolResult
 
-
-_MOBILE_PROFILES: dict[str, dict[str, Any]] = {
-    "space_saver": {"codec": "opus", "bitrate": 128, "description": "Opus 128 kbps — espacio mínimo, calidad aceptable"},
-    "balanced": {"codec": "opus", "bitrate": 160, "description": "Opus 160 kbps — equilibrio entre espacio y calidad"},
-    "high_quality": {"codec": "opus", "bitrate": 256, "description": "Opus 256 kbps — buena calidad, tamaño moderado"},
+_MOBILE_PROFILES = {
+    "space_saver": {"codec": "opus", "bitrate": "128k", "container": "ogg", "reason": "Maximo ahorro de espacio con buena calidad para reproduccion movil."},
+    "balanced": {"codec": "opus", "bitrate": "160k", "container": "ogg", "reason": "Equilibrio optimo entre calidad y tamano para uso diario."},
+    "high_quality": {"codec": "opus", "bitrate": "256k", "container": "ogg", "reason": "Alta calidad para escucha exigente en dispositivo movil."},
 }
 
-_MICRO_SERVER_PROFILES: dict[str, dict[str, Any]] = {
-    "remote": {"codec": "opus", "bitrate_range": "128-160", "description": "Opus 128-160 kbps — streaming remoto eficiente"},
-    "lan": {"codec": "flac", "description": "FLAC original — sin pérdida en red local"},
-    "balanced": {"codec": "opus", "bitrate": 192, "description": "Opus 192 kbps — buena calidad para red mixta"},
+_MICRO_SERVER_PROFILES = {
+    "remote": {"codec": "opus", "bitrate": "128k-160k", "container": "ogg", "reason": "Perfil liviano para streaming remoto por Tailscale o internet."},
+    "lan": {"codec": "flac", "bitrate": "original", "container": "flac", "reason": "Calidad original para red local estable."},
+    "balanced": {"codec": "opus", "bitrate": "192k", "container": "ogg", "reason": "Buena calidad para redes mixtas LAN/remoto."},
 }
 
-_HIFI_PROFILES: dict[str, dict[str, Any]] = {
-    "hifi": {"codec": "flac", "description": "FLAC original — sin pérdida, calidad de estudio"},
-    "alac": {"codec": "alac", "container": "m4a", "description": "ALAC (FLAC → M4A) — Apple Lossless"},
+_HIFI_PROFILES = {
+    "hifi": {"codec": "flac", "bitrate": "original", "container": "flac", "reason": "Calidad original sin transcodificacion. Respeta sample rate y bit depth."},
+    "alac": {"codec": "alac", "bitrate": "original", "container": "m4a", "reason": "Apple Lossless para compatibilidad con dispositivos Apple."},
 }
 
 
-def explain_audio_format(format_name: str = "") -> ToolResult:
+def explain_audio_format(db, track_ids: list[int] | None = None, **kwargs) -> ToolResult:
+    if db is None:
+        return ToolResult(name="explain_audio_format", success=True, data={"message": "No hay biblioteca cargada.", "format_info": None})
+    track_id = (track_ids or [None])[0]
+    if track_id is None:
+        return ToolResult(name="explain_audio_format", success=True, data={"message": "Selecciona una pista para ver su informacion de formato.", "format_info": None})
     try:
-        info = _extract_format_info(format_name)
-        if not info:
-            return ToolResult(name="explain_audio_format", success=False, error=f"Formato '{format_name}' no reconocido.")
-        return ToolResult(name="explain_audio_format", success=True, data=info)
+        item = db.get_media_item_by_id(track_id) if hasattr(db, "get_media_item_by_id") else None
+        if item is None:
+            return ToolResult(name="explain_audio_format", success=True, data={"message": "Pista no encontrada en la biblioteca.", "format_info": None})
+        info = _extract_format_info(item)
+        return ToolResult(name="explain_audio_format", success=True, data={"message": _format_description(info), "format_info": info})
     except Exception as e:
         return ToolResult(name="explain_audio_format", success=False, error=str(e))
 
 
-def recommend_conversion_profile(source_format: str = "", target_format: str = "", quality_goal: str = "balanced") -> ToolResult:
-    try:
-        quality = _classify_quality(quality_goal)
-        source_info = _gather_source_info(source_format)
-        recommendations = _select_profile(source_info, quality)
-        return ToolResult(name="recommend_conversion_profile", success=True, data=recommendations)
-    except Exception as e:
-        return ToolResult(name="recommend_conversion_profile", success=False, error=str(e))
+def recommend_conversion_profile(db, track_ids: list[int] | None = None, target: str = "mobile", priority: str = "balanced", **kwargs) -> ToolResult:
+    if db is None or not track_ids:
+        return ToolResult(name="recommend_conversion_profile", success=True, data={"target": target, "recommendation": None, "source_summary": None, "warnings": ["Selecciona una o mas pistas para recomendar un perfil."]})
+    source_info = _gather_source_info(db, track_ids)
+    profile = _select_profile(target, priority)
+    if profile is None:
+        return ToolResult(name="recommend_conversion_profile", success=True, data={"target": target, "recommendation": None, "source_summary": source_info, "warnings": [f"No hay perfil disponible para target='{target}'."]})
+    return ToolResult(name="recommend_conversion_profile", success=True, data={"target": target, "recommendation": profile, "source_summary": source_info, "warnings": ["El archivo original no sera modificado.", "Esta es solo una recomendacion; la conversion requiere confirmacion."]})
 
 
-def suggest_mobile_audio_profile(storage_priority: str = "balanced") -> ToolResult:
-    try:
-        profile = _MOBILE_PROFILES.get(storage_priority)
-        if not profile:
-            available = list(_MOBILE_PROFILES.keys())
-            return ToolResult(name="suggest_mobile_audio_profile", success=False, error=f"Perfil '{storage_priority}' no valido. Opciones: {', '.join(available)}")
-        result = {
-            "profile": storage_priority,
-            "codec": profile["codec"],
-            "bitrate": profile.get("bitrate"),
-            "description": profile["description"],
-            "savings_estimate": "30-50% de ahorro frente a FLAC original" if storage_priority == "space_saver" else "10-25% de ahorro",
-        }
-        return ToolResult(name="suggest_mobile_audio_profile", success=True, data=result)
-    except Exception as e:
-        return ToolResult(name="suggest_mobile_audio_profile", success=False, error=str(e))
+def suggest_mobile_audio_profile(db, track_ids: list[int] | None = None, phone_storage_profile: str = "balanced", **kwargs) -> ToolResult:
+    return recommend_conversion_profile(db, track_ids=track_ids, target="mobile", priority=phone_storage_profile)
 
 
-def suggest_micro_server_streaming_profile(network_type: str = "balanced") -> ToolResult:
-    try:
-        profile = _MICRO_SERVER_PROFILES.get(network_type)
-        if not profile:
-            available = list(_MICRO_SERVER_PROFILES.keys())
-            return ToolResult(name="suggest_micro_server_streaming_profile", success=False, error=f"Perfil '{network_type}' no valido. Opciones: {', '.join(available)}")
-        result = {
-            "profile": network_type,
-            "codec": profile["codec"],
-            "bitrate": profile.get("bitrate"),
-            "bitrate_range": profile.get("bitrate_range"),
-            "description": profile["description"],
-        }
-        return ToolResult(name="suggest_micro_server_streaming_profile", success=True, data=result)
-    except Exception as e:
-        return ToolResult(name="suggest_micro_server_streaming_profile", success=False, error=str(e))
+def suggest_micro_server_streaming_profile(db, track_ids: list[int] | None = None, network_profile: str = "remote", **kwargs) -> ToolResult:
+    return recommend_conversion_profile(db, track_ids=track_ids, target="micro_server", priority=network_profile)
 
 
-def suggest_hifi_audio_profile(output_format: str = "hifi") -> ToolResult:
-    try:
-        profile = _HIFI_PROFILES.get(output_format)
-        if not profile:
-            available = list(_HIFI_PROFILES.keys())
-            return ToolResult(name="suggest_hifi_audio_profile", success=False, error=f"Perfil '{output_format}' no valido. Opciones: {', '.join(available)}")
-        result = {
-            "profile": output_format,
-            "codec": profile["codec"],
-            "container": profile.get("container"),
-            "description": profile["description"],
-            "note": "Requiere DAC externo o salida bit-perfect para aprovechar al maximo",
-        }
-        return ToolResult(name="suggest_hifi_audio_profile", success=True, data=result)
-    except Exception as e:
-        return ToolResult(name="suggest_hifi_audio_profile", success=False, error=str(e))
+def suggest_hifi_audio_profile(db, track_ids: list[int] | None = None, output_profile: str = "hifi", **kwargs) -> ToolResult:
+    return recommend_conversion_profile(db, track_ids=track_ids, target="hifi", priority=output_profile)
 
 
-def _extract_format_info(format_name: str) -> dict[str, Any] | None:
-    formats: dict[str, dict[str, Any]] = {
-        "flac": {"name": "FLAC", "full_name": "Free Lossless Audio Codec", "lossless": True, "compression": "sin perdida", "use_case": "Archivo, audifilos, reproduccion local"},
-        "alac": {"name": "ALAC", "full_name": "Apple Lossless Audio Codec", "lossless": True, "compression": "sin perdida", "use_case": "Ecosistema Apple, iTunes"},
-        "opus": {"name": "Opus", "full_name": "Opus Interactive Audio Codec", "lossless": False, "compression": "con perdida", "use_case": "Streaming, llamadas, red"},
-        "mp3": {"name": "MP3", "full_name": "MPEG Audio Layer III", "lossless": False, "compression": "con perdida", "use_case": "Compatibilidad universal, dispositivos antiguos"},
-        "aac": {"name": "AAC", "full_name": "Advanced Audio Codec", "lossless": False, "compression": "con perdida", "use_case": "YouTube, iTunes, streaming moderno"},
-        "wav": {"name": "WAV", "full_name": "Waveform Audio File Format", "lossless": True, "compression": "sin comprimir", "use_case": "Produccion, edicion, masterizacion"},
-        "dsf": {"name": "DSF", "full_name": "DSD Stream File", "lossless": True, "compression": "sin perdida", "use_case": "Audio de alta resolucion, SACD"},
-    }
-    key = format_name.strip().lower()
-    return formats.get(key)
+def _extract_format_info(item) -> dict:
+    return {"codec": getattr(item, "codec", None) or getattr(item, "container", "desconocido"), "container": getattr(item, "container", "desconocido"), "sample_rate": getattr(item, "sample_rate", 0), "bit_depth": getattr(item, "bit_depth", 0), "bitrate": getattr(item, "bitrate", 0), "channels": getattr(item, "channels", 0), "quality_category": _classify_quality(getattr(item, "sample_rate", 0), getattr(item, "bit_depth", 0))}
 
 
-def _classify_quality(quality_goal: str) -> str:
-    goal = quality_goal.strip().lower()
-    if goal in ("maximo", "maximum", "hifi", "lossless"):
+def _classify_quality(sample_rate: int, bit_depth: int) -> str:
+    if bit_depth >= 24 and sample_rate >= 96000:
+        return "hires"
+    if bit_depth >= 16 and sample_rate >= 44100:
         return "lossless"
-    if goal in ("balance", "balanced", "medio", "medium"):
-        return "balanced"
-    return "compact"
+    return "lossy"
 
 
-def _format_description(profile: dict[str, Any]) -> str:
-    parts = [f"Codec: {profile['codec']}"]
-    if "bitrate" in profile:
-        parts.append(f"Bitrate: {profile['bitrate']} kbps")
-    if "bitrate_range" in profile:
-        parts.append(f"Rango: {profile['bitrate_range']} kbps")
-    if "description" in profile:
-        parts.append(f"Descripcion: {profile['description']}")
-    return " | ".join(parts)
+def _format_description(info: dict) -> str:
+    if info is None:
+        return "No disponible."
+    parts = []
+    codec = info.get("codec", "?")
+    sr = info.get("sample_rate", 0)
+    bd = info.get("bit_depth", 0)
+    br = info.get("bitrate", 0)
+    ch = info.get("channels", 0)
+    qc = info.get("quality_category", "desconocida")
+    parts.append(f"Codec: {codec}")
+    if sr:
+        parts.append(f"{sr} Hz")
+    if bd:
+        parts.append(f"{bd} bits")
+    if br:
+        parts.append(f"{br} bps")
+    if ch:
+        parts.append(f"{ch} canales")
+    parts.append(f"Categoria: {qc}")
+    return " . ".join(parts)
 
 
-def _gather_source_info(source_format: str) -> dict[str, Any]:
-    info = _extract_format_info(source_format)
-    if info:
-        return info
-    return {"name": source_format, "lossless": False, "compression": "desconocido"}
+def _gather_source_info(db, track_ids: list[int]) -> dict:
+    info = {"track_count": len(track_ids), "quality_categories": set(), "formats": set()}
+    for tid in track_ids:
+        try:
+            item = db.get_media_item_by_id(tid) if hasattr(db, "get_media_item_by_id") else None
+            if item:
+                codec = getattr(item, "codec", None) or getattr(item, "container", "?")
+                info["formats"].add(codec)
+                sr = getattr(item, "sample_rate", 0)
+                bd = getattr(item, "bit_depth", 0)
+                info["quality_categories"].add(_classify_quality(sr, bd))
+        except Exception:
+            pass
+    info["quality_categories"] = sorted(info["quality_categories"])
+    info["formats"] = sorted(info["formats"])
+    return info
 
 
-def _select_profile(source_info: dict[str, Any], quality: str) -> dict[str, Any]:
-    if quality == "lossless":
-        return {"recommendation": "flac", "reason": "Calidad sin perdida recomendada"}
-    if quality == "balanced":
-        return {"recommendation": "opus 192k", "reason": "Buen equilibrio entre calidad y tamano"}
-    return {"recommendation": "opus 128k", "reason": "Tamano minimo, calidad aceptable"}
+_PROFILE_MAP = {"mobile": _MOBILE_PROFILES, "micro_server": _MICRO_SERVER_PROFILES, "hifi": _HIFI_PROFILES}
+
+
+def _select_profile(target: str, priority: str) -> dict | None:
+    profiles = _PROFILE_MAP.get(target)
+    if profiles is None:
+        return None
+    return profiles.get(priority)
