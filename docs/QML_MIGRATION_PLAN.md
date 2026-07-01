@@ -38,6 +38,7 @@ and without touching playback, sync, or Android integration.
 ## How to run QML
 ```bash
 python -m ui_qml_bridge.qml_main
+python main.py --qml
 ```
 
 ## How to run classic app
@@ -62,14 +63,24 @@ python main.py
 | 10 | Placeholders (Library, Assistant, AudioLab, Settings) | ✅ |
 | 11 | Documentation | ✅ |
 | 12 | Tests & smoke validation | ✅ |
+| 13 | Hardening Pass — PageStack rutas, qmldir, bridges endurecidos, nav por bridge, conexión botones, tests estructurales | ✅ |
 
 ## Next Phases (Recommended)
-1. **Library QML** — models, grids, lists, search
-2. **Assistant QML** — real assistant page with chat UI
-3. **ImageProvider** — cover art from Python to QML
+1. **Library QML** — models, grids, lists, search, FTS5
+2. **ImageProvider** — cover art from Python to QML
+3. **Assistant QML** — real assistant page with chat UI
 4. **Metadata híbrido** — InspectorPanel with real data
 5. **Audio Lab QML**
 6. **NowPlayingBar QML** (last, most complex)
+
+## Commands
+```bash
+python -m pytest tests/qml/ -q    # 36 tests
+python -m ui_qml_bridge.qml_main  # launch QML UI
+python main.py --qml              # launch QML from main
+python main.py                    # classic QtWidgets
+ruff check ./ui_qml ./ui_qml_bridge  # lint
+```
 
 ## Performance Rules (QML)
 - No blur on list/grid/table items
@@ -90,6 +101,7 @@ python main.py
 - `sync/` (entire directory)
 - `sync_protocol.py`, `sync_server.py`, `sync_manager.py`
 - Android integration
+- `integrations/michi_link/` (Michi Link / Micro Server backend)
 - `ui/nowplaying_bar.py`
 - `ui/source_status_badge.py`
 - Playback logic (`audio/player.py`, `audio/player_service.py`)
