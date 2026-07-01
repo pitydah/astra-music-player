@@ -7,9 +7,10 @@ Callbacks for metadata editing and file location (UI operations).
 from __future__ import annotations
 
 import logging
+import contextlib
 from typing import Callable
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Signal
 
 from library.media_item import MediaItem
 from library.songs_query_service import SongsQueryService
@@ -24,6 +25,11 @@ class SongsController(QObject):
 
     Designed to work with AppServices rather than MainWindow directly.
     """
+
+    data_changed = Signal(object)  # SongsViewState
+    favorite_changed = Signal(int, bool)  # track_id, is_fav
+    import_started = Signal()
+    import_finished = Signal(bool, str)  # ok, message
 
     def __init__(
         self,
@@ -68,6 +74,7 @@ class SongsController(QObject):
         self._status_svc.invalidate_cache()
         self._status_svc.refresh_favorites()
         self._refresh_status()
+        self.data_changed.emit(self.view_state())
 
     def _refresh_status(self):
         self._status_svc.compute_batch(self._all_items)
@@ -103,6 +110,7 @@ class SongsController(QObject):
             items = [i for i in items if _has_audio_lab_warning(i, cache)]
 
         self._filtered_items = items
+        self.data_changed.emit(self.view_state())
         return items
 
     def get_display_items(self) -> list[MediaItem]:
@@ -148,6 +156,8 @@ class SongsController(QObject):
         except Exception:
             return
         self._status_svc.refresh_favorites()
+        tid = getattr(item, 'id', 0)
+        self.favorite_changed.emit(tid, now_fav)
         ctx = getattr(self._services, 'context_svc', None)
         if ctx:
             ctx.record_favorite_changed(track=item, favorite=now_fav)
@@ -202,13 +212,86 @@ class SongsController(QObject):
                     pass
             wm.run_task("analyze_song", lambda f=fp: _run(f))
 
-    # ── Placeholder actions (not yet fully implemented) ──
+    # ── Micro Server import (reuses AlbumImportWorker) ──
 
     def send_to_micro_server(self, items: list):
-        """Placeholder: send tracks to Michi Micro Server."""
+        from integrations.michi_link.services.import_to_server_service import (
+            ImportToServerService,
+        )
+        svc = ImportToServerService()
+        server = getattr(self._services, 'micro_server', None)
         toast = getattr(self._services, 'toast', None)
-        if toast and hasattr(toast, 'show'):
-            toast.show("Enviar a Micro Server: pendiente", "info")
+        if not server:
+            if toast and hasattr(toast, 'show'):
+                toast.show(
+                    "Michi Link no está configurado. Configura un servidor en "
+                    "Dispositivos > Michi Sync Suite.", "info")
+            return
+        fps = self._filepaths(items)
+        if not fps:
+            if toast and hasattr(toast, 'show'):
+                toast.show("No hay archivos para enviar", "error")
+            return
+
+        # Preflight
+        session_result = svc.create_session(server, fps)
+        if not session_result.ok:
+            if toast and hasattr(toast, 'show'):
+                toast.show(f"Error al preparar envío: {session_result.message}", "error")
+            return
+        pd = session_result.data
+        existing = pd.get("existing", 0)
+        needs = pd.get("needs_upload", 0)
+
+        # Dialog — need a parent widget
+        from PySide6.QtWidgets import QApplication
+        from ui.dialogs.album_server_import_dialog import AlbumServerImportDialog
+        parent = QApplication.activeWindow()
+        album_title = str(getattr(items[0], "album", "Canciones") if items else "Canciones")
+        dlg = AlbumServerImportDialog(
+            parent, album_title, len(fps), existing, needs)
+        if not dlg.exec() or not dlg.was_confirmed():
+            sid = pd.get("session_id", "")
+            if sid:
+                with contextlib.suppress(Exception):
+                    svc.rollback(sid)
+            return
+
+        # Use AlbumImportWorker via WorkerManager
+        from integrations.michi_link.services.album_import_worker import (
+            AlbumImportWorker, AlbumImportProgress, AlbumImportResult,
+        )
+        wm = getattr(self._services, 'workers', None)
+        if not wm:
+            if toast and hasattr(toast, 'show'):
+                toast.show("Sistema de workers no disponible", "error")
+            return
+
+        sid = pd.get("session_id", "")
+        worker = AlbumImportWorker(server, fps, import_service=svc, session_id=sid)
+        self._active_import_worker = worker
+
+        def _on_progress(progress: AlbumImportProgress):
+            dlg.set_progress(progress.current, progress.total)
+
+        def _on_finished(result: AlbumImportResult):
+            self._active_import_worker = None
+            if result.ok:
+                AlbumServerImportDialog.show_report(
+                    parent, "Importación completada", result.message, is_error=False)
+            else:
+                AlbumServerImportDialog.show_report(
+                    parent, "Importación fallida", result.message, is_error=True)
+
+        def _on_failed(err: str):
+            self._active_import_worker = None
+            AlbumServerImportDialog.show_report(
+                parent, "Error de importación", err, is_error=True)
+
+        worker.progress.connect(_on_progress)
+        worker.finished.connect(_on_finished)
+        worker.failed.connect(_on_failed)
+        wm.run_task("song_import", worker.run)
 
     def sync_to_mobile(self, items: list):
         """Placeholder: sync tracks to Michi Mobile."""

@@ -1,4 +1,4 @@
-"""Song Grid Widget — flat mosaic of song cards, no 3D effects."""
+"""Song Grid Widget — flat mosaic of song cards with status badges."""
 
 import os
 
@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QScrollArea, QLabel,
-    QGridLayout, QFrame,
+    QGridLayout, QFrame, QHBoxLayout,
 )
 from library.album_art import find_cover_in_dir
 from ui.effects.michi_glass import apply_card_shadow
@@ -21,6 +21,7 @@ class SongGridWidget(QWidget):
         super().__init__(parent)
         self._items = []
         self._card_size = 170
+        self._status_cache = {}
 
         self.setStyleSheet(
             "background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
@@ -51,9 +52,10 @@ class SongGridWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._scroll)
 
-    def set_items(self, items, card_size: int = 170):
+    def set_items(self, items, card_size: int = 170, status_cache: dict[int, dict] | None = None):
         self._items = items
         self._card_size = card_size
+        self._status_cache = status_cache or {}
 
         # Clear grid
         while self._grid.count():
@@ -69,7 +71,8 @@ class SongGridWidget(QWidget):
             cols = 1
 
         for i, item in enumerate(items):
-            card = _SongCard(item, card_size)
+            st = self._status_cache.get(getattr(item, 'id', 0), {})
+            card = _SongCard(item, card_size, status=st)
             card.double_clicked.connect(self.song_double_clicked.emit)
             card.context_menu_requested.connect(self._on_menu)
             row = i // cols
@@ -99,10 +102,11 @@ class _SongCard(QFrame):
     double_clicked = Signal(str)
     context_menu_requested = Signal(str, object)
 
-    def __init__(self, item, size: int):
+    def __init__(self, item, size: int, status: dict | None = None):
         super().__init__()
         self._fp = getattr(item, 'filepath', None) or getattr(item, 'uri', '')
-        self.setFixedSize(size, size + 70)
+        self._status = status or {}
+        self.setFixedSize(size, size + 86)
         self.setCursor(Qt.PointingHandCursor)
         self.setObjectName("songCard")
         self.setStyleSheet(glass_card_qss("songCard"))
@@ -145,6 +149,15 @@ class _SongCard(QFrame):
                 "  stop:1 rgba(255,255,255,0.045)); border-radius: 8px;"
                 "  color: rgba(255,255,255,0.08); font-size: 28px; }")
             cover.setText("♪")
+
+        # Favorite star overlay
+        if self._status.get("is_favorite"):
+            fav_overlay = QLabel("★", cover)
+            fav_overlay.setAlignment(Qt.AlignTop | Qt.AlignRight)
+            fav_overlay.setStyleSheet(
+                "color: #FFD700; font-size: 18px; background: transparent;"
+                " padding: 4px;")
+            fav_overlay.setGeometry(0, 0, size - 12, size - 12)
         layout.addWidget(cover, alignment=Qt.AlignCenter)
 
         # Title
@@ -178,14 +191,34 @@ class _SongCard(QFrame):
         extra_lbl.setFixedHeight(14)
         layout.addWidget(extra_lbl)
 
-        # Format badge
+        # Badge row (format + quality + warning)
+        badges = []
         ext = getattr(item, 'ext', '') or ''
         if ext:
-            fmt_lbl = QLabel(ext.upper().lstrip("."))
-            fmt_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            fmt_lbl.setStyleSheet(badge_qss("info"))
-            fmt_lbl.setFixedHeight(16)
-            layout.addWidget(fmt_lbl)
+            badges.append(ext.upper().lstrip("."))
+        qcat = self._status.get("quality_category", "")
+        if qcat == "hires":
+            badges.append("Hi-Res")
+        elif qcat == "lossless":
+            pass
+        elif qcat == "lossy":
+            badges.append("Lossy")
+        elif qcat == "dsd":
+            badges.append("DSD")
+        if self._status.get("has_audio_lab_warning"):
+            badges.append("⚠")
+        if badges:
+            badge_row = QHBoxLayout()
+            badge_row.setContentsMargins(0, 0, 0, 0)
+            badge_row.setSpacing(4)
+            for b in badges:
+                bl = QLabel(b)
+                is_warn = b == "⚠"
+                bl.setStyleSheet(badge_qss("warning" if is_warn else "info"))
+                bl.setFixedHeight(16)
+                badge_row.addWidget(bl)
+            badge_row.addStretch()
+            layout.addLayout(badge_row)
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:

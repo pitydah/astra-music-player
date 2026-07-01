@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QSplitter, QTableView, QHeaderView, QLabel,
+    QWidget, QVBoxLayout, QSplitter, QTableView, QHeaderView, QLabel, QMenu,
 )
 
 from library.mediaitem_table_model import MediaItemTableModel
@@ -31,6 +31,7 @@ class SongsPremiumPage(QWidget):
     def set_controller(self, ctrl):
         self._ctrl = ctrl
         if ctrl:
+            ctrl.data_changed.connect(self._on_data_changed)
             self._filter_bar.set_formats(
                 ctrl.query_service.distinct_formats()
             )
@@ -42,6 +43,16 @@ class SongsPremiumPage(QWidget):
             cols_str = settings.value("songs_optional_columns", "")
             if cols_str:
                 self._model.set_optional_columns(cols_str.split(","))
+
+    def _on_data_changed(self, vs):
+        self._model.populate(vs.items, fav_set=set(vs.favorite_track_ids),
+                             status_cache=dict(vs.status_cache))
+        self._resize_columns()
+        self._loading_label.hide()
+        if not vs.items:
+            self._empty_label.show()
+        else:
+            self._empty_label.hide()
 
     def _setup_ui(self):
         outer = QVBoxLayout(self)
@@ -80,6 +91,8 @@ class SongsPremiumPage(QWidget):
         self._table.horizontalHeader().setSectionsClickable(True)
         self._table.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
         self._table.horizontalHeader().customContextMenuRequested.connect(self._show_column_menu)
+        self._table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._table.customContextMenuRequested.connect(self._show_body_context_menu)
         self._table.setStyleSheet(self._table_qss())
         self._delegate = SongsStatusDelegate(
             status_cache_provider=lambda: self._ctrl.status_cache() if self._ctrl else {})
@@ -126,13 +139,20 @@ class SongsPremiumPage(QWidget):
         elif action == "edit":
             self._ctrl.edit_metadata(items)
         elif action == "fav":
-            self._ctrl.toggle_favorite(items[0])
+            for item in items:
+                self._ctrl.toggle_favorite(item)
         elif action == "playlist":
             self._ctrl.add_to_playlist(items)
         elif action == "analyze":
             self._ctrl.analyze_quality(items)
         elif action == "locate":
             self._ctrl.locate_file(items[0])
+        elif action == "server":
+            self._ctrl.send_to_micro_server(items)
+        elif action == "mobile":
+            self._ctrl.sync_to_mobile(items)
+        elif action == "convert":
+            self._ctrl.convert_items(items)
 
     def _on_detail_play(self, item):
         if self._ctrl:
@@ -162,10 +182,7 @@ class SongsPremiumPage(QWidget):
         if not self._ctrl:
             return
         self._ctrl.apply_filter(filter_state=state)
-        vs = self._ctrl.view_state()
-        self._model.populate(vs.items, fav_set=vs.favorite_track_ids,
-                             status_cache=dict(vs.status_cache))
-        self._resize_columns()
+        # _on_data_changed will be called via data_changed signal
 
     def _on_selection_changed(self, selected, _deselected):
         rows = [r.row() for r in selected.indexes()]
@@ -232,6 +249,56 @@ class SongsPremiumPage(QWidget):
             self._resize_columns()
             settings = QSettings("Michi", "MichiMusicPlayer")
             settings.setValue("songs_optional_columns", ",".join(opts))
+
+    def _show_body_context_menu(self, pos):
+        items = self.selected_items()
+        if not items:
+            return
+        from ui.central.central_styles import menu_qss
+        menu = QMenu(self)
+        menu.setStyleSheet(menu_qss())
+
+        play_act = menu.addAction("▶ Reproducir")
+        queue_act = menu.addAction("⊕ Añadir a la cola")
+        menu.addSeparator()
+        fav_act = menu.addAction("★ Favorito / Quitar favorito")
+        metadata_act = menu.addAction("✎ Editar metadatos")
+        playlist_act = menu.addAction("📋 Agregar a playlist")
+        menu.addSeparator()
+        analyze_act = menu.addAction("🔬 Analizar calidad")
+        locate_act = menu.addAction("📁 Localizar archivo")
+        menu.addSeparator()
+        server_act = menu.addAction("📤 Enviar a Michi Micro Server")
+        mobile_act = menu.addAction("📱 Sincronizar a Michi Mobile")
+        convert_act = menu.addAction("🔄 Convertir formato")
+        menu.addSeparator()
+        select_all_act = menu.addAction("Seleccionar todo")
+
+        action = menu.exec(self._table.viewport().mapToGlobal(pos))
+        if not action:
+            return
+        if action == play_act:
+            self._run_bulk("play")
+        elif action == queue_act:
+            self._run_bulk("queue")
+        elif action == fav_act:
+            self._run_bulk("fav")
+        elif action == metadata_act:
+            self._run_bulk("edit")
+        elif action == playlist_act:
+            self._run_bulk("playlist")
+        elif action == analyze_act:
+            self._run_bulk("analyze")
+        elif action == locate_act:
+            self._run_bulk("locate")
+        elif action == server_act:
+            self._run_bulk("server")
+        elif action == mobile_act:
+            self._run_bulk("mobile")
+        elif action == convert_act:
+            self._run_bulk("convert")
+        elif action == select_all_act:
+            self._table.selectAll()
 
     @staticmethod
     def _table_qss() -> str:
