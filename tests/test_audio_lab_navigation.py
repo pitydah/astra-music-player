@@ -69,3 +69,50 @@ class TestAudioLabNavigation:
         from ui.controllers.audio_lab_controller import AudioLabController
         for method in _AUDIO_LAB_CTRL_METHODS:
             assert hasattr(AudioLabController, method)
+
+    def test_show_diagnostics_calls_lazy(self):
+        """Verify show_diagnostics() calls self._lazy() with correct key.
+        Mocks _lazy to avoid widget instantiation."""
+        import types
+        from unittest.mock import MagicMock
+        from ui.controllers.audio_lab_controller import AudioLabController
+
+        lazy_calls = []
+
+        win = types.SimpleNamespace(
+            _workers=None, _db=None, _on_sidebar_navigate=lambda k: None,
+            _views=types.SimpleNamespace(
+                widget=lambda n: None, register=lambda n, p: None,
+            ),
+            _fade_content=lambda t: None,
+            _playback=types.SimpleNamespace(
+                state_changed=types.SimpleNamespace(connect=lambda f: None),
+            ),
+            _current_ref=None, _player=None, _ctx=None, _encoder=None,
+            _hub_route_ctrl=MagicMock(),
+        )
+        ctrl = AudioLabController(win)
+        ctrl._lazy = lambda name, factory: lazy_calls.append(name)
+        ctrl.show_diagnostics()
+
+        assert "audio_lab_diagnostics" in lazy_calls, (
+            "show_diagnostics() must call self._lazy('audio_lab_diagnostics', _build)"
+        )
+
+    def test_hub_route_delegates_to_audio_lab_controller(self):
+        """Verify HubRouteController.show_audio_lab_diagnostics delegates."""
+        import types
+        from unittest.mock import MagicMock
+        from ui.controllers.hub_route_controller import HubRouteController
+
+        diag_called = []
+        win = types.SimpleNamespace(
+            _audio_lab_ctrl=types.SimpleNamespace(
+                show_diagnostics=lambda k: diag_called.append(k),
+            ),
+        )
+        ctrl = HubRouteController(win)
+        ctrl.show_audio_lab_diagnostics("test_key")
+        assert diag_called == ["test_key"], (
+            "HubRouteController should delegate to audio_lab_ctrl.show_diagnostics"
+        )

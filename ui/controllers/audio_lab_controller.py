@@ -104,6 +104,8 @@ class AudioLabController:
             )
             return page
 
+        self._lazy("audio_lab_diagnostics", _build)
+
     def _refresh_songs_badges(self, paths: list[str]):
         """Refresh songs page badges after diagnostics update."""
         w = self._win
