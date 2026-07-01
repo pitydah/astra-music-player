@@ -17,6 +17,8 @@ class _MockWin:
     _metadata_editor = MagicMock()
     _db = MagicMock()
     _nav_ctrl = MagicMock()
+    _workers = MagicMock()
+    _workers.run_task = MagicMock()
 
 
 def _make_track(filepath="/music/s.flac", title="Test", artist="A",
@@ -104,16 +106,12 @@ class TestAlbumControllerActions:
 
     def test_analyze_album_quality(self):
         from ui.controllers.album_controller import AlbumController
-        from PySide6.QtCore import QObject
         w = _MockWin()
-        # Give _win proper Qt parentage for QTimer
-        qparent = QObject()
-        w._win_parent = qparent
         ctrl = AlbumController(w)
         tracks = [_make_track()]
         ctrl.analyze_album_quality(tracks)
         w._ctx.toast.show.assert_called_with("Analizando calidad...", "info")
-        # Result is async (2s timer), so we can't sync-assert QMessageBox
+        w._workers.run_task.assert_called_once()
 
     def test_send_album_to_server_sin_config(self):
         from ui.controllers.album_controller import AlbumController
