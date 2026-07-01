@@ -26,6 +26,10 @@ Item {
             return "transparent"
         }
 
+        Behavior on color {
+            ColorAnimation { duration: MichiMotion.fast; easing.type: MichiMotion.easing.standard }
+        }
+
         Rectangle {
             visible: root.active
             width: 3
@@ -42,12 +46,22 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 12
 
-            Text {
-                text: root.iconText
-                color: root.active ? MichiColors.accentBlue : MichiColors.textSecondary
-                font.pixelSize: 16
+            Rectangle {
+                width: 28
+                height: 28
+                radius: 6
+                color: root.active ? Qt.rgba(0.561, 0.718, 1.0, 0.10) : "transparent"
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.iconText !== ""
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.iconText
+                    color: root.active ? MichiColors.accentBlue : MichiColors.textMuted
+                    font.pixelSize: 12
+                    font.weight: MichiTypography.weightSemiBold
+                    font.letterSpacing: 1.2
+                }
             }
 
             Text {

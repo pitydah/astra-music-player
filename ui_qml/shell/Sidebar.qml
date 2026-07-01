@@ -48,21 +48,20 @@ Item {
 
                 Repeater {
                     model: ListModel {
-                        ListElement { route: "home"; icon: "⌂"; label: "Inicio" }
-                        ListElement { route: "library"; icon: "♫"; label: "Biblioteca" }
-                        ListElement { route: "genres"; icon: "♬"; label: "Géneros" }
-                        ListElement { route: "mix"; icon: "⚄"; label: "Mix" }
-                        ListElement { route: "playback"; icon: "▶"; label: "Reproducción" }
-                        ListElement { route: "radio"; icon: "📻"; label: "Radio" }
-                        ListElement { route: "connections"; icon: "⇌"; label: "Conexiones" }
-                        ListElement { route: "ecosystem"; icon: "⚙"; label: "Ecosistema Michi" }
-                        ListElement { route: "home_audio"; icon: "♬"; label: "Home Audio" }
-                        ListElement { route: "audio_lab"; icon: "⚙"; label: "Audio Lab" }
-                        ListElement { route: "assistant"; icon: "⚡"; label: "Michi AI" }
+                        ListElement { route: "home"; glyph: "IN"; label: "Inicio" }
+                        ListElement { route: "library"; glyph: "BL"; label: "Biblioteca" }
+                        ListElement { route: "mix"; glyph: "MX"; label: "Mix" }
+                        ListElement { route: "playback"; glyph: "RP"; label: "Reproducción" }
+                        ListElement { route: "connections"; glyph: "SV"; label: "Conexiones" }
+                        ListElement { route: "home_audio"; glyph: "HA"; label: "Home Audio" }
+                        ListElement { route: "assistant"; glyph: "AI"; label: "Asistente" }
+                        ListElement { route: "audio_lab"; glyph: "AL"; label: "Audio Lab" }
+                        ListElement { route: "settings"; glyph: "CF"; label: "Ajustes" }
                     }
 
                     SidebarItem {
-                        iconText: model.icon
+                        property string glyphText: model.glyph
+                        iconText: model.glyph
                         label: model.label
                         active: root.currentRoute === model.route
                         onClicked: root.routeRequested(model.route)
