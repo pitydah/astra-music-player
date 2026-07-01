@@ -5,6 +5,7 @@ Includes experimental spectral coherence analysis for WAV PCM and FLAC.
 Results are probabilistic and not conclusive.
 """
 
+
 from __future__ import annotations
 
 import logging
@@ -973,3 +974,18 @@ class DiagnosticsPage(QWidget):
     def _report_to_json(report: dict) -> str:
         import json
         return json.dumps(report, indent=2, ensure_ascii=False)
+
+
+# INTEGRITY GUARD — prevents silent regression to old __init__(self) signature.
+# If this file is reverted, AudioLabDiagnosticsPage will silently show
+# "Diagnóstico no disponible" instead of the real page.
+# This guard raises at import time so the error is immediate.
+import inspect as _mi_inspect  # noqa: E402
+_sig = _mi_inspect.signature(DiagnosticsPage.__init__)
+assert 'worker_mgr' in _sig.parameters, (
+    "IntegrityError: DiagnosticsPage.__init__ must accept worker_mgr= kwarg. "
+    f"Current signature: {_sig}. "
+    "This file was reverted to an incompatible version. "
+    "Restore from a recent commit that has the full constructor."
+)
+del _mi_inspect, _sig

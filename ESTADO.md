@@ -1,7 +1,7 @@
 # Michi Music Player — Estado del Software
 
 > **Repositorio:** `pitydah/michi-music-player`  
-> **Última actualización:** 2026-06-27  
+> **Última actualización:** 2026-06-30  
 > **Versión:** pre-alpha técnica  
 > **Validación:** pendiente de confirmar en GitHub Actions.  
 > Para validar localmente ejecutar:  

@@ -477,3 +477,26 @@ ruff check . --output-format concise     # must be 0
 python -m compileall -q -x '.venv/|\.tmpl\.' .                # must be clean
 python -m pytest tests/ -q               # must pass
 ```
+
+## 12. Protected Files — Risk of Silent Regression
+
+These files have an **integrity guard** at the module level that raises `AssertionError` at import time if the file is reverted to an incompatible version. Do NOT remove or modify this guard without also updating all callers:
+
+| File | Protected Signature | Guard Location |
+|---|---|---|
+| `ui/audio_lab/diagnostics_page.py` | `DiagnosticsPage.__init__(self, worker_mgr=None, job_manager=None, db=None)` | End of file |
+
+### Symptoms of regression
+If `DiagnosticsPage` loses its `worker_mgr`/`job_manager`/`db` kwargs:
+1. **Import-time crash**: `AssertionError` with message "IntegrityError: DiagnosticsPage.__init__ must accept worker_mgr= kwarg"
+2. **Silent fallback**: `AudioLabDiagnosticsPage._inner` becomes `None`, showing "Diagnóstico no disponible" in the UI
+3. **Test failure**: `test_diagnostics_page_renders` asserts `page._inner is not None`
+
+### How regression happened historically
+Commits outside the Audio Lab scope that touch `ui/audio_lab/diagnostics_page.py` can contain a stale 400-line version of the file that lacks the required constructor. This was overwritten 3 times by `refactor(inicio)` and `refactor` commits. The integrity guard prevents this from happening silently.
+
+### How to safely modify DiagnosticsPage
+1. Keep the constructor signature: `def __init__(self, worker_mgr=None, job_manager=None, db=None):`
+2. Keep `diagnostics_updated = Signal(list)` and `navigate_requested = Signal(str)`
+3. Keep the `# INTEGRITY GUARD` block at the end of the file
+4. If you need to add/remove constructor params, update the guard accordingly and update `AudioLabDiagnosticsPage` in `ui/audio_lab/sub_pages.py`
