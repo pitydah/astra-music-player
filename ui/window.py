@@ -1037,6 +1037,39 @@ class MainWindow(QMainWindow):
         if self._genre_ctrl:
             self._genre_ctrl.show_cleanup_page()
 
+    def _show_album_detail_route(self, album_key: str):
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page.set_current_section("albums")
+        w = self
+        if hasattr(w, '_album_ctrl') and w._album_ctrl:
+            from library.album_art import CoverFlowItem
+            repo = getattr(w, '_album_data_repo', None)
+            group = repo.get_group(album_key) if repo else None
+            if group:
+                from PySide6.QtGui import QPixmap
+                fake = CoverFlowItem(
+                    pixmap=QPixmap(1, 1), title=group.identity.display_title,
+                    subtitle=group.identity.display_artist,
+                    data={"album_group": group, "album_key": album_key,
+                          "tracks": group.tracks},
+                )
+                w._album_ctrl.show_album_detail_from_cover_item(fake)
+
+    def _show_artist_detail_route(self, artist_key: str):
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page.set_current_section("artists")
+        if hasattr(self, '_artist_ctrl') and self._artist_ctrl:
+            self._artist_ctrl.open_artist_detail(artist_key)
+
+    def _show_genre_detail_route(self, genre_key: str):
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page.set_current_section("genres")
+        if hasattr(self, '_genre_ctrl') and self._genre_ctrl:
+            self._genre_ctrl.open_genre_detail(genre_key)
+
     def _show_home_page(self, key=None):
         self._home_ctrl.show()
 

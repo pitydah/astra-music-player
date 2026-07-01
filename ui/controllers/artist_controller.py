@@ -27,7 +27,8 @@ class ArtistController:
         self._ctx.set_artist_stack(0)
 
     def open_artist_detail(self, artist_key: str):
-        self._win._nav_ctrl.checkpoint()
+        if not getattr(self._win._nav_ctrl, 'is_restoring', False):
+            self._win._nav_ctrl.checkpoint()
         repo = self._ctx.artist_repo
         group = repo.get_group(artist_key)
         if not group:
@@ -61,6 +62,9 @@ class ArtistController:
                 mix_key="",
                 search_query="",
             )
+
+        if not getattr(self._win._nav_ctrl, 'is_restoring', False):
+            self._win._nav_ctrl.force_push(f"artist:{artist_key}")
 
     def show_artists_overview(self):
         self._ctx.artist_repo.clear_current()
