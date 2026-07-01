@@ -147,3 +147,26 @@ class TestSearchContext:
         state = repo.get_state("selection", {})
         query = state.get("search_query", "")
         assert len(query) <= 80
+
+    def test_library_search_uses_premium_path_when_available(self, tmp_path):
+        """When _songs_ctrl exists, on_search must use premium path."""
+        router, ctx_svc = self._make_router(tmp_path)
+        ctrl = MagicMock()
+        premium_page = MagicMock()
+        router._win._songs_ctrl = ctrl
+        router._win._songs_premium_page = premium_page
+        router._win._lib_ctrl = MagicMock()
+        router._win._apply_filters = MagicMock()
+
+        # on_search for library should call songs_ctrl.apply_filter
+        router.on_search("test")
+        ctrl.apply_filter.assert_called_once()
+
+    def test_library_search_legacy_path_when_no_premium(self, tmp_path):
+        """When _songs_ctrl is None, on_search must use apply_filters."""
+        router, ctx_svc = self._make_router(tmp_path)
+        router._win._apply_filters = MagicMock()
+        router._win._lib_ctrl = MagicMock()
+
+        router.on_search("test")
+        router._win._apply_filters.assert_called_once()

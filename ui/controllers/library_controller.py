@@ -229,6 +229,11 @@ class LibraryController(QObject):
                         if fp and _os.path.isdir(_os.path.dirname(fp))
                         else None
                     ),
+                    add_to_playlist_cb=(
+                        lambda fps: w._playlist_ctrl.create_playlist_from_tracks(fps, "Nueva playlist")
+                        if hasattr(w, '_playlist_ctrl') and w._playlist_ctrl
+                        else None
+                    ),
                     parent=w,
                 )
                 w._songs_ctrl = songs_ctrl

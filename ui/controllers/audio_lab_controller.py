@@ -99,8 +99,17 @@ class AudioLabController:
                 db=getattr(w, '_db', None),
             )
             page.navigate_requested.connect(w._on_sidebar_navigate)
+            page.diagnostics_updated.connect(
+                lambda paths: self._refresh_songs_badges(paths)
+            )
             return page
-        self._lazy("audio_lab_diagnostics", _build)
+
+    def _refresh_songs_badges(self, paths: list[str]):
+        """Refresh songs page badges after diagnostics update."""
+        w = self._win
+        songs_ctrl = getattr(w, '_songs_ctrl', None)
+        if songs_ctrl:
+            songs_ctrl._refresh_status()
 
     def show_identifier(self, key: str = ""):
         def _build():

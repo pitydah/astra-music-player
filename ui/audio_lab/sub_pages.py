@@ -291,6 +291,7 @@ class AudioLabBackupPage(QWidget):
 
 class AudioLabDiagnosticsPage(QWidget):
     navigate_requested = Signal(str)
+    diagnostics_updated = Signal(list)  # re-emitted from inner DiagnosticsPage
 
     def __init__(self, worker_mgr=None, job_manager=None, db=None):
         super().__init__()
@@ -311,6 +312,7 @@ class AudioLabDiagnosticsPage(QWidget):
                 db=self._db,
             )
             self._inner.navigate_requested.connect(self.navigate_requested.emit)
+            self._inner.diagnostics_updated.connect(self.diagnostics_updated.emit)
             layout.addWidget(self._inner)
         except Exception as e:
             import logging

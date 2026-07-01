@@ -101,12 +101,11 @@ class DiagnosticsCache:
             ("spectral_metrics_json", "TEXT DEFAULT '{}'"),
         ):
             if col not in cols:
-                try:
+                import contextlib
+                with contextlib.suppress(Exception):
                     self._conn.execute(
                         f"ALTER TABLE audio_lab_quality_cache ADD COLUMN {col} {definition}"
                     )
-                except Exception:
-                    pass
 
     def get(self, filepath: str) -> dict[str, Any] | None:
         """Return cached result if file hasn't changed, else None."""
@@ -771,12 +770,16 @@ def analyse_directory_job(folder_path: str, job_manager=None,
             files = job.params.get("files", [])
             spectral = job.params.get("include_spectral", False)
             total = len(files)
+            errs = []
+            processed_paths = []
             for i, fp in enumerate(files):
                 job_from_db = job_manager.get_job(job.id)
                 if job_from_db and job_from_db.status == JobStatus.CANCELLED:
-                    return {"cancelled": True, "processed": i, "total": total}
+                    return {"cancelled": True, "processed": i, "total": total,
+                            "paths": processed_paths, "errors": errs}
                 try:
                     result = analyse_file(fp)
+                    processed_paths.append(fp)
                     if spectral and fp.lower().endswith(".wav"):
                         try:
                             spec = analyse_spectral(fp)
@@ -784,10 +787,11 @@ def analyse_directory_job(folder_path: str, job_manager=None,
                                 result["spectral"] = spec
                         except Exception:
                             pass
-                except Exception:
-                    pass
+                except Exception as e:
+                    errs.append({"path": fp, "error": str(e)})
                 progress_cb((i + 1) / total)
-            return {"processed": total, "total": total}
+            return {"processed": total, "total": total,
+                    "paths": processed_paths, "errors": errs}
         job_manager.register_handler(JobType.QUALITY_ANALYSIS, _handler)
 
     job_manager.start_job(job_id)

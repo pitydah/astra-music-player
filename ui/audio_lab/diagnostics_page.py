@@ -1,7 +1,7 @@
 """DiagnosticsPage — analyse audio files and generate technical reports.
 
 Reuses format_probe, quality_classifier and spectral_authenticator.
-Includes experimental spectral coherence analysis for WAV PCM.
+Includes experimental spectral coherence analysis for WAV PCM and FLAC.
 Results are probabilistic and not conclusive.
 """
 
@@ -166,6 +166,13 @@ class DiagnosticsPage(QWidget):
         self._library_btn.setVisible(self._job_manager is not None and self._db is not None)
         btn_row.addWidget(self._library_btn)
 
+        self._cancel_job_btn = QPushButton("Cancelar job")
+        self._cancel_job_btn.setCursor(Qt.PointingHandCursor)
+        self._cancel_job_btn.setStyleSheet(glass_button_qss("danger"))
+        self._cancel_job_btn.clicked.connect(self._cancel_job)
+        self._cancel_job_btn.setVisible(False)
+        btn_row.addWidget(self._cancel_job_btn)
+
         self._clear_btn = QPushButton("Limpiar")
         self._clear_btn.setCursor(Qt.PointingHandCursor)
         self._clear_btn.setStyleSheet(glass_button_qss("ghost"))
@@ -262,7 +269,7 @@ class DiagnosticsPage(QWidget):
         svl.addWidget(spec_sub)
 
         spec_btn_row = QHBoxLayout()
-        self._spectral_btn = QPushButton("Analizar archivo WAV...")
+        self._spectral_btn = QPushButton("Analizar archivo WAV/FLAC...")
         self._spectral_btn.setCursor(Qt.PointingHandCursor)
         self._spectral_btn.setStyleSheet(glass_button_qss("secondary"))
         self._spectral_btn.clicked.connect(self._analyse_spectral)
@@ -375,8 +382,8 @@ class DiagnosticsPage(QWidget):
 
     def _analyse_spectral(self):
         fp, _ = QFileDialog.getOpenFileName(
-            self, "Seleccionar archivo WAV para análisis espectral", "",
-            "WAV (*.wav)"
+            self, "Seleccionar archivo WAV/FLAC para análisis espectral", "",
+            "Audio lossless (*.wav *.flac)"
         )
         if not fp:
             return
@@ -423,13 +430,17 @@ class DiagnosticsPage(QWidget):
             from core.audio_analysis.spectral_authenticator import _read_pcm_chunk
             sr = 44100
             ext = os.path.splitext(fp)[1].lower()
+            sr = 44100
             if ext == ".flac":
+                from core.audio_lab.diagnostics_service import _read_flac_metadata
                 from core.audio_analysis.spectral_authenticator import (
                     _decode_flac_to_wav_preserve,
                 )
-                tmp = _decode_flac_to_wav_preserve(fp, 44100, 16)
+                flac_sr, flac_bd = _read_flac_metadata(fp)
+                sr = flac_sr or 44100
+                tmp = _decode_flac_to_wav_preserve(fp, sr, flac_bd or 16)
                 if tmp:
-                    samples = _read_pcm_chunk(tmp, 44100)
+                    samples = _read_pcm_chunk(tmp, sr)
                     import contextlib
                     with contextlib.suppress(Exception):
                         os.unlink(tmp)
@@ -493,24 +504,36 @@ class DiagnosticsPage(QWidget):
         include_spectral = self._spectral_check.isChecked()
         from core.audio_lab.diagnostics_service import analyse_directory_job
 
-        # Wire JobManager signals
-        self._job_manager.job_progress.connect(self._on_job_progress)
-        self._job_manager.job_completed.connect(self._on_job_completed)
-        self._job_manager.job_failed.connect(self._on_job_failed)
+        # Wire JobManager signals (once)
+        if not hasattr(self, '_job_signals_connected'):
+            self._job_manager.job_progress.connect(self._on_job_progress)
+            self._job_manager.job_completed.connect(self._on_job_completed)
+            self._job_manager.job_failed.connect(self._on_job_failed)
+            self._job_signals_connected = True
 
         job_id = analyse_directory_job(
             folder, job_manager=self._job_manager,
             include_spectral=include_spectral,
         )
         if job_id:
+            self._current_job_id = job_id
             self._report_label.setText(
                 f"Job creado: {job_id[:8]}... Analizando biblioteca."
             )
             self._library_btn.setEnabled(False)
+            self._cancel_job_btn.setVisible(True)
         else:
             self._report_label.setText(
                 "No se pudo crear el job de análisis."
             )
+
+    def _cancel_job(self):
+        if hasattr(self, '_current_job_id') and self._current_job_id and self._job_manager:
+            self._job_manager.cancel_job(self._current_job_id)
+            self._current_job_id = ""
+            self._cancel_job_btn.setVisible(False)
+            self._library_btn.setEnabled(True)
+            self._report_label.setText("Job cancelado.")
 
     def _on_job_progress(self, job_id: str, progress: float):
         pct = int(progress * 100)
@@ -520,20 +543,25 @@ class DiagnosticsPage(QWidget):
 
     def _on_job_completed(self, job_id: str, result: dict):
         self._library_btn.setEnabled(True)
+        self._cancel_job_btn.setVisible(False)
+        self._current_job_id = ""
         processed = result.get("processed", 0)
+        paths = result.get("paths", [])
         errors = result.get("errors", [])
         synced = 0
         if self._db and hasattr(self._db, '_conn'):
             from core.audio_lab.audio_lab_sync import sync_audio_lab_cache_to_media_items
             import contextlib
             with contextlib.suppress(Exception):
-                synced = sync_audio_lab_cache_to_media_items(self._db._conn)
+                synced = sync_audio_lab_cache_to_media_items(self._db._conn, paths)
         msg = f"Análisis completado: {processed} archivos procesados."
         if synced:
             msg += f" {synced} registros sincronizados."
         if errors:
             msg += f" {len(errors)} errores."
         self._report_label.setText(msg)
+        if paths:
+            self.diagnostics_updated.emit(paths)
 
     def _on_job_failed(self, job_id: str, error: str):
         self._library_btn.setEnabled(True)
