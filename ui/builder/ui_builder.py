@@ -426,7 +426,7 @@ class UIBuilder:
         w._playlist_hub = PlaylistHubWidget()
         w._playlist_hub.create_playlist_requested.connect(lambda _w=w: _w._sidebar_menu_ctrl.create_playlist())
         w._playlist_hub.import_m3u_requested.connect(lambda _w=w: _w._playlist_ctrl.import_m3u())
-        w._playlist_hub.export_playlists_requested.connect(lambda _w=w: _w._playlist_ctrl.export_playlists())
+        w._playlist_hub.export_playlists_requested.connect(lambda _w=w: _w._playlist_ctrl.export_m3u())
         w._playlist_hub.smart_playlist_requested.connect(lambda key, _w=w: _w._playlist_ctrl.open_smart_playlist(key))
         w._playlist_hub.playlist_open_requested.connect(
             lambda pid, _w=w: _w._nav_ctrl.dispatch(f"pl:{pid}"))
@@ -439,17 +439,17 @@ class UIBuilder:
         w._playlist_hub.create_from_queue_requested.connect(
             lambda _w=w: _w._playlist_ctrl.hub_create_from_queue())
         w._playlist_hub.export_text_requested.connect(
-            lambda _w=w: _w._toast_svc.show("Funcionalidad en desarrollo — disponible próximamente", "info"))
+            lambda _w=w: _w._playlist_ctrl.audit_playlist(getattr(w, '_current_playlist', 0)))
         w._playlist_hub.find_duplicates_requested.connect(
-            lambda _w=w: _w._toast_svc.show("Detección de duplicados pendiente de implementación", "info"))
+            lambda _w=w: _w._toast_svc.show("Usa el Health Center para detectar duplicados", "info"))
         w._playlist_hub.scan_metadata_requested.connect(
-            lambda _w=w: _w._toast_svc.show("Revisión de metadatos pendiente de implementación", "info"))
+            lambda _w=w: _w._toast_svc.show("Usa Audio Lab > Revisión de metadatos", "info"))
         w._playlist_hub.scan_missing_covers_requested.connect(
-            lambda _w=w: _w._toast_svc.show("Búsqueda de carátulas faltantes pendiente de implementación", "info"))
+            lambda _w=w: _w._toast_svc.show("Usa Audio Lab > Carátulas", "info"))
         w._playlist_hub.clean_empty_playlists_requested.connect(
-            lambda _w=w: _w._toast_svc.show("Limpieza de playlists vacías pendiente de implementación", "info"))
+            lambda _w=w: _w._playlist_ctrl.clean_empty_playlists())
         w._playlist_hub.find_lost_files_requested.connect(
-            lambda _w=w: _w._toast_svc.show("Búsqueda de canciones perdidas pendiente de implementación", "info"))
+            lambda _w=w: _w._playlist_ctrl.find_lost_files())
 
         w._playlist_detail = PlaylistDetailView()
         w._playlist_detail.play_requested.connect(lambda pid, _w=w: _w._playlist_ctrl.hub_playlist_play(pid))
@@ -459,6 +459,12 @@ class UIBuilder:
             lambda fp, _w=w: _w._play_filepaths([fp], play_now=True))
         w._playlist_detail.track_activated.connect(
             w._on_playlist_track_activated)
+        w._playlist_detail.export_requested.connect(
+            lambda pid, _w=w: _w._playlist_ctrl.export_m3u())
+        w._playlist_detail.order_changed.connect(
+            lambda pid, fps, _w=w: _w._playlist_ctrl._store.set_playlist_order(pid, ordered_filepaths=fps) if _w._playlist_ctrl._store else None)
+        w._playlist_detail.track_context_action.connect(
+            lambda action, pid, fp, _w=w: _w._playlist_ctrl._on_track_context_action(action, pid, fp))
 
         w._playlist_hub.playlist_edit_requested.connect(lambda pid, _w=w: _w._sidebar_menu_ctrl.edit_playlist_dialog(pid))
         w._playlist_hub.create_from_album_requested.connect(
