@@ -32,10 +32,16 @@ Item {
                 width: parent.width
                 state: "not_configured"
                 onScanClicked: {
-                    console.log("[Connections] Buscar Michi Micro Server")
+                    if (typeof connectionsBridge !== "undefined" && connectionsBridge)
+                        connectionsBridge.scanForServers()
+                    else
+                        console.log("[Connections] Buscar Michi Micro Server")
                 }
                 onManualAddClicked: {
-                    console.log("[Connections] Agregar servidor manual")
+                    if (typeof connectionsBridge !== "undefined" && connectionsBridge)
+                        connectionsBridge.addManualServer()
+                    else
+                        console.log("[Connections] Agregar servidor manual")
                 }
             }
 
@@ -84,7 +90,12 @@ Item {
 
             HomeAudioAccess {
                 width: parent.width
-                onOpenHomeAudio: console.log("[Connections] Abrir Home Audio")
+                onOpenHomeAudio: {
+                    if (typeof navigationBridge !== "undefined" && navigationBridge)
+                        navigationBridge.navigate("home_audio")
+                    else
+                        console.log("[Connections] Abrir Home Audio")
+                }
             }
         }
     }

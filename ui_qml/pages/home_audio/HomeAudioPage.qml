@@ -42,8 +42,18 @@ Item {
                     id: haPanel
                     width: parent.width
                     state: "not_configured"
-                    onConfigureClicked: console.log("[HomeAudio] Configurar HA")
-                    onOpenDiagnostics: console.log("[HomeAudio] Diagnóstico HA")
+                    onConfigureClicked: {
+                        if (typeof homeAudioBridge !== "undefined" && homeAudioBridge)
+                            homeAudioBridge.configureHomeAssistant()
+                        else
+                            console.log("[HomeAudio] Configurar HA")
+                    }
+                    onOpenDiagnostics: {
+                        if (typeof homeAudioBridge !== "undefined" && homeAudioBridge)
+                            homeAudioBridge.openDiagnostics()
+                        else
+                            console.log("[HomeAudio] Diagnóstico HA")
+                    }
                 }
 
                 MichiMusicStreamPanel {

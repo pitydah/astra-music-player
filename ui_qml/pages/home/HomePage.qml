@@ -37,21 +37,41 @@ Item {
                     albums: 0
                     artists: 0
                     tracks: 0
-                    onOpenLibrary: console.log("[Home] Abrir biblioteca")
+                    onOpenLibrary: {
+                        if (typeof navigationBridge !== "undefined" && navigationBridge)
+                            navigationBridge.navigate("library")
+                        else
+                            console.log("[Home] Abrir biblioteca")
+                    }
                 }
 
                 EcosystemCard {
                     id: ecosystemCard
                     width: parent.width * 0.48
                     microServerState: "not_configured"
-                    onOpenConnections: console.log("[Home] Abrir conexiones")
-                    onOpenHomeAudio: console.log("[Home] Abrir Home Audio")
+                    onOpenConnections: {
+                        if (typeof navigationBridge !== "undefined" && navigationBridge)
+                            navigationBridge.navigate("connections")
+                        else
+                            console.log("[Home] Abrir conexiones")
+                    }
+                    onOpenHomeAudio: {
+                        if (typeof navigationBridge !== "undefined" && navigationBridge)
+                            navigationBridge.navigate("home_audio")
+                        else
+                            console.log("[Home] Abrir Home Audio")
+                    }
                 }
             }
 
             AssistantCard {
                 width: parent.width
-                onOpenAssistant: console.log("[Home] Abrir asistente")
+                onOpenAssistant: {
+                    if (typeof navigationBridge !== "undefined" && navigationBridge)
+                        navigationBridge.navigate("assistant")
+                    else
+                        console.log("[Home] Abrir asistente")
+                }
             }
         }
     }
