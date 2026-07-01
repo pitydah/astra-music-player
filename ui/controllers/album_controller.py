@@ -83,11 +83,11 @@ class AlbumController:
             self._toast("No hay canciones", "error")
             return
         pb = self._playback()
-        if pb and hasattr(pb, "enqueue"):
+        if pb and hasattr(pb, "enqueue_next"):
             queue = pb.get_queue() or []
             if queue:
-                pb.enqueue(fps, play_now=False)
-                self._toast(f"Reproduciendo {len(fps)} canciones después de actual", "info")
+                pb.enqueue_next(fps)
+                self._toast(f"{len(fps)} canciones insertadas después de la actual", "info")
                 return
         self.play_album(tracks)
 
@@ -174,23 +174,53 @@ class AlbumController:
         if not tracks:
             self._toast("No hay canciones para analizar", "error")
             return
+        self._toast("Analizando calidad...", "info")
         try:
             from library.album_quality_service import AlbumQualityService
             svc = AlbumQualityService()
-            detail = svc.summarize_fast(tracks)
-            msg = (f"Calidad dominante: {detail.dominant_quality.upper()}\n"
-                   f"Formato predominante: {detail.dominant_format or '—'}\n"
-                   f"Resolución: {detail.dominant_sample_rate // 1000}.{detail.dominant_sample_rate % 1000} kHz"
-                   f" / {detail.dominant_bit_depth}-bit\n"
-                   f"Pistas analizadas: {detail.tracks_analyzed}/{detail.total_tracks}\n"
-                   f"Hi-Res: {'Sí' if detail.has_hires else 'No'}\n"
-                   f"Lossless: {'Sí' if detail.has_lossless else 'No'}\n"
-                   f"Lossy: {'Sí' if detail.has_lossy else 'No'}\n"
-                   f"DSD: {'Sí' if detail.has_dsd else 'No'}\n")
-            if detail.warnings:
-                msg += "\nAdvertencias:\n" + "\n".join(f"• {w}" for w in detail.warnings)
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(self._win, "Análisis de calidad", msg)
+            from threading import Thread
+            from PySide6.QtCore import QTimer
+
+            result_holder = {"detail": None, "done": False, "error": ""}
+
+            def _worker():
+                try:
+                    detail = svc.analyze_album(tracks)
+                    result_holder["detail"] = detail
+                except Exception as e:
+                    result_holder["error"] = str(e)
+                finally:
+                    result_holder["done"] = True
+
+            def _show_result():
+                timer.stop()
+                if result_holder["error"]:
+                    self._toast(f"Error al analizar calidad: {result_holder['error']}", "error")
+                    return
+                detail = result_holder["detail"]
+                if not detail:
+                    self._toast("No se pudo analizar la calidad", "error")
+                    return
+                msg = (f"Calidad dominante: {detail.dominant_quality.upper()}\n"
+                       f"Formato predominante: {detail.dominant_format or '—'}\n"
+                       f"Resolución: {detail.dominant_sample_rate // 1000}.{detail.dominant_sample_rate % 1000} kHz"
+                       f" / {detail.dominant_bit_depth}-bit\n"
+                       f"Pistas analizadas: {detail.tracks_analyzed}/{detail.total_tracks}\n"
+                       f"Hi-Res: {'Sí' if detail.has_hires else 'No'}\n"
+                       f"Lossless: {'Sí' if detail.has_lossless else 'No'}\n"
+                       f"Lossy: {'Sí' if detail.has_lossy else 'No'}\n"
+                       f"DSD: {'Sí' if detail.has_dsd else 'No'}\n")
+                if detail.warnings:
+                    msg += "\nAdvertencias:\n" + "\n".join(f"• {w}" for w in detail.warnings)
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(self._win, "Análisis de calidad", msg)
+
+            thread = Thread(target=_worker, daemon=True)
+            thread.start()
+            timer = QTimer(self._win)
+            timer.timeout.connect(_show_result)
+            timer.setSingleShot(True)
+            timer.start(2000)
         except Exception as e:
             self._toast(f"Error al analizar calidad: {e}", "error")
         ctx = self._context_svc
@@ -231,39 +261,56 @@ class AlbumController:
             if not dlg.exec() or not dlg.was_confirmed():
                 return
 
-            # Upload with progress
+            # Upload in background thread
             sid = pd["session_id"]
-            uploaded = 0
-            failed = False
-            for i, fp in enumerate(fps):
-                if not fp or not __import__("os").path.isfile(fp):
-                    continue
-                result = svc.upload_track(sid, str(i), local_filepath=fp,
-                                           progress_cb=lambda c, t, _: dlg.set_progress(c, t))
-                if result.ok:
-                    uploaded += 1
-                else:
-                    failed = True
-                    break
-                dlg.set_progress(i + 1, len(fps))
+            from threading import Thread
+            from PySide6.QtCore import QTimer
 
-            if failed:
-                svc.rollback(sid)
-                AlbumServerImportDialog.show_report(
-                    self._win, "Importación fallida",
-                    "Error durante la subida. La sesión fue revertida.", is_error=True)
-            else:
-                commit_result = svc.commit(sid)
-                if commit_result.ok:
-                    AlbumServerImportDialog.show_report(
-                        self._win, "Importación completada",
-                        f"{uploaded}/{len(fps)} canciones enviadas "
-                        f"a {server.alias or 'servidor'}.", is_error=False)
-                else:
-                    svc.rollback(sid)
-                    AlbumServerImportDialog.show_report(
-                        self._win, "Error al confirmar",
-                        f"Error al confirmar: {commit_result.message}", is_error=True)
+            upload_results = {"uploaded": 0, "failed": False, "total": len(fps), "done": False}
+
+            def _upload_worker():
+                try:
+                    for i, fp in enumerate(fps):
+                        if not fp or not __import__("os").path.isfile(fp):
+                            continue
+                        result = svc.upload_track(sid, str(i), local_filepath=fp)
+                        if result.ok:
+                            upload_results["uploaded"] += 1
+                        else:
+                            upload_results["failed"] = True
+                            break
+                    if upload_results["failed"]:
+                        svc.rollback(sid)
+                    else:
+                        cr = svc.commit(sid)
+                        if not cr.ok:
+                            svc.rollback(sid)
+                            upload_results["failed"] = True
+                except Exception:
+                    upload_results["failed"] = True
+                finally:
+                    upload_results["done"] = True
+
+            def _check_progress():
+                if upload_results["done"]:
+                    timer.stop()
+                    if upload_results["failed"]:
+                        AlbumServerImportDialog.show_report(
+                            self._win, "Importación fallida",
+                            "Error durante la subida. La sesión fue revertida.", is_error=True)
+                    else:
+                        AlbumServerImportDialog.show_report(
+                            self._win, "Importación completada",
+                            f"{upload_results['uploaded']}/{upload_results['total']} "
+                            f"canciones enviadas.", is_error=False)
+                    return
+                dlg.set_progress(upload_results["uploaded"], upload_results["total"])
+
+            thread = Thread(target=_upload_worker, daemon=True)
+            thread.start()
+            timer = QTimer(self._win)
+            timer.timeout.connect(_check_progress)
+            timer.start(100)
         except ImportError:
             self._toast("Michi Link no está disponible en esta versión", "info")
 
@@ -276,40 +323,58 @@ class AlbumController:
         return []
 
     def review_album_duplicates(self, tracks: list) -> None:
-        """Open duplicate review dialog or show toast fallback."""
+        """Find duplicate candidates for this album across the full library."""
         if not tracks:
             self._toast("No hay canciones para revisar duplicados", "error")
             return
         try:
             from library.album_repository import AlbumRepository
             from library.album_duplicate_service import AlbumDuplicateService
-            repo = AlbumRepository()
-            repo.build(tracks)
-            groups = repo.list_groups()
-            if len(groups) < 2:
-                self._toast("No se encontraron duplicados para este álbum", "info")
+            w = self._win
+            all_items = getattr(w, '_all_items', None)
+            if not all_items:
+                all_items = getattr(self._ctx, 'db', None)
+                all_items = all_items.get_all() if all_items and hasattr(all_items, 'get_all') else []
+
+            if not all_items:
+                self._toast("Biblioteca no disponible para búsqueda de duplicados", "info")
                 return
+
+            repo = AlbumRepository()
+            repo.build(all_items)
+
+            from library.album_identity import compute_album_identity
+            target_identity = compute_album_identity(tracks)
+            target_key = target_identity.album_key
+
             svc = AlbumDuplicateService()
-            candidates = svc.find_duplicates(groups)
+            all_groups = repo.list_groups()
+            target_group = None
+            for g in all_groups:
+                if g.identity.album_key == target_key:
+                    target_group = g
+                    break
+            if not target_group:
+                self._toast("No se pudo identificar el álbum en la biblioteca", "error")
+                return
+
+            candidates = svc.find_for_group(all_groups, target_group)
             if candidates:
-                msg_lines = ["Posibles duplicados:"]
+                msg_lines = ["Posibles duplicados encontrados:"]
                 for c in candidates[:5]:
-                    msg_lines.append(
-                        f"• {c.left_key[:8]} vs {c.right_key[:8]} "
-                        f"(confianza: {c.confidence:.0%}, "
-                        f"acción: {c.recommended_action})")
+                    msg_lines.append(f"• {c.left_key[:8]} vs {c.right_key[:8]} "
+                                     f"(confianza: {c.confidence:.0%}, {c.recommended_action})")
                     for r in c.reasons[:3]:
                         msg_lines.append(f"  - {r}")
                 from PySide6.QtWidgets import QMessageBox
-                QMessageBox.information(
-                    self._win, "Revisar duplicados", "\n".join(msg_lines))
+                QMessageBox.information(self._win, "Revisar duplicados", "\n".join(msg_lines))
             else:
-                self._toast("No se encontraron duplicados", "info")
+                self._toast("No se encontraron duplicados de este álbum en la biblioteca", "info")
         except Exception as e:
             self._toast(f"Error al revisar duplicados: {e}", "error")
 
     def sync_album_to_mobile(self, tracks: list) -> None:
-        self._toast("Sincronización con móvil: preparado en Michi Sync Suite (Fase 2)", "info")
+        self._toast("Disponible cuando Michi Sync Suite esté configurado", "info")
 
     def open_album_folder(self, tracks: list) -> None:
         for t in tracks:

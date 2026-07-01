@@ -629,6 +629,37 @@ def _fallback_badge_ext(path: str) -> dict[str, str]:
     return {"label": label, "kind": kind, "tooltip": ""}
 
 
+def attach_spectral_analysis(
+    result: dict[str, Any],
+    filepath: str | None = None,
+    *,
+    persist: bool = True,
+) -> dict[str, Any]:
+    if filepath is None:
+        filepath = result.get("filepath", "")
+    if not filepath or not os.path.isfile(filepath):
+        return result
+    ext = os.path.splitext(filepath)[1].lower()
+    if ext not in (".wav", ".flac"):
+        return result
+    try:
+        from core.audio_analysis.spectral_authenticator import can_analyse
+        if not can_analyse(filepath):
+            return result
+        spec = analyse_spectral(filepath)
+        if spec:
+            result["spectral"] = spec
+            if persist:
+                cache = _get_cache()
+                if cache:
+                    import contextlib
+                    with contextlib.suppress(Exception):
+                        cache.put(filepath, result)
+    except Exception:
+        pass
+    return result
+
+
 def get_badge_for_file(filepath: str) -> dict[str, str]:
     """Return a badge dict for a file based on cached diagnostic data.
 

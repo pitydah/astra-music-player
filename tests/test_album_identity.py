@@ -86,13 +86,28 @@ class TestDetectAlbumArtist:
 
 
 class TestIsCompilation:
-    def test_compilation_by_artists(self):
+    def test_compilation_with_albumartist_va(self):
+        from library.album_identity import is_compilation
+        tracks = [
+            _make_item(artist="A1", album="Comp", albumartist="Various Artists"),
+            _make_item(artist="A2", album="Comp", albumartist="Various Artists"),
+        ]
+        assert is_compilation(tracks) is True
+
+    def test_compilation_with_flag(self):
+        from library.album_identity import is_compilation
+        tracks = [
+            _make_item(artist="A1", album="Comp", albumartist="Various Artists"),
+        ]
+        assert is_compilation(tracks) is True
+
+    def test_not_compilation_different_artists_no_va(self):
         from library.album_identity import is_compilation
         tracks = [
             _make_item(artist="A1", album="Comp"),
             _make_item(artist="A2", album="Comp"),
         ]
-        assert is_compilation(tracks) is True
+        assert is_compilation(tracks) is False
 
     def test_not_compilation(self):
         from library.album_identity import is_compilation

@@ -733,6 +733,16 @@ class GStreamerEngine(QObject):
 
     # ── Queue ──
 
+    def enqueue_next(self, filepaths: list[str]):
+        """Insert tracks immediately after the currently playing track."""
+        if not filepaths:
+            return
+        insert_pos = self._queue_index + 1
+        self._queue[insert_pos:insert_pos] = filepaths
+        self.queue_changed.emit(self._queue)
+        if self._db:
+            self._db.save_queue(self._queue, self._queue_index)
+
     def enqueue(self, filepaths: list[str], play_now: bool = True):
         if play_now:
             self._queue = list(filepaths)

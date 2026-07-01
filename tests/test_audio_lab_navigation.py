@@ -1,5 +1,6 @@
 """Tests: Audio Lab navigation — routes, sidebar, AudioLabController."""
 
+from unittest.mock import MagicMock
 
 _ALL_SUBPAGES = (
     "audio_lab_diagnostics", "audio_lab_identifier", "audio_lab_backup",
@@ -74,7 +75,6 @@ class TestAudioLabNavigation:
         """Verify show_diagnostics() calls self._lazy() with correct key.
         Mocks _lazy to avoid widget instantiation."""
         import types
-        from unittest.mock import MagicMock
         from ui.controllers.audio_lab_controller import AudioLabController
 
         lazy_calls = []
@@ -102,7 +102,6 @@ class TestAudioLabNavigation:
     def test_hub_route_delegates_to_audio_lab_controller(self):
         """Verify HubRouteController.show_audio_lab_diagnostics delegates."""
         import types
-        from unittest.mock import MagicMock
         from ui.controllers.hub_route_controller import HubRouteController
 
         diag_called = []

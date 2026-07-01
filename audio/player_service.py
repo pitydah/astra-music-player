@@ -116,6 +116,10 @@ class PlayerService(QObject):
     def play_prev(self):
         self._engine.play_prev()
 
+    def enqueue_next(self, paths: list[str]):
+        """Insert tracks after the currently playing track."""
+        self._engine.enqueue_next(paths)
+
     def enqueue(self, paths: list, play_now: bool = True):
         self._retry_url = None
         clean: list[str] = []

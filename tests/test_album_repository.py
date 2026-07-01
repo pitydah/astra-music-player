@@ -54,8 +54,8 @@ class TestBuild:
         from library.album_repository import AlbumRepository
         repo = AlbumRepository()
         repo.build([
-            _make_item(album="Comp", artist="A1"),
-            _make_item(album="Comp", artist="A2"),
+            _make_item(album="Comp", artist="A1", albumartist="Various Artists"),
+            _make_item(album="Comp", artist="A2", albumartist="Various Artists"),
         ])
         groups = repo.list_groups()
         assert len(groups) == 1
