@@ -1,0 +1,5 @@
+singleton MichiColors 1.0 MichiColors.qml
+singleton MichiTypography 1.0 MichiTypography.qml
+singleton MichiSpacing 1.0 MichiSpacing.qml
+singleton MichiMotion 1.0 MichiMotion.qml
+singleton MichiTheme 1.0 MichiTheme.qml
