@@ -159,6 +159,7 @@ jobs:
         run: |
           source .venv/bin/activate
           python3 -m pytest \
+            tests/test_no_merge_conflicts.py \
             tests/test_audio_backend_base.py \
             tests/test_gstreamer_backend.py \
             tests/test_hybrid_audio_manager.py \
