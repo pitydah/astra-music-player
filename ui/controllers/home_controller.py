@@ -1,4 +1,8 @@
-"""HomeController — manages the Home dashboard page refresh lifecycle."""
+"""HomeController — manages the Home dashboard page refresh lifecycle.
+
+Uses HomeDashboardService to build a typed snapshot and delegates
+visual rendering to HomePage.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject
 
+from core.home.home_dashboard_service import HomeDashboardService
 from ui.hubs.home_page import HomePage
 
 if TYPE_CHECKING:
@@ -17,12 +22,13 @@ logger = logging.getLogger("michi.home_controller")
 
 
 class HomeController(QObject):
-    """Owns HomePage lifecycle — refreshes stats, servers, devices, current track."""
+    """Owns HomePage lifecycle + HomeDashboardService."""
 
     def __init__(self, window: MainWindow):
         super().__init__(window)
         self._win = window
         self._page: HomePage | None = None
+        self._dashboard_svc: HomeDashboardService | None = None
 
     @property
     def page(self) -> HomePage | None:
@@ -30,16 +36,28 @@ class HomeController(QObject):
 
     def _ensure_page(self) -> HomePage:
         if self._page is None:
-            self._page = HomePage(
-                db=self._win._db,
-                playback=self._win._playback,
-                window=self._win,
-            )
+            self._page = HomePage()
             self._page.navigation_requested.connect(
-                self._win._on_sidebar_navigate)
+                self._win._on_sidebar_navigate
+            )
             self._page.add_music_requested.connect(self._on_add_music)
             self._page.add_folder_requested.connect(self._on_add_folder)
         return self._page
+
+    def _ensure_service(self) -> HomeDashboardService:
+        if self._dashboard_svc is None:
+            w = self._win
+            self._dashboard_svc = HomeDashboardService(
+                db=getattr(w, "_db", None),
+                playback=getattr(w, "_playback", None),
+                context_svc=getattr(w, "_context_svc", None),
+                sync_mgr=getattr(w, "_sync_mgr", None),
+                audio_output_ctrl=getattr(w, "_audio_output_ctrl", None),
+                player_engine=getattr(w, "_player", None),
+                features=getattr(w, "_features", None),
+                settings_mgr=None,
+            )
+        return self._dashboard_svc
 
     def show(self):
         """Show the Home page in the content stack."""
@@ -51,36 +69,40 @@ class HomeController(QObject):
         w._fade_content("home")
 
     def refresh(self):
-        """Gather fresh data and push to the HomePage."""
+        """Build fresh snapshot and push to HomePage."""
         page = self._page
         if page is None:
             return
         try:
-            servers = self._get_servers()
-            devices = self._get_devices()
-            page.refresh(
-                items=self._win._all_items,
-                servers=servers,
-                devices=devices,
-            )
+            svc = self._ensure_service()
+            snapshot = svc.build_snapshot()
+            page.render_snapshot(snapshot)
         except Exception:
             logger.exception("HomeController refresh failed")
+            from core.home.home_status import (
+                HomeDashboardSnapshot,
+                HomeAlert,
+                HomeCardError,
+                LibraryHomeStatus,
+            )
 
-    def _get_servers(self):
-        try:
-            from streaming.subsonic_client import load_servers
-            return load_servers()
-        except Exception:
-            return []
-
-    def _get_devices(self):
-        mgr = getattr(self._win, '_sync_mgr', None)
-        if mgr and getattr(mgr, 'is_active', False):
-            try:
-                return mgr.get_all_peers()
-            except Exception:
-                return []
-        return []
+            fallback = HomeDashboardSnapshot(
+                overall_state="error",
+                headline="Error al cargar",
+                library=LibraryHomeStatus(is_empty=True),
+                alerts=[
+                    HomeAlert(
+                        severity="critical",
+                        kind="safe_mode",
+                        title="Error al cargar el dashboard",
+                        message="Ocurrió un error inesperado. Reintenta o reinicia.",
+                        target_route="audio_lab_diagnostics",
+                        action_label="Diagnóstico",
+                    )
+                ],
+                errors=[HomeCardError("dashboard", "Error inesperado", is_fatal=True)],
+            )
+            page.render_snapshot(fallback)
 
     # ── Add Music handlers ──
 
@@ -103,6 +125,7 @@ class HomeController(QObject):
             added = svc.add_files(filepaths, reason="home_add_music")
         else:
             from library.metadata_extractor import ALL_EXTS
+
             added = 0
             for fp in filepaths:
                 ext = os.path.splitext(fp)[1].lower()

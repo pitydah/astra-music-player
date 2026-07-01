@@ -1,8 +1,7 @@
 """DiagnosticsPage — analyse audio files and generate technical reports.
 
-Reuses format_probe, quality_classifier and spectral_authenticator.
-Includes experimental spectral coherence analysis for WAV PCM and FLAC.
-Results are probabilistic and not conclusive.
+Reuses format_probe and quality_classifier from existing modules.
+Marked as Experimental — Fake Hi-Res detection is not included yet.
 """
 
 from __future__ import annotations
@@ -10,12 +9,11 @@ from __future__ import annotations
 import logging
 import os
 
-from PySide6.QtCore import Qt, Signal, Slot, QObject, QThread
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QFileDialog, QScrollArea,
     QTableWidget, QTableWidgetItem, QProgressBar, QMessageBox,
-    QCheckBox,
 )
 
 from ui.central.central_styles import (
@@ -25,63 +23,13 @@ from ui.central.central_styles import (
 logger = logging.getLogger("michi.diagnostics.ui")
 
 
-class _FolderWorker(QObject):
-    """Worker object for folder analysis. Emits results to main thread."""
-
-    file_done = Signal(object)   # result dict
-    folder_done = Signal()
-
-    def __init__(self, file_list: list[str], include_spectral: bool):
-        super().__init__()
-        self._files = file_list
-        self._include_spectral = include_spectral
-        self._cancelled = False
-
-    def cancel(self):
-        self._cancelled = True
-
-    def run(self):
-        from core.audio_lab.diagnostics_service import analyse_file
-        for fp in self._files:
-            if self._cancelled:
-                break
-            try:
-                result = analyse_file(fp)
-            except Exception as e:
-                result = {
-                    "filepath": fp, "filename": os.path.basename(fp),
-                    "exists": True, "error": str(e),
-                    "format_info": {}, "size_mb": 0.0, "duration_str": "",
-                    "quality": {"category": "error", "label": "Error"},
-                }
-            if self._include_spectral and fp.lower().endswith(".wav") and not result.get("error"):
-                try:
-                    from core.audio_lab.diagnostics_service import analyse_spectral
-                    spec = analyse_spectral(fp)
-                    if spec:
-                        result["spectral"] = spec
-                except Exception:
-                    pass
-            self.file_done.emit(result)
-        if not self._cancelled:
-            self.folder_done.emit()
-
-
 class DiagnosticsPage(QWidget):
     navigate_requested = Signal(str)
 
-    diagnostics_updated = Signal(list)  # list of filepaths
-
-    def __init__(self, worker_mgr=None, job_manager=None, db=None):
+    def __init__(self):
         super().__init__()
         self.setObjectName("diagnosticsPage")
-        self._worker_mgr = worker_mgr
-        self._job_manager = job_manager
-        self._db = db
         self._results: list[dict] = []
-        self._cancelled = False
-        self._worker_thread: QThread | None = None
-        self._worker_obj: _FolderWorker | None = None
         self._build_ui()
 
     def _build_ui(self):
@@ -131,14 +79,6 @@ class DiagnosticsPage(QWidget):
         )
         avl.addWidget(al)
 
-        self._spectral_check = QCheckBox("Análisis espectral (WAV/FLAC experimental)")
-        self._spectral_check.setStyleSheet(
-            "color: rgba(255,255,255,0.70); font-size: 11px; "
-            "background: transparent;"
-        )
-        self._spectral_check.setChecked(False)
-        avl.addWidget(self._spectral_check)
-
         btn_row = QHBoxLayout()
         self._analyse_file_btn = QPushButton("Analizar archivo...")
         self._analyse_file_btn.setCursor(Qt.PointingHandCursor)
@@ -152,40 +92,11 @@ class DiagnosticsPage(QWidget):
         self._analyse_folder_btn.clicked.connect(self._analyse_folder)
         btn_row.addWidget(self._analyse_folder_btn)
 
-        self._queue_btn = QPushButton("Cola persistente")
-        self._queue_btn.setCursor(Qt.PointingHandCursor)
-        self._queue_btn.setStyleSheet(glass_button_qss("ghost"))
-        self._queue_btn.clicked.connect(self._analyse_with_job_manager)
-        self._queue_btn.setVisible(self._job_manager is not None)
-        btn_row.addWidget(self._queue_btn)
-
-        self._library_btn = QPushButton("Analizar biblioteca completa")
-        self._library_btn.setCursor(Qt.PointingHandCursor)
-        self._library_btn.setStyleSheet(glass_button_qss("primary"))
-        self._library_btn.clicked.connect(self._analyse_library)
-        self._library_btn.setVisible(self._job_manager is not None and self._db is not None)
-        btn_row.addWidget(self._library_btn)
-
-        self._cancel_job_btn = QPushButton("Cancelar job")
-        self._cancel_job_btn.setCursor(Qt.PointingHandCursor)
-        self._cancel_job_btn.setStyleSheet(glass_button_qss("danger"))
-        self._cancel_job_btn.clicked.connect(self._cancel_job)
-        self._cancel_job_btn.setVisible(False)
-        btn_row.addWidget(self._cancel_job_btn)
-
         self._clear_btn = QPushButton("Limpiar")
         self._clear_btn.setCursor(Qt.PointingHandCursor)
         self._clear_btn.setStyleSheet(glass_button_qss("ghost"))
         self._clear_btn.clicked.connect(self._clear_results)
         btn_row.addWidget(self._clear_btn)
-
-        self._cancel_btn = QPushButton("Cancelar")
-        self._cancel_btn.setCursor(Qt.PointingHandCursor)
-        self._cancel_btn.setStyleSheet(glass_button_qss("danger"))
-        self._cancel_btn.clicked.connect(self._cancel_analysis)
-        self._cancel_btn.setVisible(False)
-        btn_row.addWidget(self._cancel_btn)
-
         btn_row.addStretch()
         avl.addLayout(btn_row)
 
@@ -195,14 +106,6 @@ class DiagnosticsPage(QWidget):
         self._progress.setVisible(False)
         self._progress.setStyleSheet(glass_progress_qss())
         avl.addWidget(self._progress)
-
-        self._progress_label = QLabel("")
-        self._progress_label.setStyleSheet(
-            "color: rgba(255,255,255,0.56); font-size: 11px; "
-            "background: transparent;"
-        )
-        self._progress_label.setVisible(False)
-        avl.addWidget(self._progress_label)
 
         cl.addWidget(action_card)
 
@@ -248,7 +151,7 @@ class DiagnosticsPage(QWidget):
         svl.setContentsMargins(20, 16, 20, 16)
         svl.setSpacing(10)
 
-        spec_title = QLabel("Coherencia espectral Hi-Res")
+        spec_title = QLabel("Análisis espectral (Fake Hi-Res)")
         spec_title.setStyleSheet(
             "color: rgba(255,255,255,0.88); font-size: 14px; "
             "font-weight: 600; background: transparent;"
@@ -256,10 +159,9 @@ class DiagnosticsPage(QWidget):
         svl.addWidget(spec_title)
 
         spec_sub = QLabel(
-            "EXPERIMENTAL — Evalúa si el contenido espectral es coherente "
-            "con la resolución declarada.\n"
-            "El resultado es probabilístico y no debe interpretarse "
-            "como prueba definitiva."
+            "EXPERIMENTAL — Analiza el contenido espectral de un archivo WAV "
+            "para detectar posible upsampling o fuentes lossy.\n"
+            "El resultado es probabilístico, no concluyente."
         )
         spec_sub.setStyleSheet(
             "color: rgba(255,255,255,0.48); font-size: 11px; "
@@ -269,7 +171,7 @@ class DiagnosticsPage(QWidget):
         svl.addWidget(spec_sub)
 
         spec_btn_row = QHBoxLayout()
-        self._spectral_btn = QPushButton("Analizar archivo WAV/FLAC...")
+        self._spectral_btn = QPushButton("Analizar archivo WAV...")
         self._spectral_btn.setCursor(Qt.PointingHandCursor)
         self._spectral_btn.setStyleSheet(glass_button_qss("secondary"))
         self._spectral_btn.clicked.connect(self._analyse_spectral)
@@ -284,15 +186,6 @@ class DiagnosticsPage(QWidget):
         )
         self._spectral_result.setWordWrap(True)
         svl.addWidget(self._spectral_result)
-
-        self._spectral_graph_btn = QPushButton("Mostrar gráfico espectral")
-        self._spectral_graph_btn.setCursor(Qt.PointingHandCursor)
-        self._spectral_graph_btn.setStyleSheet(glass_button_qss("ghost"))
-        self._spectral_graph_btn.clicked.connect(self._show_spectral_graph)
-        self._spectral_graph_btn.setVisible(False)
-        svl.addWidget(self._spectral_graph_btn)
-
-        self._spectral_graph_widget = None
 
         cl.addWidget(spec_card)
 
@@ -327,31 +220,6 @@ class DiagnosticsPage(QWidget):
         self._generate_report_btn.setEnabled(False)
         report_vl.addWidget(self._generate_report_btn)
 
-        export_row = QHBoxLayout()
-        self._export_txt_btn = QPushButton("Exportar TXT")
-        self._export_txt_btn.setCursor(Qt.PointingHandCursor)
-        self._export_txt_btn.setStyleSheet(glass_button_qss("ghost"))
-        self._export_txt_btn.clicked.connect(lambda: self._export_report("txt"))
-        self._export_txt_btn.setEnabled(False)
-        export_row.addWidget(self._export_txt_btn)
-
-        self._export_csv_btn = QPushButton("Exportar CSV")
-        self._export_csv_btn.setCursor(Qt.PointingHandCursor)
-        self._export_csv_btn.setStyleSheet(glass_button_qss("ghost"))
-        self._export_csv_btn.clicked.connect(lambda: self._export_report("csv"))
-        self._export_csv_btn.setEnabled(False)
-        export_row.addWidget(self._export_csv_btn)
-
-        self._export_json_btn = QPushButton("Exportar JSON")
-        self._export_json_btn.setCursor(Qt.PointingHandCursor)
-        self._export_json_btn.setStyleSheet(glass_button_qss("ghost"))
-        self._export_json_btn.clicked.connect(lambda: self._export_report("json"))
-        self._export_json_btn.setEnabled(False)
-        export_row.addWidget(self._export_json_btn)
-
-        export_row.addStretch()
-        report_vl.addLayout(export_row)
-
         cl.addWidget(report_card)
 
         cl.addStretch()
@@ -369,11 +237,9 @@ class DiagnosticsPage(QWidget):
         self._progress.setVisible(True)
         self._progress.setRange(0, 0)
 
-        from core.audio_lab.diagnostics_service import analyse_file
+        from ui.audio_lab.diagnostics_service import analyse_file
         result = analyse_file(fp)
         self._results = [result]
-        self._sync_result(result)
-        self.diagnostics_updated.emit([fp])
 
         self._populate_table()
         self._generate_report_btn.setEnabled(True)
@@ -382,8 +248,8 @@ class DiagnosticsPage(QWidget):
 
     def _analyse_spectral(self):
         fp, _ = QFileDialog.getOpenFileName(
-            self, "Seleccionar archivo WAV/FLAC para análisis espectral", "",
-            "Audio lossless (*.wav *.flac)"
+            self, "Seleccionar archivo para análisis espectral", "",
+            "WAV/FLAC (*.wav *.flac)"
         )
         if not fp:
             return
@@ -392,13 +258,12 @@ class DiagnosticsPage(QWidget):
         from PySide6.QtCore import QCoreApplication
         QCoreApplication.processEvents()
 
-        from core.audio_lab.diagnostics_service import analyse_spectral
+        from ui.audio_lab.diagnostics_service import analyse_spectral
         result = analyse_spectral(fp)
 
         lines = [
             f"Archivo: {fp.split('/')[-1]}",
             f"Veredicto: {result.get('label', '?')}",
-            f"Confianza: {result.get('confidence', 'N/A')}",
             f"Explicación: {result.get('explanation', '?')}",
         ]
         metrics = result.get("metrics", {})
@@ -408,8 +273,6 @@ class DiagnosticsPage(QWidget):
             for k, v in metrics.items():
                 if isinstance(v, float):
                     lines.append(f"  {k}: {v:.2f}")
-                elif isinstance(v, bool):
-                    lines.append(f"  {k}: {'Sí' if v else 'No'}")
                 else:
                     lines.append(f"  {k}: {v}")
 
@@ -419,153 +282,6 @@ class DiagnosticsPage(QWidget):
             lines.append(f"Error: {error}")
 
         self._spectral_result.setText("\n".join(lines))
-        self._last_spectral_path = fp
-        self._spectral_graph_btn.setVisible(True)
-
-    def _show_spectral_graph(self):
-        fp = getattr(self, '_last_spectral_path', None)
-        if not fp:
-            return
-        try:
-            from core.audio_analysis.spectral_authenticator import _read_pcm_chunk
-            sr = 44100
-            ext = os.path.splitext(fp)[1].lower()
-            sr = 44100
-            if ext == ".flac":
-                from core.audio_lab.diagnostics_service import _read_flac_metadata
-                from core.audio_analysis.spectral_authenticator import (
-                    _decode_flac_to_wav_preserve,
-                )
-                flac_sr, flac_bd = _read_flac_metadata(fp)
-                sr = flac_sr or 44100
-                tmp = _decode_flac_to_wav_preserve(fp, sr, flac_bd or 16)
-                if tmp:
-                    samples = _read_pcm_chunk(tmp, sr)
-                    import contextlib
-                    with contextlib.suppress(Exception):
-                        os.unlink(tmp)
-                else:
-                    return
-            else:
-                import wave
-                with wave.open(fp, "rb") as wf:
-                    sr = wf.getframerate()
-                samples = _read_pcm_chunk(fp, sr)
-            if samples is None or len(samples) < 256:
-                return
-
-            from ui.audio_lab.spectral_graph_widget import SpectralGraphWidget
-            if self._spectral_graph_widget is None:
-                self._spectral_graph_widget = SpectralGraphWidget()
-                self._spectral_graph_widget.setFixedHeight(180)
-                parent_w = self._spectral_graph_btn.parent()
-                if parent_w:
-                    parent_w.layout().addWidget(self._spectral_graph_widget)
-            self._spectral_graph_widget.set_data(samples, sr)
-            self._spectral_graph_widget.setVisible(True)
-        except Exception as e:
-            logger.warning("Spectral graph failed: %s", e)
-
-    def _analyse_with_job_manager(self):
-        if not self._job_manager:
-            return
-        folder = QFileDialog.getExistingDirectory(
-            self, "Seleccionar carpeta para análisis persistente"
-        )
-        if not folder:
-            return
-        self._start_job_analysis(folder)
-
-    def _analyse_library(self):
-        if not self._job_manager or not self._db:
-            return
-        from core.paths import database_path
-        db_path = database_path()
-        folder = os.path.dirname(db_path)
-        roots = self._db._conn.execute(
-            "SELECT path FROM library_roots WHERE enabled=1"
-        ).fetchall()
-        paths = [r[0] for r in roots if r[0]]
-        if not paths:
-            roots2 = self._db._conn.execute(
-                "SELECT path FROM scan_roots WHERE enabled=1"
-            ).fetchall()
-            paths = [r[0] for r in roots2 if r[0]]
-        if not paths:
-            self._report_label.setText(
-                "No hay raíces de biblioteca configuradas. "
-                "Añade carpetas en Ajustes > Biblioteca."
-            )
-            return
-        folder = paths[0]
-        self._start_job_analysis(folder)
-
-    def _start_job_analysis(self, folder: str):
-        include_spectral = self._spectral_check.isChecked()
-        from core.audio_lab.diagnostics_service import analyse_directory_job
-
-        # Wire JobManager signals (once)
-        if not hasattr(self, '_job_signals_connected'):
-            self._job_manager.job_progress.connect(self._on_job_progress)
-            self._job_manager.job_completed.connect(self._on_job_completed)
-            self._job_manager.job_failed.connect(self._on_job_failed)
-            self._job_signals_connected = True
-
-        job_id = analyse_directory_job(
-            folder, job_manager=self._job_manager,
-            include_spectral=include_spectral,
-        )
-        if job_id:
-            self._current_job_id = job_id
-            self._report_label.setText(
-                f"Job creado: {job_id[:8]}... Analizando biblioteca."
-            )
-            self._library_btn.setEnabled(False)
-            self._cancel_job_btn.setVisible(True)
-        else:
-            self._report_label.setText(
-                "No se pudo crear el job de análisis."
-            )
-
-    def _cancel_job(self):
-        if hasattr(self, '_current_job_id') and self._current_job_id and self._job_manager:
-            self._job_manager.cancel_job(self._current_job_id)
-            self._current_job_id = ""
-            self._cancel_job_btn.setVisible(False)
-            self._library_btn.setEnabled(True)
-            self._report_label.setText("Job cancelado.")
-
-    def _on_job_progress(self, job_id: str, progress: float):
-        pct = int(progress * 100)
-        self._report_label.setText(
-            f"Job {job_id[:8]}...: {pct}%"
-        )
-
-    def _on_job_completed(self, job_id: str, result: dict):
-        self._library_btn.setEnabled(True)
-        self._cancel_job_btn.setVisible(False)
-        self._current_job_id = ""
-        processed = result.get("processed", 0)
-        paths = result.get("paths", [])
-        errors = result.get("errors", [])
-        synced = 0
-        if self._db and hasattr(self._db, '_conn'):
-            from core.audio_lab.audio_lab_sync import sync_audio_lab_cache_to_media_items
-            import contextlib
-            with contextlib.suppress(Exception):
-                synced = sync_audio_lab_cache_to_media_items(self._db._conn, paths)
-        msg = f"Análisis completado: {processed} archivos procesados."
-        if synced:
-            msg += f" {synced} registros sincronizados."
-        if errors:
-            msg += f" {len(errors)} errores."
-        self._report_label.setText(msg)
-        if paths:
-            self.diagnostics_updated.emit(paths)
-
-    def _on_job_failed(self, job_id: str, error: str):
-        self._library_btn.setEnabled(True)
-        self._report_label.setText(f"Job falló: {error}")
 
     def _analyse_folder(self):
         folder = QFileDialog.getExistingDirectory(
@@ -574,7 +290,7 @@ class DiagnosticsPage(QWidget):
         if not folder:
             return
 
-        from core.audio_lab.diagnostics_service import AUDIO_EXTS
+        from ui.audio_lab.diagnostics_service import analyse_file, AUDIO_EXTS
 
         audio_files = []
         for root, _dirs, files in os.walk(folder):
@@ -589,96 +305,21 @@ class DiagnosticsPage(QWidget):
             )
             return
 
-        self._cancelled = False
-        self._results = []
-        self._analyse_file_btn.setEnabled(False)
-        self._analyse_folder_btn.setEnabled(False)
-        self._cancel_btn.setVisible(True)
         self._progress.setVisible(True)
         self._progress.setRange(0, len(audio_files))
         self._progress.setValue(0)
-        self._progress_label.setVisible(True)
-        self._progress_label.setText(f"Analizando 0/{len(audio_files)}...")
 
-        include_spectral = self._spectral_check.isChecked()
-        self._total_files = len(audio_files)
+        self._results = []
+        for i, fp in enumerate(audio_files):
+            self._results.append(analyse_file(fp))
+            self._progress.setValue(i + 1)
+            from PySide6.QtCore import QCoreApplication
+            QCoreApplication.processEvents()
 
-        self._worker_obj = _FolderWorker(audio_files, include_spectral)
-        self._worker_obj.file_done.connect(self._on_file_result)
-        self._worker_obj.folder_done.connect(self._on_folder_analysis_done)
-
-        self._worker_thread = QThread()
-        self._worker_obj.moveToThread(self._worker_thread)
-        self._worker_thread.started.connect(self._worker_obj.run)
-        self._worker_thread.finished.connect(self._worker_thread.deleteLater)
-        self._worker_thread.start()
-
-    def _sync_result(self, result: dict):
-        if not self._db:
-            return
-        fp = result.get("filepath", "")
-        if not fp:
-            return
-        try:
-            from core.audio_lab.audio_lab_sync import sync_audio_lab_result_to_media_item
-            sync_audio_lab_result_to_media_item(
-                self._db._conn, fp, result,
-            )
-        except Exception:
-            pass
-
-    @Slot(object)
-    def _on_file_result(self, result: dict):
-        if self._cancelled:
-            return
-        self._results.append(result)
-        self._sync_result(result)
-        current = len(self._results)
-        self._progress.setValue(min(current, self._total_files))
-        self._progress_label.setText(
-            f"Analizando {min(current, self._total_files)}/{self._total_files}..."
-        )
-
-    @Slot()
-    def _on_folder_analysis_done(self):
-        if self._cancelled:
-            return
-        self._analyse_finished()
-
-    def _analyse_finished(self):
-        self._analyse_file_btn.setEnabled(True)
-        self._analyse_folder_btn.setEnabled(True)
-        self._cancel_btn.setVisible(False)
+        self._populate_table()
+        self._generate_report_btn.setEnabled(True)
         self._progress.setVisible(False)
-        self._progress_label.setVisible(False)
-        if self._worker_thread:
-            self._worker_thread.quit()
-            self._worker_thread.wait(500)
-            self._worker_thread = None
-        self._worker_obj = None
-        if self._results:
-            synced = [r.get("filepath", "") for r in self._results if r.get("filepath")]
-            if synced:
-                self.diagnostics_updated.emit(synced)
-            self._populate_table()
-            self._generate_report_btn.setEnabled(True)
-            self._show_report()
-
-    def _cancel_analysis(self):
-        self._cancelled = True
-        if self._worker_obj:
-            self._worker_obj.cancel()
-        if self._worker_thread:
-            self._worker_thread.quit()
-            self._worker_thread.wait(500)
-            self._worker_thread = None
-        self._worker_obj = None
-        self._analyse_file_btn.setEnabled(True)
-        self._analyse_folder_btn.setEnabled(True)
-        self._cancel_btn.setVisible(False)
-        self._progress.setVisible(False)
-        self._progress_label.setVisible(True)
-        self._progress_label.setText("Análisis cancelado.")
+        self._show_report()
 
     def _clear_results(self):
         self._results.clear()
@@ -706,11 +347,9 @@ class DiagnosticsPage(QWidget):
             self._results_table.setItem(i, 4, QTableWidgetItem(
                 r.get("duration_str", "?")
             ))
-            quality_text = q.get("label", q.get("category", "?"))
-            spec = r.get("spectral", {})
-            if spec and spec.get("label"):
-                quality_text += f" | {spec['label']}"
-            self._results_table.setItem(i, 5, QTableWidgetItem(quality_text))
+            self._results_table.setItem(i, 5, QTableWidgetItem(
+                q.get("label", q.get("category", "?"))
+            ))
             self._results_table.setItem(i, 6, QTableWidgetItem(
                 f"{r.get('size_mb', 0)} MB" if r.get('size_mb') else "?"
             ))
@@ -722,163 +361,40 @@ class DiagnosticsPage(QWidget):
         if not self._results:
             return
 
-        from core.audio_lab.diagnostics_service import generate_report
+        from ui.audio_lab.diagnostics_service import generate_report
         report = generate_report(self._results)
 
         lines = [
-            "=== Resumen general ===",
             f"Total archivos: {report['total_files']}",
             f"Tamaño total: {report['total_size_mb']} MB",
             f"Duración total: {report['total_duration_str']}",
             "",
-            "=== Formatos ===",
+            "Formatos:",
         ]
         for fmt, count in report["format_counts"].items():
             lines.append(f"  .{fmt}: {count} archivo(s)")
         lines.append("")
-        lines.append("=== Resolución ===")
+        lines.append("Calidad:")
+        for cat, count in report["quality_counts"].items():
+            lines.append(f"  {cat}: {count}")
         if report["sample_rates"]:
+            lines.append("")
             lines.append(
-                f"  Frecuencias: {', '.join(str(s) for s in report['sample_rates'])} Hz"
+                f"Frecuencias: {', '.join(str(s) for s in report['sample_rates'])} Hz"
             )
         if report["bit_depths"]:
             lines.append(
-                f"  Profundidades: {', '.join(str(b) for b in report['bit_depths'])} bit"
+                f"Profundidades: {', '.join(str(b) for b in report['bit_depths'])} bit"
             )
-        if report["channels"]:
-            lines.append(
-                f"  Canales: {', '.join(str(c) for c in report['channels'])}"
-            )
-        lines.append("")
-        lines.append("=== Calidad ===")
-        for cat, count in report["quality_counts"].items():
-            lines.append(f"  {cat}: {count}")
-        if report["lossless_count"]:
-            lines.append(f"  Lossless: {report['lossless_count']}")
-        if report["lossy_count"]:
-            lines.append(f"  Lossy: {report['lossy_count']}")
-        if report["hires_count"]:
-            lines.append(f"  Hi-Res: {report['hires_count']}")
-        if report["dsd_count"]:
-            lines.append(f"  DSD: {report['dsd_count']}")
-        if report["missing_bit_depth"]:
-            lines.append("")
-            lines.append(f"=== Sin bit depth ({len(report['missing_bit_depth'])}) ===")
-            for fp in report["missing_bit_depth"][:5]:
-                lines.append(f"  ⚠ {os.path.basename(fp)}")
-            if len(report["missing_bit_depth"]) > 5:
-                lines.append(f"  ... y {len(report['missing_bit_depth']) - 5} más")
-        if report["missing_duration"]:
-            lines.append("")
-            lines.append(f"=== Sin duración ({len(report['missing_duration'])}) ===")
-            for fp in report["missing_duration"][:5]:
-                lines.append(f"  ⚠ {os.path.basename(fp)}")
-            if len(report["missing_duration"]) > 5:
-                lines.append(f"  ... y {len(report['missing_duration']) - 5} más")
         if report["errors"]:
             lines.append("")
-            lines.append(f"=== Problemas detectados ({len(report['errors'])}) ===")
-            for e in report["errors"][:10]:
+            lines.append(f"Errores: {len(report['errors'])} archivo(s)")
+            for e in report["errors"][:5]:
                 lines.append(f"  ✗ {os.path.basename(e)}")
-            if len(report["errors"]) > 10:
-                lines.append(f"  ... y {len(report['errors']) - 10} más")
         if report["warnings"]:
             lines.append("")
-            lines.append(f"=== Advertencias ({len(report['warnings'])}) ===")
+            lines.append(f"Advertencias: {len(report['warnings'])}")
             for fp, w in report["warnings"][:5]:
                 lines.append(f"  ⚠ {os.path.basename(fp)}: {w}")
-            if len(report["warnings"]) > 5:
-                lines.append(f"  ... y {len(report['warnings']) - 5} más")
 
         self._report_label.setText("\n".join(lines))
-
-        self._export_txt_btn.setEnabled(True)
-        self._export_csv_btn.setEnabled(True)
-        self._export_json_btn.setEnabled(True)
-
-    def _export_report(self, fmt: str):
-        if not self._results:
-            return
-        from core.audio_lab.diagnostics_service import generate_report
-        report = generate_report(self._results)
-        ext_map = {"txt": "Textos (*.txt)", "csv": "CSV (*.csv)", "json": "JSON (*.json)"}
-        fp, _ = QFileDialog.getSaveFileName(
-            self, f"Exportar reporte como {fmt.upper()}", f"reporte.{fmt}", ext_map.get(fmt, ""),
-        )
-        if not fp:
-            return
-        try:
-            if fmt == "txt":
-                content = self._report_to_txt(report)
-            elif fmt == "csv":
-                content = self._report_to_csv(report)
-            elif fmt == "json":
-                content = self._report_to_json(report)
-            else:
-                return
-            with open(fp, "w", encoding="utf-8") as f:
-                f.write(content)
-            self._report_label.setText(self._report_label.text() + f"\n\nReporte exportado a: {fp}")
-        except Exception as e:
-            self._report_label.setText(f"Error al exportar: {e}")
-
-    def _report_to_txt(self, report: dict) -> str:
-        lines = [
-            "=== Diagnóstico de Audio Lab ===",
-            f"Total archivos: {report['total_files']}",
-            f"Tamaño total: {report['total_size_mb']} MB",
-            f"Duración total: {report['total_duration_str']}",
-            "", "--- Formatos ---",
-        ]
-        for fmt_c, count in report["format_counts"].items():
-            lines.append(f"  .{fmt_c}: {count}")
-        lines.append("")
-        lines.append("--- Calidad ---")
-        for cat, count in report["quality_counts"].items():
-            lines.append(f"  {cat}: {count}")
-        if report["lossless_count"]:
-            lines.append(f"  Lossless: {report['lossless_count']}")
-        if report["hires_count"]:
-            lines.append(f"  Hi-Res: {report['hires_count']}")
-        if report["dsd_count"]:
-            lines.append(f"  DSD: {report['dsd_count']}")
-        if report["sample_rates"]:
-            lines.append(f"\nFrecuencias: {', '.join(str(s) for s in report['sample_rates'])} Hz")
-        if report["bit_depths"]:
-            lines.append(f"Profundidades: {', '.join(str(b) for b in report['bit_depths'])} bit")
-        if report["errors"]:
-            lines.append(f"\nErrores ({len(report['errors'])}):")
-            for e in report["errors"][:10]:
-                lines.append(f"  \u2717 {e}")
-        if report["warnings"]:
-            lines.append(f"\nAdvertencias ({len(report['warnings'])}):")
-            for fp_w, w in report["warnings"][:5]:
-                lines.append(f"  \u26a0 {fp_w}: {w}")
-        return "\n".join(lines)
-
-    def _report_to_csv(self, report: dict) -> str:
-        import csv
-        import io
-        buf = io.StringIO()
-        w = csv.writer(buf)
-        w.writerow(["Metrica", "Valor"])
-        w.writerow(["total_files", report["total_files"]])
-        w.writerow(["total_size_mb", report["total_size_mb"]])
-        w.writerow(["total_duration", report["total_duration_str"]])
-        w.writerow(["lossless", report["lossless_count"]])
-        w.writerow(["lossy", report["lossy_count"]])
-        w.writerow(["hires", report["hires_count"]])
-        w.writerow(["dsd", report["dsd_count"]])
-        w.writerow([])
-        w.writerow(["Formato", "Conteo"])
-        for fmt_c, count in report["format_counts"].items():
-            w.writerow([f".{fmt_c}", count])
-        w.writerow([])
-        w.writerow(["Calidad", "Conteo"])
-        for cat, count in report["quality_counts"].items():
-            w.writerow([cat, count])
-        return buf.getvalue()
-
-    def _report_to_json(self, report: dict) -> str:
-        import json
-        return json.dumps(report, indent=2, ensure_ascii=False)

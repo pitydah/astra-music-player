@@ -1,19 +1,43 @@
-"""HomePage — clean dashboard: library status, suggestions, continuity, ecosystem."""
+"""HomePage — Centre de Situation Michi: 7 glass cards, rendered from snapshot."""
 from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QScrollArea, QPushButton, QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+    QFileDialog,
 )
 
+from core.home.home_status import (
+    AssistantSuggestion,
+    AudioHomeStatus,
+    EcosystemHomeStatus,
+    HomeAlert,
+    HomeCardError,
+    HomeDashboardSnapshot,
+    LibraryHomeStatus,
+    PlaybackHomeStatus,
+)
 from ui.central.central_styles import (
-    glass_button_qss, glass_chip_button_qss,
-    empty_state_qss,
-    card_title_qss, card_desc_qss,
+    card_title_qss,
+    glass_button_qss,
+    glass_chip_button_qss,
+    home_alert_item_qss,
+    home_badge_qss,
+    home_headline_qss,
+    home_metric_label_qss,
+    home_metric_value_qss,
+    home_page_qss,
+    home_subtitle_qss,
 )
 from ui.effects.michi_glass import AcrylicGlassFrame, apply_card_shadow
 
@@ -26,55 +50,20 @@ class HomePage(QWidget):
     add_music_requested = Signal(list)
     add_folder_requested = Signal(str)
 
-    def __init__(self, db=None, playback=None, window=None,
-                 parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("homePage")
-        self._db = db
-        self._playback = playback
-        self._win = window
+        self._selected_files: list[str] = []
+        self._cards: dict[str, QWidget] = {}
         self._build_ui()
 
-    def refresh(self, items=None, servers=None, devices=None):
-        stats = self._get_stats()
-        self._update_library_status(stats)
-        self._update_add_music(stats)
-        self._update_suggestions(stats)
-        self._update_last_session()
-        self._update_connections(servers or [], devices or [])
+    # ── Public entry point ──
 
-    def _get_stats(self) -> dict:
-        stats = {"total_songs": 0, "total_artists": 0, "total_albums": 0,
-                 "missing_metadata": 0}
-
-        ctx = getattr(self._win, "_context_svc", None) if self._win else None
-        if ctx:
-            try:
-                snap = ctx.get_home_snapshot()
-                lh = snap.get("library_health", {}) if snap else {}
-                if lh:
-                    stats.update({
-                        "total_songs": lh.get("track_count", 0),
-                        "total_artists": lh.get("artist_count", 0),
-                        "total_albums": lh.get("album_count", 0),
-                        "missing_metadata": lh.get("missing_metadata_count", 0),
-                    })
-                    if stats["total_songs"] > 0 or not self._db:
-                        return stats
-            except Exception as e:
-                logger.debug("ContextService home snapshot unavailable: %s", e)
-
-        # Fallback to direct DB queries
-        try:
-            if self._db and hasattr(self._db, "get_dashboard_stats"):
-                ds = self._db.get_dashboard_stats()
-                stats.update(ds)
-            elif self._db and hasattr(self._db, "get_stats"):
-                st = self._db.get_stats()
-                stats["total_songs"] = st.get("total", 0)
-        except Exception as e:
-            logger.debug("Home stats unavailable: %s", e)
-        return stats
+    def render_snapshot(self, snapshot: HomeDashboardSnapshot | dict | Any):
+        if isinstance(snapshot, dict):
+            snapshot = self._dict_to_snapshot(snapshot)
+        self._snapshot = snapshot
+        self._render_all(snapshot)
 
     # ── Build UI ──
 
@@ -94,35 +83,92 @@ class HomePage(QWidget):
         cl.setContentsMargins(40, 16, 40, 40)
         cl.setSpacing(20)
 
-        # ── 1. Library Status ──
-        self._lib_card = AcrylicGlassFrame("homeLibCard")
-        lc = QVBoxLayout(self._lib_card)
-        lc.setContentsMargins(24, 20, 24, 20)
-        lc.setSpacing(4)
-        self._lib_status_msg = QLabel("Tu biblioteca está lista")
-        self._lib_status_msg.setObjectName("libStatusMsg")
-        self._lib_status_msg.setStyleSheet(
-            card_title_qss() +
-            "QLabel { color: rgba(255,255,255,0.92); }")
-        lc.addWidget(self._lib_status_msg)
-        self._lib_counts = QLabel("")
-        self._lib_counts.setStyleSheet(card_desc_qss())
-        lc.addWidget(self._lib_counts)
-        cl.addWidget(self._lib_card)
+        self._cl = cl
 
-        # ── 2. Añadir música (contextual) ──
+        # A. Estado General
+        self._card_status = AcrylicGlassFrame("homeStatusCard")
+        self._status_layout = QVBoxLayout(self._card_status)
+        self._status_layout.setContentsMargins(28, 24, 28, 24)
+        self._status_layout.setSpacing(6)
+        cl.addWidget(self._card_status)
+        self._cards["status"] = self._card_status
+
+        # B. Continuar
+        self._card_playback = AcrylicGlassFrame("homePlaybackCard", hover_shine=True)
+        self._pb_layout = QVBoxLayout(self._card_playback)
+        self._pb_layout.setContentsMargins(24, 16, 24, 16)
+        self._pb_layout.setSpacing(8)
+        cl.addWidget(self._card_playback)
+        self._cards["playback"] = self._card_playback
+
+        # C. Biblioteca
+        self._card_library = AcrylicGlassFrame("homeLibCard", hover_shine=True)
+        self._lib_layout = QVBoxLayout(self._card_library)
+        self._lib_layout.setContentsMargins(24, 16, 24, 16)
+        self._lib_layout.setSpacing(8)
+        cl.addWidget(self._card_library)
+        self._cards["library"] = self._card_library
+
+        # D. Audio
+        self._card_audio = AcrylicGlassFrame("homeAudioCard", hover_shine=True)
+        self._audio_layout = QVBoxLayout(self._card_audio)
+        self._audio_layout.setContentsMargins(24, 16, 24, 16)
+        self._audio_layout.setSpacing(8)
+        cl.addWidget(self._card_audio)
+        self._cards["audio"] = self._card_audio
+
+        # E. Ecosistema Michi
+        self._card_eco = AcrylicGlassFrame("homeEcoCard", hover_shine=True)
+        self._eco_layout = QVBoxLayout(self._card_eco)
+        self._eco_layout.setContentsMargins(24, 16, 24, 16)
+        self._eco_layout.setSpacing(8)
+        cl.addWidget(self._card_eco)
+        self._cards["ecosystem"] = self._card_eco
+
+        # F. Atención requerida
+        self._card_alerts = AcrylicGlassFrame("homeAlertsCard", hover_shine=True)
+        self._alerts_layout = QVBoxLayout(self._card_alerts)
+        self._alerts_layout.setContentsMargins(24, 16, 24, 16)
+        self._alerts_layout.setSpacing(8)
+        cl.addWidget(self._card_alerts)
+        self._cards["alerts"] = self._card_alerts
+
+        # G. Michi Assistant
+        self._card_asst = AcrylicGlassFrame("homeAsstCard", hover_shine=True)
+        self._asst_layout = QVBoxLayout(self._card_asst)
+        self._asst_layout.setContentsMargins(24, 16, 24, 16)
+        self._asst_layout.setSpacing(8)
+        cl.addWidget(self._card_asst)
+        self._cards["assistant"] = self._card_asst
+
+        # Add music card (contextual, always at bottom)
         self._add_music_card = AcrylicGlassFrame("homeAddMusicCard", hover_shine=True)
         self._add_music_card.setVisible(False)
+        self._build_add_music_ui()
+        cl.addWidget(self._add_music_card)
+        self._cards["add_music"] = self._add_music_card
+
+        cl.addStretch()
+
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
+        self.setStyleSheet(home_page_qss())
+
+        for _name, card in self._cards.items():
+            apply_card_shadow(card)
+
+    def _build_add_music_ui(self):
         amc = QVBoxLayout(self._add_music_card)
         amc.setContentsMargins(24, 16, 24, 16)
         amc.setSpacing(8)
-
         self._add_music_title = QLabel("Añadir música")
         self._add_music_title.setStyleSheet(card_title_qss())
         amc.addWidget(self._add_music_title)
-
-        self._add_music_desc = QLabel("Agrega archivos o carpetas a tu biblioteca.")
-        self._add_music_desc.setStyleSheet(card_desc_qss())
+        self._add_music_desc = QLabel("")
+        self._add_music_desc.setStyleSheet(
+            "QLabel { color: rgba(255,255,255,0.56); font-size: 12px; "
+            "font-weight: 500; background: transparent; border: none; }"
+        )
         amc.addWidget(self._add_music_desc)
 
         btn_row = QHBoxLayout()
@@ -141,129 +187,614 @@ class HomePage(QWidget):
         btn_row.addStretch()
         amc.addLayout(btn_row)
 
-        # Preview section
         self._preview_widget = QWidget()
         self._preview_widget.setVisible(False)
         self._preview_widget.setStyleSheet("background: transparent;")
-        pw_layout = QVBoxLayout(self._preview_widget)
-        pw_layout.setContentsMargins(0, 4, 0, 0)
-        pw_layout.setSpacing(6)
+        pw = QVBoxLayout(self._preview_widget)
+        pw.setContentsMargins(0, 4, 0, 0)
+        pw.setSpacing(6)
         self._preview_label = QLabel("")
         self._preview_label.setWordWrap(True)
         self._preview_label.setStyleSheet(
-            "QLabel { color: rgba(255,255,255,0.72); font-size: 12px;"
-            "  background: transparent; border: none; }")
-        pw_layout.addWidget(self._preview_label)
+            "QLabel { color: rgba(255,255,255,0.72); font-size: 12px; "
+            "background: transparent; border: none; }"
+        )
+        pw.addWidget(self._preview_label)
 
-        preview_btn_row = QHBoxLayout()
-        preview_btn_row.setSpacing(10)
+        pbr = QHBoxLayout()
+        pbr.setSpacing(10)
         self._cancel_preview_btn = QPushButton("✕ Cancelar")
         self._cancel_preview_btn.setCursor(Qt.PointingHandCursor)
         self._cancel_preview_btn.setStyleSheet(glass_chip_button_qss())
         self._cancel_preview_btn.clicked.connect(self._clear_selection)
-        preview_btn_row.addWidget(self._cancel_preview_btn)
-
+        pbr.addWidget(self._cancel_preview_btn)
         self._confirm_btn = QPushButton("✓ Importar")
         self._confirm_btn.setCursor(Qt.PointingHandCursor)
         self._confirm_btn.setStyleSheet(glass_button_qss("primary"))
         self._confirm_btn.clicked.connect(self._on_confirm)
-        preview_btn_row.addWidget(self._confirm_btn)
-        preview_btn_row.addStretch()
-        pw_layout.addLayout(preview_btn_row)
+        pbr.addWidget(self._confirm_btn)
+        pbr.addStretch()
+        pw.addLayout(pbr)
         amc.addWidget(self._preview_widget)
-        cl.addWidget(self._add_music_card)
 
-        # ── 3. Sugerencias de Michi ──
-        self._sugg_card = AcrylicGlassFrame("homeSuggCard", hover_shine=True)
-        sc = QVBoxLayout(self._sugg_card)
-        sc.setContentsMargins(24, 16, 24, 16)
-        sc.setSpacing(8)
-        sugg_title = QLabel("Sugerencias de Michi")
-        sugg_title.setStyleSheet(card_title_qss())
-        sc.addWidget(sugg_title)
-        self._sugg_content = QVBoxLayout()
-        self._sugg_content.setSpacing(4)
-        sc.addLayout(self._sugg_content)
-        cl.addWidget(self._sugg_card)
+    # ── Render logic ──
 
-        # ── 4. Last Session + Connections (side by side) ──
-        bottom = QHBoxLayout()
-        bottom.setSpacing(16)
+    def _render_all(self, s: HomeDashboardSnapshot):
+        self._render_status(s)
+        self._render_playback(s.playback)
+        self._render_library(s.library)
+        self._render_audio(s.audio)
+        self._render_ecosystem(s.ecosystem)
+        self._render_alerts(s.alerts)
+        self._render_assistant(s.assistant_suggestions)
+        self._render_add_music(s.library, s.overall_state)
+        self._render_errors(s.errors)
 
-        # Last session
-        self._session_card = AcrylicGlassFrame("homeSessionCard", hover_shine=True)
-        sc2 = QVBoxLayout(self._session_card)
-        sc2.setContentsMargins(20, 16, 20, 16)
-        sc2.setSpacing(8)
-        session_title = QLabel("Última reproducción")
-        session_title.setStyleSheet(card_title_qss())
-        sc2.addWidget(session_title)
-        self._session_track = QLabel("Sin reproducción reciente")
-        self._session_track.setStyleSheet(card_desc_qss())
-        self._session_track.setWordWrap(True)
-        sc2.addWidget(self._session_track)
-        sc2.addStretch()
-        self._continue_btn = QPushButton("Continuar")
-        self._continue_btn.setObjectName("homeContinueBtn")
-        self._continue_btn.setCursor(Qt.PointingHandCursor)
-        self._continue_btn.setStyleSheet(glass_button_qss("ghost"))
-        self._continue_btn.clicked.connect(
-            lambda: self.navigation_requested.emit("playback_hub"))
-        sc2.addWidget(self._continue_btn)
-        bottom.addWidget(self._session_card, 1)
+    def _clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
 
-        # Connections
-        self._conn_card = AcrylicGlassFrame("homeConnCard", hover_shine=True)
-        cc = QVBoxLayout(self._conn_card)
-        cc.setContentsMargins(20, 16, 20, 16)
-        cc.setSpacing(8)
-        conn_title = QLabel("Servidores y conexiones")
-        conn_title.setStyleSheet(card_title_qss())
-        cc.addWidget(conn_title)
-        self._conn_status = QLabel("")
-        self._conn_status.setStyleSheet(card_desc_qss())
-        self._conn_status.setWordWrap(True)
-        cc.addWidget(self._conn_status)
-        cc.addSpacing(4)
-        self._conn_mms_hint = QLabel("» Michi Micro Server: centraliza tu biblioteca y transmite música")
-        self._conn_mms_hint.setStyleSheet(
-            "font-size: 11px; color: rgba(143,183,255,0.50);")
-        cc.addWidget(self._conn_mms_hint)
-        cc.addStretch()
-        self._conn_btn = QPushButton("Abrir Conexiones")
-        self._conn_btn.setCursor(Qt.PointingHandCursor)
-        self._conn_btn.setStyleSheet(glass_button_qss("ghost"))
-        self._conn_btn.clicked.connect(
-            lambda: self.navigation_requested.emit("connections_hub"))
-        cc.addWidget(self._conn_btn)
-        bottom.addWidget(self._conn_card, 1)
+    def _badge(self, text: str, kind: str = "ok") -> QLabel:
+        lbl = QLabel(text)
+        lbl.setStyleSheet(home_badge_qss(kind))
+        return lbl
 
-        cl.addLayout(bottom)
-        cl.addStretch()
+    # ── A. Estado General ──
 
-        scroll.setWidget(content)
-        layout.addWidget(scroll)
-        self._apply_qss()
+    def _render_status(self, s: HomeDashboardSnapshot):
+        self._clear_layout(self._status_layout)
 
-        for card in (self._lib_card, self._add_music_card, self._sugg_card,
-                     self._session_card, self._conn_card):
-            apply_card_shadow(card)
+        self._headline = QLabel(s.headline)
+        self._headline.setStyleSheet(home_headline_qss())
+        self._status_layout.addWidget(self._headline)
 
-        self._selected_files: list[str] = []
+        if s.subtitle:
+            sub = QLabel(s.subtitle)
+            sub.setStyleSheet(home_subtitle_qss())
+            sub.setWordWrap(True)
+            self._status_layout.addWidget(sub)
 
-    # ── Add Music handlers ──
+        badges = QHBoxLayout()
+        badges.setSpacing(8)
+
+        lib = s.library
+        if not lib.is_empty and lib.is_healthy:
+            badges.addWidget(self._badge("Biblioteca OK", "ok"))
+        elif lib.index_error_count > 0:
+            badges.addWidget(self._badge("Errores de índice", "critical"))
+        elif not lib.is_healthy:
+            badges.addWidget(self._badge("Requiere atención", "warning"))
+
+        if s.audio.dac_active or s.audio.output_device:
+            badges.addWidget(self._badge("DAC activo", "ok"))
+
+        if s.ecosystem.micro_server_state == "connected":
+            badges.addWidget(self._badge("Micro conectado", "ok"))
+        elif s.ecosystem.micro_server_state == "requires_pairing":
+            badges.addWidget(self._badge("Requiere pairing", "warning"))
+
+        if lib.is_empty:
+            badges.addWidget(self._badge("Biblioteca vacía", "info"))
+
+        safe_mode = os.environ.get("MICHI_SAFE_MODE") == "1"
+        if safe_mode:
+            badges.addWidget(self._badge("Modo seguro", "warning"))
+
+        if s.overall_state == "error":
+            badges.addWidget(self._badge("Error", "critical"))
+
+        badges.addStretch()
+        self._status_layout.addLayout(badges)
+
+    # ── B. Continuar ──
+
+    def _render_playback(self, pb: PlaybackHomeStatus):
+        self._clear_layout(self._pb_layout)
+        title = QLabel("Continuar")
+        title.setStyleSheet(card_title_qss())
+        self._pb_layout.addWidget(title)
+
+        if pb.has_current_track:
+            info = f"{pb.current_artist} — {pb.current_title}" if pb.current_artist else pb.current_title
+            track = QLabel(info)
+            track.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.82); font-size: 14px; "
+                "font-weight: 600; background: transparent; border: none; }"
+            )
+            track.setWordWrap(True)
+            self._pb_layout.addWidget(track)
+
+            if pb.current_album:
+                alb = QLabel(pb.current_album)
+                alb.setStyleSheet(
+                    "QLabel { color: rgba(255,255,255,0.50); font-size: 12px; "
+                    "background: transparent; border: none; }"
+                )
+                self._pb_layout.addWidget(alb)
+
+            state_label = "Reproduciendo" if pb.state == "playing" else "En pausa"
+            state = QLabel(state_label)
+            state.setStyleSheet(
+                "QLabel { color: rgba(143,183,255,0.70); font-size: 11px; "
+                "font-weight: 600; background: transparent; border: none; }"
+            )
+            self._pb_layout.addWidget(state)
+
+        elif pb.last_track_title:
+            info = f"{pb.last_track_artist} — {pb.last_track_title}" if pb.last_track_artist else pb.last_track_title
+            track = QLabel(f"Continuar escuchando: {info}")
+            track.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.72); font-size: 13px; "
+                "background: transparent; border: none; }"
+            )
+            track.setWordWrap(True)
+            self._pb_layout.addWidget(track)
+
+        if pb.queue_active:
+            ql = QLabel(f"Cola activa: {pb.queue_count} canciones")
+            ql.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.52); font-size: 11px; "
+                "background: transparent; border: none; }"
+            )
+            self._pb_layout.addWidget(ql)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        if pb.can_continue:
+            cont = QPushButton("▶ Continuar")
+            cont.setCursor(Qt.PointingHandCursor)
+            cont.setStyleSheet(glass_button_qss("primary"))
+            cont.clicked.connect(lambda: self.navigation_requested.emit("playback_hub"))
+            btn_row.addWidget(cont)
+
+        if pb.queue_active:
+            queue_btn = QPushButton("Ver cola")
+            queue_btn.setCursor(Qt.PointingHandCursor)
+            queue_btn.setStyleSheet(glass_button_qss("ghost"))
+            queue_btn.clicked.connect(lambda: self.navigation_requested.emit("playback_hub"))
+            btn_row.addWidget(queue_btn)
+
+        if pb.can_continue_remote:
+            remote = QPushButton("Continuar en Micro Server")
+            remote.setCursor(Qt.PointingHandCursor)
+            remote.setStyleSheet(glass_chip_button_qss())
+            remote.clicked.connect(lambda: self.navigation_requested.emit("playback_hub"))
+            btn_row.addWidget(remote)
+
+        if not pb.can_continue and not pb.queue_active:
+            explore = QPushButton("Explorar biblioteca")
+            explore.setCursor(Qt.PointingHandCursor)
+            explore.setStyleSheet(glass_button_qss("ghost"))
+            explore.clicked.connect(lambda: self.navigation_requested.emit("library_hub"))
+            btn_row.addWidget(explore)
+
+            mix = QPushButton("Crear mix")
+            mix.setCursor(Qt.PointingHandCursor)
+            mix.setStyleSheet(glass_chip_button_qss())
+            mix.clicked.connect(lambda: self.navigation_requested.emit("mix_hub"))
+            btn_row.addWidget(mix)
+
+        btn_row.addStretch()
+        self._pb_layout.addLayout(btn_row)
+        self._pb_layout.addStretch()
+        self._card_playback.setVisible(True)
+
+    # ── C. Biblioteca ──
+
+    def _render_library(self, lib: LibraryHomeStatus):
+        self._clear_layout(self._lib_layout)
+        title = QLabel("Biblioteca")
+        title.setStyleSheet(card_title_qss())
+        self._lib_layout.addWidget(title)
+
+        if lib.is_empty:
+            empty = QLabel("Aún no hay canciones en tu biblioteca")
+            empty.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.50); font-size: 12px; "
+                "background: transparent; border: none; }"
+            )
+            self._lib_layout.addWidget(empty)
+            self._card_library.setVisible(True)
+            return
+
+        metrics = QHBoxLayout()
+        metrics.setSpacing(24)
+        for val, label in [
+            (f"{lib.track_count:,}", "Canciones"),
+            (f"{lib.album_count:,}", "Álbumes"),
+            (f"{lib.artist_count:,}", "Artistas"),
+            (f"{lib.genre_count:,}", "Géneros"),
+        ]:
+            col = QVBoxLayout()
+            col.setSpacing(0)
+            v = QLabel(val)
+            v.setStyleSheet(home_metric_value_qss())
+            col.addWidget(v)
+            label = QLabel(label)
+            label.setStyleSheet(home_metric_label_qss())
+            col.addWidget(label)
+            metrics.addLayout(col)
+        metrics.addStretch()
+        self._lib_layout.addLayout(metrics)
+
+        if lib.last_scan:
+            ls = QLabel(f"Última indexación: {lib.last_scan}")
+            ls.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.42); font-size: 11px; "
+                "background: transparent; border: none; }"
+            )
+            self._lib_layout.addWidget(ls)
+
+        if lib.active_roots_count:
+            roots = QLabel(f"{lib.active_roots_count} carpetas activas")
+            roots.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.42); font-size: 11px; "
+                "background: transparent; border: none; }"
+            )
+            self._lib_layout.addWidget(roots)
+
+        if lib.index_error_count > 0 or lib.missing_file_count > 0:
+            errs = QLabel(
+                f"{lib.index_error_count} errores · {lib.missing_file_count} archivos faltantes"
+            )
+            errs.setStyleSheet(
+                "QLabel { color: rgba(255,82,82,0.60); font-size: 11px; "
+                "font-weight: 600; background: transparent; border: none; }"
+            )
+            self._lib_layout.addWidget(errs)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        scan = QPushButton("Escanear ahora")
+        scan.setCursor(Qt.PointingHandCursor)
+        scan.setStyleSheet(glass_button_qss("ghost"))
+        scan.clicked.connect(self.refresh_requested.emit)
+        btn_row.addWidget(scan)
+
+        view = QPushButton("Ver biblioteca")
+        view.setCursor(Qt.PointingHandCursor)
+        view.setStyleSheet(glass_button_qss("primary"))
+        view.clicked.connect(lambda: self.navigation_requested.emit("library_hub"))
+        btn_row.addWidget(view)
+
+        if lib.index_error_count > 0 or lib.missing_file_count > 0:
+            problems = QPushButton("Revisar problemas")
+            problems.setCursor(Qt.PointingHandCursor)
+            problems.setStyleSheet(glass_chip_button_qss())
+            problems.clicked.connect(
+                lambda: self.navigation_requested.emit("audio_lab_diagnostics")
+            )
+            btn_row.addWidget(problems)
+
+        btn_row.addStretch()
+        self._lib_layout.addLayout(btn_row)
+        self._card_library.setVisible(True)
+
+    # ── D. Audio ──
+
+    def _render_audio(self, audio: AudioHomeStatus):
+        self._clear_layout(self._audio_layout)
+        title = QLabel("Audio")
+        title.setStyleSheet(card_title_qss())
+        self._audio_layout.addWidget(title)
+
+        if not audio.output_device and audio.bitperfect_state == "not_available":
+            muted = QLabel("Información de audio no disponible")
+            muted.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.50); font-size: 12px; "
+                "background: transparent; border: none; }"
+            )
+            self._audio_layout.addWidget(muted)
+            self._card_audio.setVisible(True)
+            return
+
+        items = QVBoxLayout()
+        items.setSpacing(2)
+        if audio.output_device:
+            items.addWidget(QLabel(f"Salida: {audio.output_device}"))
+        if audio.output_profile:
+            items.addWidget(QLabel(f"Perfil: {audio.output_profile}"))
+        if audio.replaygain_enabled:
+            items.addWidget(QLabel("ReplayGain activo"))
+        if audio.eq_enabled:
+            items.addWidget(QLabel("Ecualizador activo"))
+        if audio.dsp_active:
+            items.addWidget(QLabel("Procesamiento DSP activo"))
+        if audio.bitperfect_state == "verified":
+            items.addWidget(QLabel("Bit-Perfect verificado"))
+        elif audio.bitperfect_state != "not_available":
+            items.addWidget(QLabel("Bit-Perfect no verificado"))
+
+        for i in range(items.count()):
+            w = items.itemAt(i).widget()
+            if w:
+                w.setStyleSheet(
+                    "QLabel { color: rgba(255,255,255,0.68); font-size: 12px; "
+                    "background: transparent; border: none; }"
+                )
+        self._audio_layout.addLayout(items)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+
+        config = QPushButton("Configurar salida")
+        config.setCursor(Qt.PointingHandCursor)
+        config.setStyleSheet(glass_button_qss("ghost"))
+        config.clicked.connect(
+            lambda: self.navigation_requested.emit("audio_lab_output")
+        )
+        btn_row.addWidget(config)
+
+        lab = QPushButton("Abrir Audio Lab")
+        lab.setCursor(Qt.PointingHandCursor)
+        lab.setStyleSheet(glass_button_qss("primary"))
+        lab.clicked.connect(lambda: self.navigation_requested.emit("audio_lab"))
+        btn_row.addWidget(lab)
+
+        diag = QPushButton("Diagnóstico")
+        diag.setCursor(Qt.PointingHandCursor)
+        diag.setStyleSheet(glass_chip_button_qss())
+        diag.clicked.connect(
+            lambda: self.navigation_requested.emit("audio_lab_diagnostics")
+        )
+        btn_row.addWidget(diag)
+
+        btn_row.addStretch()
+        self._audio_layout.addLayout(btn_row)
+        self._card_audio.setVisible(True)
+
+    # ── E. Ecosistema Michi ──
+
+    def _render_ecosystem(self, eco: EcosystemHomeStatus):
+        self._clear_layout(self._eco_layout)
+        title = QLabel("Ecosistema Michi")
+        title.setStyleSheet(card_title_qss())
+        self._eco_layout.addWidget(title)
+
+        lines = []
+
+        if eco.micro_server_state == "connected":
+            name = eco.micro_server_name or "Conectado"
+            lines.append(f"Micro Server: {name}")
+        elif eco.micro_server_state == "disconnected":
+            lines.append("Micro Server: No conectado")
+        elif eco.micro_server_state == "requires_pairing":
+            lines.append("Micro Server: Requiere pairing")
+        elif eco.micro_server_state == "contract_error":
+            lines.append("Micro Server: Contrato incompatible")
+        else:
+            lines.append("Micro Server: Desconocido")
+
+        if eco.mobile_sync_state == "no_device":
+            lines.append("Sync móvil: Sin dispositivos")
+        elif eco.mobile_sync_state == "paired":
+            lines.append(f"Sync móvil: {eco.mobile_device_count} dispositivo(s)")
+        elif eco.mobile_sync_state == "syncing":
+            lines.append(f"Sync móvil: Sincronizando ({eco.mobile_device_count})")
+        elif eco.mobile_sync_state == "error":
+            lines.append("Sync móvil: Error")
+        else:
+            lines.append("Sync móvil: Desconocido")
+
+        if eco.api_state == "active":
+            lines.append("API local: Activa")
+        else:
+            lines.append("API local: Inactiva")
+
+        if eco.home_audio_state == "active":
+            lines.append("Home Audio: Activo")
+        elif eco.home_audio_state == "experimental":
+            lines.append("Home Audio: Experimental")
+        elif eco.home_audio_state == "disabled":
+            lines.append("Home Audio: Desactivado")
+
+        if eco.last_sync:
+            lines.append(f"Última sincronización: {eco.last_sync}")
+
+        for line in lines:
+            lbl = QLabel(line)
+            lbl.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.62); font-size: 12px; "
+                "background: transparent; border: none; }"
+            )
+            self._eco_layout.addWidget(lbl)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+
+        if eco.micro_server_state == "disconnected":
+            conn = QPushButton("Conectar servidor")
+            conn.setCursor(Qt.PointingHandCursor)
+            conn.setStyleSheet(glass_button_qss("primary"))
+            conn.clicked.connect(
+                lambda: self.navigation_requested.emit("connections_hub")
+            )
+            btn_row.addWidget(conn)
+
+        sync_btn = QPushButton("Sincronizar móvil")
+        sync_btn.setCursor(Qt.PointingHandCursor)
+        sync_btn.setStyleSheet(glass_button_qss("ghost"))
+        sync_btn.clicked.connect(lambda: self.navigation_requested.emit("devices_page"))
+        btn_row.addWidget(sync_btn)
+
+        if eco.diagnostics_available:
+            diag = QPushButton("Diagnóstico")
+            diag.setCursor(Qt.PointingHandCursor)
+            diag.setStyleSheet(glass_chip_button_qss())
+            diag.clicked.connect(
+                lambda: self.navigation_requested.emit("connections_hub")
+            )
+            btn_row.addWidget(diag)
+
+        btn_row.addStretch()
+        self._eco_layout.addLayout(btn_row)
+        self._card_eco.setVisible(True)
+
+    # ── F. Atención requerida ──
+
+    def _render_alerts(self, alerts: list[HomeAlert]):
+        self._clear_layout(self._alerts_layout)
+        title = QLabel("Atención requerida")
+        title.setStyleSheet(card_title_qss())
+        self._alerts_layout.addWidget(title)
+
+        if not alerts:
+            noop = QLabel("No hay tareas importantes pendientes.")
+            noop.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.50); font-size: 12px; "
+                "background: transparent; border: none; }"
+            )
+            self._alerts_layout.addWidget(noop)
+            self._card_alerts.setVisible(True)
+            return
+
+        for alert in alerts[:5]:
+            frame = QFrame()
+            frame.setObjectName("alertItem")
+            frame.setStyleSheet(home_alert_item_qss(alert.severity))
+            f_layout = QVBoxLayout(frame)
+            f_layout.setContentsMargins(0, 0, 0, 0)
+            f_layout.setSpacing(2)
+
+            alert_title = QLabel(alert.title)
+            alert_title.setObjectName("alertTitle")
+            f_layout.addWidget(alert_title)
+
+            if alert.message:
+                alert_msg = QLabel(alert.message)
+                alert_msg.setObjectName("alertMsg")
+                alert_msg.setWordWrap(True)
+                f_layout.addWidget(alert_msg)
+
+            if alert.target_route and alert.action_label:
+                action = QPushButton(alert.action_label)
+                action.setCursor(Qt.PointingHandCursor)
+                action.setStyleSheet(
+                    "QPushButton { color: rgba(143,183,255,0.80); font-size: 11px; "
+                    "font-weight: 600; background: transparent; border: none; "
+                    "padding: 2px 0; text-align: left; }"
+                    "QPushButton:hover { color: rgba(143,183,255,1.0); }"
+                )
+                action.clicked.connect(
+                    lambda c=None, r=alert.target_route: self.navigation_requested.emit(r)
+                )
+                f_layout.addWidget(action)
+
+            self._alerts_layout.addWidget(frame)
+
+        if len(alerts) > 5:
+            extra = QLabel(f"Hay {len(alerts) - 5} problemas adicionales.")
+            extra.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.40); font-size: 11px; "
+                "background: transparent; border: none; padding-top: 4px; }"
+            )
+            self._alerts_layout.addWidget(extra)
+
+        self._card_alerts.setVisible(True)
+
+    # ── G. Michi Assistant ──
+
+    def _render_assistant(self, suggestions: list[AssistantSuggestion]):
+        self._clear_layout(self._asst_layout)
+        title = QLabel("Michi Assistant")
+        title.setStyleSheet(card_title_qss())
+        self._asst_layout.addWidget(title)
+
+        if not suggestions:
+            noop = QLabel("No hay sugerencias en este momento.")
+            noop.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.50); font-size: 12px; "
+                "background: transparent; border: none; }"
+            )
+            self._asst_layout.addWidget(noop)
+
+        for sug in suggestions[:3]:
+            sug_frame = QFrame()
+            sug_frame.setStyleSheet(
+                "QFrame { background: rgba(255,255,255,0.02); "
+                "border-radius: 6px; padding: 8px 12px; }"
+            )
+            sg = QVBoxLayout(sug_frame)
+            sg.setContentsMargins(12, 8, 12, 8)
+            sg.setSpacing(2)
+            sg_title = QLabel(sug.title)
+            sg_title.setStyleSheet(
+                "QLabel { color: rgba(255,255,255,0.82); font-size: 13px; "
+                "font-weight: 600; background: transparent; border: none; }"
+            )
+            sg.addWidget(sg_title)
+            if sug.message:
+                sg_msg = QLabel(sug.message)
+                sg_msg.setStyleSheet(
+                    "QLabel { color: rgba(255,255,255,0.48); font-size: 11px; "
+                    "background: transparent; border: none; }"
+                )
+                sg_msg.setWordWrap(True)
+                sg.addWidget(sg_msg)
+            if sug.target_route:
+                sg_btn = QPushButton("Ir")
+                sg_btn.setCursor(Qt.PointingHandCursor)
+                sg_btn.setStyleSheet(
+                    "QPushButton { color: rgba(143,183,255,0.80); font-size: 11px; "
+                    "font-weight: 600; background: transparent; border: none; "
+                    "padding: 2px 0; text-align: left; }"
+                    "QPushButton:hover { color: rgba(143,183,255,1.0); }"
+                )
+                sg_btn.clicked.connect(
+                    lambda c=None, r=sug.target_route: self.navigation_requested.emit(r)
+                )
+                sg.addWidget(sg_btn)
+            self._asst_layout.addWidget(sug_frame)
+
+        open_btn = QPushButton("Abrir Asistente")
+        open_btn.setCursor(Qt.PointingHandCursor)
+        open_btn.setStyleSheet(glass_button_qss("ghost"))
+        open_btn.clicked.connect(
+            lambda: self.navigation_requested.emit("assistant")
+        )
+        self._asst_layout.addWidget(open_btn)
+        self._card_asst.setVisible(True)
+
+    # ── Add music contextual ──
+
+    def _render_add_music(self, lib: LibraryHomeStatus, overall_state: str):
+        if lib.is_empty or overall_state == "empty_library":
+            self._add_music_card.setVisible(True)
+            self._add_music_title.setText("Añadir música")
+            self._add_music_desc.setText(
+                "Tu biblioteca está vacía. Agrega archivos o carpetas para empezar."
+            )
+        else:
+            self._add_music_card.setVisible(False)
+
+    # ── Error cards ──
+
+    def _render_errors(self, errors: list[HomeCardError]):
+        for err in errors:
+            logger.warning("Home card '%s' error: %s", err.card_name, err.error_message)
+
+    # ── Add Music handlers (kept from original) ──
 
     def _on_add_folder_clicked(self):
         path = QFileDialog.getExistingDirectory(
-            self, "Añadir carpeta", os.path.expanduser("~"))
+            self, "Añadir carpeta", os.path.expanduser("~")
+        )
         if path:
             self.add_folder_requested.emit(path)
 
     def _on_add_files_clicked(self):
         from library.library_db import AUDIO_EXTS
+
         paths, _ = QFileDialog.getOpenFileNames(
-            self, "Añadir archivos", os.path.expanduser("~"),
-            f"Audio ({' '.join('*' + e for e in AUDIO_EXTS)})")
+            self,
+            "Añadir archivos",
+            os.path.expanduser("~"),
+            f"Audio ({' '.join('*' + e for e in AUDIO_EXTS)})",
+        )
         if paths:
             self._selected_files = paths
             self._update_preview()
@@ -292,107 +823,39 @@ class HomePage(QWidget):
         self._preview_label.setText("\n".join(lines))
         self._confirm_btn.setText(f"✓ Importar {n} canciones")
 
-    # ── Update sections ──
+    # ── Deprecated compat ──
 
-    def _update_library_status(self, stats: dict):
-        songs = stats.get("total_songs", 0)
-        if songs == 0:
-            self._lib_status_msg.setText("Tu biblioteca necesita atención")
-        else:
-            self._lib_status_msg.setText("Tu biblioteca está lista")
-        self._lib_counts.setText(
-            f"{songs:,} canciones · {stats.get('total_albums', 0):,} álbumes"
-            f" · {stats.get('total_artists', 0):,} artistas")
+    def refresh(self, items=None, servers=None, devices=None):
+        logger.warning("HomePage.refresh() deprecated — use render_snapshot()")
+        if hasattr(self, "_snapshot") and self._snapshot is not None:
+            self.render_snapshot(self._snapshot)
 
-    def _update_add_music(self, stats: dict):
-        songs = stats.get("total_songs", 0)
-        if songs == 0:
-            self._add_music_card.setVisible(True)
-            self._add_music_title.setText("Añadir música")
-            self._add_music_desc.setText(
-                "Tu biblioteca está vacía. Agrega archivos o carpetas para empezar.")
-        else:
-            self._add_music_card.setVisible(True)
-            self._add_music_title.setText("Añadir más música")
-            self._add_music_desc.setText(
-                "Importa nuevos archivos o carpetas a tu biblioteca.")
-
-    def _update_suggestions(self, stats: dict):
-        _clear_layout(self._sugg_content)
-        actions = []
-
-        missing = stats.get("missing_metadata", 0)
-        if missing > 0:
-            actions.append((f"Completar metadatos de {missing} canciones",
-                            "metadata_editor", "accent"))
-
-        songs = stats.get("total_songs", 0)
-        if songs == 0:
-            actions.append(("Añadir carpeta de música",
-                            "library_hub", "primary"))
-
-        if not actions:
-            no_op = QLabel("No hay tareas importantes pendientes.")
-            no_op.setStyleSheet(empty_state_qss() +
-                "QLabel { color: rgba(255,255,255,0.56); font-size: 13px;"
-                "  background: transparent; border: none; padding: 4px 0; }")
-            self._sugg_content.addWidget(no_op)
-        else:
-            for text, target, kind in actions[:3]:
-                btn = QPushButton(text)
-                btn.setCursor(Qt.PointingHandCursor)
-                btn.setStyleSheet(glass_button_qss(kind))
-                btn.clicked.connect(
-                    lambda c=None, t=target: self.navigation_requested.emit(t))
-                self._sugg_content.addWidget(btn)
-
-        open_asst = QPushButton("Abrir Asistente")
-        open_asst.setCursor(Qt.PointingHandCursor)
-        open_asst.setStyleSheet(glass_chip_button_qss())
-        open_asst.clicked.connect(
-            lambda: self.navigation_requested.emit("assistant"))
-        self._sugg_content.addWidget(open_asst)
-
-    def _update_last_session(self):
-        w = self._win or self.window()
-        ref = getattr(w, '_current_ref', None) if w else None
-        has_track = ref and (ref.title or ref.uri)
-        if has_track:
-            name = ref.title or os.path.basename(ref.uri)
-            artist = getattr(ref, "artist", "") or ""
-            text = f"{artist} — {name}" if artist else name
-            self._session_track.setText(text)
-            self._continue_btn.setVisible(True)
-        else:
-            self._session_track.setText("Sin reproducción reciente")
-            self._continue_btn.setVisible(False)
-
-    def _update_connections(self, servers: list, devices: list):
-        lines = []
-        if servers:
-            srv = servers[0]
-            srv_name = getattr(srv, 'name', None) or getattr(srv, 'server_type', 'Conectado')
-            lines.append(f"Servidores: {len(servers)} ({srv_name})")
-        else:
-            lines.append("Sin servidores configurados")
-        if devices:
-            lines.append(f"Dispositivos: {len(devices)} detectado(s)")
-        else:
-            lines.append("Sin dispositivos detectados")
-        self._conn_status.setText(" · ".join(lines))
-
-    def _apply_qss(self):
-        self.setStyleSheet("""
-            QWidget#homePage { background: #090B11; }
-            QScrollArea#homeScroll { background: transparent; border: none; }
-            QWidget#homeContent { background: transparent; }
-        """)
-
-
-def _clear_layout(layout):
-    while layout.count():
-        item = layout.takeAt(0)
-        if item.widget():
-            item.widget().deleteLater()
-        elif item.layout():
-            _clear_layout(item.layout())
+    @staticmethod
+    def _dict_to_snapshot(d: dict) -> HomeDashboardSnapshot:
+        lib = d.get("library_health", d.get("library", {}))
+        pb = d.get("playback", {})
+        return HomeDashboardSnapshot(
+            overall_state=d.get("overall_state", "ready"),
+            headline=d.get("headline", ""),
+            subtitle=d.get("subtitle", ""),
+            library=LibraryHomeStatus(
+                track_count=lib.get("track_count", 0),
+                album_count=lib.get("album_count", 0),
+                artist_count=lib.get("artist_count", 0),
+                genre_count=lib.get("genre_count", 0),
+                last_scan=lib.get("last_scan"),
+                index_error_count=lib.get("index_error_count", 0),
+                missing_metadata_count=lib.get("missing_metadata_count", 0),
+                missing_cover_count=lib.get("missing_cover_count", 0),
+                is_empty=lib.get("track_count", 0) == 0,
+                is_healthy=lib.get("index_error_count", 0) == 0,
+            ),
+            playback=PlaybackHomeStatus(
+                has_current_track=bool(pb.get("now_playing")),
+                current_title=pb.get("now_playing", {}).get("title", ""),
+                current_artist=pb.get("now_playing", {}).get("artist", ""),
+                queue_active=pb.get("queue_length", 0) > 0,
+                queue_count=pb.get("queue_length", 0),
+                state="playing" if pb.get("now_playing") else "stopped",
+            ),
+        )

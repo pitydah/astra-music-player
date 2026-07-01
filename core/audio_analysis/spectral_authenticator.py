@@ -89,6 +89,7 @@ def _read_pcm_chunk(filepath: str, sample_rate: int,
             # Average channels to mono
             if n_channels > 1:
                 import contextlib
+
                 with contextlib.suppress(ValueError):
                     samples = samples.reshape(-1, n_channels).mean(axis=1)
 
@@ -169,9 +170,12 @@ def _compute_spectral_analysis(samples: np.ndarray,
 
     # cutoff_detected: sharp drop in energy above effective ceiling
     nyquist = sample_rate / 2.0
-    cutoff_detected = False
-    if nyquist > 0 and effective_ceiling > 0 and effective_ceiling < nyquist * 0.6 and e_20k_val < 1e-6:
-        cutoff_detected = True
+    cutoff_detected = bool(
+        nyquist > 0
+        and effective_ceiling > 0
+        and effective_ceiling < nyquist * 0.6
+        and e_20k_val < 1e-6
+    )
 
     metrics = {
         "spectral_rolloff_95": rolloff_95_val,

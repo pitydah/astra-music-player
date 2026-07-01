@@ -1010,3 +1010,93 @@ def glass_tab_qss() -> str:
             border: 1px solid rgba(255,255,255,0.10);
         }
     """
+
+
+# ── Home dashboard styles ──
+
+
+def home_page_qss() -> str:
+    """Home dashboard page — solid dark background."""
+    return """
+        QWidget#homePage { background: #090B11; }
+        QScrollArea#homeScroll { background: transparent; border: none; }
+        QWidget#homeContent { background: transparent; }
+    """
+
+
+def home_headline_qss() -> str:
+    """Home headline — 26px bold, high contrast."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.92); font-size: 26px; "
+        "font-weight: 700; background: transparent; border: none; }"
+    )
+
+
+def home_subtitle_qss() -> str:
+    """Home subtitle — 13px muted."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.54); font-size: 13px; "
+        "font-weight: 500; background: transparent; border: none; }"
+    )
+
+
+def home_badge_qss(kind: str = "ok") -> str:
+    """Badge chip for home status cards.
+
+    kind: 'ok' (green), 'warning' (accent blue), 'critical' (red), 'info' (neutral).
+    """
+    colors = {
+        "ok": ("rgba(72,199,142,0.14)", "rgba(72,199,142,0.50)"),
+        "warning": ("rgba(143,183,255,0.14)", "rgba(143,183,255,0.50)"),
+        "critical": ("rgba(255,82,82,0.14)", "rgba(255,82,82,0.50)"),
+        "info": ("rgba(255,255,255,0.04)", "rgba(255,255,255,0.24)"),
+    }
+    bg, fg = colors.get(kind, colors["info"])
+    return (
+        f"QLabel {{ background: {bg}; border: 1px solid {fg}; "
+        f"border-radius: 8px; padding: 2px 10px; "
+        f"color: rgba(255,255,255,0.78); font-size: 11px; "
+        f"font-weight: 500; }}"
+    )
+
+
+def home_metric_value_qss() -> str:
+    """Metric value — large number for library stats."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.92); font-size: 22px; "
+        "font-weight: 700; background: transparent; border: none; }"
+    )
+
+
+def home_metric_label_qss() -> str:
+    """Metric label — small muted text under a value."""
+    return (
+        "QLabel { color: rgba(255,255,255,0.48); font-size: 10px; "
+        "font-weight: 500; background: transparent; border: none; }"
+    )
+
+
+def home_alert_item_qss(severity: str = "info") -> str:
+    """Single alert row — color-accented left border."""
+    border_colors = {
+        "critical": "rgba(255,82,82,0.50)",
+        "warning": "rgba(143,183,255,0.50)",
+        "info": "rgba(255,255,255,0.12)",
+    }
+    bc = border_colors.get(severity, border_colors["info"])
+    return f"""
+        QFrame#alertItem {{
+            background: rgba(255,255,255,0.02);
+            border-left: 3px solid {bc};
+            border-radius: 4px;
+            padding: 8px 12px;
+        }}
+        QFrame#alertItem QLabel#alertTitle {{
+            color: rgba(255,255,255,0.85);
+            font-size: 13px; font-weight: 600;
+        }}
+        QFrame#alertItem QLabel#alertMsg {{
+            color: rgba(255,255,255,0.52);
+            font-size: 11px;
+        }}
+    """
