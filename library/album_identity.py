@@ -150,11 +150,8 @@ def is_compilation(tracks: list) -> bool:
         return False
     albumartists = {str(getattr(t, "albumartist", "") or "").strip()
                     for t in tracks if str(getattr(t, "albumartist", "") or "").strip()}
-    if any(is_various_artist_alias(aa) for aa in albumartists):
-        return True
-    if any(getattr(t, "compilation", False) for t in tracks):
-        return True
-    return False
+    return (any(is_various_artist_alias(aa) for aa in albumartists) or
+            any(getattr(t, "compilation", None) is True for t in tracks))
 
 
 @dataclass(frozen=True)

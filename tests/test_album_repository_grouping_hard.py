@@ -11,9 +11,15 @@ def _make(album="", artist="", albumartist="", filepath="/m/s.flac",
     t.filepath = filepath
     t.disc_number = disc_number
     t.compilation = compilation
-    t.ext = "flac"; t.sample_rate = 44100; t.bit_depth = 16
-    t.bitrate = 1411; t.duration = 200.0; t.year = 2024
-    t.title = "Song"; t.track_number = 1; t.genre = "Rock"
+    t.ext = "flac"
+    t.sample_rate = 44100
+    t.bit_depth = 16
+    t.bitrate = 1411
+    t.duration = 200.0
+    t.year = 2024
+    t.title = "Song"
+    t.track_number = 1
+    t.genre = "Rock"
     return t
 
 
@@ -80,7 +86,8 @@ class TestMultiDiscGrouping:
 
     def test_different_albums_same_title_separate_by_path(self):
         from library.album_repository import AlbumRepository
-        import tempfile, os
+        import tempfile
+        import os
         d1 = tempfile.mkdtemp()
         d2 = tempfile.mkdtemp()
         try:
@@ -91,4 +98,5 @@ class TestMultiDiscGrouping:
             ])
             assert len(repo.list_groups()) == 2
         finally:
-            os.rmdir(d1); os.rmdir(d2)
+            os.rmdir(d1)
+            os.rmdir(d2)
