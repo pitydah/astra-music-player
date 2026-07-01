@@ -175,24 +175,22 @@ class AlbumController:
             self._toast("No hay canciones para analizar", "error")
             return
         try:
-            from library.album_repository import AlbumRepository
-            repo = AlbumRepository()
-            repo.build(tracks)
-            key = repo.list_groups()[0].identity.album_key if repo.list_groups() else ""
-            if key:
-                quality = repo.get_quality_summary(key)
-                msg = (f"Calidad dominante: {quality.dominant_quality.upper()}\n"
-                       f"Formato: {quality.dominant_format}\n"
-                       f"Hi-Res: {'Sí' if quality.has_hires else 'No'}\n"
-                       f"Lossless: {'Sí' if quality.has_lossless else 'No'}\n"
-                       f"Lossy: {'Sí' if quality.has_lossy else 'No'}\n"
-                       f"DSD: {'Sí' if quality.has_dsd else 'No'}\n")
-                if quality.warnings:
-                    msg += "\nAdvertencias:\n" + "\n".join(f"• {w}" for w in quality.warnings)
-                from PySide6.QtWidgets import QMessageBox
-                QMessageBox.information(self._win, "Análisis de calidad", msg)
-            else:
-                self._toast("No se pudo analizar la calidad", "error")
+            from library.album_quality_service import AlbumQualityService
+            svc = AlbumQualityService()
+            detail = svc.summarize_fast(tracks)
+            msg = (f"Calidad dominante: {detail.dominant_quality.upper()}\n"
+                   f"Formato predominante: {detail.dominant_format or '—'}\n"
+                   f"Resolución: {detail.dominant_sample_rate // 1000}.{detail.dominant_sample_rate % 1000} kHz"
+                   f" / {detail.dominant_bit_depth}-bit\n"
+                   f"Pistas analizadas: {detail.tracks_analyzed}/{detail.total_tracks}\n"
+                   f"Hi-Res: {'Sí' if detail.has_hires else 'No'}\n"
+                   f"Lossless: {'Sí' if detail.has_lossless else 'No'}\n"
+                   f"Lossy: {'Sí' if detail.has_lossy else 'No'}\n"
+                   f"DSD: {'Sí' if detail.has_dsd else 'No'}\n")
+            if detail.warnings:
+                msg += "\nAdvertencias:\n" + "\n".join(f"• {w}" for w in detail.warnings)
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self._win, "Análisis de calidad", msg)
         except Exception as e:
             self._toast(f"Error al analizar calidad: {e}", "error")
         ctx = self._context_svc
@@ -213,13 +211,59 @@ class AlbumController:
                     "Dispositivos > Michi Sync Suite.", "info")
                 return
             fps = self._filepaths(tracks)
-            result = svc.create_session(server, fps)
-            if result.ok:
-                self._toast(
-                    f"Preflight: {result.data.get('existing', 0)} existentes, "
-                    f"{result.data.get('needs_upload', 0)} a subir", "info")
+            if not fps:
+                self._toast("No hay archivos para enviar", "error")
+                return
+            # Preflight
+            session_result = svc.create_session(server, fps)
+            if not session_result.ok:
+                self._toast(f"Error al preparar envío: {session_result.message}", "error")
+                return
+            pd = session_result.data
+            existing = pd.get("existing", 0)
+            needs = pd.get("needs_upload", 0)
+
+            # Dialog
+            from ui.dialogs.album_server_import_dialog import AlbumServerImportDialog
+            album_title = str(getattr(tracks[0], "album", "Álbum") if tracks else "Álbum")
+            dlg = AlbumServerImportDialog(
+                self._win, album_title, len(fps), existing, needs)
+            if not dlg.exec() or not dlg.was_confirmed():
+                return
+
+            # Upload with progress
+            sid = pd["session_id"]
+            uploaded = 0
+            failed = False
+            for i, fp in enumerate(fps):
+                if not fp or not __import__("os").path.isfile(fp):
+                    continue
+                result = svc.upload_track(sid, str(i), local_filepath=fp,
+                                           progress_cb=lambda c, t, _: dlg.set_progress(c, t))
+                if result.ok:
+                    uploaded += 1
+                else:
+                    failed = True
+                    break
+                dlg.set_progress(i + 1, len(fps))
+
+            if failed:
+                svc.rollback(sid)
+                AlbumServerImportDialog.show_report(
+                    self._win, "Importación fallida",
+                    "Error durante la subida. La sesión fue revertida.", is_error=True)
             else:
-                self._toast(f"Error en preflight: {result.message}", "error")
+                commit_result = svc.commit(sid)
+                if commit_result.ok:
+                    AlbumServerImportDialog.show_report(
+                        self._win, "Importación completada",
+                        f"{uploaded}/{len(fps)} canciones enviadas "
+                        f"a {server.alias or 'servidor'}.", is_error=False)
+                else:
+                    svc.rollback(sid)
+                    AlbumServerImportDialog.show_report(
+                        self._win, "Error al confirmar",
+                        f"Error al confirmar: {commit_result.message}", is_error=True)
         except ImportError:
             self._toast("Michi Link no está disponible en esta versión", "info")
 

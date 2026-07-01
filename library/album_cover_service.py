@@ -1,15 +1,14 @@
 """AlbumCoverService — unified cover art resolution for albums.
 
 Order of resolution:
-  1. DB/cache embedded (by album key)
+  1. album_art_cache by album_key (make_album_key via album_art)
   2. External file in album folder (cover.jpg, folder.jpg, etc.)
-  3. Cached internal
-  4. Direct extraction from first track
-  5. Michi fallback
+  3. Embedded extraction via cover_art_service
+  4. Michi fallback (make_default_cover)
+All keys use make_album_key from library.album_key for consistency with grid, detail, CoverFlow, and API.
 """
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 from dataclasses import dataclass
@@ -28,7 +27,7 @@ COVER_FILENAMES = [
 class AlbumCoverResult:
     pixmap: Any = None
     path: str = ""
-    source: str = "fallback"  # embedded_cache | external_file | embedded_file | user_cache | fallback
+    source: str = "fallback"
     missing: bool = False
     error: str = ""
 
@@ -48,14 +47,37 @@ def _find_local_cover(dirpath: str) -> str | None:
     return None
 
 
+def _album_key_for_tracks(tracks: list) -> str:
+    """Compute a stable album key from tracks using make_album_key."""
+    from library.album_key import make_album_key
+    if not tracks:
+        return ""
+    t = tracks[0]
+    albumartist = str(getattr(t, "albumartist", "") or "")
+    artist = str(getattr(t, "artist", "") or "")
+    album = str(getattr(t, "album", "") or "")
+    return make_album_key(albumartist, artist, album)
+
+
 class AlbumCoverService:
-    """Unified cover art resolver for albums."""
+    """Unified cover art resolver for albums — keyed by make_album_key."""
 
     def resolve_cover(self, tracks: list, size: int = 280) -> AlbumCoverResult:
         """Resolve cover art for an album from its tracks."""
         from PySide6.QtGui import QPixmap
 
-        # 1. External file in folder
+        album_key = _album_key_for_tracks(tracks)
+
+        # 1. album_art cache by album key
+        try:
+            from library.album_art import load_cover_pixmap
+            cached = load_cover_pixmap(album_key, size, lazy=True) if album_key else None
+            if cached and not cached.isNull():
+                return AlbumCoverResult(pixmap=cached, source="embedded_cache")
+        except Exception:
+            pass
+
+        # 2. External file in first track's folder
         for t in tracks:
             fp = str(getattr(t, "filepath", "") or "")
             if fp:
@@ -64,11 +86,10 @@ class AlbumCoverService:
                     pix = QPixmap(cover_path)
                     if not pix.isNull():
                         return AlbumCoverResult(
-                            pixmap=pix, path=cover_path,
-                            source="external_file",
+                            pixmap=pix, path=cover_path, source="external_file",
                         )
 
-        # 2. Embedded from first valid file
+        # 3. Embedded from first valid file
         for t in tracks:
             fp = str(getattr(t, "filepath", "") or "")
             if fp and os.path.isfile(fp):
@@ -78,32 +99,14 @@ class AlbumCoverService:
                     if cover_data:
                         pix = QPixmap()
                         if pix.loadFromData(cover_data):
-                            return AlbumCoverResult(
-                                pixmap=pix, source="embedded_file",
-                            )
+                            return AlbumCoverResult(pixmap=pix, source="embedded_file")
                 except Exception:
                     continue
-
-        # 3. Cache lookup
-        try:
-            from library.artwork_cache import get_cached
-            album = str(getattr(tracks[0], "album", "") if tracks else "")
-            artist = str(getattr(tracks[0], "artist", "") if tracks else "")
-            cache_key = hashlib.sha256(f"{album}||{artist}".encode()).hexdigest()[:32]
-            cached = get_cached(cache_key, size)
-            if cached and not cached.isNull():
-                return AlbumCoverResult(
-                    pixmap=cached, source="embedded_cache",
-                )
-        except Exception:
-            pass
 
         # 4. Fallback
         from library.album_art import make_default_cover
         fallback = make_default_cover(
-            str(getattr(tracks[0], "album", "") if tracks else ""),
-            size,
-        )
+            str(getattr(tracks[0], "album", "") if tracks else ""), size)
         return AlbumCoverResult(pixmap=fallback, source="fallback")
 
     def make_fallback_cover(self, title: str = "", artist: str = "",

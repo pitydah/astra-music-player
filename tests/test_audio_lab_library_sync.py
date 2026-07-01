@@ -32,7 +32,22 @@ def _make_db():
 
 class TestAudioLabLibrarySync:
 
-    def test_sync_lossless_result(self):
+    def test_sync_existing_path_returns_true(self):
+        from core.audio_lab.audio_lab_sync import sync_audio_lab_result_to_media_item
+        conn = _make_db()
+        conn.execute("INSERT INTO media_items (filepath) VALUES (?)", ("/test/a.flac",))
+        conn.commit()
+        result = {"quality": {"category": "lossless"}, "error": "",
+                  "format_info": {"container": "FLAC"}}
+        assert sync_audio_lab_result_to_media_item(conn, "/test/a.flac", result) is True
+
+    def test_sync_nonexistent_path_returns_false(self):
+        from core.audio_lab.audio_lab_sync import sync_audio_lab_result_to_media_item
+        conn = _make_db()
+        result = {"quality": {"category": "lossless"}, "error": ""}
+        assert sync_audio_lab_result_to_media_item(conn, "/test/nonexistent.flac", result) is False
+
+    def test_sync_result_updates_columns(self):
         from core.audio_lab.audio_lab_sync import sync_audio_lab_result_to_media_item
         conn = _make_db()
         conn.execute("INSERT INTO media_items (filepath) VALUES (?)", ("/test/a.flac",))
@@ -84,33 +99,60 @@ class TestAudioLabLibrarySync:
         row = conn.execute("SELECT analysis_status FROM media_items WHERE filepath=?", ("/test/e.mp3",)).fetchone()
         assert row["analysis_status"] == "error"
 
-    def test_cache_to_media_items(self):
-        from core.audio_lab.diagnostics_service import (
-            reset_global_cache_for_tests, close_global_cache,
-        )
+    def test_sync_three_paths_returns_exact_count(self):
         from core.audio_lab.audio_lab_sync import sync_audio_lab_cache_to_media_items
+        from core.audio_lab.diagnostics_service import (
+            reset_global_cache_for_tests, close_global_cache, _get_cache,
+        )
         conn = _make_db()
-        conn.execute("INSERT INTO media_items (filepath) VALUES (?)", ("/test/f.flac",))
-        conn.commit()
-
-        reset_global_cache_for_tests(":memory:")
-        cache = _get_cache()
-        import os
-        import tempfile as tf
-        with tf.NamedTemporaryFile(suffix=".flac", delete=False) as f:
-            tmp = f.name
+        paths = []
+        import os, tempfile
+        for _ in range(3):
+            with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
+                paths.append(f.name)
         try:
-            cache.put(tmp, {
-                "filepath": tmp,
-                "format_info": {"container": "FLAC", "sample_rate": 96000, "bit_depth": 24},
-                "quality": {"category": "hires", "label": "FLAC 24/96"},
-            })
-            conn.execute("INSERT INTO media_items (filepath) VALUES (?)", (tmp,))
+            reset_global_cache_for_tests(":memory:")
+            cache = _get_cache()
+            for p in paths:
+                cache.put(p, {
+                    "filepath": p,
+                    "format_info": {"container": "FLAC", "sample_rate": 44100},
+                    "quality": {"category": "lossless"},
+                })
+                conn.execute("INSERT INTO media_items (filepath) VALUES (?)", (p,))
             conn.commit()
-            updated = sync_audio_lab_cache_to_media_items(conn, [tmp])
-            assert updated >= 0
+            updated = sync_audio_lab_cache_to_media_items(conn, paths)
+            assert updated == 3
         finally:
-            os.unlink(tmp)
+            for p in paths:
+                os.unlink(p)
+            close_global_cache()
+
+    def test_consecutive_syncs_do_not_inflate_count(self):
+        from core.audio_lab.audio_lab_sync import sync_audio_lab_cache_to_media_items
+        from core.audio_lab.diagnostics_service import (
+            reset_global_cache_for_tests, close_global_cache, _get_cache,
+        )
+        conn = _make_db()
+        import os, tempfile
+        with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
+            p = f.name
+        try:
+            reset_global_cache_for_tests(":memory:")
+            cache = _get_cache()
+            cache.put(p, {
+                "filepath": p,
+                "format_info": {"container": "FLAC"},
+                "quality": {"category": "lossless"},
+            })
+            conn.execute("INSERT INTO media_items (filepath) VALUES (?)", (p,))
+            conn.commit()
+            r1 = sync_audio_lab_cache_to_media_items(conn, [p])
+            r2 = sync_audio_lab_cache_to_media_items(conn, [p])
+            assert r1 == 1
+            assert r2 == 1  # not inflated
+        finally:
+            os.unlink(p)
             close_global_cache()
 
 

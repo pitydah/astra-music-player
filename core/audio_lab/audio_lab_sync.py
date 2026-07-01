@@ -2,6 +2,8 @@
 
 Updates quality, analysis_status, and spectral_verdict in the main library DB
 so that SearchEngine filters (quality:, analysis:, spectral:) work in real time.
+
+Uses cursor.rowcount for accurate update counts (not conn.total_changes).
 """
 
 from __future__ import annotations
@@ -11,8 +13,6 @@ import sqlite3
 from typing import Any
 
 logger = logging.getLogger("michi.audio_lab.sync")
-
-_SPECIAL_VALUES = frozenset({"SUSPICIOUS_UPSAMPLING", "POSSIBLE_LOSSY_SOURCE"})
 
 
 def _ensure_columns(conn: sqlite3.Connection):
@@ -51,13 +51,13 @@ def sync_audio_lab_result_to_media_item(
     spec = result.get("spectral", {})
     spectral_verdict = spec.get("verdict", "") if isinstance(spec, dict) else ""
 
-    conn.execute(
+    cur = conn.execute(
         "UPDATE media_items SET quality=?, analysis_status=?, spectral_verdict=? "
         "WHERE filepath=?",
         (quality, analysis_status, spectral_verdict, filepath),
     )
     conn.commit()
-    return conn.total_changes > 0
+    return cur.rowcount > 0
 
 
 def sync_audio_lab_cache_to_media_items(
@@ -65,7 +65,7 @@ def sync_audio_lab_cache_to_media_items(
 ) -> int:
     """Synchronise all (or given) paths from the diagnostics cache to media_items.
 
-    Returns the number of rows updated.
+    Returns the number of rows updated. Uses cursor.rowcount for accuracy.
     """
     _ensure_columns(conn)
     from core.audio_lab.diagnostics_service import _get_cache
@@ -87,7 +87,7 @@ def sync_audio_lab_cache_to_media_items(
     updated = 0
     for fp, c in cached.items():
         if c is None:
-            conn.execute(
+            cur = conn.execute(
                 "UPDATE media_items SET quality='pending', "
                 "analysis_status='pending', spectral_verdict='' WHERE filepath=?",
                 (fp,),
@@ -99,12 +99,12 @@ def sync_audio_lab_cache_to_media_items(
             analysis_status = "error" if error else "done"
             spec = c.get("spectral", {})
             spectral_verdict = spec.get("verdict", "") if isinstance(spec, dict) else ""
-            conn.execute(
+            cur = conn.execute(
                 "UPDATE media_items SET quality=?, analysis_status=?, "
                 "spectral_verdict=? WHERE filepath=?",
                 (quality, analysis_status, spectral_verdict, fp),
             )
-        updated += conn.total_changes
+        updated += max(cur.rowcount, 0)
         if updated % 100 == 0:
             conn.commit()
     conn.commit()
@@ -114,13 +114,13 @@ def sync_audio_lab_cache_to_media_items(
 def mark_audio_lab_pending(conn: sqlite3.Connection, filepath: str) -> bool:
     """Mark a file as pending analysis."""
     _ensure_columns(conn)
-    conn.execute(
+    cur = conn.execute(
         "UPDATE media_items SET quality='pending', "
         "analysis_status='pending' WHERE filepath=?",
         (filepath,),
     )
     conn.commit()
-    return conn.total_changes > 0
+    return cur.rowcount > 0
 
 
 def mark_audio_lab_error(
@@ -128,10 +128,10 @@ def mark_audio_lab_error(
 ) -> bool:
     """Mark a file as analysis error."""
     _ensure_columns(conn)
-    conn.execute(
+    cur = conn.execute(
         "UPDATE media_items SET quality='error', analysis_status='error', "
         "spectral_verdict='' WHERE filepath=?",
         (filepath,),
     )
     conn.commit()
-    return conn.total_changes > 0
+    return cur.rowcount > 0
