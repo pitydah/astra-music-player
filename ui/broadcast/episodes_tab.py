@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QFrame, QScrollArea, QComboBox,
+    QPushButton, QFrame, QScrollArea, QComboBox,
 )
 
 from ui.central.central_styles import glass_combo_qss
@@ -13,6 +13,8 @@ from streaming.podcast_manager import PodcastManager
 
 
 class EpisodesTab(QWidget):
+    episode_play_requested = Signal(object)  # PodcastEpisode
+
     def __init__(self, podcast_manager: PodcastManager | None = None, parent=None):
         super().__init__(parent)
         self.setObjectName("episodesTab")
@@ -78,8 +80,11 @@ class EpisodesTab(QWidget):
         shows = {s.id: s.title for s in self._pm.get_shows()}
         for ep in episodes:
             show_title = shows.get(ep.podcast_id, "")
-            row = _episode_row(ep, show_title)
+            row = _episode_row(ep, show_title, self._on_play)
             self._cl.insertWidget(self._cl.count() - 1, row)
+
+    def _on_play(self, ep):
+        self.episode_play_requested.emit(ep)
 
     def set_filter(self, text: str):
         if not text:
@@ -97,7 +102,7 @@ class EpisodesTab(QWidget):
         shows = {s.id: s.title for s in self._pm.get_shows()}
         for ep in filtered:
             show_title = shows.get(ep.podcast_id, "")
-            row = _episode_row(ep, show_title)
+            row = _episode_row(ep, show_title, self._on_play)
             self._cl.insertWidget(self._cl.count() - 1, row)
 
     def _clear_list(self):
@@ -107,7 +112,7 @@ class EpisodesTab(QWidget):
                 item.widget().deleteLater()
 
 
-def _episode_row(ep, show_title: str) -> QFrame:
+def _episode_row(ep, show_title: str, play_cb=None) -> QFrame:
     row = QFrame()
     row.setStyleSheet(
         "QFrame { background: rgba(255,255,255,0.02); border: none; "
@@ -116,6 +121,18 @@ def _episode_row(ep, show_title: str) -> QFrame:
     row.setFixedHeight(48)
     layout = QHBoxLayout(row)
     layout.setContentsMargins(12, 0, 12, 0)
+
+    play_btn = QPushButton("\u25b6")
+    play_btn.setCursor(Qt.PointingHandCursor)
+    play_btn.setFixedSize(28, 28)
+    play_btn.setStyleSheet(
+        "QPushButton { background: rgba(143,183,255,0.08); border: 1px solid rgba(143,183,255,0.10); "
+        "border-radius: 14px; color: rgba(255,255,255,0.72); font-size: 11px; }"
+        "QPushButton:hover { background: rgba(143,183,255,0.16); color: rgba(255,255,255,0.90); }"
+    )
+    if play_cb:
+        play_btn.clicked.connect(lambda: play_cb(ep))
+    layout.addWidget(play_btn)
 
     info = QVBoxLayout()
     info.setSpacing(1)
@@ -132,6 +149,9 @@ def _episode_row(ep, show_title: str) -> QFrame:
     if ep.duration_seconds:
         m, s = divmod(ep.duration_seconds, 60)
         sub += f"  |  {m}m {s}s"
+    if ep.position_seconds > 0 and ep.duration_seconds > 0:
+        pct = int(ep.position_seconds / max(ep.duration_seconds, 1) * 100)
+        sub += f"  |  {pct}%"
     if sub:
         s = QLabel(sub)
         s.setStyleSheet(

@@ -19,6 +19,7 @@ from streaming.podcast_manager import PodcastManager
 
 class BroadcastHubPage(QWidget):
     navigate_requested = Signal(str)
+    play_track_requested = Signal(object)  # TrackRef
 
     def __init__(self, radio_manager: RadioManager | None = None,
                  podcast_manager: PodcastManager | None = None,
@@ -136,6 +137,7 @@ class BroadcastHubPage(QWidget):
 
         from ui.broadcast.episodes_tab import EpisodesTab
         ep_tab = EpisodesTab(self._podcast_manager)
+        ep_tab.episode_play_requested.connect(self._on_episode_play)
         self._tab_widgets["episodes"] = ep_tab
         self._stack.addWidget(ep_tab)
 
@@ -146,6 +148,7 @@ class BroadcastHubPage(QWidget):
 
         from ui.broadcast.history_tab import HistoryTab
         hist_tab = HistoryTab(self._podcast_manager)
+        hist_tab.history_play_requested.connect(self._on_history_play)
         self._tab_widgets["history"] = hist_tab
         self._stack.addWidget(hist_tab)
 
@@ -194,6 +197,31 @@ class BroadcastHubPage(QWidget):
         tab = self._tab_widgets.get("live")
         if tab and hasattr(tab, 'add_station'):
             tab.add_station()
+
+    def _on_episode_play(self, ep):
+        """Play a podcast episode via PlayerService."""
+        from sources.base_source import TrackRef
+        track = TrackRef(
+            uri=ep.local_path if ep.downloaded and ep.local_path else ep.audio_url,
+            title=ep.title,
+            artist="",
+            source_type="podcast",
+            source_label="Podcast",
+        )
+        self.play_track_requested.emit(track)
+
+    def _on_history_play(self, item):
+        """Play a history entry (radio or podcast)."""
+        from sources.base_source import TrackRef
+        track = TrackRef(
+            uri=item.ref_id or item.extra.get("url", ""),
+            title=item.title,
+            artist=item.subtitle,
+            source_type=item.entry_type,
+            source_label="Historial",
+        )
+        if track.uri:
+            self.play_track_requested.emit(track)
 
     def _add_podcast(self):
         from ui.broadcast.add_feed_dialog import AddFeedDialog

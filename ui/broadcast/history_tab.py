@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QFrame, QScrollArea,
+    QPushButton, QFrame, QScrollArea,
 )
 
 from streaming.podcast_manager import PodcastManager
 
 
 class HistoryTab(QWidget):
+    history_play_requested = Signal(object)  # BroadcastHistoryItem
+
     def __init__(self, podcast_manager: PodcastManager | None = None, parent=None):
         super().__init__(parent)
         self.setObjectName("historyTab")
@@ -59,8 +61,11 @@ class HistoryTab(QWidget):
             return
         self._empty.setVisible(False)
         for item in items:
-            row = _history_row(item)
+            row = _history_row(item, self._on_play)
             self._cl.insertWidget(self._cl.count() - 1, row)
+
+    def _on_play(self, item):
+        self.history_play_requested.emit(item)
 
     def _clear_list(self):
         for i in range(self._cl.count() - 1, -1, -1):
@@ -74,7 +79,7 @@ class HistoryTab(QWidget):
             return
 
 
-def _history_row(item) -> QFrame:
+def _history_row(item, play_cb=None) -> QFrame:
     row = QFrame()
     row.setStyleSheet(
         "QFrame { background: rgba(255,255,255,0.02); border: none; "
@@ -83,6 +88,18 @@ def _history_row(item) -> QFrame:
     row.setFixedHeight(48)
     layout = QHBoxLayout(row)
     layout.setContentsMargins(12, 0, 12, 0)
+
+    play_btn = QPushButton("\u25b6")
+    play_btn.setCursor(Qt.PointingHandCursor)
+    play_btn.setFixedSize(28, 28)
+    play_btn.setStyleSheet(
+        "QPushButton { background: rgba(143,183,255,0.08); border: 1px solid rgba(143,183,255,0.10); "
+        "border-radius: 14px; color: rgba(255,255,255,0.72); font-size: 11px; }"
+        "QPushButton:hover { background: rgba(143,183,255,0.16); color: rgba(255,255,255,0.90); }"
+    )
+    if play_cb:
+        play_btn.clicked.connect(lambda: play_cb(item))
+    layout.addWidget(play_btn)
 
     info = QVBoxLayout()
     info.setSpacing(1)
