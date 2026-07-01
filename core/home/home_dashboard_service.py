@@ -335,10 +335,25 @@ class HomeDashboardService:
                         micro_state = "contract_error"
                     elif ms == "disconnected":
                         micro_state = "disconnected"
+                    elif ms == "unreachable":
+                        micro_state = "unreachable"
                 caps = mlc.get_capabilities()
                 if caps:
                     contract_ok = caps.get("contract_ok", False)
                     can_continue = caps.get("can_continue_playback", False)
+            except Exception:
+                pass
+
+        # Use Ecosystem Doctor if available
+        ed = self._ecosystem_doctor
+        if ed is not None:
+            try:
+                diag = ed.diagnose_micro_server(host=micro_host)
+                if diag:
+                    micro_state = diag.get("state", micro_state)
+                    micro_issue_code = diag.get("issue_code", "")
+                    if micro_state == "connected":
+                        micro_name = diag.get("host", micro_name)
             except Exception:
                 pass
 
