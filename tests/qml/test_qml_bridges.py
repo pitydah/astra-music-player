@@ -449,9 +449,9 @@ class TestAlbumGrid:
     def test_album_grid_qml_exists(self):
         assert (QML_DIR / "pages" / "library" / "AlbumGrid.qml").exists()
 
-    def test_album_grid_uses_michi_cover(self):
+    def test_album_grid_uses_cover_bridge(self):
         content = (QML_DIR / "pages" / "library" / "AlbumCard.qml").read_text()
-        assert "michi-cover" in content, "AlbumCard does not use michi-cover ImageProvider"
+        assert "CoverBridge" in content, "AlbumCard does not use CoverBridge"
 
     def test_album_grid_no_emoji(self):
         content = (QML_DIR / "pages" / "library" / "AlbumCard.qml").read_text()
@@ -468,6 +468,28 @@ class TestSongTable:
         content = (QML_DIR / "pages" / "library" / "SongTable.qml").read_text()
         assert "songPlayRequested" in content
         assert "SongRow" in content
+
+
+class TestCoverBridge:
+    def test_cover_bridge_importable(self):
+        from ui_qml_bridge.cover_bridge import CoverBridge
+        assert CoverBridge is not None
+
+    def test_cover_bridge_has_paint(self):
+        from ui_qml_bridge.cover_bridge import CoverBridge
+        assert hasattr(CoverBridge, 'paint')
+
+    def test_cover_bridge_cover_key_property(self):
+        from ui_qml_bridge.cover_bridge import CoverBridge
+        assert hasattr(CoverBridge, 'coverKey')
+
+    def test_album_card_uses_cover_bridge(self):
+        content = (QML_DIR / "pages" / "library" / "AlbumCard.qml").read_text()
+        assert "CoverBridge" in content, "AlbumCard does not use CoverBridge"
+
+    def test_album_card_no_image_provider(self):
+        content = (QML_DIR / "pages" / "library" / "AlbumCard.qml").read_text()
+        assert "michi-cover" not in content, "AlbumCard still uses old image provider"
 
 
 

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import MichiCover 1.0
 import "../../theme"
 import "../../materials"
 import "../../components"
@@ -41,23 +42,13 @@ Item {
                 height: width
                 radius: 8
                 color: Qt.rgba(1.0, 1.0, 1.0, 0.03)
+                clip: true
 
-                Image {
+                CoverBridge {
+                    id: coverItem
                     anchors.fill: parent
-                    source: root.coverId ? "image://michi-cover/album/" + root.coverId : "image://michi-cover/fallback/" + (root.albumTitle || "COVER")
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                    sourceSize.width: 512
-                    sourceSize.height: 512
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    text: root.albumTitle ? root.albumTitle.charAt(0).toUpperCase() : "?"
-                    color: MichiColors.textMuted
-                    font.pixelSize: 36
-                    font.weight: MichiTypography.weightBold
-                    visible: parent.source === "" || parent.status === Image.Error
+                    coverKey: root.coverId || root.albumTitle || "COVER"
+                    visible: true
                 }
             }
 

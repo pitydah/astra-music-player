@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 from PySide6.QtCore import QUrl
 
 from ui_qml_bridge.app_bridge import AppBridge
@@ -14,6 +14,7 @@ from ui_qml_bridge.theme_bridge import ThemeBridge
 from ui_qml_bridge.library_bridge import LibraryBridge
 from ui_qml_bridge.michi_ai_bridge import MichiAIBridge
 from ui_qml_bridge.image_provider import register_image_provider
+from ui_qml_bridge.cover_bridge import CoverBridge
 
 
 def main():
@@ -36,6 +37,8 @@ def main():
     engine.rootContext().setContextProperty("themeBridge", theme_bridge)
     engine.rootContext().setContextProperty("libraryBridge", library_bridge)
     engine.rootContext().setContextProperty("michiAiBridge", michi_ai_bridge)
+
+    qmlRegisterType(CoverBridge, "MichiCover", 1, 0, "CoverBridge")
 
     register_image_provider(engine)
 
