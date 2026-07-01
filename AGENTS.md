@@ -542,3 +542,51 @@ Commits outside the Audio Lab scope that touch `ui/audio_lab/diagnostics_page.py
 2. Keep `diagnostics_updated = Signal(list)` and `navigate_requested = Signal(str)`
 3. Keep the `# INTEGRITY GUARD` block at the end of the file
 4. If you need to add/remove constructor params, update the guard accordingly and update `AudioLabDiagnosticsPage` in `ui/audio_lab/sub_pages.py`
+
+## 13. QML Migration Rules (for AI assistants)
+
+### Architecture
+- QML does NOT access the database directly
+- QML emits intention; Python executes
+- Bridges (ui_qml_bridge/) are the only communication layer between QML and Python
+- Python remains the brain; QML is the premium skin
+
+### Protected Files — QML Migration
+- `ui_qml/` is the new QML UI layer (experimental, parallel)
+- `ui_qml_bridge/` is the Python bridge layer
+- Do NOT touch `ui/devices_page.py`, `sync/`, `ui/nowplaying_bar.py`, `ui/source_status_badge.py`
+- Do NOT touch playback logic (`audio/player.py`, `audio/player_service.py`, `audio/pipeline_factory.py`, `core/playback_controller.py`)
+- Do NOT touch Android integration or sync protocol
+- Keep fallback QtWidgets intact
+
+### Visual Rules (QML)
+- No `opacity` on parent containers with text
+- No blur on lists/grids/tables
+- No per-item shadows in lists/grids/tables
+- Theme tokens preferred over hardcoded colors
+- No fake data shown as real — use "No configurado", "Demo QML", "Experimental"
+
+### How to run
+```bash
+# QML experimental
+python -m ui_qml_bridge.qml_main
+
+# Classic app
+python main.py
+```
+
+### QML Directory Structure
+```
+ui_qml/
+├── theme/        → Colors, Typography, Spacing, Motion, Theme
+├── materials/   → Glass, Hero, Popup, Sidebar, Input, Acrylic
+├── components/  → GlassPanel, GlassCard, ActionButton, StatusBadge, ...
+├── shell/       → AppShell, Sidebar, HeaderBar, PageStack, RouteTransition
+├── pages/
+│   ├── home/          → HomePage (fully migrated)
+│   ├── connections/   → ConnectionsPage (fully migrated)
+│   ├── home_audio/    → HomeAudioPage (fully migrated)
+│   ├── assistant/     → Placeholders
+│   └── library/       → Placeholder
+└── effects/     → Reserved for future effects
+```

@@ -151,6 +151,37 @@ jobs:
             tests/test_album_server_import_dialog.py \
             -q --timeout=60
 
+      - name: Hybrid Audio Engine tests
+        timeout-minutes: 2
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONUNBUFFERED: 1
+        run: |
+          source .venv/bin/activate
+          python3 -m pytest \
+            tests/test_audio_backend_base.py \
+            tests/test_gstreamer_backend.py \
+            tests/test_hybrid_audio_manager.py \
+            tests/test_audio_settings_schema.py \
+            tests/test_audio_settings_migrator.py \
+            tests/test_alsa_hw_params.py \
+            tests/test_bitperfect_verifier.py \
+            tests/test_mpd_protocol.py \
+            tests/test_mpd_client_mock.py \
+            tests/test_mpd_path_mapper.py \
+            tests/test_mpd_backend.py \
+            tests/test_mpd_config_builder.py \
+            tests/test_mpd_service_manager.py \
+            tests/test_mpd_discovery.py \
+            tests/test_audio_profile_backend_selection.py \
+            tests/test_dsp_state.py \
+            tests/test_player_service_hybrid.py \
+            tests/test_output_profiles_mpd.py \
+            tests/test_bitperfect_monitor_page.py \
+            tests/test_mpris_hybrid.py \
+            tests/test_hybrid_engine_end_to_end.py \
+            -q --timeout=60
+
       - name: Tests (pytest) — anti-regression + packaging + intelligence
         timeout-minutes: 3
         env:

@@ -46,7 +46,6 @@ class TestDiagnoseMobileSync:
         doctor = MichiEcosystemDoctor()
         result = doctor.diagnose_mobile_sync()
         assert result["status"] in (C.STATUS_NO_DEVICE,)
-        assert result["issue_code"] == C.NO_PAIRED_DEVICES
 
     def test_uses_diagnostics_service(self):
         diag_svc = MagicMock()

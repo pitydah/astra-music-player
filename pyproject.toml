@@ -113,7 +113,8 @@ target-version = ["py311"]
 testpaths = ["tests"]
 qt_api = "pyside6"
 timeout = 120
-addopts = "-m 'not perf'"
+addopts = "-m 'not perf and not hardware'"
 markers = [
+    "hardware: tests requiring physical DAC/audio hardware",
     "perf: performance tests, run manually with -m perf",
 ]

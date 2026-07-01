@@ -107,8 +107,8 @@ class PlayerService(QObject):
                     self._mpd_backend.connect()
                 except MpdConnectionError as e:
                     self.error_occurred.emit(f"MPD connection failed: {e}")
-                    target = self._hybrid.choose_backend_for_profile("standard")
-                    self._hybrid._fallback_active = True
+                    self._do_fallback_backend(old_id)
+                    return False
         result = self._hybrid.switch_for_profile(profile_key)
         new_id = self._hybrid.active_id
         if new_id != old_id:
@@ -122,6 +122,12 @@ class PlayerService(QObject):
             dop = get("audio/mpd/dop_enabled") or False
             self._mpd_backend.configure_dsd(mode=dsd_mode, dop=dop)
         return result
+
+    def _do_fallback_backend(self, previous_backend_id: str):
+        self._hybrid.mark_fallback(True)
+        self._hybrid.switch_to("gstreamer")
+        self.backend_changed.emit(previous_backend_id, "gstreamer")
+        self.error_occurred.emit("MPD no disponible — usando GStreamer")
 
     def start_mpd_service(self):
         self._ensure_mpd_service()

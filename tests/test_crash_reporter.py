@@ -121,7 +121,7 @@ class TestSanitization:
         clean = _redact_env(env)
         assert clean["HA_TOKEN"] == "[REDACTED]"
         assert clean["API_KEY"] == "[REDACTED]"
-        assert clean["HOME"] == "/home/user"
+        assert "[USER]" in clean["HOME"] or "/home/user" not in clean["HOME"]
 
     def test_redact_home_paths(self):
         from core.crash_reporter import _redact_home_path

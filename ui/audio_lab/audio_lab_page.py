@@ -119,6 +119,11 @@ class AudioLabPage(QWidget):
         )
         self._status_label.setWordWrap(True)
         sl.addWidget(self._status_label, 1)
+        deps_btn = QPushButton("Ver dependencias")
+        deps_btn.setCursor(Qt.PointingHandCursor)
+        deps_btn.setStyleSheet(glass_button_qss("ghost"))
+        deps_btn.clicked.connect(self._show_dependencies)
+        sl.addWidget(deps_btn)
         cl.addWidget(status_frame)
 
         grid = QGridLayout()
@@ -205,6 +210,21 @@ class AudioLabPage(QWidget):
         cv.addLayout(row)
         card.setStyleSheet(glass_card_qss(f"audioLabCard_{key}", "elevated"))
         return card
+
+    def _show_dependencies(self):
+        from PySide6.QtWidgets import QMessageBox
+        from core.audio_lab.dependencies import check_dependencies
+        deps = check_dependencies()
+        lines = ["Dependencias de Audio Lab:\n"]
+        for dep in deps.values():
+            icon = "\u2713" if dep["available"] else "\u2717"
+            status = "Disponible" if dep["available"] else "No instalado"
+            lines.append(f"  {icon} {dep['label']}: {status}")
+            if dep["required_for"]:
+                lines.append(f"     Necesario para: {', '.join(dep['required_for'])}")
+            if dep.get("path"):
+                lines.append(f"     Ruta: {dep['path']}")
+        QMessageBox.information(self, "Dependencias", "\n".join(lines))
 
     def set_status_text(self, text: str):
         if self._status_label:

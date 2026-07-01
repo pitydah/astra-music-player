@@ -91,6 +91,7 @@ class DiagnosticsPage(QWidget):
         self._total_files = 0
         self._periodic_analyzer = None
         self._build_ui()
+        self._refresh_health()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -212,6 +213,28 @@ class DiagnosticsPage(QWidget):
         avl.addWidget(self._progress_label)
 
         cl.addWidget(action_card)
+
+        # Health card
+        self._health_card = QFrame()
+        self._health_card.setStyleSheet(glass_card_qss("diagHealthCard"))
+        hvl = QVBoxLayout(self._health_card)
+        hvl.setContentsMargins(20, 16, 20, 16)
+        hvl.setSpacing(10)
+        ht = QLabel("Estado de salud")
+        ht.setStyleSheet(
+            "color: rgba(255,255,255,0.88); font-size: 14px; "
+            "font-weight: 600; background: transparent;"
+        )
+        hvl.addWidget(ht)
+        self._health_text = QLabel("Cargando...")
+        self._health_text.setStyleSheet(
+            "color: rgba(255,255,255,0.72); font-size: 12px; "
+            "background: transparent;"
+        )
+        self._health_text.setWordWrap(True)
+        hvl.addWidget(self._health_text)
+        self._health_text.setVisible(False)
+        cl.addWidget(self._health_card)
 
         results_card = QFrame()
         results_card.setStyleSheet(glass_card_qss("diagResultsCard"))
@@ -351,6 +374,13 @@ class DiagnosticsPage(QWidget):
         self._export_json_btn.setEnabled(False)
         export_row.addWidget(self._export_json_btn)
 
+        self._export_health_btn = QPushButton("Exportar salud")
+        self._export_health_btn.setCursor(Qt.PointingHandCursor)
+        self._export_health_btn.setStyleSheet(glass_button_qss("ghost"))
+        self._export_health_btn.clicked.connect(self._export_health_report)
+        self._export_health_btn.setEnabled(bool(self._db))
+        export_row.addWidget(self._export_health_btn)
+
         export_row.addStretch()
         report_vl.addLayout(export_row)
 
@@ -427,6 +457,21 @@ class DiagnosticsPage(QWidget):
             self._periodic_analyzer.set_enabled(True)
             self._periodic_status.setText("Activado")
             self._periodic_toggle.setText("Desactivar")
+
+    def _refresh_health(self):
+        if not self._db:
+            self._health_text.setVisible(False)
+            return
+        try:
+            conn = getattr(self._db, '_conn', None) or self._db
+            from core.audio_lab.library_health import compute_health
+            from core.audio_lab.reporting import health_to_txt
+            health = compute_health(conn)
+            self._health_text.setText(health_to_txt(health))
+            self._health_text.setVisible(True)
+        except Exception as e:
+            logger.warning("Health refresh failed: %s", e)
+            self._health_text.setVisible(False)
 
     def _apply_interval(self):
         if self._periodic_analyzer:
@@ -885,6 +930,27 @@ class DiagnosticsPage(QWidget):
         self._export_txt_btn.setEnabled(True)
         self._export_csv_btn.setEnabled(True)
         self._export_json_btn.setEnabled(True)
+
+    def _export_health_report(self):
+        if not self._db:
+            return
+        conn = getattr(self._db, '_conn', None) or self._db
+        from core.audio_lab.library_health import compute_health
+        from core.audio_lab.reporting import health_to_txt, health_to_json
+        health = compute_health(conn)
+        fp, _ = QFileDialog.getSaveFileName(
+            self, "Exportar salud de biblioteca", "salud.txt",
+            "Textos (*.txt);;JSON (*.json)",
+        )
+        if not fp:
+            return
+        try:
+            content = health_to_json(health) if fp.endswith(".json") else health_to_txt(health)
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write(content)
+            self._report_label.setText(self._report_label.text() + f"\n\nSalud exportada a: {fp}")
+        except Exception as e:
+            self._report_label.setText(f"Error al exportar salud: {e}")
 
     def _export_report(self, fmt: str):
         if not self._results:

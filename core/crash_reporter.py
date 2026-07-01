@@ -43,7 +43,13 @@ _HEX_TOKEN_RE = re.compile(r"\b[a-fA-F0-9]{32,}\b")
 
 
 def _redact_env(env: dict[str, str]) -> dict[str, str]:
-    return {k: "[REDACTED]" if _SENSITIVE_ENV_RE.search(k) else (v[:500] if isinstance(v, str) else str(v)) for k, v in env.items()}
+    out = {}
+    for k, v in env.items():
+        if _SENSITIVE_ENV_RE.search(k):
+            out[k] = "[REDACTED]"
+        else:
+            out[k] = _redact_sensitive_strings(str(v))[:500]
+    return out
 
 
 def _redact_home_path(text: str) -> str:

@@ -209,10 +209,52 @@ class AudioLabIdentifierPage(QWidget):
         for col in range(2):
             grid.setColumnStretch(col, 1)
         cl.addLayout(grid)
+
+        btn_row = QHBoxLayout()
+        self._meta_doctor_btn = QPushButton("Diagnóstico de metadatos")
+        self._meta_doctor_btn.setCursor(Qt.PointingHandCursor)
+        self._meta_doctor_btn.setStyleSheet(glass_button_qss("secondary"))
+        self._meta_doctor_btn.clicked.connect(self._show_metadata_doctor)
+        btn_row.addWidget(self._meta_doctor_btn)
+        self._meta_doctor_btn.setVisible(False)
+        btn_row.addStretch()
+        cl.addLayout(btn_row)
+
         cl.addStretch()
 
         scroll.setWidget(content)
         layout.addWidget(scroll)
+
+    def _show_metadata_doctor(self):
+        from PySide6.QtWidgets import QMessageBox
+        import logging
+        logger = logging.getLogger("michi.audio_lab")
+        try:
+            from core.audio_lab.metadata_doctor import suggest_normalizations
+            from library.library_db import LibraryDB, DB_PATH
+            db = LibraryDB(DB_PATH)
+            suggestions = suggest_normalizations(db._conn)
+            db.close()
+            if not suggestions:
+                QMessageBox.information(self, "Diagnóstico de metadatos",
+                                        "No se encontraron sugerencias de normalización.")
+                return
+            lines = [f"Se encontraron {len(suggestions)} sugerencias:\n"]
+            for s in suggestions[:30]:
+                lines.append(
+                    f"  • {s['field']}: \"{s['current'][:40]}\" → \"{s['suggested'][:40]}\""
+                    f"\n    ({s['reason']})"
+                )
+            if len(suggestions) > 30:
+                lines.append(f"\n... y {len(suggestions) - 30} más")
+            QMessageBox.information(self, "Diagnóstico de metadatos", "\n".join(lines))
+        except Exception as e:
+            logger.warning("Metadata doctor failed: %s", e)
+            QMessageBox.information(
+                self, "Diagnóstico de metadatos",
+                "No se pudo analizar los metadatos. "
+                "Asegúrate de que la biblioteca esté cargada."
+            )
 
 
 class AudioLabBackupPage(QWidget):
@@ -283,10 +325,62 @@ class AudioLabBackupPage(QWidget):
         for col in range(2):
             grid.setColumnStretch(col, 1)
         cl.addLayout(grid)
+
+        btn_row = QHBoxLayout()
+        self._manifest_btn = QPushButton("Generar manifiesto de biblioteca")
+        self._manifest_btn.setCursor(Qt.PointingHandCursor)
+        self._manifest_btn.setStyleSheet(glass_button_qss("primary"))
+        self._manifest_btn.clicked.connect(self._show_manifest_dialog)
+        btn_row.addWidget(self._manifest_btn)
+        btn_row.addStretch()
+        cl.addLayout(btn_row)
+
         cl.addStretch()
 
         scroll.setWidget(content)
         layout.addWidget(scroll)
+
+    def _show_manifest_dialog(self):
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        import logging
+        logger = logging.getLogger("michi.audio_lab")
+        try:
+            from core.audio_lab.backup_manifest import generate_manifest, manifest_to_json, manifest_to_csv
+            from library.library_db import LibraryDB, DB_PATH
+            reply = QMessageBox.question(
+                self, "Manifiesto de biblioteca",
+                "¿Incluir hash SHA256 de cada archivo?\n\n"
+                "Esto puede tardar varios minutos en bibliotecas grandes.",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+            )
+            if reply == QMessageBox.Cancel:
+                return
+            include_hash = reply == QMessageBox.Yes
+            db = LibraryDB(DB_PATH)
+            manifest = generate_manifest(db._conn, include_hash=include_hash)
+            db.close()
+            if not manifest:
+                QMessageBox.information(self, "Manifiesto",
+                                        "No hay archivos en la biblioteca.")
+                return
+            fp, _ = QFileDialog.getSaveFileName(
+                self, "Guardar manifiesto", "library_manifest.json",
+                "JSON (*.json);;CSV (*.csv)",
+            )
+            if not fp:
+                return
+            content = manifest_to_json(manifest) if fp.endswith(".json") else manifest_to_csv(manifest)
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write(content)
+            QMessageBox.information(
+                self, "Manifiesto",
+                f"Manifiesto guardado: {fp}\n"
+                f"{len(manifest)} archivos documentados."
+            )
+        except Exception as e:
+            logger.warning("Manifest generation failed: %s", e)
+            QMessageBox.warning(self, "Manifiesto",
+                                f"No se pudo generar el manifiesto:\n{e}")
 
 
 class AudioLabDiagnosticsPage(QWidget):
