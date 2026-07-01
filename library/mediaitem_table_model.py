@@ -109,6 +109,15 @@ class MediaItemTableModel(QAbstractTableModel):
         item = self.item_at(row)
         return getattr(item, 'filepath', "") if item else ""
 
+    def status_for_item(self, item) -> dict | None:
+        return self._status_cache.get(getattr(item, 'id', 0))
+
+    def favorite_set(self) -> set[str]:
+        return set(self._fav_set)
+
+    def status_cache(self) -> dict[int, dict]:
+        return dict(self._status_cache)
+
     def all_items(self) -> list[MediaItem]:
         return list(self._items)
 

@@ -131,3 +131,25 @@ class TestSongsStatusService:
         st = cache[1]
         assert "quality_label" in st
         assert "is_favorite" in st
+
+    @patch("library.songs_status_service.SongsStatusService._get_diag_badge",
+           return_value=None)
+    @patch("library.songs_status_service.SongsStatusService._has_cover",
+           return_value=True)
+    def test_invalidate_cache_clears_cover(self, *_):
+        svc = SongsStatusService(None)
+        svc._cover_cache["/m/x.flac"] = True
+        svc.invalidate_cache()
+        assert len(svc._cover_cache) == 0
+
+    @patch("library.songs_status_service.SongsStatusService._get_diag_badge",
+           return_value=None)
+    @patch("library.songs_status_service.SongsStatusService._has_cover",
+           return_value=True)
+    def test_invalidate_cache_for_paths(self, *_):
+        svc = SongsStatusService(None)
+        svc._cover_cache["/m/a.flac"] = True
+        svc._cover_cache["/m/b.flac"] = True
+        svc.invalidate_cache_for_paths(["/m/a.flac"])
+        assert "/m/a.flac" not in svc._cover_cache
+        assert "/m/b.flac" in svc._cover_cache

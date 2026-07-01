@@ -110,7 +110,9 @@ class AudioLabController:
         """Refresh songs page badges after diagnostics update."""
         w = self._win
         songs_ctrl = getattr(w, '_songs_ctrl', None)
-        if songs_ctrl:
+        if songs_ctrl and hasattr(songs_ctrl, 'refresh_audio_lab_badges'):
+            songs_ctrl.refresh_audio_lab_badges(paths)
+        elif songs_ctrl:
             songs_ctrl._refresh_status()
 
     def show_identifier(self, key: str = ""):

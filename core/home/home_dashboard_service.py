@@ -166,17 +166,34 @@ class HomeDashboardService:
 
         return LibraryHomeStatus(is_empty=True, is_healthy=True)
 
+    @staticmethod
+    def _normalize_playback_state(state) -> str:
+        if state is None:
+            return "stopped"
+        if hasattr(state, "name"):
+            state = str(state.name)
+        value = str(state).lower()
+        if "." in value:
+            value = value.rsplit(".", 1)[-1]
+        if value in ("playing",):
+            return "playing"
+        if value in ("paused",):
+            return "paused"
+        return "stopped"
+
     def _build_playback_status(self) -> PlaybackHomeStatus:
         pb = self._playback
         if pb is None:
             return PlaybackHomeStatus()
 
         try:
-            state = getattr(pb, "state", "stopped") or "stopped"
+            raw = getattr(pb, "state", "stopped") or "stopped"
         except Exception:
-            state = "unknown"
+            raw = "unknown"
+        state = self._normalize_playback_state(raw)
 
         has_current = state in ("playing", "paused")
+        state_value = state
         title = ""
         artist = ""
         album = ""
@@ -237,7 +254,7 @@ class HomeDashboardService:
             last_track_title=last_title,
             last_track_artist=last_artist,
             can_continue=can_continue,
-            state=state,
+            state=state_value,
         )
 
     def _build_audio_status(self) -> AudioHomeStatus:
@@ -249,14 +266,13 @@ class HomeDashboardService:
         bitperfect_state = "not_available"
         warnings_list: list[str] = []
 
-        if self._settings_mgr is not None:
-            try:
-                from core.settings_manager import get_str, get_bool
+        try:
+            from core.settings_manager import get_str, get_bool
 
-                output_profile = get_str("audio_profile") or ""
-                replaygain_enabled = get_bool("replaygain/enabled")
-            except Exception:
-                pass
+            output_profile = get_str("audio/profile") or ""
+            replaygain_enabled = get_bool("audio/replaygain_enabled")
+        except Exception:
+            pass
 
         if self._player_engine is not None:
             try:
@@ -306,8 +322,12 @@ class HomeDashboardService:
         )
 
     def _build_ecosystem_status(self) -> EcosystemHomeStatus:
-        micro_state = "unknown"
+        micro_state = "not_configured"
         micro_name = ""
+        micro_issue_code = ""
+        remote_music_state = "not_configured"
+        remote_music_count = 0
+        remote_music_name = ""
         sync_state = "no_device"
         sync_count = 0
         api_state = "unknown"
@@ -316,19 +336,25 @@ class HomeDashboardService:
         diag_avail = False
 
         try:
-            from streaming.subsonic_client import load_servers
+            from core.settings_manager import get_str
+            micro_host = get_str("michi_link/micro_host", "")
+            micro_port = 53318
+            if micro_host:
+                micro_state = "unreachable"
+                micro_name = f"{micro_host}:{micro_port}"
+        except Exception:
+            pass
 
+        try:
+            from streaming.subsonic_client import load_servers
             servers = load_servers()
             if servers:
-                micro_state = "connected"
+                remote_music_state = "configured"
+                remote_music_count = len(servers)
                 srv = servers[0]
-                micro_name = getattr(srv, "name", "") or getattr(
-                    srv, "server_type", "Servidor"
-                )
-            else:
-                micro_state = "disconnected"
+                remote_music_name = getattr(srv, "name", "") or getattr(srv, "server_type", "Servidor")
         except Exception:
-            micro_state = "unknown"
+            pass
 
         if self._sync_mgr is not None:
             try:
@@ -345,28 +371,30 @@ class HomeDashboardService:
             except Exception:
                 sync_state = "error"
 
-        if self._settings_mgr is not None:
-            try:
-                from core.settings_manager import get_bool
+        try:
+            from core.settings_manager import get_bool
+            api_state = "active" if get_bool("home_audio/michi_api_enabled") else "disabled"
+        except Exception:
+            pass
 
-                api_state = "active" if get_bool("michi_api/enabled") else "disabled"
-            except Exception:
-                pass
+        try:
+            from core.settings_manager import get_bool
+            if get_bool("home_audio/ha_base_url"):
+                ha_state = "configured"
+            if get_bool("home_audio/enabled"):
+                ha_state = "active" if ha_state == "configured" else ha_state
+        except Exception:
+            pass
 
-        if self._settings_mgr is not None:
-            try:
-                from core.settings_manager import get_bool
-
-                if get_bool("home_audio/ha_base_url"):
-                    ha_state = "active"
-            except Exception:
-                pass
-
-        diag_avail = micro_state == "connected" or sync_count > 0 or api_state == "active"
+        diag_avail = bool(micro_host or sync_count > 0 or api_state == "active")
 
         return EcosystemHomeStatus(
             micro_server_state=micro_state,
             micro_server_name=micro_name,
+            micro_server_issue_code=micro_issue_code,
+            remote_music_server_state=remote_music_state,
+            remote_music_server_count=remote_music_count,
+            remote_music_server_name=remote_music_name,
             mobile_sync_state=sync_state,
             mobile_device_count=sync_count,
             api_state=api_state,
@@ -461,7 +489,7 @@ class HomeDashboardService:
                 )
             )
 
-        if ecosystem.micro_server_state == "disconnected" and library.track_count > 0:
+        if ecosystem.micro_server_state == "unreachable" and library.track_count > 0:
             alerts.append(
                 HomeAlert(
                     severity="info",

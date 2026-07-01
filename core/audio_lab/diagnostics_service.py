@@ -456,7 +456,7 @@ def analyse_directory(directory: str,
             if ext in AUDIO_EXTS:
                 fp = os.path.join(root, f)
                 result = analyse_file(fp)
-                if include_spectral and ext == ".wav":
+                if include_spectral and ext in (".wav", ".flac"):
                     try:
                         sr = result.get("format_info", {}).get("sample_rate", 0)
                         bd = result.get("format_info", {}).get("bit_depth", 0)

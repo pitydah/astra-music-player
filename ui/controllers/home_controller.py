@@ -55,7 +55,7 @@ class HomeController(QObject):
                 audio_output_ctrl=getattr(w, "_audio_output_ctrl", None),
                 player_engine=getattr(w, "_player", None),
                 features=getattr(w, "_features", None),
-                settings_mgr=None,
+                settings_mgr=getattr(w, "_settings_mgr", None),
             )
         return self._dashboard_svc
 

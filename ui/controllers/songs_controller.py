@@ -189,7 +189,7 @@ class SongsController(QObject):
         for fp in fps:
             def _run(filepath):
                 try:
-                    from ui.audio_lab.diagnostics_service import analyse_file
+                    from core.audio_lab.diagnostics_service import analyse_file
                     analyse_file(filepath)
                 except Exception:
                     pass

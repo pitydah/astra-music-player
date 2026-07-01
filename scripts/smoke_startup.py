@@ -226,7 +226,7 @@ def _check_audio_lab_page_instantiation():
 
     # Import-only tests (no instantiation)
     import_checks = [
-        ("can_analyse", "from core.audio_analysis.spectral_authenticator import can_analyse; assert can_analyse('x.wav') == True; assert can_analyse('x.flac') == False"),
+        ("can_analyse", "from core.audio_analysis.spectral_authenticator import can_analyse; assert can_analyse('x.wav') == False; assert can_analyse('x.flac') == False"),
         ("analyse_file error", "from core.audio_lab.diagnostics_service import analyse_file; r = analyse_file('/no/existe'); assert r.get('error') == 'Archivo no encontrado'"),
         ("library badges import", "from library.audio_lab_badges import get_audio_lab_badge_for_path; b = get_audio_lab_badge_for_path('/x.mp3'); assert b['kind'] == 'lossy'"),
         ("core audio_lab import", "from core.audio_lab.diagnostics_service import DiagnosticsCache, analyse_file, generate_report"),

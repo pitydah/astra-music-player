@@ -59,14 +59,23 @@ class AudioHomeStatus:
 
 @dataclasses.dataclass
 class EcosystemHomeStatus:
-    micro_server_state: str = "unknown"
+    micro_server_state: str = "not_configured"
     micro_server_name: str = ""
+    micro_server_issue_code: str = ""
+    remote_music_server_state: str = "not_configured"
+    remote_music_server_count: int = 0
+    remote_music_server_name: str = ""
     mobile_sync_state: str = "no_device"
     mobile_device_count: int = 0
     api_state: str = "unknown"
     home_audio_state: str = "disabled"
+    big_server_state: str = "not_configured"
+    stream_receiver_count: int = 0
     last_sync: Optional[str] = None
     diagnostics_available: bool = False
+    overall_ecosystem_status: str = "unknown"
+    warning_count: int = 0
+    error_count: int = 0
 
 
 @dataclasses.dataclass

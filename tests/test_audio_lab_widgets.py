@@ -80,6 +80,26 @@ def test_diagnostics_page_renders(mock_pixmap, qtbot):
 
     assert page.isVisible()
     assert page.navigate_requested is not None
+    assert page._inner is not None
+    assert hasattr(page._inner, "diagnostics_updated")
+    assert hasattr(page._inner, "_worker_mgr")
+    assert hasattr(page._inner, "_job_manager")
+    assert hasattr(page._inner, "_db")
+
+
+@patch("ui.audio_lab.sub_pages.get_pixmap")
+def test_diagnostics_page_accepts_services(mock_pixmap, qtbot):
+    from ui.audio_lab.diagnostics_page import DiagnosticsPage
+
+    mock_pixmap.return_value = _pix()
+    page = DiagnosticsPage(worker_mgr=None, job_manager=None, db=None)
+    qtbot.addWidget(page)
+
+    assert hasattr(page, "diagnostics_updated")
+    assert hasattr(page, "navigate_requested")
+    assert page._worker_mgr is None
+    assert page._job_manager is None
+    assert page._db is None
 
 
 @patch("ui.audio_lab.sub_pages.get_pixmap")

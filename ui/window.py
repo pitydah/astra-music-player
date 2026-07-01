@@ -349,6 +349,9 @@ class MainWindow(QMainWindow):
         self._periodic_analyzer.start()
         self._shutdown.register("periodic_analyzer", lambda: self._periodic_analyzer.stop())
 
+        from core.audio_lab.diagnostics_service import close_global_cache
+        self._shutdown.register("diagnostics_cache", close_global_cache)
+
     def _init_optional_services(self):
         """Music identifier, HomeAudioView, Snapcast, API, mDNS, enrichment, MPRIS."""
         import core.settings_manager as sm

@@ -78,10 +78,20 @@ class SongsFilterBar(QWidget):
         self._meta_check.stateChanged.connect(self._emit)
         layout.addWidget(self._meta_check)
 
+        self._cover_check = QCheckBox("Carátula")
+        self._cover_check.setToolTip("Sin carátula")
+        self._cover_check.stateChanged.connect(self._emit)
+        layout.addWidget(self._cover_check)
+
         self._missing_check = QCheckBox("Perdido")
         self._missing_check.setToolTip("Archivo perdido")
         self._missing_check.stateChanged.connect(self._emit)
         layout.addWidget(self._missing_check)
+
+        self._al_check = QCheckBox("🔬 AL")
+        self._al_check.setToolTip("Warning Audio Lab")
+        self._al_check.stateChanged.connect(self._emit)
+        layout.addWidget(self._al_check)
 
         reset_btn = QPushButton("✕")
         reset_btn.setToolTip("Limpiar filtros")
@@ -126,17 +136,22 @@ class SongsFilterBar(QWidget):
                 return int(text.strip())
             return None
 
+        sr_khz = _int_or_none(self._sr_input.text())
+        sample_rate_min = sr_khz * 1000 if sr_khz else None
+
         return SongsFilterState(
             formats=frozenset({f}) if f else frozenset(),
             qualities=frozenset({q}) if q else frozenset(),
             genres=frozenset({g}) if g else frozenset(),
             year_min=_int_or_none(self._year_min.text()),
             year_max=_int_or_none(self._year_max.text()),
-            sample_rate_min=_int_or_none(self._sr_input.text()),
+            sample_rate_min=sample_rate_min,
             bitrate_min=_int_or_none(self._br_input.text()),
             only_favorites=bool(self._fav_check.isChecked()),
             only_missing_metadata=bool(self._meta_check.isChecked()),
+            only_missing_cover=bool(self._cover_check.isChecked()),
             only_missing_file=bool(self._missing_check.isChecked()),
+            only_audio_lab_warning=bool(self._al_check.isChecked()),
         )
 
     def reset_filters(self):
@@ -149,7 +164,9 @@ class SongsFilterBar(QWidget):
         self._br_input.clear()
         self._fav_check.setChecked(False)
         self._meta_check.setChecked(False)
+        self._cover_check.setChecked(False)
         self._missing_check.setChecked(False)
+        self._al_check.setChecked(False)
         self._emit()
 
     def _emit(self, _=None):

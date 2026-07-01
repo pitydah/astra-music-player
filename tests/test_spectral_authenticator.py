@@ -101,7 +101,7 @@ class TestSpectralAuthenticator:
         assert 0 < conf <= 1.0
 
     def test_can_analyse_wav(self):
-        assert can_analyse("song.wav")
+        assert not can_analyse("nonexistent.wav")
         assert not can_analyse("song.mp3")
 
     def test_can_analyse_flac_requires_file(self):
@@ -130,7 +130,7 @@ class TestSpectralAuthenticator:
         assert result["verdict"] == "ANALYSIS_ERROR"
 
     def test_can_analyse_validates_wav_header(self):
-        assert can_analyse("song.wav")
+        assert not can_analyse("nonexistent.wav")
         assert not can_analyse("song.mp3")
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             f.write(b"RIFF\x00\x00\x00\x00WAVE")

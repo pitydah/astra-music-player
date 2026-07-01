@@ -420,7 +420,7 @@ def can_analyse(filepath: str) -> bool:
     ext = os.path.splitext(filepath)[1].lower()
     if ext == ".wav":
         if not os.path.isfile(filepath):
-            return True
+            return False
         try:
             with open(filepath, "rb") as f:
                 header = f.read(12)

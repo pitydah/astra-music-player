@@ -175,8 +175,7 @@ class SongsPremiumPage(QWidget):
         if count == 1:
             item = self._model.item_at(unique_rows[0])
             if item:
-                item_id = getattr(item, 'id', 0)
-                status = self._model._status_cache.get(item_id)
+                status = self._model.status_for_item(item)
                 self._detail_panel.show_item(item, status=status)
         else:
             self._detail_panel.clear()
@@ -224,8 +223,8 @@ class SongsPremiumPage(QWidget):
             else:
                 opts.append(key)
             self._model.set_optional_columns(opts)
-            self._model.populate(self._model.all_items(), fav_set=self._model._fav_set,
-                                 status_cache=self._model._status_cache)
+            self._model.populate(self._model.all_items(), fav_set=self._model.favorite_set(),
+                                 status_cache=self._model.status_cache())
             vs = self._ctrl.view_state() if self._ctrl else None
             if vs:
                 self._model.populate(vs.items, fav_set=set(vs.favorite_track_ids),

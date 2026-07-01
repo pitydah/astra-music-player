@@ -5,14 +5,14 @@ from unittest.mock import patch
 from library.media_item import MediaItem
 
 
-def _make_item(id: int, fp: str, ext="flac", sr=44100, bd=16, title="t"):
+def _make_item(id: int, fp: str, ext="flac", sr=44100, bd=16):
     item = MediaItem()
     item.id = id
     item.filepath = fp
     item.ext = ext
     item.sample_rate = sr
     item.bit_depth = bd
-    item.title = title
+    item.title = "t"
     item.artist = "artist"
     item.album = "album"
     item.genre = "genre"
@@ -22,39 +22,25 @@ def _make_item(id: int, fp: str, ext="flac", sr=44100, bd=16, title="t"):
 
 class TestBatchBadges:
 
-    def test_compute_batch_calls_get_audio_lab_badges_for_paths_once(self):
-        items = [
-            _make_item(1, "/p1.flac"),
-            _make_item(2, "/p2.wav"),
-        ]
-        fake_badges = {
-            "/p1.flac": {"label": "FLAC", "kind": "hires", "tooltip": ""},
-            "/p2.wav": {"label": "WAV", "kind": "lossless", "tooltip": ""},
-        }
-        with patch(
-            "library.audio_lab_badges.get_audio_lab_badges_for_paths",
-            return_value=fake_badges,
-        ) as mock_batch:
+    def test_compute_batch_calls_badges_for_paths_once(self):
+        items = [_make_item(1, "/p1.flac"), _make_item(2, "/p2.wav")]
+        fake = {"/p1.flac": {"label": "FLAC", "kind": "hires", "tooltip": ""},
+                "/p2.wav": {"label": "WAV", "kind": "lossless", "tooltip": ""}}
+        with patch("library.audio_lab_badges.get_audio_lab_badges_for_paths",
+                   return_value=fake) as m:
             from library.songs_status_service import SongsStatusService
             svc = SongsStatusService()
             result = svc.compute_batch(items)
-            mock_batch.assert_called_once()
-            assert 1 in result
-            assert 2 in result
+            m.assert_called_once()
+            assert 1 in result and 2 in result
 
     def test_compute_batch_returns_quality_labels(self):
-        items = [
-            _make_item(1, "/p1.flac", ext="flac", sr=96000, bd=24),
-            _make_item(2, "/p2.mp3", ext="mp3"),
-        ]
-        fake_badges = {
-            "/p1.flac": {"label": "FLAC 24/96", "kind": "hires", "tooltip": ""},
-            "/p2.mp3": {"label": "MP3", "kind": "lossy", "tooltip": ""},
-        }
-        with patch(
-            "library.audio_lab_badges.get_audio_lab_badges_for_paths",
-            return_value=fake_badges,
-        ):
+        items = [_make_item(1, "/p1.flac", sr=96000, bd=24),
+                 _make_item(2, "/p2.mp3", ext="mp3")]
+        fake = {"/p1.flac": {"label": "FLAC 24/96", "kind": "hires", "tooltip": ""},
+                "/p2.mp3": {"label": "MP3", "kind": "lossy", "tooltip": ""}}
+        with patch("library.audio_lab_badges.get_audio_lab_badges_for_paths",
+                   return_value=fake):
             from library.songs_status_service import SongsStatusService
             svc = SongsStatusService()
             result = svc.compute_batch(items)
@@ -84,7 +70,7 @@ class TestBatchBadges:
         result = svc.compute_status(item, diag_badge=badge)
         assert result["quality_category"] == "hires"
 
-    def test_compute_batch_without_paths_does_not_crash(self):
+    def test_compute_batch_empty_no_crash(self):
         from library.songs_status_service import SongsStatusService
         svc = SongsStatusService()
         result = svc.compute_batch([])

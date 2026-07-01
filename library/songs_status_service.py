@@ -38,6 +38,20 @@ class SongsStatusService:
 
     def invalidate_cache(self):
         self._quality_cache.clear()
+        self._cover_cache.clear()
+
+    def invalidate_cache_for_paths(self, paths: list[str] | None = None):
+        """Invalidate quality + cover caches for given paths, or all if None."""
+        if paths is None:
+            self._quality_cache.clear()
+            self._cover_cache.clear()
+            return
+        for fp in paths:
+            self._cover_cache.pop(fp, None)
+        ids_to_remove = {iid for iid, cached in self._quality_cache.items()
+                         if any(p in str(cached) for p in paths)}
+        for iid in ids_to_remove:
+            self._quality_cache.pop(iid, None)
 
     def compute_status(self, item: MediaItem, diag_badge: dict | None = None) -> dict:
         item_id = getattr(item, 'id', 0)
@@ -128,17 +142,6 @@ class SongsStatusService:
         }
         self._quality_cache[item_id] = result
         return result
-
-    def invalidate_cache_for_paths(self, paths: list[str] | None = None):
-        if paths:
-            ids_to_remove = set()
-            for iid, cached in self._quality_cache.items():
-                if any(p in str(cached) for p in paths):
-                    ids_to_remove.add(iid)
-            for iid in ids_to_remove:
-                self._quality_cache.pop(iid, None)
-        else:
-            self._quality_cache.clear()
 
     def compute_batch(self, items: list[MediaItem]) -> dict[int, dict]:
         result = {}

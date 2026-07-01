@@ -314,6 +314,15 @@ class AudioLabDiagnosticsPage(QWidget):
             self._inner.navigate_requested.connect(self.navigate_requested.emit)
             self._inner.diagnostics_updated.connect(self.diagnostics_updated.emit)
             layout.addWidget(self._inner)
+            # Wire PeriodicAnalyzer if worker_mgr is available
+            if self._worker_mgr is not None:
+                try:
+                    from core.audio_lab.periodic_analyzer import PeriodicAnalyzer
+                    pa = PeriodicAnalyzer(self._db, parent=self)
+                    pa.set_enabled(False)
+                    self._inner.set_periodic_analyzer(pa)
+                except Exception:
+                    pass
         except Exception as e:
             import logging
             logging.getLogger("michi.audio_lab").warning(

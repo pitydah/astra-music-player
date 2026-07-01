@@ -107,3 +107,25 @@ class TestSongsQueryService:
         result = svc.filter(items, only_missing_file=True)
         assert len(result) == 1
         assert "gone.flac" in result[0].filepath
+
+    def test_filter_sample_rate_min(self):
+        svc = SongsQueryService(None)
+        items = [_make_item(fid=1, sample_rate=44100),
+                 _make_item(fid=2, sample_rate=96000)]
+        result = svc.filter(items, sample_rate_min=96000)
+        assert len(result) == 1
+        assert result[0].sample_rate == 96000
+
+    def test_filter_only_missing_cover(self):
+        svc = SongsQueryService(None)
+        items = [_make_item(fid=1, filepath="/nonexistent/a.flac")]
+        result = svc.filter(items, only_missing_cover=True)
+        assert len(result) == 1
+
+    def test_filter_only_favorites_filepath(self):
+        svc = SongsQueryService(None)
+        items = [_make_item(fid=1, filepath="/m/a.flac"),
+                 _make_item(fid=2, filepath="/m/b.flac")]
+        result = svc.filter(items, only_favorites=True, fav_ids={"/m/a.flac"})
+        assert len(result) == 1
+        assert result[0].filepath == "/m/a.flac"

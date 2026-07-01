@@ -117,7 +117,9 @@ class TrackRefTableModel(QStandardItemModel):
             ql.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
             ql.setForeground(QBrush(QColor("#8e8e93")))
             if item.uri:
-                badge = badges_by_uri.get(item.uri) or self._get_badge(item.uri)
+                badge = badges_by_uri.get(item.uri)
+                if badge is None:
+                    badge = self._get_badge(item.uri)
                 if badge and badge.get("label"):
                     ql.setText(badge["label"])
                     kind = badge.get("kind", "")

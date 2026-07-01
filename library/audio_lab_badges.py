@@ -82,8 +82,10 @@ def is_analysis_pending(path: str) -> bool:
     if not os.path.isfile(path):
         return False
     try:
-        from core.audio_lab.diagnostics_service import DiagnosticsCache
-        cache = DiagnosticsCache()
+        from core.audio_lab.diagnostics_service import _get_cache
+        cache = _get_cache()
+        if cache is None:
+            return True
         cached = cache.get(path)
         if cached is None:
             return True
