@@ -88,6 +88,11 @@ class SongsDetailPanel(QFrame):
 
         layout.addLayout(btn_row)
 
+        self._spectral_warning_lbl = QLabel("")
+        self._spectral_warning_lbl.setStyleSheet("color: #FF8C00; font-weight: 600; padding: 4px 0;")
+        self._spectral_warning_lbl.setVisible(False)
+        layout.addWidget(self._spectral_warning_lbl)
+
     def show_item(self, item):
         self._current_item = item
         self._title_lbl.setText(item.title or item.filename or "?")
@@ -110,7 +115,20 @@ class SongsDetailPanel(QFrame):
             tech_parts.append(f"{item.bpm} BPM")
         self._tech_lbl.setText(" · ".join(tech_parts))
         self._path_lbl.setText(item.filepath or "")
+
+        spec_verdict = getattr(item, 'spectral_verdict', '') or ''
+        if spec_verdict in ("SUSPICIOUS_UPSAMPLING", "POSSIBLE_LOSSY_SOURCE"):
+            label_map = {
+                "SUSPICIOUS_UPSAMPLING": "⚠ Espectro sospechoso: posible upsampling",
+                "POSSIBLE_LOSSY_SOURCE": "⚠ Espectro sospechoso: posible origen lossy",
+            }
+            self._spectral_warning_lbl.setText(label_map.get(spec_verdict, "⚠ Espectro sospechoso"))
+            self._spectral_warning_lbl.setVisible(True)
+        else:
+            self._spectral_warning_lbl.setVisible(False)
+
         self.setVisible(True)
+
 
     def clear(self):
         self._current_item = None
@@ -119,3 +137,4 @@ class SongsDetailPanel(QFrame):
         self._album_lbl.setText("")
         self._tech_lbl.setText("")
         self._path_lbl.setText("")
+        self._spectral_warning_lbl.setVisible(False)

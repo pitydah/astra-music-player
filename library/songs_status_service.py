@@ -105,6 +105,12 @@ class SongsStatusService:
                 if d_kind == "warning":
                     badges.append(d_label)
 
+        # Spectral warning from media_items column
+        spec_verdict = getattr(item, 'spectral_verdict', '') or ''
+        if spec_verdict in ("SUSPICIOUS_UPSAMPLING", "POSSIBLE_LOSSY_SOURCE") and "Espectro sospechoso" not in badges:
+            badges.append("Espectro sospechoso")
+            quality_category = "warning" if quality_category not in ("error",) else quality_category
+
         # Cover check
         if not self._has_cover(item):
             badges.append("Sin carátula")
