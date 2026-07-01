@@ -128,6 +128,7 @@ class AlbumDetailView(QWidget):
         self._tech_panel.update_info(format_info, quality_info, health_info)
         self._tracks = tracks or []
         self._populate_tracks()
+        self._action_row.set_mobile_available(False)
 
     def _on_track_dbl(self, idx):
         t = self._tracks[idx.row()] if idx.isValid() and hasattr(self, '_tracks') else None
@@ -341,6 +342,7 @@ class _ActionRow(QFrame):
             ("Servidor", self.server_clicked),
             ("Móvil", self.mobile_clicked),
         ]
+        self._buttons = []
         for text, sig in actions:
             btn = QPushButton(text)
             btn.setCursor(Qt.PointingHandCursor)
@@ -348,3 +350,14 @@ class _ActionRow(QFrame):
             btn.setFixedHeight(32)
             btn.clicked.connect(sig.emit)
             layout.addWidget(btn)
+            self._buttons.append(btn)
+
+    def set_mobile_available(self, available: bool):
+        """Enable or disable the Mobile sync button."""
+        if len(self._buttons) >= 8:
+            btn = self._buttons[7]
+            btn.setEnabled(available)
+            if not available:
+                btn.setToolTip("Disponible cuando Michi Sync Suite esté configurado")
+            else:
+                btn.setToolTip("")

@@ -178,26 +178,15 @@ class AlbumController:
         try:
             from library.album_quality_service import AlbumQualityService
             svc = AlbumQualityService()
-            from threading import Thread
-            from PySide6.QtCore import QTimer
+            worker_mgr = getattr(self._win, "_workers", None)
+            if not worker_mgr or not hasattr(worker_mgr, "run_task"):
+                self._toast("Sistema de workers no disponible", "error")
+                return
 
-            result_holder = {"detail": None, "done": False, "error": ""}
+            def _analyze_worker():
+                return svc.analyze_album(tracks)
 
-            def _worker():
-                try:
-                    detail = svc.analyze_album(tracks)
-                    result_holder["detail"] = detail
-                except Exception as e:
-                    result_holder["error"] = str(e)
-                finally:
-                    result_holder["done"] = True
-
-            def _show_result():
-                timer.stop()
-                if result_holder["error"]:
-                    self._toast(f"Error al analizar calidad: {result_holder['error']}", "error")
-                    return
-                detail = result_holder["detail"]
+            def _show_result(detail):
                 if not detail:
                     self._toast("No se pudo analizar la calidad", "error")
                     return
@@ -215,14 +204,7 @@ class AlbumController:
                 from PySide6.QtWidgets import QMessageBox
                 QMessageBox.information(self._win, "Análisis de calidad", msg)
 
-            thread = Thread(target=_worker, daemon=True)
-            thread.start()
-            import PySide6.QtCore
-            timer_parent = self._win if isinstance(self._win, PySide6.QtCore.QObject) else None
-            timer = QTimer(timer_parent)
-            timer.timeout.connect(_show_result)
-            timer.setSingleShot(True)
-            timer.start(2000)
+            worker_mgr.run_task("album_quality", _analyze_worker, on_done=_show_result)
         except Exception as e:
             self._toast(f"Error al analizar calidad: {e}", "error")
         ctx = self._context_svc
@@ -246,6 +228,7 @@ class AlbumController:
             if not fps:
                 self._toast("No hay archivos para enviar", "error")
                 return
+
             # Preflight
             session_result = svc.create_session(server, fps)
             if not session_result.ok:
@@ -263,56 +246,45 @@ class AlbumController:
             if not dlg.exec() or not dlg.was_confirmed():
                 return
 
-            # Upload in background thread
-            sid = pd["session_id"]
-            from threading import Thread
+            # Use AlbumImportWorker via WorkerManager
+            from integrations.michi_link.services.album_import_worker import (
+                AlbumImportWorker, AlbumImportProgress, AlbumImportResult,
+            )
+            worker_mgr = getattr(self._win, "_workers", None)
+            if not worker_mgr or not hasattr(worker_mgr, "run_task"):
+                self._toast("Sistema de workers no disponible", "error")
+                return
+
+            worker = AlbumImportWorker(server, fps, import_service=svc)
             from PySide6.QtCore import QTimer
 
-            upload_results = {"uploaded": 0, "failed": False, "total": len(fps), "done": False}
+            def _on_progress(progress: AlbumImportProgress):
+                dlg.set_progress(progress.current, progress.total)
 
-            def _upload_worker():
-                try:
-                    for i, fp in enumerate(fps):
-                        if not fp or not __import__("os").path.isfile(fp):
-                            continue
-                        result = svc.upload_track(sid, str(i), local_filepath=fp)
-                        if result.ok:
-                            upload_results["uploaded"] += 1
-                        else:
-                            upload_results["failed"] = True
-                            break
-                    if upload_results["failed"]:
-                        svc.rollback(sid)
-                    else:
-                        cr = svc.commit(sid)
-                        if not cr.ok:
-                            svc.rollback(sid)
-                            upload_results["failed"] = True
-                except Exception:
-                    upload_results["failed"] = True
-                finally:
-                    upload_results["done"] = True
+            def _on_finished(result: AlbumImportResult):
+                timer.stop()
+                if result.ok:
+                    AlbumServerImportDialog.show_report(
+                        self._win, "Importación completada", result.message, is_error=False)
+                else:
+                    AlbumServerImportDialog.show_report(
+                        self._win, "Importación fallida", result.message, is_error=True)
 
-            def _check_progress():
-                if upload_results["done"]:
-                    timer.stop()
-                    if upload_results["failed"]:
-                        AlbumServerImportDialog.show_report(
-                            self._win, "Importación fallida",
-                            "Error durante la subida. La sesión fue revertida.", is_error=True)
-                    else:
-                        AlbumServerImportDialog.show_report(
-                            self._win, "Importación completada",
-                            f"{upload_results['uploaded']}/{upload_results['total']} "
-                            f"canciones enviadas.", is_error=False)
-                    return
-                dlg.set_progress(upload_results["uploaded"], upload_results["total"])
+            def _on_failed(err: str):
+                timer.stop()
+                AlbumServerImportDialog.show_report(
+                    self._win, "Error de importación", err, is_error=True)
 
-            thread = Thread(target=_upload_worker, daemon=True)
-            thread.start()
+            worker.progress.connect(_on_progress)
+            worker.finished.connect(_on_finished)
+            worker.failed.connect(_on_failed)
+
+            worker_mgr.run_task("album_import", worker.run)
+
+            # Poll for dialog progress from main thread
             timer = QTimer(self._win)
-            timer.timeout.connect(_check_progress)
-            timer.start(100)
+            timer.timeout.connect(lambda: None)
+            timer.start(500)
         except ImportError:
             self._toast("Michi Link no está disponible en esta versión", "info")
 

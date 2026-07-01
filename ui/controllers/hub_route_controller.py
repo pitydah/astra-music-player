@@ -18,12 +18,27 @@ logger = logging.getLogger("michi.hub_route")
 class HubRouteController:
     def __init__(self, window: MainWindow):
         self._win = window
+        self._suggestion_ctrl = None
+
+    def _ensure_suggestion_ctrl(self):
+        if self._suggestion_ctrl is None:
+            from ui.controllers.suggestion_bar_controller import SuggestionBarController
+            ctx = getattr(self._win, '_context_svc', None)
+            self._suggestion_ctrl = SuggestionBarController(
+                context_service=ctx, parent=self._win,
+            )
+        return self._suggestion_ctrl
 
     def _lazy(self, name: str, factory: Callable):
         w = self._win
         if not w._views.widget(name):
             w._views.register(name, factory())
         w._fade_content(name)
+        self._refresh_suggestions(name)
+
+    def _refresh_suggestions(self, section_key: str):
+        ctrl = self._ensure_suggestion_ctrl()
+        ctrl.set_section(section_key, title="")
 
     # ── Delegate audio lab to AudioLabController ──
 
@@ -122,6 +137,12 @@ class HubRouteController:
             return MetadataReviewPanel()
         self._lazy("metadata_review", _build)
 
+    def show_ecosystem_page(self, key: str = ""):
+        def _build():
+            from ui.ecosystem.ecosystem_page import EcosystemPage
+            return EcosystemPage()
+        self._lazy("ecosystem_hub", _build)
+
     def show_assistant(self, key: str = ""):
         w = self._win
         if getattr(w, '_assistant_ctrl', None) is None:
@@ -139,3 +160,4 @@ class HubRouteController:
         ctx = getattr(w, '_context_svc', None)
         if ctx:
             ctx.record_assistant_opened()
+        self._refresh_suggestions("assistant")

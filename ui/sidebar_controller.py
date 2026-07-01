@@ -51,6 +51,7 @@ class SidebarController(QObject):
         self._sidebar.add_item("hub", "mix_hub", "Mix", "sidebar_mix")
         self._sidebar.add_item("hub", "playback_hub", "Reproducción", "warm_play")
         self._sidebar.add_item("hub", "connections_hub", "Conexiones", "sidebar_servers")
+        self._sidebar.add_item("hub", "ecosystem_hub", "Ecosistema Michi", "sidebar_servers")
         self._sidebar.add_item("hub", "home_audio", "Home Audio", "home_audio")
         self._sidebar.add_item("hub", "audio_lab", "Audio Lab", "sidebar_mix")
         self._sidebar.add_item("hub", "assistant", "Asistente", "sidebar_assistant")

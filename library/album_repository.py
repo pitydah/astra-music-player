@@ -354,3 +354,26 @@ class AlbumRepository:
             year=identity.year,
             track_count=len(tracks),
         )
+
+
+def album_groups_to_cover_items(groups: list[AlbumGroup], cover_size: int = 200
+                                ) -> "list":
+    """Convert AlbumGroups to CoverFlowItem-compatible list for grid display.
+
+    This adapter allows AlbumGridWidget to work directly with AlbumRepository data.
+    """
+    from library.album_art import CoverFlowItem
+    from PySide6.QtGui import QPixmap
+
+    items = []
+    for g in groups:
+        pix = QPixmap(cover_size, cover_size)
+        pix.fill(__import__("PySide6.QtCore").QtCore.Qt.transparent)
+        item = CoverFlowItem(
+            pixmap=pix,
+            title=g.identity.display_title,
+            subtitle=g.identity.display_artist or "",
+            data={"tracks": g.tracks},
+        )
+        items.append(item)
+    return items

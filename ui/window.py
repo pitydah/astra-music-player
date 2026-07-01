@@ -105,6 +105,8 @@ class MainWindow(QMainWindow):
         self._current_route_key: str = "home"
         self._current_sidebar_key: str = "home"
         self._initial_route_applied: bool = False
+        self._ecosystem_page = None
+        self._section_registry = None
         self._kind_filter: str | None = None
         self._search_text = ""
         self._current_playlist: int | None = None
@@ -872,6 +874,9 @@ class MainWindow(QMainWindow):
 
     def _show_devices_page(self, key=None):
         self._hub_route_ctrl.show_devices_page(key)
+
+    def _show_ecosystem_page(self, key=None):
+        self._hub_route_ctrl.show_ecosystem_page(key)
 
     def _show_new_playlist(self, key):
         self._sidebar_menu_ctrl.create_playlist()

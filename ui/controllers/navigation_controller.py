@@ -155,6 +155,10 @@ SECTION_CONFIG: dict[str, dict] = {
                         "subtitle": "Cola, historial, favoritos y radio",
                         "icon": "warm_play", "views": [],
                         "search": False, "default": None},
+    "ecosystem_hub":  {"title": "Ecosistema Michi",
+                        "subtitle": "Diagnóstico y configuración de todo el ecosistema",
+                        "icon": "sidebar_servers", "views": [],
+                        "search": False, "default": None},
     "connections_hub":{"title": "Conexiones",
                         "subtitle": "Servidores, Home Audio y dispositivos",
                         "icon": "sidebar_servers", "views": [],
@@ -200,6 +204,8 @@ def resolve_sidebar_active_key(key: str) -> str:
         return "playlist_hub"
     # Hijos de connections_hub
     if key.startswith("srv:") or key in ("add_server",):
+        return "connections_hub"
+    if key == "ecosystem_hub":
         return "connections_hub"
     # Hijos de playback_hub
     if key == "radio":
@@ -259,6 +265,7 @@ NAV_ROUTES: dict[str, str] = {
     "mix_hub": "_show_mix_hub_page",
     "playback_hub": "_show_playback_hub_page",
     "connections_hub": "_show_connections_hub_page",
+    "ecosystem_hub": "_show_ecosystem_page",
     "settings_hub": "_show_settings_hub_page",
     "devices": "_show_devices_page",
     "devices_page": "_show_devices_page",

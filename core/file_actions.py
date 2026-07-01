@@ -7,6 +7,8 @@ Refactored for robustness:
   - Proper thread lifecycle management
 """
 import os
+import subprocess
+import logging
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QFileDialog
@@ -14,6 +16,24 @@ from PySide6.QtWidgets import QFileDialog
 from core.paths import database_path
 from ui.loading_overlay import LoadingOverlay
 from ui.toast_notification import ToastNotification
+
+logger = logging.getLogger("michi.file_actions")
+
+
+def open_containing_folder(filepath: str) -> bool:
+    """Open the file manager at the directory containing the given file."""
+    if not filepath:
+        return False
+    folder = os.path.dirname(filepath)
+    if not folder or not os.path.isdir(folder):
+        logger.warning("Cannot open containing folder for missing path: %s", filepath)
+        return False
+    try:
+        subprocess.Popen(["xdg-open", folder])
+        return True
+    except Exception:
+        logger.exception("Failed to open containing folder: %s", folder)
+        return False
 
 
 class FileActions:

@@ -58,6 +58,11 @@ _OPTIONAL_COLUMNS = {
 
 ItemDataRole = Qt.ItemDataRole
 
+STATUS_ROLE = Qt.UserRole + 10
+QUALITY_ROLE = Qt.UserRole + 11
+FAVORITE_ROLE = Qt.UserRole + 12
+FILEPATH_ROLE = Qt.UserRole + 13
+
 
 class MediaItemTableModel(QAbstractTableModel):
     def __init__(self, parent=None):
@@ -158,6 +163,16 @@ class MediaItemTableModel(QAbstractTableModel):
             return self._display(item, col)
         if role == ItemDataRole.UserRole:
             return item
+        if role == STATUS_ROLE:
+            st = self._status_cache.get(getattr(item, 'id', 0), {})
+            return st
+        if role == QUALITY_ROLE:
+            st = self._status_cache.get(getattr(item, 'id', 0), {})
+            return st.get("quality_category", "")
+        if role == FAVORITE_ROLE:
+            return item.filepath in self._fav_set
+        if role == FILEPATH_ROLE:
+            return item.filepath or ""
         if role == Qt.TextAlignmentRole:
             if col in (_COL_YEAR, _COL_DURATION):
                 return Qt.AlignCenter

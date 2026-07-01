@@ -19,6 +19,7 @@ class SongsStatusService:
         self._db = db
         self._fav_track_ids: set[str] = set()
         self._quality_cache: dict[int, dict] = {}
+        self._cover_cache: dict[str, bool] = {}
 
     def favorite_track_ids(self) -> set[str]:
         return set(self._fav_track_ids)
@@ -120,6 +121,10 @@ class SongsStatusService:
             "quality_category": quality_category,
             "badges": badges,
             "is_favorite": is_fav,
+            "missing_metadata": len(missing) > 0,
+            "has_audio_lab_warning": quality_category == "warning" or spec_verdict in (
+                "SUSPICIOUS_UPSAMPLING", "POSSIBLE_LOSSY_SOURCE",
+            ),
         }
         self._quality_cache[item_id] = result
         return result
@@ -140,12 +145,15 @@ class SongsStatusService:
         except Exception:
             return None
 
-    @staticmethod
-    def _has_cover(item: MediaItem) -> bool:
+    def _has_cover(self, item: MediaItem) -> bool:
         if not item.filepath:
             return False
+        if item.filepath in self._cover_cache:
+            return self._cover_cache[item.filepath]
         try:
             from library.cover_art_service import CoverArtService
-            return CoverArtService.find_cover(item.filepath) is not None
+            result = CoverArtService.find_cover(item.filepath) is not None
+            self._cover_cache[item.filepath] = result
+            return result
         except Exception:
             return False

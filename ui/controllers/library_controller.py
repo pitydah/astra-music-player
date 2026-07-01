@@ -219,16 +219,11 @@ class LibraryController(QObject):
             songs_ctrl = getattr(w, '_songs_ctrl', None)
             if songs_ctrl is None:
                 svc = getattr(w, '_services', None)
-                import os as _os
-                import subprocess as _sp
+                from core.file_actions import open_containing_folder
                 songs_ctrl = SongsController(
                     svc,
                     open_metadata_for_files=w._open_metadata_for_files if hasattr(w, '_open_metadata_for_files') else None,
-                    locate_file=lambda fp: (
-                        _sp.Popen(["xdg-open", _os.path.dirname(fp)])
-                        if fp and _os.path.isdir(_os.path.dirname(fp))
-                        else None
-                    ),
+                    locate_file=open_containing_folder,
                     add_to_playlist_cb=(
                         lambda fps: w._playlist_ctrl.add_files_to_playlist_dialog(fps)
                         if hasattr(w, '_playlist_ctrl') and w._playlist_ctrl

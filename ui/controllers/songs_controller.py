@@ -79,6 +79,11 @@ class SongsController(QObject):
             if text:
                 kwargs["text_filter"] = text
 
+        # Convert bitrate from kbps (UI) to bps (DB/MediaItem)
+        br = kwargs.get("bitrate_min")
+        if br is not None and br < 10000:
+            kwargs["bitrate_min"] = br * 1000
+
         items = self._all_items
         qt = kwargs.get("text_filter", "")
         if qt:
@@ -212,7 +217,11 @@ class SongsController(QObject):
 
 
 def _has_audio_lab_warning(item, cache):
-    """Check if an item has an Audio Lab warning badge in its cached status."""
+    """Check if an item has an Audio Lab warning in its cached status."""
     st = cache.get(getattr(item, 'id', 0), {})
+    # Prefer the explicit boolean field
+    if st.get("has_audio_lab_warning"):
+        return True
+    # Fallback: check badge text
     badges = st.get("badges", [])
-    return any("warning" in b.lower() or "análisis" in b.lower() for b in badges)
+    return any("warning" in b.lower() or "sospechoso" in b.lower() for b in badges)

@@ -40,8 +40,9 @@ class TestSongsPremiumPageQt:
         assert hasattr(page, '_bulk_bar')
 
     def test_load_data_populates_model(self, page):
-        items = [_make_item(fid=1), _make_item(fid=2)]
-        page.load_data(items, fav_ids={1})
+        items = [_make_item(fid=1, filepath="/m/a.flac"),
+                 _make_item(fid=2, filepath="/m/b.flac")]
+        page.load_data(items, fav_set={items[0].filepath})
         assert page._model.rowCount() == 2
         val = page._model.data(page._model.index(0, 0))
         assert val == "★"

@@ -137,21 +137,58 @@ def make_canonical_album_identity(tracks: list) -> str:
     return hashlib.sha1(raw.encode()).hexdigest()[:16]
 
 
-def is_compilation(tracks: list) -> bool:
-    """Detect if a list of tracks represents a compilation album.
+def get_albumartist_values(tracks: list) -> set[str]:
+    """Return unique non-empty albumartist values from tracks."""
+    return {str(getattr(t, "albumartist", "") or "").strip()
+            for t in tracks if str(getattr(t, "albumartist", "") or "").strip()}
 
-    Only returns True if:
-      - albumartist is explicitly set to a VA alias, OR
-      - any track has a truthy 'compilation' attribute
-    Multiple different artists WITHOUT an albumartist marker is NOT treated as
-    compilation (they will be split into separate artist groups instead).
+
+def get_artist_values(tracks: list) -> set[str]:
+    """Return unique non-empty artist values from tracks."""
+    return {str(getattr(t, "artist", "") or "").strip()
+            for t in tracks if str(getattr(t, "artist", "") or "").strip()}
+
+
+def get_common_album_folder(tracks: list) -> str:
+    """Return the common parent directory if all tracks share the same folder."""
+    import os
+    folders = set()
+    for t in tracks:
+        fp = str(getattr(t, "filepath", "") or "")
+        if fp:
+            folders.add(os.path.dirname(fp))
+    return folders.pop() if len(folders) == 1 else ""
+
+
+def has_compilation_tag(tracks: list) -> bool:
+    """Check if any track has a truthy 'compilation' attribute."""
+    return any(getattr(t, "compilation", None) is True for t in tracks)
+
+
+def has_sequential_track_numbers(tracks: list) -> bool:
+    """Check if track numbers form a reasonable sequence (1..n)."""
+    nums = sorted(int(getattr(t, "track_number", 0) or 0) for t in tracks if getattr(t, "track_number", 0) or False)
+    if not nums:
+        return False
+    return nums == list(range(1, len(nums) + 1))
+
+
+def should_group_as_compilation(tracks: list) -> bool:
+    """Determine if a group of tracks should be treated as a single compilation.
+
+    Returns True if any STRONG condition is met:
+      1. albumartist is a Various Artists alias
+      2. Any track has compilation=True tag
     """
     if not tracks:
         return False
-    albumartists = {str(getattr(t, "albumartist", "") or "").strip()
-                    for t in tracks if str(getattr(t, "albumartist", "") or "").strip()}
-    return (any(is_various_artist_alias(aa) for aa in albumartists) or
-            any(getattr(t, "compilation", None) is True for t in tracks))
+    return bool(any(is_various_artist_alias(aa) for aa in get_albumartist_values(tracks))
+                or has_compilation_tag(tracks))
+
+
+def is_compilation(tracks: list) -> bool:
+    """Legacy alias. Use should_group_as_compilation for grouping decisions."""
+    return should_group_as_compilation(tracks)
 
 
 @dataclass(frozen=True)

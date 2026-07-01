@@ -16,6 +16,7 @@ from library.songs_view_state import SongsFilterState
 from ui.library.songs_filter_bar import SongsFilterBar
 from ui.library.songs_bulk_action_bar import SongsBulkActionBar
 from ui.library.songs_detail_panel import SongsDetailPanel
+from ui.library.songs_status_delegate import SongsStatusDelegate
 
 
 class SongsPremiumPage(QWidget):
@@ -33,6 +34,14 @@ class SongsPremiumPage(QWidget):
             self._filter_bar.set_formats(
                 ctrl.query_service.distinct_formats()
             )
+            self._filter_bar.set_genres(
+                ctrl.query_service.distinct_genres()
+            )
+            from PySide6.QtCore import QSettings
+            settings = QSettings("Michi", "MichiMusicPlayer")
+            cols_str = settings.value("songs_optional_columns", "")
+            if cols_str:
+                self._model.set_optional_columns(cols_str.split(","))
 
     def _setup_ui(self):
         outer = QVBoxLayout(self)
@@ -49,6 +58,12 @@ class SongsPremiumPage(QWidget):
         self._loading_label.hide()
         outer.addWidget(self._loading_label)
 
+        self._empty_label = QLabel("No hay canciones que coincidan con los filtros")
+        self._empty_label.setAlignment(Qt.AlignCenter)
+        self._empty_label.setStyleSheet("color: rgba(255,255,255,0.40); font-size: 13px;")
+        self._empty_label.hide()
+        outer.addWidget(self._empty_label)
+
         splitter = QSplitter(Qt.Horizontal)
         splitter.setHandleWidth(0)
 
@@ -63,7 +78,12 @@ class SongsPremiumPage(QWidget):
         self._table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self._table.horizontalHeader().setStretchLastSection(False)
         self._table.horizontalHeader().setSectionsClickable(True)
+        self._table.horizontalHeader().setContextMenuPolicy(Qt.CustomContextMenu)
+        self._table.horizontalHeader().customContextMenuRequested.connect(self._show_column_menu)
         self._table.setStyleSheet(self._table_qss())
+        self._delegate = SongsStatusDelegate(
+            status_cache_provider=lambda: self._ctrl.status_cache() if self._ctrl else {})
+        self._table.setItemDelegateForColumn(9, self._delegate)
         self._table.selectionModel().selectionChanged.connect(self._on_selection_changed)
         splitter.addWidget(self._table)
 
@@ -73,6 +93,7 @@ class SongsPremiumPage(QWidget):
         self._detail_panel.edit_requested.connect(self._on_detail_edit)
         self._detail_panel.locate_requested.connect(self._on_detail_locate)
         self._detail_panel.fav_requested.connect(self._on_detail_fav)
+        self._detail_panel.analyze_requested.connect(self._on_detail_analyze)
         splitter.addWidget(self._detail_panel)
 
         outer.addWidget(splitter, 1)
@@ -133,6 +154,10 @@ class SongsPremiumPage(QWidget):
         if self._ctrl:
             self._ctrl.toggle_favorite(item)
 
+    def _on_detail_analyze(self, item):
+        if self._ctrl:
+            self._ctrl.analyze_quality([item])
+
     def _on_filters_changed(self, state: SongsFilterState):
         if not self._ctrl:
             return
@@ -150,7 +175,9 @@ class SongsPremiumPage(QWidget):
         if count == 1:
             item = self._model.item_at(unique_rows[0])
             if item:
-                self._detail_panel.show_item(item)
+                item_id = getattr(item, 'id', 0)
+                status = self._model._status_cache.get(item_id)
+                self._detail_panel.show_item(item, status=status)
         else:
             self._detail_panel.clear()
 
@@ -168,6 +195,44 @@ class SongsPremiumPage(QWidget):
         self._model.populate(items, fav_set=fav_set, status_cache=status_cache)
         self._resize_columns()
         self._loading_label.hide()
+        if not items:
+            self._empty_label.show()
+        else:
+            self._empty_label.hide()
+
+    def _show_column_menu(self, pos):
+        from PySide6.QtWidgets import QMenu
+        from PySide6.QtCore import QSettings
+        menu = QMenu(self)
+        current_opts = set(self._model.get_optional_columns())
+        for key, (label, _width) in [
+            ("bitrate", "Bitrate"), ("sample_rate", "Sample Rate"), ("bit_depth", "Bit Depth"),
+            ("channels", "Canales"), ("bpm", "BPM"), ("key", "Tonalidad"),
+            ("play_count", "Reproducciones"), ("rating", "Rating"), ("size", "Tamaño"),
+            ("replaygain_track", "RG Track"), ("replaygain_album", "RG Album"),
+        ]:
+            action = menu.addAction(label)
+            action.setCheckable(True)
+            action.setChecked(key in current_opts)
+            action.setData(key)
+        action = menu.exec(self._table.horizontalHeader().viewport().mapToGlobal(pos))
+        if action:
+            key = action.data()
+            opts = list(current_opts)
+            if key in opts:
+                opts.remove(key)
+            else:
+                opts.append(key)
+            self._model.set_optional_columns(opts)
+            self._model.populate(self._model.all_items(), fav_set=self._model._fav_set,
+                                 status_cache=self._model._status_cache)
+            vs = self._ctrl.view_state() if self._ctrl else None
+            if vs:
+                self._model.populate(vs.items, fav_set=set(vs.favorite_track_ids),
+                                     status_cache=dict(vs.status_cache))
+            self._resize_columns()
+            settings = QSettings("Michi", "MichiMusicPlayer")
+            settings.setValue("songs_optional_columns", ",".join(opts))
 
     @staticmethod
     def _table_qss() -> str:

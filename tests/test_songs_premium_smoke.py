@@ -3,38 +3,48 @@
 
 class TestSongsPremiumSmoke:
 
-    def test_import_mediaitem_table_model(self):
-        from library.mediaitem_table_model import MediaItemTableModel
-        assert MediaItemTableModel is not None
+    def _check(self, path, name):
+        mod = __import__(path, fromlist=[name])
+        cls = getattr(mod, name)
+        assert cls is not None
 
-    def test_import_songs_query_service(self):
-        from library.songs_query_service import SongsQueryService
-        assert SongsQueryService is not None
+    def test_songs_view_state(self):
+        self._check("library.songs_view_state", "SongsFilterState")
+        self._check("library.songs_view_state", "SongsViewState")
 
-    def test_import_songs_status_service(self):
-        from library.songs_status_service import SongsStatusService
-        assert SongsStatusService is not None
+    def test_songs_query_service(self):
+        self._check("library.songs_query_service", "SongsQueryService")
 
-    def test_import_songs_controller(self):
-        from ui.controllers.songs_controller import SongsController
-        assert SongsController is not None
+    def test_songs_status_service(self):
+        self._check("library.songs_status_service", "SongsStatusService")
 
-    def test_import_songs_premium_page(self):
+    def test_mediaitem_table_model(self):
+        self._check("library.mediaitem_table_model", "MediaItemTableModel")
+
+    def test_songs_filter_bar(self):
+        self._check("ui.library.songs_filter_bar", "SongsFilterBar")
+
+    def test_songs_bulk_action_bar(self):
+        self._check("ui.library.songs_bulk_action_bar", "SongsBulkActionBar")
+
+    def test_songs_detail_panel(self):
+        self._check("ui.library.songs_detail_panel", "SongsDetailPanel")
+
+    def test_songs_premium_page(self):
         from ui.library.songs_premium_page import SongsPremiumPage
         assert SongsPremiumPage is not None
 
-    def test_import_filter_bar(self):
-        from ui.library.songs_filter_bar import SongsFilterBar
-        assert SongsFilterBar is not None
+    def test_songs_controller(self):
+        self._check("ui.controllers.songs_controller", "SongsController")
 
-    def test_import_bulk_action_bar(self):
-        from ui.library.songs_bulk_action_bar import SongsBulkActionBar
-        assert SongsBulkActionBar is not None
+    def test_view_mode_router(self):
+        self._check("ui.routers.view_mode_router", "ViewModeRouter")
 
-    def test_import_detail_panel(self):
-        from ui.library.songs_detail_panel import SongsDetailPanel
-        assert SongsDetailPanel is not None
+    def test_search_router(self):
+        self._check("ui.routers.search_router", "SearchRouter")
 
-    def test_import_status_delegate(self):
-        from ui.library.songs_status_delegate import SongsStatusDelegate
-        assert SongsStatusDelegate is not None
+    def test_file_actions(self):
+        self._check("core.file_actions", "open_containing_folder")
+
+    def test_songs_status_delegate(self):
+        self._check("ui.library.songs_status_delegate", "SongsStatusDelegate")
