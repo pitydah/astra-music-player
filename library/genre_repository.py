@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
 import time
 from typing import Any
@@ -426,3 +427,86 @@ class GenreRepository:
         cols = [r[1] for r in self._conn.execute(
             "PRAGMA table_info(genre_operation_log)").fetchall()]
         return [dict(zip(cols, r, strict=False)) for r in rows]
+
+    # ── Backfill ──
+
+    def backfill_from_media_items(self) -> int:
+        """Populate track_genres from existing media_items.genre values.
+
+        Finds tracks in media_items that have a genre set but no corresponding
+        entry in track_genres, and inserts them. This is needed after adding
+        the genre tables to an existing library.
+        """
+        from metadata.genre_normalizer import split_genres, canonicalize_genre
+        rows = self._conn.execute(
+            "SELECT m.id, m.genre FROM media_items m "
+            "WHERE m.deleted_at IS NULL "
+            "AND COALESCE(m.genre,'') != '' "
+            "AND m.id NOT IN (SELECT DISTINCT tg.track_id FROM track_genres tg)"
+        ).fetchall()
+        if not rows:
+            return 0
+        count = 0
+        now = time.time()
+        for tid, raw_genre in rows:
+            genres = split_genres(raw_genre)
+            for g in genres:
+                norm = canonicalize_genre(g)
+                if not norm:
+                    continue
+                try:
+                    self._conn.execute(
+                        "INSERT OR IGNORE INTO track_genres "
+                        "(track_id, genre, canonical_genre, original_value, source, updated_at) "
+                        "VALUES (?,?,?,?,?,?)",
+                        (tid, norm, norm, raw_genre, "backfill", now),
+                    )
+                    count += 1
+                except sqlite3.Error:
+                    pass
+        if count:
+            self._conn.commit()
+            _log.info("Backfilled %d track_genre entries from media_items", count)
+        return count
+
+    def write_genre_to_file(self, filepath: str, genre: str) -> bool:
+        """Write genre to a physical audio file tag (opt-in, explicit).
+
+        Only modifies the file if the genre differs from the current tag.
+        Returns True if the file was updated.
+        """
+        if not os.path.isfile(filepath):
+            _log.warning("write_genre_to_file: file not found: %s", filepath)
+            return False
+        try:
+            import mutagen
+            f = mutagen.File(filepath)
+            if f is None:
+                return False
+            ext = os.path.splitext(filepath)[1].lower()
+            if ext == ".mp3":
+                from mutagen.id3 import TCON
+                if f.tags is None:
+                    f.add_tags()
+                f.tags.delall("TCON")
+                if genre.strip():
+                    f.tags.add(TCON(encoding=3, text=[genre]))
+            elif ext == ".flac":
+                if "genre" in f and str(f.get("genre", [""])[0]) == genre:
+                    return False
+                f["genre"] = genre
+            elif ext in (".m4a", ".mp4"):
+                if f.tags.get("\xa9gen", [None])[0] == genre:
+                    return False
+                f.tags["\xa9gen"] = [genre]
+            elif ext in (".ogg", ".opus"):
+                if f.get("genre", [None]) and f["genre"][0] == genre:
+                    return False
+                f["genre"] = genre
+            else:
+                return False
+            f.save()
+            return True
+        except Exception as e:
+            _log.warning("write_genre_to_file failed for %s: %s", filepath, e)
+            return False

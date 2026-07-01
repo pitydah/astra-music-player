@@ -138,6 +138,8 @@ class MichiLinkController:
             "micro_server_name": "",
             "can_continue_playback": False,
             "can_import": False,
+            "can_send_genre_playlist": False,
+            "can_send_genre_mix": False,
             "contract_ok": False,
             "paired": False,
         }
@@ -161,10 +163,11 @@ class MichiLinkController:
 
             # Paired — try to get real capabilities via API
             result["micro_server_state"] = "connected"
-            result["contract_ok"] = True  # paired implies contract OK
-            result["can_continue_playback"] = True  # paired implies playback capability
+            result["contract_ok"] = True
+            result["can_continue_playback"] = True
             result["can_import"] = True
+            result["can_send_genre_playlist"] = True
+            result["can_send_genre_mix"] = True
         except Exception:
             result["micro_server_state"] = "unknown"
-        return result
         return result

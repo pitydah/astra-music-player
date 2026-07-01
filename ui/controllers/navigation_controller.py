@@ -593,6 +593,7 @@ class NavigationController(QObject):
             "audio_lab_organize": "Audio Lab",
             "audio_lab_conversion": "Audio Lab",
             "audio_lab_vinyl_lab": "Audio Lab",
+            "genre_cleanup": "Audio Lab",
             "settings_hub": "Configuración", "home_audio": "Home Audio",
             "library": "Biblioteca", "albums": "Biblioteca",
             "artists": "Biblioteca", "genres": "Biblioteca",

@@ -47,13 +47,6 @@ _SECTIONS = [
                      "local y recomendaciones musicales.",
         "status": "experimental", "nav": "audio_lab_intelligence",
     },
-    {
-        "key": "genre_cleanup", "icon": "sidebar_popular",
-        "title": "Limpieza de géneros",
-        "subtitle": "Normaliza estilos, detecta duplicados y\n"
-                     "corrige canciones sin género.",
-        "status": "disponible", "nav": "genre_cleanup",
-    },
 ]
 
 _STATUS_STYLES = {

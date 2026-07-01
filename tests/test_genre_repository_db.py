@@ -247,3 +247,40 @@ class TestGenreRepository:
         repo.compute_stats()
         cached = repo.get_cached_stats()
         assert "Rock" in cached
+
+
+class TestBackfill:
+    def test_backfill_from_media_items_populates_track_genres(self, conn):
+        repo = GenreRepository(conn)
+        count = repo.backfill_from_media_items()
+        assert count > 0
+        genres = repo.get_track_genres(1)
+        assert len(genres) >= 1
+
+    def test_backfill_idempotent(self, conn):
+        repo = GenreRepository(conn)
+        first = repo.backfill_from_media_items()
+        second = repo.backfill_from_media_items()
+        assert first > 0
+        assert second == 0
+
+    def test_backfill_handles_empty_db(self, conn):
+        conn.execute("DELETE FROM media_items")
+        conn.commit()
+        repo = GenreRepository(conn)
+        count = repo.backfill_from_media_items()
+        assert count == 0
+
+
+class TestWriteGenreToFile:
+    def test_write_genre_to_file_nonexistent(self, conn):
+        repo = GenreRepository(conn)
+        result = repo.write_genre_to_file("/nonexistent/file.flac", "Rock")
+        assert result is False
+
+    def test_write_genre_to_file_unsupported_format(self, conn, tmp_path):
+        repo = GenreRepository(conn)
+        f = tmp_path / "test.txt"
+        f.write_text("not audio")
+        result = repo.write_genre_to_file(str(f), "Rock")
+        assert result is False

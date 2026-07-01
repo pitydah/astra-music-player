@@ -1,6 +1,6 @@
 """Tests for MPD Discovery."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 class TestMpdDiscovery:

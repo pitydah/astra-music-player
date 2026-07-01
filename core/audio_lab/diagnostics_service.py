@@ -457,19 +457,9 @@ def analyse_directory(directory: str,
                 fp = os.path.join(root, f)
                 result = analyse_file(fp)
                 if include_spectral and ext in (".wav", ".flac"):
-                    try:
-                        sr = result.get("format_info", {}).get("sample_rate", 0)
-                        bd = result.get("format_info", {}).get("bit_depth", 0)
-                        if sr > 0 and bd > 0:
-                            from core.audio_analysis.spectral_authenticator import (
-                                analyse_spectral as _analyse_spec,
-                                can_analyse,
-                            )
-                            if can_analyse(fp):
-                                spec = _analyse_spec(fp, sr, bd)
-                                result["spectral"] = spec
-                    except Exception:
-                        pass
+                    import contextlib
+                    with contextlib.suppress(Exception):
+                        result = attach_spectral_analysis(result, fp, persist=True)
                 results.append(result)
     return results
 

@@ -58,7 +58,6 @@ class GenreController:
     # ── New hub-based navigation ──
 
     def show_genres_hub(self, mode: str = "hub"):
-        db = self._ctx_or_svc("db", None)
         if not self._stats_svc or not self._hub_page:
             self.show_genres_overview()
             return

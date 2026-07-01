@@ -914,6 +914,11 @@ class MainWindow(QMainWindow):
     def _show_michi_disc_lab(self, key=None):
         self._hub_route_ctrl.show_michi_disc_lab(key)
 
+    def _show_genre_cleanup(self, key=None):
+        self._show_library_hub_page()
+        if self._genre_ctrl:
+            self._genre_ctrl.show_cleanup_page()
+
     def _show_home_page(self, key=None):
         self._home_ctrl.show()
 

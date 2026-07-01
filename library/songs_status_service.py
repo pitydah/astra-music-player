@@ -40,6 +40,7 @@ class SongsStatusService:
     def invalidate_cache(self):
         self._quality_cache.clear()
         self._cover_cache.clear()
+        self._path_to_id.clear()
 
     def invalidate_cache_for_paths(self, paths: list[str] | None = None):
         """Invalidate quality + cover caches for given paths, or all if None."""

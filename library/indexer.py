@@ -60,6 +60,7 @@ class Indexer(QObject):
         self._max_errors = max_errors
         self._state = ScanState()
         self._cancelled = False
+        self._force = False
         self._added_paths: list[str] = []
         self._updated_paths: list[str] = []
 
@@ -73,8 +74,14 @@ class Indexer(QObject):
         self._cancelled = True
         self._state.cancel()
 
-    def run(self):
-        """Execute the full indexing pipeline."""
+    def run(self, force: bool = False):
+        """Execute the full indexing pipeline.
+
+        When force=True, re-extracts metadata for all files (skips change
+        detection) but preserves user-data fields: play_count, rating,
+        last_played, favorites, track_uid.
+        """
+        self._force = force
         self._state.start(self._root_path)
         self._db.update_scan_root(self._root_path, last_scan_started=time.time())
 
@@ -91,6 +98,11 @@ class Indexer(QObject):
             self._state.set_phase(ScanPhase.EXTRACTING)
             batch_writer = BatchWriter(self._db.conn, batch_size=self._batch_size)
 
+            # Pre-fetch user data map when force=True to preserve play_count/rating
+            preserved_fields: dict[str, dict] = {}
+            if force:
+                preserved_fields = self._fetch_preserved_fields(files)
+
             for i, fp in enumerate(files):
                 if self._cancelled:
                     break
@@ -105,8 +117,8 @@ class Indexer(QObject):
                 pct = ((i + 1) / max(self._state.file_count, 1)) * 100
                 self._state.progress_pct = pct
 
-                # Change detection
-                if self._is_unchanged(fp):
+                # Change detection — skipped when force=True
+                if not force and self._is_unchanged(fp):
                     self._state.skipped_count += 1
                     self._db._touch_last_scanned(fp)
                     self._emit_progress(i)
@@ -120,6 +132,16 @@ class Indexer(QObject):
                 try:
                     record = self._build_record(fp)
                     if record is not None:
+                        # Inject preserved user data when force=True
+                        if force and fp in preserved_fields:
+                            pf = preserved_fields[fp]
+                            record["play_count"] = pf.get("play_count", 0)
+                            record["rating"] = pf.get("rating", 0)
+                            record["last_played"] = pf.get("last_played", 0.0)
+                            record["track_uid"] = pf.get("track_uid", "")
+                            # Mark as reindexed, not new
+                            is_new = False
+
                         stat = os.stat(fp)
                         record["updated_at"] = stat.st_mtime
                         record["last_scanned"] = time.time()
