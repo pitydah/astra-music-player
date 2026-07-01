@@ -153,6 +153,44 @@ class TestIsCompoundGenre:
         assert is_compound_genre("Rock") is False
 
 
+class TestSplitGenresCompound:
+    def test_rb_soul(self):
+        assert split_genres("R&B; Soul") == ["R&B", "Soul"]
+
+    def test_drum_bass_jungle(self):
+        assert split_genres("Drum & Bass; Jungle") == ["Drum & Bass", "Jungle"]
+
+    def test_rock_roll_blues(self):
+        assert split_genres("Rock & Roll; Blues") == ["Rock & Roll", "Blues"]
+
+    def test_singer_songwriter_folk(self):
+        assert split_genres("Singer/Songwriter; Folk") == ["Singer/Songwriter", "Folk"]
+
+    def test_hiphop_rap_trap(self):
+        result = split_genres("Hip-Hop/Rap; Trap")
+        assert len(result) >= 1
+
+    def test_rb_neo_soul(self):
+        result = split_genres("R&B / Neo Soul")
+        assert "R&B" in result
+        assert "Neo Soul" in result or "Neo soul" in result
+
+    def test_rock_pop_standard(self):
+        assert split_genres("Rock; Pop") == ["Rock", "Pop"]
+
+    def test_rock_slash_pop(self):
+        assert split_genres("Rock / Pop") == ["Rock", "Pop"]
+
+    def test_preserves_single_compound(self):
+        assert split_genres("R&B") == ["R&B"]
+        assert split_genres("Drum & Bass") == ["Drum & Bass"]
+        assert split_genres("Rock & Roll") == ["Rock & Roll"]
+
+    def test_three_genres(self):
+        result = split_genres("Rock, Pop, Jazz")
+        assert len(result) == 3
+
+
 class TestDetectDuplicateGenres:
     def test_no_duplicates(self):
         class MockItem:
@@ -187,3 +225,14 @@ class TestDetectDuplicateGenres:
         items = [MockItem(""), MockItem("")]
         dups = detect_duplicate_genres(items)
         assert len(dups) == 0
+
+    def test_stable_canonical(self):
+        class MockItem:
+            def __init__(self, genre):
+                self.genre = genre
+        items = [MockItem("Hip-Hop"), MockItem("hiphop"), MockItem("Hip Hop")]
+        dups = detect_duplicate_genres(items)
+        assert len(dups) >= 1
+        # Run twice, canonical should be the same
+        dups2 = detect_duplicate_genres(items)
+        assert dups[0]["canonical"] == dups2[0]["canonical"]

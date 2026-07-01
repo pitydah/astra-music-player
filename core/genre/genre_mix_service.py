@@ -89,6 +89,26 @@ class GenreMixService:
         random.shuffle(queue)
         return queue[:initial_size]
 
+    def next_radio_tracks(self, canonical: str, history: list | None = None,
+                           size: int = 10) -> list:
+        history = history or []
+        history_set = set(history)
+        tracks = self._get_tracks_by_genre(canonical)
+        if not tracks:
+            return []
+
+        candidates = [t for t in tracks if t not in history_set]
+        if len(candidates) < size:
+            related = self.get_related_genres(canonical, max_results=3)
+            for rel in related:
+                extra = self._get_tracks_by_genre(rel["genre"])
+                candidates.extend(t for t in extra if t not in history_set)
+                if len(candidates) >= size:
+                    break
+
+        random.shuffle(candidates)
+        return candidates[:size]
+
     def create_smart_playlist(self, name: str, canonical: str,
                               rules: dict | None = None) -> int | None:
         """Create a persistent smart playlist.

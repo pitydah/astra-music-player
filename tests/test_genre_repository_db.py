@@ -284,3 +284,50 @@ class TestWriteGenreToFile:
         f.write_text("not audio")
         result = repo.write_genre_to_file(str(f), "Rock")
         assert result is False
+
+
+class TestApplyGenreDetailed:
+    def test_apply_detailed_default(self, conn):
+        repo = GenreRepository(conn)
+        result = repo.apply_genre_to_tracks_detailed([1], "Prog Rock")
+        assert result["success"] is True
+        assert result["db_updated"] == 1
+        assert result["files_written"] == 0
+        assert result["files_failed"] == 0
+
+    def test_apply_detailed_with_write_tags_fails_no_file(self, conn):
+        repo = GenreRepository(conn)
+        result = repo.apply_genre_to_tracks_detailed([1], "Prog Rock", write_tags=True)
+        assert result["db_updated"] >= 1
+
+    def test_apply_detailed_empty_tracks(self, conn):
+        repo = GenreRepository(conn)
+        result = repo.apply_genre_to_tracks_detailed([], "Rock")
+        assert result["success"] is True
+        assert result["db_updated"] == 0
+
+
+class TestRollback:
+    def test_rollback_nonexistent(self, conn):
+        repo = GenreRepository(conn)
+        result = repo.rollback_operation(9999)
+        assert result["success"] is False
+
+    def test_rollback_rename(self, conn):
+        repo = GenreRepository(conn)
+        repo.set_track_genre(1, "Old Name")
+        repo.rename_genre("Old Name", "New Name")
+        ops = repo.get_recent_operations()
+        assert len(ops) >= 1
+        result = repo.rollback_operation(ops[0]["id"])
+        assert result["success"] is True
+        tids = repo.get_tracks_for_genre("Old Name")
+        assert 1 in tids
+
+    def test_rollback_apply(self, conn):
+        repo = GenreRepository(conn)
+        repo.apply_genre_to_tracks_detailed([1, 2], "Temp Genre")
+        ops = repo.get_recent_operations()
+        assert len(ops) >= 1
+        result = repo.rollback_operation(ops[0]["id"])
+        assert result["success"] is True

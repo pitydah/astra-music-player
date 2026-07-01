@@ -124,7 +124,9 @@ class GenreController:
             detail = self._stats_svc.get_genre_detail(genre_key)
             if detail:
                 tracks = self._stats_svc.get_tracks_for_genre(genre_key)
-                self._detail_page.set_genre(detail, tracks)
+                artists = list(set(getattr(t, 'artist', '') or '' for t in tracks if getattr(t, 'artist', '')))
+                albums = list(set(getattr(t, 'album', '') or '' for t in tracks if getattr(t, 'album', '')))
+                self._detail_page.set_genre(detail, tracks, artists=sorted(artists), albums=sorted(albums))
                 self._ctx.section_title.setText(genre_key)
                 subtitle = f"{detail.get('track_count', 0)} canciones"
                 self._ctx.section_subtitle.setText(subtitle)
@@ -267,6 +269,9 @@ class GenreController:
                 self._show_toast(f"Género normalizado: {genre_key} ({count} tracks)", "success")
             else:
                 self._show_toast(f"No se requirió normalización para {genre_key}", "info")
+            # Add alias for future imports
+            if self._db_genre_repo and count:
+                self._db_genre_repo.add_alias(genre_key, genre_key, source="user")
         else:
             self._show_toast(
                 f"Normalización de '{genre_key}': usa el Editor de metadatos para limpiar tags", "info")

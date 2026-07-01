@@ -40,6 +40,8 @@ class GenreDetailPage(QWidget):
         self.setStyleSheet(f"background: {_BG};")
         self._genre_data = None
         self._tracks = []
+        self._artists = []
+        self._albums = []
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -61,9 +63,12 @@ class GenreDetailPage(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(self._scroll)
 
-    def set_genre(self, genre_data: dict, tracks: list = None):
+    def set_genre(self, genre_data: dict, tracks: list = None,
+                   artists: list = None, albums: list = None):
         self._genre_data = genre_data
         self._tracks = tracks or []
+        self._artists = artists or []
+        self._albums = albums or []
         self._rebuild()
 
     def _rebuild(self):
@@ -89,11 +94,14 @@ class GenreDetailPage(QWidget):
             f"QTabBar::tab:hover {{ background: rgba(255,255,255,0.06); }}")
 
         if self._tracks:
-            tracks_tab = self._build_tracks_widget(g)
-            tabs.addTab(tracks_tab, "Canciones")
-
-        info_tab = self._build_info_widget(g)
-        tabs.addTab(info_tab, "Estadísticas")
+            tabs.addTab(self._build_tracks_widget(g), "Canciones")
+        if self._albums:
+            tabs.addTab(self._build_albums_widget(g), "Álbumes")
+        if self._artists:
+            tabs.addTab(self._build_artists_widget(g), "Artistas")
+        tabs.addTab(self._build_mixes_widget(g), "Mixes")
+        tabs.addTab(self._build_info_widget(g), "Estadísticas")
+        tabs.addTab(self._build_genre_cleanup_widget(g), "Limpieza")
 
         self._layout.addWidget(tabs)
         self._layout.addStretch()
@@ -181,6 +189,102 @@ class GenreDetailPage(QWidget):
             row.addWidget(btn)
         row.addStretch()
         self._layout.addLayout(row)
+
+    def _build_albums_widget(self, g: dict) -> QWidget:
+        w = QWidget()
+        w.setStyleSheet("background: transparent;")
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(4)
+        hdr = QLabel(f"{len(self._albums)} álbumes")
+        hdr.setStyleSheet(f"color: {_TEXT3}; font-size: 12px;")
+        v.addWidget(hdr)
+        for album_name in self._albums[:20]:
+            row_lbl = QLabel(album_name)
+            row_lbl.setStyleSheet(f"color: {_TEXT2}; font-size: 12px; padding: 2px 0;")
+            v.addWidget(row_lbl)
+        if len(self._albums) > 20:
+            more = QLabel(f"+{len(self._albums) - 20} más")
+            more.setStyleSheet(f"color: {_TEXT3}; font-size: 11px;")
+            v.addWidget(more)
+        v.addStretch()
+        return w
+
+    def _build_artists_widget(self, g: dict) -> QWidget:
+        w = QWidget()
+        w.setStyleSheet("background: transparent;")
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(4)
+        hdr = QLabel(f"{len(self._artists)} artistas")
+        hdr.setStyleSheet(f"color: {_TEXT3}; font-size: 12px;")
+        v.addWidget(hdr)
+        for artist_name in self._artists[:20]:
+            row_lbl = QLabel(artist_name)
+            row_lbl.setStyleSheet(f"color: {_TEXT2}; font-size: 12px; padding: 2px 0;")
+            v.addWidget(row_lbl)
+        if len(self._artists) > 20:
+            more = QLabel(f"+{len(self._artists) - 20} más")
+            more.setStyleSheet(f"color: {_TEXT3}; font-size: 11px;")
+            v.addWidget(more)
+        v.addStretch()
+        return w
+
+    def _build_mixes_widget(self, g: dict) -> QWidget:
+        key = g.get("genre", "")
+        w = QWidget()
+        w.setStyleSheet("background: transparent;")
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(8)
+
+        mix_modes = [
+            ("all", "Todo el género"),
+            ("favorites", "Favoritas"),
+            ("unplayed", "No escuchadas"),
+            ("high_quality", "Alta calidad"),
+            ("discovery", "Descubrimiento"),
+            ("recent", "Recientes"),
+            ("artist_variety", "Artistas variados"),
+        ]
+        for mode_key, mode_label in mix_modes:
+            btn = QPushButton(f"▶ {mode_label}")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet(
+                "QPushButton { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.78);"
+                "border: 1px solid rgba(255,255,255,0.04); border-radius: 8px;"
+                "padding: 6px 12px; font-size: 11px; text-align: left; }"
+                "QPushButton:hover { background: rgba(143,183,255,0.08); }")
+            btn.clicked.connect(lambda checked=False, k=key, m=mode_key: self.mix_requested.emit(k))
+            v.addWidget(btn)
+        v.addStretch()
+        return w
+
+    def _build_genre_cleanup_widget(self, g: dict) -> QWidget:
+        key = g.get("genre", "")
+        w = QWidget()
+        w.setStyleSheet("background: transparent;")
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(8)
+
+        missing = g.get("missing_metadata_count", 0)
+        if missing:
+            lbl = QLabel(f"{missing} canciones sin metadata completa")
+            lbl.setStyleSheet("color: #FFB347; font-size: 12px;")
+            v.addWidget(lbl)
+
+        btn = QPushButton("Abrir limpieza de este género")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setStyleSheet(
+            "QPushButton { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.78);"
+            "border: 1px solid rgba(255,255,255,0.04); border-radius: 10px;"
+            "padding: 8px 14px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: rgba(255,255,255,0.08); }")
+        btn.clicked.connect(lambda: self.cleanup_requested.emit(key))
+        v.addWidget(btn)
+        v.addStretch()
+        return w
 
     def _build_tracks_widget(self, g: dict) -> QWidget:
         w = QWidget()

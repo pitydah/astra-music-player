@@ -258,41 +258,58 @@ def normalize_genre_name(raw: str) -> str:
     return name
 
 
+_COMPOUND_PLACEHOLDER = "\x00CP_"
+_COMPOUND_END_MARKER = "\x00CE_"
+
+
+def _protect_compounds(raw: str) -> str:
+    """Replace known compound genre substrings with placeholders so delimiters
+    inside them (/, &, +) are not split. Returns (protected_string, mapping)
+    where mapping is list of (placeholder, original).
+    """
+    mapping = []
+    lower = raw.lower()
+    # Sort by length descending to match longest compounds first
+    sorted_compounds = sorted(_COMPOUND_GENRES, key=len, reverse=True)
+    for comp in sorted_compounds:
+        idx = lower.find(comp)
+        if idx >= 0:
+            placeholder = f"{_COMPOUND_PLACEHOLDER}{len(mapping)}{_COMPOUND_END_MARKER}"
+            raw = raw[:idx] + placeholder + raw[idx + len(comp):]
+            lower = raw.lower()
+            mapping.append((placeholder, comp))
+    return raw, mapping
+
+
+def _restore_compounds(parts: list[str], mapping: list[tuple[str, str]]) -> list[str]:
+    result = []
+    for p in parts:
+        restored = p
+        for placeholder, original in mapping:
+            restored = restored.replace(placeholder, original)
+        result.append(restored)
+    return result
+
+
 def split_genres(raw: str) -> list[str]:
     """Split a multi-genre string into individual genre names.
 
     Preserves known compound genres (e.g. 'R&B', 'Drum & Bass', 'Rock & Roll').
-    Uses _DELIM_RE (split on , ; / | & +) then recombines parts that form
-    known compound genres. For '&' separated compounds, the first pass checks
-    if the RAW value is already known as compound before splitting.
+    Uses placeholder protection before splitting so delimiters inside compounds
+    are not touched.
     """
     if not raw or not raw.strip():
         return []
     raw_lower = raw.lower().strip()
     if raw_lower in _COMPOUND_GENRES:
         return [normalize_genre_name(raw)]
-    parts = _DELIM_RE.split(raw)
-    result = []
-    buffer = []
-    for p in parts:
-        stripped = p.strip()
-        if not stripped:
-            if buffer:
-                result.append(normalize_genre_name(" ".join(buffer)))
-                buffer = []
-            continue
-        candidate = " ".join(buffer + [stripped]).lower() if buffer else stripped.lower()
-        if candidate in _COMPOUND_GENRES or (buffer and buffer[-1].lower() in ("and", "&", "n")):
-            buffer.append(stripped)
-        else:
-            if buffer:
-                result.append(normalize_genre_name(" ".join(buffer)))
-            buffer = [stripped]
-    if buffer:
-        result.append(normalize_genre_name(" ".join(buffer)))
-    if not result:
-        result = [normalize_genre_name(p) for p in parts if p.strip()]
-    return result
+
+    protected, mapping = _protect_compounds(raw)
+    parts = _DELIM_RE.split(protected)
+    parts = _restore_compounds(parts, mapping)
+
+    result = [normalize_genre_name(p) for p in parts if p.strip()]
+    return result if result else [normalize_genre_name(raw)]
 
 
 def canonicalize_genre(raw: str) -> str:
@@ -363,10 +380,33 @@ def detect_dirty_genres(items) -> list[str]:
     return sorted(dirty)
 
 
+def _best_canonical(raw_values: set[str]) -> str:
+    """Choose the best canonical from a set of raw values.
+
+    Strategy: prefer alias manual → builtin → most frequent normalized form →
+    longest value → alphabetically first.
+    """
+    normalized = {}
+    for rv in raw_values:
+        n = canonicalize_genre(rv)
+        key = genre_key(n)
+        normalized.setdefault(key, []).append(rv)
+    # Pick the normalized key with most values, then alphabetically
+    best_key = max(normalized, key=lambda k: (len(normalized[k]), k))
+    candidates = normalized[best_key]
+    # Prefer the value that matches the canonical form
+    canonical_form = canonicalize_genre(candidates[0])
+    for c in candidates:
+        if canonicalize_genre(c) == canonical_form:
+            return canonical_form
+    return canonical_form
+
+
 def detect_duplicate_genres(items) -> list[dict]:
     """Detect probable duplicate genres (same normalised key, different raw values).
 
     Returns list of dicts: {canonical, raw_values, count, track_examples}
+    Uses stable canonical selection (not list(set)[0]).
     """
     from collections import defaultdict
     groups: dict[str, dict] = defaultdict(lambda: {"raw_values": set(), "track_examples": [], "count": 0})
@@ -386,8 +426,9 @@ def detect_duplicate_genres(items) -> list[dict]:
     results = []
     for _gkey, entry in groups.items():
         if len(entry["raw_values"]) > 1:
+            canonical = _best_canonical(entry["raw_values"])
             results.append({
-                "canonical": list(entry["raw_values"])[0],
+                "canonical": canonical,
                 "raw_values": sorted(entry["raw_values"]),
                 "count": entry["count"],
                 "track_examples": entry["track_examples"],

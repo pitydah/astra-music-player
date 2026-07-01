@@ -510,3 +510,145 @@ class GenreRepository:
         except Exception as e:
             _log.warning("write_genre_to_file failed for %s: %s", filepath, e)
             return False
+
+    def apply_genre_to_tracks_detailed(self, track_ids: list[int], genre: str,
+                                        write_tags: bool = False) -> dict:
+        """Apply genre to tracks with detailed result and optional file writing.
+
+        Returns dict: {success, db_updated, files_written, files_failed, failed_tracks}
+        """
+        from metadata.genre_normalizer import canonicalize_genre
+        norm = canonicalize_genre(genre)
+        now = time.time()
+        db_updated = 0
+        files_written = 0
+        files_failed = 0
+        failed_tracks = []
+
+        for tid in track_ids:
+            try:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO track_genres "
+                    "(track_id, genre, canonical_genre, original_value, "
+                    "confidence, source, is_manual, updated_at) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
+                    (tid, norm, norm, genre, 1.0, "manual", 1, now),
+                )
+                self._conn.execute(
+                    "UPDATE media_items SET genre=? WHERE id=?",
+                    (genre, tid),
+                )
+                db_updated += 1
+
+                if write_tags:
+                    row = self._conn.execute(
+                        "SELECT filepath FROM media_items WHERE id=?", (tid,)
+                    ).fetchone()
+                    if row:
+                        ok = self.write_genre_to_file(row[0], norm)
+                        if ok:
+                            files_written += 1
+                        else:
+                            files_failed += 1
+                            failed_tracks.append({
+                                "track_id": tid,
+                                "filepath": row[0],
+                                "error": "write_genre_to_file returned False",
+                            })
+            except sqlite3.Error as e:
+                _log.warning("apply_genre_to_tracks track %d failed: %s", tid, e)
+                failed_tracks.append({
+                    "track_id": tid,
+                    "filepath": "",
+                    "error": str(e),
+                })
+
+        self._conn.commit()
+        self._log_operation("apply", "", genre, track_ids, db_updated,
+                            wrote_tags=write_tags)
+        return {
+            "success": len(failed_tracks) == 0,
+            "db_updated": db_updated,
+            "files_written": files_written,
+            "files_failed": files_failed,
+            "failed_tracks": failed_tracks,
+        }
+
+    # ── Rollback ──
+
+    def rollback_operation(self, op_id: int) -> dict:
+        """Rollback a DB-only genre operation.
+
+        Supports: rename, apply (DB-only), merge (DB-only).
+        Returns dict with {success, action, details}.
+        """
+        row = self._conn.execute(
+            "SELECT * FROM genre_operation_log WHERE id=?",
+            (op_id,),
+        ).fetchone()
+        if not row:
+            return {"success": False, "error": "Operation not found"}
+        cols = [r[1] for r in self._conn.execute(
+            "PRAGMA table_info(genre_operation_log)").fetchall()]
+        op = dict(zip(cols, row, strict=False))
+
+        if op.get("wrote_tags", 0):
+            return {"success": False, "error": "Cannot rollback operations that wrote file tags"}
+
+        op_type = op.get("operation_type", "")
+        target = op.get("target_genre", "")
+        source = op.get("source_genre", "")
+        track_ids_str = op.get("track_ids", "[]")
+        try:
+            track_ids = json.loads(track_ids_str) if track_ids_str else []
+        except (json.JSONDecodeError, TypeError):
+            track_ids = []
+        now = time.time()
+
+        try:
+            if op_type == "rename":
+                old_name = source or target
+                new_name = target
+                if old_name:
+                    self._conn.execute(
+                        "UPDATE track_genres SET canonical_genre=?, genre=?, "
+                        "updated_at=? WHERE canonical_genre=?",
+                        (old_name, old_name, now, new_name),
+                    )
+                    self._conn.commit()
+                    return {"success": True, "action": f"rolled back rename: {new_name} → {old_name}"}
+
+            elif op_type == "apply":
+                if not track_ids:
+                    return {"success": False, "error": "No track_ids in log for rollback"}
+                for tid in track_ids:
+                    self._conn.execute(
+                        "DELETE FROM track_genres WHERE track_id=? AND canonical_genre=?",
+                        (tid, target),
+                    )
+                self._conn.commit()
+                return {
+                    "success": True,
+                    "action": f"rolled back apply: removed '{target}' from {len(track_ids)} tracks",
+                }
+
+            elif op_type == "merge":
+                sources = source.split(",") if source else []
+                if sources and target:
+                    for src in sources:
+                        src = src.strip()
+                        if src:
+                            self._conn.execute(
+                                "UPDATE track_genres SET canonical_genre=?, genre=?, "
+                                "updated_at=? WHERE canonical_genre=?",
+                                (src, src, now, target),
+                            )
+                    self._conn.commit()
+                    return {
+                        "success": True,
+                        "action": f"rolled back merge: {target} → {', '.join(sources)}",
+                    }
+
+            return {"success": False, "error": f"Rollback not supported for {op_type}"}
+        except sqlite3.Error as e:
+            return {"success": False, "error": str(e)}
