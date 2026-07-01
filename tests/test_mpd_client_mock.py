@@ -32,15 +32,12 @@ class TestMpdClientMock:
         from audio.mpd.mpd_client import MpdClient
         with patch("audio.mpd.mpd_client.socket.create_connection") as mock_conn:
             mock_sock = MagicMock()
-            # Greeting response
-            mock_sock.recv.side_effect = [
-                b"O", b"K", b" ", b"M", b"P", b"D", b" ", b"0", b".", b"2", b"3", b"\n",
-                b"O", b"K", b"\n",
-            ]
+            greeting_bytes = [bytes([b]) for b in b"OK MPD 0.23.12\n"]
+            ok_bytes = [bytes([b]) for b in b"OK\n"]
+            mock_sock.recv.side_effect = greeting_bytes + ok_bytes
             mock_conn.return_value = mock_sock
-            client = MpdClient(password="secret")
+            client = MpdClient(password="secret", timeout=2.0)
             client.connect()
-            # After greeting, password command was sent
             calls = [c[0][0] for c in mock_sock.sendall.call_args_list]
             assert any(b"password" in c for c in calls)
 

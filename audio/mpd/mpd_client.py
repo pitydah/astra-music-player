@@ -12,6 +12,7 @@ import time
 from audio.mpd.mpd_models import MpdStatus, MpdSong, MpdOutput
 from audio.mpd.mpd_protocol import parse_response
 from audio.mpd.mpd_errors import (
+    MpdError,
     MpdConnectionError,
     MpdProtocolError,
     MpdAckError,

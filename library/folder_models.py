@@ -213,6 +213,7 @@ class FolderMovePlan:
     affected_playlists: list[str] = field(default_factory=list)
     affected_favorites: int = 0
     affected_history: int = 0
+    affected_queue: int = 0
     affected_sidecar_covers: list[str] = field(default_factory=list)
     affected_cue_files: list[str] = field(default_factory=list)
     affected_playlist_files: list[str] = field(default_factory=list)
@@ -235,6 +236,9 @@ class FolderMoveResult:
     db_updated: int = 0
     db_failed: list[str] = field(default_factory=list)
     playlists_updated: int = 0
+    favorites_updated: int = 0
+    history_updated: int = 0
+    queue_updated: int = 0
     rollback_performed: bool = False
     rollback_success: bool = False
     error_message: str = ""

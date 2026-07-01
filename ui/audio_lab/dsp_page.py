@@ -114,7 +114,7 @@ class DSPPage(QWidget):
         wl.setSpacing(4)
 
         self._status_lines = {}
-        for label, key in [
+        for label_text, key in [
             ("Perfil activo", "profile"),
             ("Bit-perfect", "bitperfect"),
             ("Resample", "resample"),
@@ -125,6 +125,9 @@ class DSPPage(QWidget):
             ("Motor", "engine"),
             ("Dispositivo", "device"),
         ]:
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            lbl = QLabel(label_text)
             lbl.setStyleSheet(
                 "color: rgba(255,255,255,0.56); font-size: 11px; "
                 "background: transparent;"
@@ -137,6 +140,7 @@ class DSPPage(QWidget):
             row.addWidget(lbl)
             row.addWidget(val, 1)
             wl.addLayout(row)
+            self._status_lines[key] = val
             self._status_lines[key] = val
 
         self._refresh_btn = QPushButton("Actualizar estado")

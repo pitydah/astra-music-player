@@ -449,6 +449,69 @@ class MainWindow(QMainWindow):
             from ui.toast_notification import ToastNotification as T
             T.info(message, self)
 
+    def _show_folder_problem_report(self, health):
+        from ui.folders.folder_problem_report import show_problem_report
+        show_problem_report(health, parent=self)
+
+    def _on_safe_rename_folder(self, path: str):
+        from PySide6.QtWidgets import QInputDialog, QMessageBox
+        new_name, ok = QInputDialog.getText(
+            self, "Renombrar carpeta",
+            f"Nuevo nombre para:\n{os.path.basename(path)}",
+            text=os.path.basename(path))
+        if ok and new_name:
+            new_path = os.path.join(os.path.dirname(path), new_name)
+            from core.safe_file_ops import SafeFileOperations
+            ops = SafeFileOperations(db=self._db)
+            plan = ops.plan_move(path, new_path)
+            if plan.can_proceed:
+                result = ops.execute_move(plan)
+                if result.success:
+                    self._toast_svc.success(
+                        f"Carpeta renombrada: {new_name}", self)
+                    if hasattr(self, '_folder_browser'):
+                        self._folder_browser._load(new_path)
+                else:
+                    QMessageBox.warning(self, "Error",
+                        f"No se pudo renombrar: {result.error_message}")
+            else:
+                msg = "\n".join(plan.warnings + plan.conflicts)
+                QMessageBox.warning(self, "No se puede renombrar",
+                    f"Problemas:\n{msg}" if msg else "No se puede renombrar")
+
+    def _on_safe_move_folder(self, path: str):
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        new_parent = QFileDialog.getExistingDirectory(
+            self, "Mover carpeta a...", os.path.dirname(path))
+        if not new_parent:
+            return
+        new_path = os.path.join(new_parent, os.path.basename(path))
+        from core.safe_file_ops import SafeFileOperations
+        ops = SafeFileOperations(db=self._db)
+        plan = ops.plan_move(path, new_path)
+        if not plan.can_proceed:
+            msg = "\n".join(plan.warnings + plan.conflicts)
+            QMessageBox.warning(self, "No se puede mover",
+                f"Problemas:\n{msg}" if msg else "No se puede mover")
+            return
+        confirm = QMessageBox.question(
+            self, "Confirmar movimiento",
+            f"\u00bfMover '{os.path.basename(path)}' a '{new_parent}'?\n\n"
+            f"Archivos: {plan.files_to_move}\n"
+            f"Items en DB: {plan.affected_media_items}\n"
+            f"Playlists: {len(plan.affected_playlists)}",
+            QMessageBox.Yes | QMessageBox.No)
+        if confirm == QMessageBox.Yes:
+            result = ops.execute_move(plan)
+            if result.success:
+                self._toast_svc.success(
+                    f"Carpeta movida a {new_parent}", self)
+                if hasattr(self, '_folder_browser'):
+                    self._folder_browser._load(new_path)
+            else:
+                QMessageBox.warning(self, "Error",
+                    f"No se pudo mover: {result.error_message}")
+
     def _on_backend_changed(self, old_id: str, new_id: str):
         from ui.toast_notification import ToastNotification as T
         T.info(f"Motor de audio: {old_id} → {new_id}", self)
