@@ -21,6 +21,7 @@ from core.home.home_status import (
     AssistantSuggestion,
     AudioHomeStatus,
     EcosystemHomeStatus,
+    HomeAction,
     HomeAlert,
     HomeCardError,
     HomeDashboardSnapshot,
@@ -847,28 +848,107 @@ class HomePage(QWidget):
     def _dict_to_snapshot(d: dict) -> HomeDashboardSnapshot:
         lib = d.get("library_health", d.get("library", {}))
         pb = d.get("playback", {})
+        nowp = pb.get("now_playing", {}) or {}
+        audio = d.get("audio", {})
+        eco = d.get("ecosystem", d.get("eco", {}))
+        alerts_raw = d.get("alerts", [])
+        suggestions_raw = d.get("assistant_suggestions", d.get("suggestions", []))
+        actions_raw = d.get("actions", [])
+        errors_raw = d.get("errors", [])
+
+        def _alert(a):
+            return HomeAlert(
+                severity=a.get("severity", "info"),
+                kind=a.get("kind", ""),
+                title=a.get("title", ""),
+                message=a.get("message", ""),
+                count=a.get("count", 0),
+                target_route=a.get("target_route", ""),
+                action_label=a.get("action_label", ""),
+                dismissible=a.get("dismissible", True),
+            )
+
+        def _sug(s):
+            return AssistantSuggestion(
+                title=s.get("title", s.get("label", "")),
+                message=s.get("message", s.get("description", "")),
+                target_route=s.get("target_route", s.get("route", "")),
+                action_kind=s.get("action_kind", s.get("kind", "navigate")),
+                requires_confirmation=s.get("requires_confirmation", False),
+                priority=s.get("priority", 0),
+            )
+
+        def _act(a):
+            return HomeAction(
+                label=a.get("label", ""),
+                target_route=a.get("target_route", ""),
+                icon_key=a.get("icon_key", ""),
+                priority=a.get("priority", 0),
+            )
+
         return HomeDashboardSnapshot(
             overall_state=d.get("overall_state", "ready"),
             headline=d.get("headline", ""),
             subtitle=d.get("subtitle", ""),
+            generated_at=d.get("generated_at", 0.0),
             library=LibraryHomeStatus(
                 track_count=lib.get("track_count", 0),
                 album_count=lib.get("album_count", 0),
                 artist_count=lib.get("artist_count", 0),
                 genre_count=lib.get("genre_count", 0),
+                active_roots_count=lib.get("active_roots_count", 0),
                 last_scan=lib.get("last_scan"),
                 index_error_count=lib.get("index_error_count", 0),
+                missing_file_count=lib.get("missing_file_count", 0),
                 missing_metadata_count=lib.get("missing_metadata_count", 0),
                 missing_cover_count=lib.get("missing_cover_count", 0),
+                tracks_without_audio_features=lib.get("tracks_without_audio_features", 0),
+                new_tracks_count=lib.get("new_tracks_count", 0),
                 is_empty=lib.get("track_count", 0) == 0,
                 is_healthy=lib.get("index_error_count", 0) == 0,
             ),
             playback=PlaybackHomeStatus(
-                has_current_track=bool(pb.get("now_playing")),
-                current_title=pb.get("now_playing", {}).get("title", ""),
-                current_artist=pb.get("now_playing", {}).get("artist", ""),
-                queue_active=pb.get("queue_length", 0) > 0,
-                queue_count=pb.get("queue_length", 0),
-                state="playing" if pb.get("now_playing") else "stopped",
+                has_current_track=bool(nowp),
+                current_title=nowp.get("title", pb.get("current_title", "")),
+                current_artist=nowp.get("artist", pb.get("current_artist", "")),
+                current_album=nowp.get("album", pb.get("current_album", "")),
+                current_cover_id=nowp.get("cover_id", pb.get("current_cover_id", "")),
+                current_position=pb.get("current_position", 0.0),
+                current_duration=pb.get("current_duration", 0.0),
+                queue_active=pb.get("queue_active", pb.get("queue_length", 0) > 0),
+                queue_count=pb.get("queue_count", pb.get("queue_length", 0)),
+                last_track_title=pb.get("last_track_title", ""),
+                last_track_artist=pb.get("last_track_artist", ""),
+                can_continue=pb.get("can_continue", False),
+                can_continue_remote=pb.get("can_continue_remote", False),
+                source=pb.get("source", ""),
+                state=pb.get("state", "playing" if nowp else "stopped"),
             ),
+            audio=AudioHomeStatus(
+                output_device=audio.get("output_device", ""),
+                output_profile=audio.get("output_profile", ""),
+                dac_active=audio.get("dac_active", False),
+                replaygain_enabled=audio.get("replaygain_enabled", False),
+                eq_enabled=audio.get("eq_enabled", False),
+                dsp_active=audio.get("dsp_active", False),
+                bitperfect_state=audio.get("bitperfect_state", "not_available"),
+                format_label=audio.get("format_label", ""),
+                sample_rate=audio.get("sample_rate", 0),
+                bit_depth=audio.get("bit_depth", 0),
+                warnings=audio.get("warnings", []),
+            ),
+            ecosystem=EcosystemHomeStatus(
+                micro_server_state=eco.get("micro_server_state", "unknown"),
+                micro_server_name=eco.get("micro_server_name", ""),
+                mobile_sync_state=eco.get("mobile_sync_state", "no_device"),
+                mobile_device_count=eco.get("mobile_device_count", 0),
+                api_state=eco.get("api_state", "unknown"),
+                home_audio_state=eco.get("home_audio_state", "disabled"),
+                last_sync=eco.get("last_sync"),
+                diagnostics_available=eco.get("diagnostics_available", False),
+            ),
+            alerts=[_alert(a) for a in alerts_raw if isinstance(a, dict)],
+            assistant_suggestions=[_sug(s) for s in suggestions_raw if isinstance(s, dict)],
+            actions=[_act(a) for a in actions_raw if isinstance(a, dict)],
+            errors=[HomeCardError(e.get("card_name", ""), e.get("error_message", ""), e.get("is_fatal", False)) for e in errors_raw if isinstance(e, dict)],
         )

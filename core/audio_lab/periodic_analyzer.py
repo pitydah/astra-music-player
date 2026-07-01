@@ -18,7 +18,9 @@ class PeriodicAnalyzer(QObject):
     def start(self):
         if not get("audio_lab/auto_analyze"):
             return
-        interval_ms = get("audio_lab/interval_hours") * 3600000
+        from core.settings_manager import get_int
+        interval_hours = get_int("audio_lab/interval_hours") or 0
+        interval_ms = interval_hours * 3600000
         if interval_ms < 60000:
             interval_ms = 60000
         self._timer.start(interval_ms)

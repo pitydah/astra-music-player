@@ -48,15 +48,12 @@ def build_library_health_snapshot(db) -> dict:
     if db is None:
         return result
     try:
-        if hasattr(db, "get_dashboard_stats"):
-            stats = db.get_dashboard_stats()
-            result["track_count"] = stats.get("total_songs", 0)
-            result["album_count"] = stats.get("total_albums", 0)
-            result["artist_count"] = stats.get("total_artists", 0)
-            result["missing_metadata_count"] = stats.get("missing_metadata", 0)
-        elif hasattr(db, "get_stats"):
-            stats = db.get_stats()
-            result["track_count"] = stats.get("total", 0)
+        from core.home.home_helpers import get_db_stats
+        stats = get_db_stats(db)
+        result["track_count"] = stats.get("total_songs", 0)
+        result["album_count"] = stats.get("total_albums", 0)
+        result["artist_count"] = stats.get("total_artists", 0)
+        result["missing_metadata_count"] = stats.get("missing_metadata", 0)
     except Exception as e:
         logger.debug("Library health snapshot error (dashboard): %s", e)
     try:
@@ -150,6 +147,7 @@ def build_playback_snapshot(playback=None, recent_events: list | None = None) ->
 def _suggested_actions(health: dict, playback: dict) -> list[dict]:
     _VALID_TARGETS = frozenset({
         "metadata_editor", "audio_lab", "library", "favs",
+        "analysis", "index_errors",
     })
 
     def _safe_target(t: str) -> str:

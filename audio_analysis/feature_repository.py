@@ -97,13 +97,18 @@ class FeatureRepository:
     def count_missing(self, all_track_keys: list[str]) -> int:
         if not all_track_keys:
             return 0
-        placeholders = ",".join("?" * len(all_track_keys))
-        existing = self._conn.execute(
-            f"SELECT track_key FROM audio_feature WHERE track_key IN ({placeholders}) AND status='completed'",
-            all_track_keys,
-        ).fetchall()
-        existing_keys = {r[0] for r in existing}
-        return sum(1 for k in all_track_keys if k not in existing_keys)
+        BATCH = 500
+        missing = 0
+        for i in range(0, len(all_track_keys), BATCH):
+            batch = all_track_keys[i:i + BATCH]
+            placeholders = ",".join("?" * len(batch))
+            existing = self._conn.execute(
+                f"SELECT track_key FROM audio_feature WHERE track_key IN ({placeholders}) AND status='completed'",
+                batch,
+            ).fetchall()
+            existing_keys = {r[0] for r in existing}
+            missing += sum(1 for k in batch if k not in existing_keys)
+        return missing
 
     def add_job(self, track_key: str, priority: int = 5) -> str:
         job_id = str(uuid.uuid4())[:12]

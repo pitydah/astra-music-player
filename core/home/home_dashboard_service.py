@@ -154,12 +154,8 @@ class HomeDashboardService:
 
         if db is not None:
             try:
-                if hasattr(db, "get_dashboard_stats"):
-                    ds = db.get_dashboard_stats()
-                elif hasattr(db, "get_stats"):
-                    ds = db.get_stats()
-                else:
-                    ds = {}
+                from core.home.home_helpers import get_db_stats
+                ds = get_db_stats(db)
                 tc = ds.get("total_songs", ds.get("total", 0))
                 return LibraryHomeStatus(
                     track_count=tc,

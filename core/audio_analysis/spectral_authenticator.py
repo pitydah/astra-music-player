@@ -415,7 +415,7 @@ def analyse_spectral(filepath: str,
 def can_analyse(filepath: str) -> bool:
     """Check if spectral analysis is possible for this file.
 
-    Supports WAV PCM directly and FLAC via temporary decode with ffmpeg.
+    Supports WAV PCM directly and FLAC via soundfile (preferred) or ffmpeg.
     """
     ext = os.path.splitext(filepath)[1].lower()
     if ext == ".wav":
@@ -431,5 +431,8 @@ def can_analyse(filepath: str) -> bool:
         if not os.path.isfile(filepath):
             return False
         import shutil
-        return shutil.which("ffmpeg") is not None
+        if shutil.which("ffmpeg"):
+            return True
+        import importlib.util
+        return bool(importlib.util.find_spec("soundfile"))
     return False
