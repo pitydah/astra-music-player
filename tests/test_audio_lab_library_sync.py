@@ -161,6 +161,80 @@ def _get_cache():
     return _get_cache()
 
 
+class TestSpectralCachePersistence:
+
+    def test_put_and_get_spectral(self):
+        from core.audio_lab.diagnostics_service import DiagnosticsCache
+        cache = DiagnosticsCache(":memory:")
+        result = {
+            "filepath": "/test/spec.wav",
+            "format_info": {"container": "WAV", "sample_rate": 96000, "bit_depth": 24},
+            "quality": {"category": "hires", "label": "WAV 24/96"},
+            "spectral": {
+                "verdict": "SUSPICIOUS_UPSAMPLING",
+                "label": "Upsampling sospechoso",
+                "confidence": 0.75,
+                "metrics": {"spectral_rolloff_99": 18000.0, "nyquist_hz": 48000.0},
+            },
+        }
+        import os, tempfile
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            tmp = f.name
+        try:
+            result["filepath"] = tmp
+            cache.put(tmp, result)
+            cached = cache.get(tmp)
+            assert cached is not None
+            spec = cached.get("spectral", {})
+            assert spec.get("verdict") == "SUSPICIOUS_UPSAMPLING"
+            assert spec.get("confidence") == 0.75
+            metrics = spec.get("metrics", {})
+            assert metrics.get("spectral_rolloff_99") == 18000.0
+            assert metrics.get("nyquist_hz") == 48000.0
+        finally:
+            os.unlink(tmp)
+
+    def test_get_many_includes_spectral(self):
+        from core.audio_lab.diagnostics_service import DiagnosticsCache
+        cache = DiagnosticsCache(":memory:")
+        import os, tempfile
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            tmp = f.name
+        try:
+            cache.put(tmp, {
+                "filepath": tmp,
+                "format_info": {"container": "WAV"},
+                "quality": {"category": "lossless"},
+                "spectral": {"verdict": "HI_RES_COHERENT", "confidence": 0.9},
+            })
+            cached_map = cache.get_many([tmp])
+            cached = cached_map.get(tmp)
+            assert cached is not None
+            spec = cached.get("spectral", {})
+            assert spec.get("verdict") == "HI_RES_COHERENT"
+        finally:
+            os.unlink(tmp)
+
+    def test_cache_without_spectral_returns_empty_dict(self):
+        from core.audio_lab.diagnostics_service import DiagnosticsCache
+        cache = DiagnosticsCache(":memory:")
+        import os, tempfile
+        with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as f:
+            tmp = f.name
+        try:
+            cache.put(tmp, {
+                "filepath": tmp,
+                "format_info": {"container": "FLAC"},
+                "quality": {"category": "lossless"},
+            })
+            cached = cache.get(tmp)
+            assert cached is not None
+            spec = cached.get("spectral", {})
+            assert spec == {}
+        finally:
+            os.unlink(tmp)
+
+
 class TestAudioLabSearchFilters:
 
     def test_quality_hires_filter(self):

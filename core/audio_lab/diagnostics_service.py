@@ -44,6 +44,18 @@ CREATE TABLE IF NOT EXISTS audio_lab_quality_cache (
 """
 
 
+def _safe_load_json_dict(value: str | None) -> dict:
+    """Parse a JSON string to dict, returning {} on any error."""
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, dict) else {}
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Corrupt JSON dict in diagnostics cache: %s", value[:80])
+        return {}
+
+
 def _safe_load_json(value: str | None) -> list:
     """Parse a JSON string to list, returning [] on any error."""
     if not value:
@@ -74,7 +86,27 @@ class DiagnosticsCache:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA_SQL)
+        self._migrate_columns()
         self._conn.commit()
+
+    def _migrate_columns(self):
+        """Add spectral columns if missing (idempotent)."""
+        cols = {r[1] for r in self._conn.execute(
+            "PRAGMA table_info(audio_lab_quality_cache)"
+        ).fetchall()}
+        for col, definition in (
+            ("spectral_verdict", "TEXT DEFAULT ''"),
+            ("spectral_label", "TEXT DEFAULT ''"),
+            ("spectral_confidence", "REAL DEFAULT 0"),
+            ("spectral_metrics_json", "TEXT DEFAULT '{}'"),
+        ):
+            if col not in cols:
+                try:
+                    self._conn.execute(
+                        f"ALTER TABLE audio_lab_quality_cache ADD COLUMN {col} {definition}"
+                    )
+                except Exception:
+                    pass
 
     def get(self, filepath: str) -> dict[str, Any] | None:
         """Return cached result if file hasn't changed, else None."""
@@ -95,6 +127,16 @@ class DiagnosticsCache:
         if row["mtime"] != mtime or row["size"] != size:
             return None
 
+        spec_metrics = _safe_load_json_dict(row["spectral_metrics_json"])
+        spec = {}
+        sv = row["spectral_verdict"] or ""
+        if sv:
+            spec = {
+                "verdict": sv,
+                "label": row["spectral_label"] or "",
+                "confidence": row["spectral_confidence"] or 0.0,
+                "metrics": spec_metrics,
+            }
         return {
             "filepath": row["path"],
             "exists": True,
@@ -115,6 +157,7 @@ class DiagnosticsCache:
                 "category": row["quality_category"] or "",
                 "label": row["quality_label"] or "",
             },
+            "spectral": spec,
         }
 
     def put(self, filepath: str, result: dict[str, Any]):
@@ -128,12 +171,17 @@ class DiagnosticsCache:
 
         fi = result.get("format_info", {})
         q = result.get("quality", {})
+        spec = result.get("spectral", {})
+        if not isinstance(spec, dict):
+            spec = {}
         self._conn.execute(
             """INSERT OR REPLACE INTO audio_lab_quality_cache
             (path, mtime, size, container, codec, sample_rate, bit_depth,
              channels, duration, bitrate, quality_category, quality_label,
-             warnings_json, error, analyzed_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+             warnings_json, error, analyzed_at,
+             spectral_verdict, spectral_label, spectral_confidence,
+             spectral_metrics_json)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 filepath, mtime, size,
                 fi.get("container", ""), fi.get("codec", ""),
@@ -144,6 +192,9 @@ class DiagnosticsCache:
                 json.dumps(fi.get("warnings", [])),
                 result.get("error", ""),
                 time.strftime("%Y-%m-%dT%H:%M:%S"),
+                spec.get("verdict", ""), spec.get("label", ""),
+                spec.get("confidence", 0.0),
+                json.dumps(spec.get("metrics", {})),
             ),
         )
         self._conn.commit()
@@ -195,6 +246,16 @@ class DiagnosticsCache:
             if row["mtime"] != sc[0] or row["size"] != sc[1]:
                 result[p] = None
                 continue
+            spec_metrics = _safe_load_json_dict(row["spectral_metrics_json"])
+            spec = {}
+            sv = row["spectral_verdict"] or ""
+            if sv:
+                spec = {
+                    "verdict": sv,
+                    "label": row["spectral_label"] or "",
+                    "confidence": row["spectral_confidence"] or 0.0,
+                    "metrics": spec_metrics,
+                }
             result[p] = {
                 "filepath": row["path"],
                 "exists": True,
@@ -214,6 +275,7 @@ class DiagnosticsCache:
                     "category": row["quality_category"] or "",
                     "label": row["quality_label"] or "",
                 },
+                "spectral": spec,
             }
         return result
 
