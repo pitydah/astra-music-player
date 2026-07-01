@@ -1250,19 +1250,24 @@ class MainWindow(QMainWindow):
     def _play_file(self, filepath: str, add_to_queue: bool = False):
         self._playback_ctrl.play_file(filepath, add_to_queue)
 
+    def _toggle_favorite_by_filepath(self, filepath: str, songs_ctrl):
+        from library.library_db import MediaItem
+        item = MediaItem(filepath=filepath)
+        songs_ctrl.toggle_favorite(item)
+
     def _show_song_context_menu(self, filepath: str, pos):
         from PySide6.QtWidgets import QMenu
         from ui.central.central_styles import menu_qss
         menu = QMenu(self)
         menu.setStyleSheet(menu_qss())
 
-        play_act = menu.addAction("▶ Reproducir")
-        queue_act = menu.addAction("⊕ Añadir a la cola")
+        play_act = menu.addAction("Reproducir")
+        queue_act = menu.addAction("Añadir a la cola")
         menu.addSeparator()
-        locate_act = menu.addAction("📁 Localizar archivo")
+        locate_act = menu.addAction("Localizar archivo")
         menu.addSeparator()
-        fav_act = menu.addAction("★ Favorito / Quitar favorito")
-        metadata_act = menu.addAction("✎ Editar metadatos")
+        fav_act = menu.addAction("Favorito / Quitar favorito")
+        metadata_act = menu.addAction("Editar metadatos")
 
         action = menu.exec(pos)
         if action == play_act:
@@ -1275,12 +1280,9 @@ class MainWindow(QMainWindow):
         elif action == fav_act:
             songs_ctrl = getattr(self, '_songs_ctrl', None)
             if songs_ctrl and hasattr(songs_ctrl, 'toggle_favorite'):
-                from library.library_db import MediaItem
-                item = MediaItem(filepath=filepath)
-                songs_ctrl.toggle_favorite(item)
-        elif action == metadata_act:
-            if hasattr(self, '_open_metadata_for_files'):
-                self._open_metadata_for_files([filepath])
+                self._toggle_favorite_by_filepath(filepath, songs_ctrl)
+        elif action == metadata_act and hasattr(self, '_open_metadata_for_files'):
+            self._open_metadata_for_files([filepath])
     # Streaming/Cast/AudioOutput — now split into focused controllers
     # CastController → unified transmit menu (local + net + snapcast + HA)
     # AudioOutputController → local output device selection
