@@ -46,11 +46,19 @@ Item {
                     ActionButton {
                         text: "Continuar escuchando"
                         variant: "primary"
+                        onClicked: {
+                            if (typeof navigationBridge !== "undefined" && navigationBridge)
+                                navigationBridge.navigate("playback")
+                        }
                     }
 
                     ActionButton {
                         text: "Explorar"
                         variant: "ghost"
+                        onClicked: {
+                            if (typeof navigationBridge !== "undefined" && navigationBridge)
+                                navigationBridge.navigate("library")
+                        }
                     }
                 }
             }
@@ -62,19 +70,21 @@ Item {
 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: 120
-                    height: 120
-                    radius: 60
+                    width: 100
+                    height: 100
+                    radius: 50
                     color: Qt.rgba(0.561, 0.718, 1.0, 0.06)
                     border.color: Qt.rgba(0.561, 0.718, 1.0, 0.12)
                     border.width: 1
 
                     Text {
                         anchors.centerIn: parent
-                        text: "♫"
+                        text: "MM"
                         color: MichiColors.accentBlue
-                        font.pixelSize: 42
-                        opacity: 0.60
+                        font.pixelSize: 28
+                        font.weight: MichiTypography.weightBold
+                        font.letterSpacing: 2.0
+                        opacity: 0.50
                     }
                 }
             }

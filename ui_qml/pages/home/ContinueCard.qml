@@ -24,7 +24,6 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: console.log("[ContinueCard] Continuar reproducción")
         }
 
         Row {
@@ -57,10 +56,9 @@ Item {
 
             ActionButton {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Reproducir"
+                text: root.hasPlayback ? "Reproducir" : "Sin reproducción"
                 variant: root.hasPlayback ? "accent" : "secondary"
                 enabled: root.hasPlayback
-                onClicked: console.log("[ContinueCard] Play")
             }
         }
     }
