@@ -11,6 +11,9 @@ from ui_qml_bridge.home_audio_bridge import HomeAudioBridge
 from ui_qml_bridge.library_bridge import LibraryBridge
 from ui_qml_bridge.michi_ai_bridge import MichiAIBridge
 from ui_qml_bridge.metadata_bridge import MetadataBridge
+from ui_qml_bridge.radio_bridge import RadioBridge
+from ui_qml_bridge.audio_lab_bridge import AudioLabBridge
+from ui_qml_bridge.settings_bridge import SettingsBridge
 
 
 QML_DIR = Path(__file__).resolve().parent.parent.parent / "ui_qml"
@@ -568,7 +571,6 @@ class TestCoverBridge:
 
 class TestMetadataBridge:
     def test_metadata_bridge_exists(self):
-        from ui_qml_bridge.metadata_bridge import MetadataBridge
         assert MetadataBridge is not None
 
     def test_metadata_bridge_properties(self):
@@ -855,5 +857,71 @@ class TestPlaylistsComponents:
 class TestContextMenu:
     def test_song_context_menu_exists(self):
         assert (QML_DIR / "components" / "SongContextMenu.qml").exists()
+
+
+class TestRadioBridgeIntegration:
+    def test_radio_bridge_importable(self):
+        from ui_qml_bridge.radio_bridge import RadioBridge
+        assert RadioBridge is not None
+
+    def test_radio_bridge_refresh(self):
+        bridge = RadioBridge()
+        bridge.refresh()
+        assert len(bridge.stations) > 0
+
+    def test_radio_bridge_has_slots(self):
+        bridge = RadioBridge()
+        assert hasattr(bridge, 'addStation')
+
+
+class TestAudioLabIntegration:
+    def test_audio_lab_bridge_importable(self):
+        from ui_qml_bridge.audio_lab_bridge import AudioLabBridge
+        assert AudioLabBridge is not None
+
+    def test_audio_lab_bridge_modules(self):
+        bridge = AudioLabBridge()
+        mods = bridge.modules
+        assert len(mods) > 0
+        assert any(m["id"] == "diagnostics" for m in mods)
+
+    def test_audio_lab_bridge_refresh(self):
+        bridge = AudioLabBridge()
+        bridge.refresh()
+
+
+class TestSettingsBridgeIntegration:
+    def test_settings_bridge_importable(self):
+        from ui_qml_bridge.settings_bridge import SettingsBridge
+        assert SettingsBridge is not None
+
+    def test_settings_bridge_sections(self):
+        bridge = SettingsBridge()
+        secs = bridge.sections
+        assert len(secs) > 0
+        assert any(s["id"] == "general" for s in secs)
+
+
+class TestConnectionsV2Bridge:
+    def test_connections_bridge_refresh(self):
+        bridge = ConnectionsBridge()
+        bridge.refresh()
+        assert bridge.microServerState == "not_configured"
+
+    def test_connections_bridge_scan(self):
+        bridge = ConnectionsBridge()
+        bridge.scanForServers()
+        assert len(bridge.discoveredServers) > 0
+
+
+class TestHomeAudioV2Bridge:
+    def test_home_audio_bridge_refresh(self):
+        bridge = HomeAudioBridge()
+        bridge.refresh()
+        assert bridge.homeAssistantState == "not_configured"
+
+    def test_home_audio_bridge_devices(self):
+        bridge = HomeAudioBridge()
+        assert len(bridge.devices) == 0
 
 
