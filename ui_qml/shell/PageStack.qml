@@ -21,10 +21,12 @@ Item {
             case "assistant": return "../pages/assistant/AssistantPage.qml"
             case "library": return "../pages/library/LibraryPage.qml"
             case "audio_lab": return "../pages/assistant/AudioLabPage.qml"
-            case "radio": return "../pages/PlaceholderPage.qml"
-            case "playlists": return "../pages/PlaceholderPage.qml"
+            case "radio": return "../pages/RadioPage.qml"
+            case "playlists": return "../pages/PlaylistsPage.qml"
             case "metadata_inspector": return "../pages/metadata/MetadataInspectorPage.qml"
             case "mix_detail": return "../pages/MixDetailPage.qml"
+            case "playback": return "../pages/PlaybackPage.qml"
+            case "settings": return "../pages/SettingsPage.qml"
             default: return "../pages/PlaceholderPage.qml"
         }
     }

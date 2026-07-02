@@ -29,9 +29,6 @@ Item {
             HomeAudioModeSelector {
                 id: modeSelector
                 width: parent.width
-                onModeSelected: function(index) {
-                    console.log("[HomeAudio] Mode selected:", index)
-                }
             }
 
             StackLayout {
@@ -45,14 +42,10 @@ Item {
                     onConfigureClicked: {
                         if (typeof homeAudioBridge !== "undefined" && homeAudioBridge)
                             homeAudioBridge.configureHomeAssistant()
-                        else
-                            console.log("[HomeAudio] Configurar HA")
                     }
                     onOpenDiagnostics: {
                         if (typeof homeAudioBridge !== "undefined" && homeAudioBridge)
                             homeAudioBridge.openDiagnostics()
-                        else
-                            console.log("[HomeAudio] Diagnóstico HA")
                     }
                 }
 
@@ -61,6 +54,33 @@ Item {
                     width: parent.width
                 }
             }
+
+            SectionHeader { text: "Dispositivos"; width: parent.width }
+
+            ReceiverCard {
+                width: parent.width
+                receiverName: "Receptor principal"
+                receiverRoom: "Sala de estar"
+                receiverState: "disconnected"
+                receiverType: "Michi Stream"
+            }
+
+            ReceiverCard {
+                width: parent.width
+                receiverName: "Receptor secundario"
+                receiverRoom: "Dormitorio"
+                receiverState: "disconnected"
+                receiverType: "Michi Stream"
+            }
+
+            GlassCard {
+                width: parent.width; height: 80
+                title: "Diagnóstico de red"
+                subtitle: "Mide latencia y calidad de conexión entre dispositivos."
+                variant: "base"
+            }
+
+            StatusBadge { text: "Experimental — Sin dispositivos conectados"; kind: "experimental" }
         }
     }
 }

@@ -14,6 +14,7 @@ VALID_ROUTES = {
     "assistant",
     "metadata_inspector",
     "mix_detail",
+    "settings",
     "placeholder",
 }
 

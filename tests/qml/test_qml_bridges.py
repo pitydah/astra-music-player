@@ -57,10 +57,8 @@ def test_shell_files():
 def test_page_stack_contains_new_routes():
     import re
     page_stack = (QML_DIR / "shell" / "PageStack.qml").read_text()
-    assert "radio" not in page_stack or "PlaceholderPage" in page_stack, \
-        "radio routes should resolve to PlaceholderPage"
-    assert "playlists" not in page_stack or "PlaceholderPage" in page_stack, \
-        "playlists routes should resolve to PlaceholderPage"
+    assert "RadioPage" in page_stack, "radio should resolve to RadioPage"
+    assert "PlaylistsPage" in page_stack, "playlists should resolve to PlaylistsPage"
 
     cases = {
         "assistant": "../pages/assistant/AssistantPage.qml",
@@ -69,8 +67,6 @@ def test_page_stack_contains_new_routes():
     for route, expected in cases.items():
         assert re.search(rf'case "{route}":\s*return "{expected}"', page_stack), \
             f"PageStack missing {route} -> {expected}"
-
-    assert "settings" not in page_stack, "PageStack still references 'settings'"
 
 
 def test_page_stack_references_exist():
@@ -131,7 +127,7 @@ def test_app_shell_titles_match_sidebar_routes():
     sidebar_routes = set(re.findall(r'route: "(\w+)"', sidebar))
     appshell_routes = set(re.findall(r'"(\w+)":\s*"', appshell))
 
-    internal_routes = {"nowplaying", "metadata_inspector"}
+    internal_routes = {"nowplaying", "metadata_inspector", "mix_detail", "settings"}
     sidebar_only = sidebar_routes - appshell_routes
     appshell_only = (appshell_routes - sidebar_routes) - internal_routes
 
@@ -146,7 +142,7 @@ def test_app_shell_titles_match_sidebar_routes():
 def test_sidebar_has_no_forbidden_routes():
     import re
     sidebar = (QML_DIR / "shell" / "Sidebar.qml").read_text()
-    forbidden = {"genres", "ecosystem", "settings"}
+    forbidden = {"genres", "ecosystem"}
     routes = set(re.findall(r'route: "(\w+)"', sidebar))
     found = routes & forbidden
     assert not found, f"Forbidden sidebar routes found: {found}"
@@ -182,7 +178,6 @@ def test_page_stack_has_explicit_radio_playlists():
     page_stack = (QML_DIR / "shell" / "PageStack.qml").read_text()
     assert 'case "radio":' in page_stack, "PageStack missing explicit case for radio"
     assert 'case "playlists":' in page_stack, "PageStack missing explicit case for playlists"
-    assert 'case "settings":' not in page_stack, "PageStack still has settings case"
     assert 'case "assistant":' in page_stack, "PageStack missing assistant case"
     assert 'AssistantPage.qml' in page_stack, "PageStack missing AssistantPage reference"
 
@@ -279,7 +274,7 @@ class TestNavigationBridge:
     def test_navigate_settings_falls_to_placeholder(self):
         bridge = NavigationBridge()
         bridge.navigate("settings")
-        assert bridge.currentRoute == "placeholder", "settings should fall to placeholder"
+        assert bridge.currentRoute == "settings", "settings should be a valid route now"
 
     def test_navigate_michi_ai_falls_to_placeholder(self):
         bridge = NavigationBridge()
@@ -724,5 +719,53 @@ class TestMixComponents:
         content = (QML_DIR.parent / "ui_qml_bridge" / "qml_main.py").read_text()
         assert "MixBridge" in content, "qml_main missing MixBridge import"
         assert "mixBridge" in content, "qml_main missing mixBridge context property"
+
+
+class TestPlaybackComponents:
+    def test_playback_bridge_importable(self):
+        from ui_qml_bridge.playback_bridge import PlaybackBridge
+        assert PlaybackBridge is not None
+
+    def test_playback_page_exists(self):
+        assert (QML_DIR / "pages" / "PlaybackPage.qml").exists()
+
+    def test_playback_bridge_has_properties(self):
+        from ui_qml_bridge.playback_bridge import PlaybackBridge
+        bridge = PlaybackBridge()
+        assert bridge.isPlaying is False
+        assert bridge.volume == 80
+
+
+class TestRadioComponents:
+    def test_radio_page_exists(self):
+        assert (QML_DIR / "pages" / "RadioPage.qml").exists()
+
+    def test_radio_route_in_pagestack(self):
+        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
+        assert "RadioPage" in content, "PageStack missing RadioPage"
+
+
+class TestPlaylistsComponents:
+    def test_playlists_page_exists(self):
+        assert (QML_DIR / "pages" / "PlaylistsPage.qml").exists()
+
+    def test_playlists_route_in_pagestack(self):
+        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
+        assert "PlaylistsPage" in content, "PageStack missing PlaylistsPage"
+
+
+class TestSettingsComponents:
+    def test_settings_page_exists(self):
+        assert (QML_DIR / "pages" / "SettingsPage.qml").exists()
+
+    def test_settings_route_in_navigation(self):
+        from ui_qml_bridge.navigation_bridge import NavigationBridge
+        bridge = NavigationBridge()
+        bridge.navigate("settings")
+        assert bridge.currentRoute == "settings", "settings should be valid route"
+
+    def test_settings_route_in_pagestack(self):
+        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
+        assert "SettingsPage" in content, "PageStack missing SettingsPage"
 
 

@@ -21,6 +21,8 @@ Item {
             "home_audio": "Home Audio",
             "audio_lab": "Audio Lab",
             "assistant": "Michi AI",
+            "mix_detail": "Mix",
+            "settings": "Ajustes",
         }
         header.pageTitle = titles[route] || "Michi"
     }
