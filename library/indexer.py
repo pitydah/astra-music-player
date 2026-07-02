@@ -17,13 +17,9 @@ from PySide6.QtCore import Signal, QObject
 
 from library.index_state import ScanState, ScanPhase
 from library.batch_writer import BatchWriter
-from library.metadata_normalizer import (
-    normalize_text, normalize_artist_name, normalize_genre, normalize_year,
-    normalize_disc_track, normalize_bpm, normalize_mb_id,
-)
-from library.metadata_extractor import ALL_EXTS, _safe_extract as extract_metadata_combined
-from library.media_item import media_kind
-from library.album_key import make_album_key, make_artist_key
+from library.metadata_normalizer import normalize_artist_name
+from library.metadata_extractor import ALL_EXTS
+from library.album_key import make_artist_key
 
 logger = logging.getLogger("michi.indexer")
 
@@ -238,121 +234,18 @@ class Indexer(QObject):
         from library.change_detector import is_file_unchanged
         return is_file_unchanged(self._db, filepath, stat)
 
-    @staticmethod
-    def _compute_quick_hash(filepath: str) -> str:
-        from library.change_detector import compute_quick_hash
-        return compute_quick_hash(filepath)
 
     def _build_record(self, filepath: str) -> dict | None:
-        """MetadataExtractor + AlbumKeyBuilder — extract and normalize metadata."""
-        if not os.path.exists(filepath):
+        """MetadataExtractor + AlbumKeyBuilder — extract and normalize metadata.
+
+        Delegates to MediaRecordBuilder for consistent field normalization.
+        """
+        from library.media_record_builder import MediaRecordBuilder
+        builder = MediaRecordBuilder(db=self._db)
+        result = builder.build(filepath)
+        if result.errors or result.record is None:
             return None
-
-        ext = os.path.splitext(filepath)[1].lower()
-        kind = media_kind(ext)
-        if kind == "unknown":
-            return None
-
-        stat = os.stat(filepath)
-        meta = extract_metadata_combined(filepath)
-
-        fname = os.path.basename(filepath)
-        dname = os.path.dirname(filepath)
-        title = normalize_text(meta.get("title") or "", 256)
-        artist = normalize_artist_name(meta.get("artist", ""))
-        album = normalize_text(meta.get("album", ""), 256)
-        genre = normalize_genre(meta.get("genre", ""))
-        year = normalize_year(meta.get("year"))
-        albumartist = normalize_artist_name(meta.get("albumartist", ""))
-        composer = normalize_text(meta.get("composer", ""), 256)
-
-        disc_number, disc_total = normalize_disc_track(
-            f"{meta.get('disc_number', 0)}/{meta.get('disc_total', 0)}")
-        track_number = meta.get("track_number", 0)
-        track_total = meta.get("track_total", 0)
-
-        mb_track_id = normalize_mb_id(meta.get("mb_track_id", ""))
-        mb_album_id = normalize_mb_id(meta.get("mb_album_id", ""))
-        mb_albumartist_id = normalize_mb_id(meta.get("mb_albumartist_id", ""))
-        bit_depth = meta.get("bit_depth", 0) or 0
-        bpm = normalize_bpm(meta.get("bpm"))
-        replaygain_track = meta.get("replaygain_track", 0.0)
-        replaygain_album = meta.get("replaygain_album", 0.0)
-        replaygain_track_peak = meta.get("replaygain_track_peak", 0.0)
-        isrc = normalize_text(meta.get("isrc", ""), 128)
-        label = normalize_text(meta.get("label", ""), 256)
-        conductor = normalize_text(meta.get("conductor", ""), 256)
-        compilation = meta.get("compilation", 0)
-        media_type = normalize_text(meta.get("media_type", ""), 128)
-        encoder = normalize_text(meta.get("encoder", ""), 256)
-        copyright = normalize_text(meta.get("copyright", ""), 512)
-        originaldate = normalize_text(meta.get("originaldate", ""), 32)
-        remixer = normalize_text(meta.get("remixer", ""), 256)
-        grouping = normalize_text(meta.get("grouping", ""), 256)
-        mood = normalize_text(meta.get("mood", ""), 128)
-        comment = normalize_text(meta.get("comment", ""), 512)
-        lyricist = normalize_text(meta.get("lyricist", ""), 256)
-
-        # AlbumKeyBuilder — cache embedded cover art with stable key
-        cover_data = meta.get("cover_data", b"")
-        if cover_data and album:
-            try:
-                ak = make_album_key(albumartist or artist, artist, album)
-                cover_mime = meta.get("cover_mime", "image/jpeg")
-                self._db.conn.execute(
-                    "INSERT OR REPLACE INTO album_art_cache "
-                    "(album_hash, mime, data) VALUES (?,?,?)",
-                    (ak, cover_mime, cover_data))
-                self._db.conn.commit()
-            except Exception as e:
-                logger.debug("Failed to cache cover for %s: %s", filepath, e)
-
-        return {
-            "filepath": filepath,
-            "filename": fname,
-            "directory": dname,
-            "ext": ext,
-            "kind": kind,
-            "size": stat.st_size,
-            "mtime": stat.st_mtime,
-            "duration": meta.get("duration", 0.0),
-            "channels": meta.get("channels", 0),
-            "sample_rate": meta.get("sample_rate", 0),
-            "bitrate": meta.get("bitrate", 0),
-            "title": title,
-            "artist": artist,
-            "album": album,
-            "albumartist": albumartist,
-            "year": year,
-            "genre": genre,
-            "track_number": track_number,
-            "track_total": track_total,
-            "disc_number": disc_number,
-            "disc_total": disc_total,
-            "composer": composer,
-            "mb_track_id": mb_track_id,
-            "mb_album_id": mb_album_id,
-            "mb_albumartist_id": mb_albumartist_id,
-            "bit_depth": bit_depth,
-            "bpm": bpm,
-            "replaygain_track": replaygain_track,
-            "replaygain_album": replaygain_album,
-            "replaygain_track_peak": replaygain_track_peak,
-            "isrc": isrc, "label": label, "conductor": conductor,
-            "compilation": compilation, "media_type": media_type,
-            "encoder": encoder, "copyright": copyright,
-            "originaldate": originaldate, "remixer": remixer,
-            "grouping": grouping, "mood": mood,
-            "comment": comment, "lyricist": lyricist,
-            "replaygain_album_peak": meta.get("replaygain_album_peak", 0.0),
-            "r128_track_gain": meta.get("r128_track_gain", 0.0),
-            "r128_album_gain": meta.get("r128_album_gain", 0.0),
-            "mb_artist_id": meta.get("mb_artist_id", ""),
-            "mb_releasegroup_id": meta.get("mb_releasegroup_id", ""),
-            "acoustid_id": meta.get("acoustid_id", ""),
-            "acoustid_fingerprint": meta.get("acoustid_fingerprint", ""),
-            "content_hash": self._compute_quick_hash(filepath),
-        }
+        return result.record
 
     def _rebuild_indexes(self):
         """Rebuild SQLite indexes and FTS5 index for fast queries."""

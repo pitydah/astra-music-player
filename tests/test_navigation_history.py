@@ -18,11 +18,11 @@ class TestNavigationHistory:
         h.push("albums")
         entry = h.back()
         assert entry is not None
-        assert entry[0] == "library"
+        assert entry["key"] == "library"
         assert h.current_key == "library"
         entry = h.back()
         assert entry is not None
-        assert entry[0] == "home"
+        assert entry["key"] == "home"
 
     def test_forward_restores(self):
         from ui.controllers.navigation_controller import NavigationHistory
@@ -34,10 +34,10 @@ class TestNavigationHistory:
         h.back()
         entry = h.forward()
         assert entry is not None
-        assert entry[0] == "library"
+        assert entry["key"] == "library"
         entry = h.forward()
         assert entry is not None
-        assert entry[0] == "albums"
+        assert entry["key"] == "albums"
 
     def test_no_forward_at_tip(self):
         from ui.controllers.navigation_controller import NavigationHistory
@@ -58,7 +58,7 @@ class TestNavigationHistory:
         h.push("albums")
         h.push("albums", force=True)
         assert h._index == 1
-        assert h._history[1][0] == "albums"
+        assert h._history[1]["key"] == "albums"
 
     def test_tab_sequence(self):
         from ui.controllers.navigation_controller import NavigationHistory
@@ -67,13 +67,13 @@ class TestNavigationHistory:
         h.push("albums")
         h.push("artists")
         h.push("genres")
-        assert h.back()[0] == "artists"
-        assert h.back()[0] == "albums"
-        assert h.back()[0] == "library"
+        assert h.back()["key"] == "artists"
+        assert h.back()["key"] == "albums"
+        assert h.back()["key"] == "library"
         assert h.back() is None
-        assert h.forward()[0] == "albums"
-        assert h.forward()[0] == "artists"
-        assert h.forward()[0] == "genres"
+        assert h.forward()["key"] == "albums"
+        assert h.forward()["key"] == "artists"
+        assert h.forward()["key"] == "genres"
 
     def test_detail_route_back_forward(self):
         from ui.controllers.navigation_controller import NavigationHistory
@@ -82,9 +82,9 @@ class TestNavigationHistory:
         h.push("album:k1", force=True)
         assert h.current_key == "album:k1"
         entry = h.back()
-        assert entry[0] == "albums"
+        assert entry["key"] == "albums"
         entry = h.forward()
-        assert entry[0] == "album:k1"
+        assert entry["key"] == "album:k1"
 
     def test_artist_detail_route_back_forward(self):
         from ui.controllers.navigation_controller import NavigationHistory
@@ -92,9 +92,9 @@ class TestNavigationHistory:
         h.push("artists")
         h.push("artist:k1", force=True)
         entry = h.back()
-        assert entry[0] == "artists"
+        assert entry["key"] == "artists"
         entry = h.forward()
-        assert entry[0] == "artist:k1"
+        assert entry["key"] == "artist:k1"
 
     def test_genre_detail_route_back_forward(self):
         from ui.controllers.navigation_controller import NavigationHistory
@@ -102,9 +102,9 @@ class TestNavigationHistory:
         h.push("genres")
         h.push("genre:k1", force=True)
         entry = h.back()
-        assert entry[0] == "genres"
+        assert entry["key"] == "genres"
         entry = h.forward()
-        assert entry[0] == "genre:k1"
+        assert entry["key"] == "genre:k1"
 
     def test_restoring_flag(self):
         from ui.controllers.navigation_controller import NavigationHistory

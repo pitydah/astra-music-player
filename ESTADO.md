@@ -285,3 +285,69 @@ Sidebar click → sidebar_controller → navigation_requested(key)
 2. **Conversión real de archivos** con backend seguro
 3. **Pre-beta packaging** — Flatpak / AppImage / `.deb`
 4. **Actualizar AGENTS.md**
+
+---
+
+## 🏛 Sesión Biblioteca — 2026-07-01
+
+### Resumen
+Biblioteca alcanzó estado **100% funcional, estable y listo para beta** tras consolidar:
+- Estado canónico (`LibraryState`, `LibrarySection`, `LibraryViewMode`)
+- Controlador con Qt Signals (`LibraryStateController`)
+- Normalización de rutas y tabs (5 secciones, sidebar correcto)
+- Identidad estable de tracks (`TrackIdentityService` — 6 niveles)
+- `MediaItem` ampliado (20 campos nuevos: content_hash, file_hash, quality, analysis_status, etc.)
+- `MediaRecordBuilder` — construcción unificada de registros DB
+- `LibraryMutationService` — add/remove/update con resultado estructurado
+- `LibrarySearchService` — búsqueda unificada (5 secciones)
+- `LibraryOrganizeService` — preview + validación + rollback
+- `LibraryHealthService` — health summary con score
+- Historial con snapshot de `LibraryState` (back/forward restaura filtros, búsqueda, view mode)
+- FileWatcher integrado con `LibraryMutationService`
+- `Indexer._build_record()` y `LibraryDB.add_file()` delegados a `MediaRecordBuilder`
+
+### Archivos nuevos (17)
+| Archivo | Propósito |
+|---------|-----------|
+| `library/library_state.py` | Enums + dataclasses canónicas |
+| `library/track_identity.py` | Identidad estable de tracks |
+| `library/media_record_builder.py` | File → DB record (shared builder) |
+| `library/library_mutation_service.py` | Mutaciones con resultado estructurado |
+| `library/library_search.py` | Búsqueda unificada |
+| `library/library_organize_service.py` | Organización segura con rollback |
+| `library/library_health_service.py` | Health summary |
+| `ui/controllers/library_state_controller.py` | Qt Signals controller |
+| `docs/library_architecture.md` | Documentación completa |
+| `tests/test_library_state.py` | 45 tests |
+| `tests/test_library_state_controller.py` | 30 tests |
+| `tests/test_library_navigation_state.py` | 16 tests |
+| `tests/test_track_identity.py` | 24 tests |
+| `tests/test_media_item_fields.py` | 19 tests |
+| `tests/test_media_record_builder.py` | 10 tests |
+| `tests/test_library_mutation_service.py` | 13 tests |
+| `tests/test_library_search_contract.py` | 19 tests |
+| `tests/test_library_organize_safe.py` | 18 tests |
+| `tests/test_library_health_service.py` | 17 tests |
+
+### Archivos modificados (8)
+| Archivo | Cambio |
+|---------|--------|
+| `library/indexer.py` | `_build_record()` delegado a `MediaRecordBuilder` |
+| `library/library_db.py` | `add_file()` delegado a `MediaRecordBuilder` |
+| `library/media_item.py` | +20 campos, +to_dict() |
+| `ui/hubs/library_hub_page.py` | `_TAB_TO_SECTION` usa `LibrarySection` |
+| `ui/controllers/library_watcher_controller.py` | Constructor usa `LibraryMutationService` |
+| `ui/controllers/navigation_controller.py` | Historial con snapshot de `LibraryState` |
+| `ui/window.py` | Crea `LibraryMutationService`, lo pasa al watcher |
+| `tests/test_library_watcher_controller.py` | Tests actualizados |
+
+### Tests nuevos: 211
+### Total tests estimado: 415 + 211 = 626
+
+### Validación
+| Comando | Resultado |
+|---------|-----------|
+| `ruff check library/` | **0 errores** |
+| `ruff check ui/controllers/navigation_controller.py` | **0 errores** |
+| `python -m compileall -q .` | ✅ |
+| `QT_QPA_PLATFORM=offscreen pytest tests/test_library_state.py tests/test_library_state_controller.py tests/test_library_navigation_state.py tests/test_track_identity.py tests/test_media_item_fields.py tests/test_mediaitem_table_model.py tests/test_media_record_builder.py tests/test_library_mutation_service.py tests/test_library_watcher_controller.py tests/test_library_search_contract.py tests/test_library_organize_safe.py tests/test_library_health_service.py tests/test_navigation_history.py tests/test_navigation_back_forward.py tests/test_navigation_controller.py` | **323 passed** |

@@ -93,10 +93,10 @@ class TestNavigationHistory:
         h.push("artists")
         assert h.can_go_back is True
         entry = h.back()
-        assert entry[0] == "albums"
+        assert entry["key"] == "albums"
         assert h.can_go_forward is True
         entry = h.forward()
-        assert entry[0] == "artists"
+        assert entry["key"] == "artists"
 
     def test_back_returns_none_when_at_start(self):
         h = NavigationHistory()
@@ -113,13 +113,13 @@ class TestNavigationHistory:
         h.push("b")
         h.back()
         h.push("c")
-        assert h._history == [("a", ""), ("c", "")]
+        assert h._history == [{"key": "a", "search_text": ""}, {"key": "c", "search_text": ""}]
         assert h.can_go_forward is False
 
     def test_push_stores_search_text(self):
         h = NavigationHistory()
         h.push("albums", "rock")
-        assert h._history[0] == ("albums", "rock")
+        assert h._history[0] == {"key": "albums", "search_text": "rock"}
 
     def test_restore_call_sets_flag(self):
         h = NavigationHistory()
@@ -254,8 +254,9 @@ class TestNavigationController:
         win._search.text.return_value = "rock"
         ctrl.dispatch("albums")
         ctrl.dispatch("artists")
-        assert ctrl._history._history[0] == ("albums", "rock"), (
-            "dispatch should save previous search before clearing")
+        entry = ctrl._history._history[0]
+        assert entry["key"] == "albums", "dispatch should save previous search before clearing"
+        assert entry["search_text"] == "rock", "dispatch should save previous search before clearing"
 
     def test_navigate_back_restores_search_text(self, ctrl, win):
         win._search_text = "rock"
@@ -384,8 +385,9 @@ class TestResolveSidebarActiveKey:
         assert resolve_sidebar_active_key("home") == "home"
 
     def test_library_children(self):
-        for key in ("albums", "artists", "genres", "folders", "favs", "recent"):
+        for key in ("albums", "artists", "folders", "favs", "recent"):
             assert resolve_sidebar_active_key(key) == "library_hub", f"Failed for {key}"
+        assert resolve_sidebar_active_key("genres") == "genres", "genres is now top-level"
 
     def test_mix_children(self):
         assert resolve_sidebar_active_key("mix_daily") == "mix_hub"

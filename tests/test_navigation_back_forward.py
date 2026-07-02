@@ -33,7 +33,7 @@ class TestNavigationBackForward:
         h.push("library")
         assert h.can_go_back is True
         entry = h.back()
-        assert entry[0] == "home"
+        assert entry["key"] == "home"
         assert h.can_go_forward is True
 
     @pytest.mark.parametrize("filepath,pattern", [

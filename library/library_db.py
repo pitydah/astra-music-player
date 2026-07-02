@@ -18,7 +18,7 @@ logger = logging.getLogger("michi.library")
 
 # ── Re-exports from split modules ──
 from library.metadata_extractor import AUDIO_EXTS, ALL_EXTS, extract_metadata, extract_metadata_full, extract_metadata_combined  # noqa: E402, F401
-from library.media_item import MediaItem, media_kind  # noqa: E402
+from library.media_item import MediaItem  # noqa: E402
 from library.devices import get_mounted_devices, scan_device_music  # noqa: E402, F401
 
 def _default_db_path() -> str:
@@ -141,123 +141,37 @@ class LibraryDB:
         self._conn.close()
 
     def add_file(self, filepath: str) -> int | None:
-        """Add a single file to the library using BatchWriter for consistency.
-
-        Extracts metadata (Mutagen > GStreamer > filename inference),
-        computes track_uid, stores cover art, and upserts via BatchWriter.
-        This ensures the same column set and ON CONFLICT logic as Indexer.
-        """
-        if not os.path.exists(filepath):
-            return None
-        ext = os.path.splitext(filepath)[1].lower()
-        kind = media_kind(ext)
-        if kind == "unknown":
-            return None
-
-        from library.change_detector import compute_quick_hash
+        """Add a single file using MediaRecordBuilder for consistent normalization."""
+        from library.media_record_builder import MediaRecordBuilder
         from library.batch_writer import BatchWriter
-        from library.album_key import make_album_key
-        from library.metadata_normalizer import (
-            normalize_text, normalize_artist_name, normalize_genre,
-            normalize_year, normalize_bpm, normalize_mb_id,
-        )
+        from library.genre_repository import GenreRepository
 
-        meta = extract_metadata_combined(filepath)
-        fname = os.path.basename(filepath)
-        dname = os.path.dirname(filepath)
-        stat = os.stat(filepath)
+        builder = MediaRecordBuilder(db=self)
+        result = builder.build(filepath)
+        if result.errors or result.record is None:
+            return None
+
+        record = result.record
+        import time
         now = time.time()
-
-        record = {
-            "filepath": filepath,
-            "filename": fname,
-            "directory": dname,
-            "ext": ext,
-            "kind": kind,
-            "size": stat.st_size,
-            "mtime": stat.st_mtime,
-            "duration": meta.get("duration", 0.0) or 0.0,
-            "channels": meta.get("channels", 0) or 0,
-            "sample_rate": meta.get("sample_rate", 0) or 0,
-            "bitrate": meta.get("bitrate", 0) or 0,
-            "title": normalize_text(meta.get("title", "") or fname, 256),
-            "artist": normalize_artist_name(meta.get("artist", "") or ""),
-            "album": normalize_text(meta.get("album", "") or "", 256),
-            "albumartist": normalize_artist_name(meta.get("albumartist", "") or ""),
-            "year": normalize_year(meta.get("year")),
-            "genre": normalize_genre(meta.get("genre", "") or ""),
-            "track_number": int(meta.get("track_number", 0) or 0),
-            "track_total": int(meta.get("track_total", 0) or 0),
-            "disc_number": int(meta.get("disc_number", 0) or 0),
-            "disc_total": int(meta.get("disc_total", 0) or 0),
-            "composer": normalize_text(meta.get("composer", "") or "", 256),
-            "mb_track_id": normalize_mb_id(meta.get("mb_track_id", "") or ""),
-            "mb_album_id": normalize_mb_id(meta.get("mb_album_id", "") or ""),
-            "mb_albumartist_id": normalize_mb_id(meta.get("mb_albumartist_id", "") or ""),
-            "bit_depth": int(meta.get("bit_depth", 0) or 0),
-            "bpm": normalize_bpm(meta.get("bpm")),
-            "replaygain_track": float(meta.get("replaygain_track", 0.0) or 0.0),
-            "replaygain_album": float(meta.get("replaygain_album", 0.0) or 0.0),
-            "replaygain_track_peak": float(meta.get("replaygain_track_peak", 0.0) or 0.0),
-            "isrc": normalize_text(meta.get("isrc", "") or "", 128),
-            "label": normalize_text(meta.get("label", "") or "", 256),
-            "conductor": normalize_text(meta.get("conductor", "") or "", 256),
-            "compilation": int(meta.get("compilation", 0) or 0),
-            "media_type": normalize_text(meta.get("media_type", "") or "", 128),
-            "encoder": normalize_text(meta.get("encoder", "") or "", 256),
-            "copyright": normalize_text(meta.get("copyright", "") or "", 512),
-            "originaldate": normalize_text(meta.get("originaldate", "") or "", 32),
-            "remixer": normalize_text(meta.get("remixer", "") or "", 256),
-            "grouping": normalize_text(meta.get("grouping", "") or "", 256),
-            "mood": normalize_text(meta.get("mood", "") or "", 128),
-            "comment": normalize_text(meta.get("comment", "") or "", 512),
-            "lyricist": normalize_text(meta.get("lyricist", "") or "", 256),
-            "replaygain_album_peak": float(meta.get("replaygain_album_peak", 0.0) or 0.0),
-            "r128_track_gain": float(meta.get("r128_track_gain", 0.0) or 0.0),
-            "r128_album_gain": float(meta.get("r128_album_gain", 0.0) or 0.0),
-            "mb_artist_id": normalize_mb_id(meta.get("mb_artist_id", "") or ""),
-            "mb_releasegroup_id": normalize_mb_id(meta.get("mb_releasegroup_id", "") or ""),
-            "acoustid_id": normalize_text(meta.get("acoustid_id", "") or "", 128),
-            "acoustid_fingerprint": normalize_text(meta.get("acoustid_fingerprint", "") or "", 512),
-            "content_hash": compute_quick_hash(filepath),
-            "track_uid": self._compute_track_uid(
-                filepath, meta.get("artist"), meta.get("album"),
-                meta.get("title"), meta.get("duration", 0.0),
-                meta.get("mb_track_id")),
-            "created_at": now,
-            "updated_at": stat.st_mtime,
-            "last_scanned": now,
-            "scan_status": "ok",
-        }
-
-        cover_data = meta.get("cover_data", b"")
-        album = record["album"]
-        albumartist = record["albumartist"] or record["artist"]
-        if cover_data and album:
-            try:
-                ak = make_album_key(albumartist or "", record.get("artist", ""), album)
-                cover_mime = meta.get("cover_mime", "image/jpeg")
-                self._conn.execute(
-                    "INSERT OR REPLACE INTO album_art_cache "
-                    "(album_hash, mime, data) VALUES (?,?,?)",
-                    (ak, cover_mime, cover_data))
-            except Exception as e:
-                logger.debug("Failed to cache embedded cover for %s: %s", filepath, e)
+        record["created_at"] = now
+        record["updated_at"] = now
+        record["last_scanned"] = now
+        record["scan_status"] = "ok"
 
         try:
             writer = BatchWriter(self._conn, batch_size=1)
             writer.add(record)
             writer.flush()
             self._conn.commit()
-            # Sync track_genres for this newly added file
             try:
-                from library.genre_repository import GenreRepository
                 GenreRepository(self._conn).backfill_from_media_items()
             except Exception:
                 pass
-            return self._conn.execute(
-                "SELECT id FROM media_items WHERE filepath=?",
-                (filepath,)).fetchone()[0]
+            cur = self._conn.execute(
+                "SELECT id FROM media_items WHERE filepath=?", (filepath,))
+            row = cur.fetchone()
+            return row[0] if row else None
         except Exception as e:
             logger.debug("add_file failed for %s: %s", filepath, e)
             return None
