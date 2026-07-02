@@ -12,6 +12,7 @@ VALID_ROUTES = {
     "home_audio",
     "audio_lab",
     "assistant",
+    "metadata_inspector",
     "placeholder",
 }
 

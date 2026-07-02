@@ -10,6 +10,7 @@ from ui_qml_bridge.connections_bridge import ConnectionsBridge
 from ui_qml_bridge.home_audio_bridge import HomeAudioBridge
 from ui_qml_bridge.library_bridge import LibraryBridge
 from ui_qml_bridge.michi_ai_bridge import MichiAIBridge
+from ui_qml_bridge.metadata_bridge import MetadataBridge
 
 
 QML_DIR = Path(__file__).resolve().parent.parent.parent / "ui_qml"
@@ -130,7 +131,7 @@ def test_app_shell_titles_match_sidebar_routes():
     sidebar_routes = set(re.findall(r'route: "(\w+)"', sidebar))
     appshell_routes = set(re.findall(r'"(\w+)":\s*"', appshell))
 
-    internal_routes = {"nowplaying"}
+    internal_routes = {"nowplaying", "metadata_inspector"}
     sidebar_only = sidebar_routes - appshell_routes
     appshell_only = (appshell_routes - sidebar_routes) - internal_routes
 
@@ -569,5 +570,48 @@ class TestCoverBridge:
         assert "genres" not in content, "AppShell contains 'genres' title"
         assert "Géneros" not in content, "AppShell contains 'Géneros' title"
 
+
+class TestMetadataBridge:
+    def test_metadata_bridge_exists(self):
+        from ui_qml_bridge.metadata_bridge import MetadataBridge
+        assert MetadataBridge is not None
+
+    def test_metadata_bridge_properties(self):
+        bridge = MetadataBridge()
+        assert bridge.hasSelection is False
+        assert bridge.isLoading is False
+        assert bridge.canApply is False
+        assert bridge.errorMessage == ""
+
+    def test_metadata_bridge_inspect(self):
+        bridge = MetadataBridge()
+        bridge.inspectTrack("/test/song.flac")
+        assert bridge.hasSelection is True
+
+    def test_metadata_bridge_clear(self):
+        bridge = MetadataBridge()
+        bridge.inspectTrack("/test/song.flac")
+        bridge.clear()
+        assert bridge.hasSelection is False
+
+    def test_metadata_bridge_preview_no_write(self):
+        bridge = MetadataBridge()
+        bridge.previewSuggestedFixes()
+        # should not crash, should not write
+
+    def test_metadata_inspector_page_exists(self):
+        assert (QML_DIR / "pages" / "metadata" / "MetadataInspectorPage.qml").exists()
+
+    def test_metadata_field_row_exists(self):
+        assert (QML_DIR / "pages" / "metadata" / "MetadataFieldRow.qml").exists()
+
+    def test_metadata_artwork_preview_exists(self):
+        assert (QML_DIR / "pages" / "metadata" / "MetadataArtworkPreview.qml").exists()
+
+    def test_navigation_bridge_accepts_metadata_inspector(self):
+        from ui_qml_bridge.navigation_bridge import NavigationBridge
+        bridge = NavigationBridge()
+        bridge.navigate("metadata_inspector")
+        assert bridge.currentRoute == "metadata_inspector"
 
 
