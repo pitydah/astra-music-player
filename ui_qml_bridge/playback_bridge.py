@@ -37,6 +37,13 @@ class PlaybackBridge(QObject):
     def _on_track(self, title: str, artist: str):
         self._track_title = title or "—"
         self._track_artist = artist or "—"
+        if self._player and hasattr(self._player, 'current_filepath'):
+            fp = self._player.current_filepath
+            if fp:
+                import hashlib
+                self._cover_path = f"track_{hashlib.md5(fp.encode()).hexdigest()[:12]}"
+            else:
+                self._cover_path = ""
         self.stateChanged.emit()
 
     def _on_state(self, state: str):

@@ -62,6 +62,37 @@ Item {
                         }
                     }
                 }
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: {
+                        contextMenu.x = mouse.x
+                        contextMenu.y = mouse.y
+                        contextMenu.trackTitle = modelData.title || ""
+                        contextMenu.trackArtist = modelData.artist || ""
+                        contextMenu.trackFilepath = modelData.filepath || ""
+                        contextMenu.visible = true
+                    }
+                }
+            }
+
+            SongContextMenu {
+                id: contextMenu
+                width: 200
+                z: 100
+                visible: false
+
+                onPlayClicked: {
+                    visible = false
+                    if (contextMenu.trackFilepath && root.bridge && typeof root.bridge.play_song !== "undefined") {
+                        root.bridge.play_song(contextMenu.trackFilepath)
+                    }
+                }
+                onQueueClicked: { visible = false }
+                onAddToPlaylistClicked: { visible = false }
+                onEditMetadataClicked: { visible = false }
+                onShowInLibraryClicked: { visible = false }
             }
 
             function formatDuration(secs) {
