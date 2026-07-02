@@ -32,9 +32,12 @@ SECTION_CONFIG: dict[str, dict] = {
     "folders":    {"title": "Carpetas", "subtitle": "Mantenimiento físico: salud, integridad y organización de tu biblioteca",
                    "icon": "sidebar_folders", "views": ["tree"],
                    "search": True, "default": "tree"},
-    "radio":      {"title": "Emisoras", "subtitle": "Radios por URL y mosaicos",
-                   "icon": "sidebar_radio", "views": ["grid", "list"],
-                   "search": True, "default": "grid"},
+     "radio":      {"title": "En vivo", "subtitle": "Emisoras y streams guardados",
+                    "icon": "sidebar_radio", "views": ["grid", "list"],
+                    "search": True, "default": "grid"},
+     "broadcast_hub": {"title": "Transmisiones", "subtitle": "Radio en vivo, podcasts y episodios",
+                       "icon": "sidebar_radio", "views": [],
+                       "search": True, "default": None},
     "identifier": {"title": "Identificador", "subtitle": "Detección musical",
                    "icon": "sidebar_identifier", "views": [],
                    "search": False, "default": None},
@@ -203,7 +206,7 @@ def resolve_sidebar_active_key(key: str) -> str:
     # Hubs visibles
     if key in ("home", "library_hub", "genres", "mix_hub", "playlist_hub",
                 "playback_hub", "connections_hub", "home_audio",
-                "audio_lab", "assistant", "michi_ai", "devices_page"):
+                "broadcast_hub", "audio_lab", "assistant", "michi_ai", "devices_page"):
         return key
     # Hijos de library_hub (genres ya no está aquí porque tiene item propio)
     if key in ("library", "albums", "artists", "folders", "favs", "recent"):
@@ -219,9 +222,9 @@ def resolve_sidebar_active_key(key: str) -> str:
         return "connections_hub"
     if key == "ecosystem_hub":
         return "connections_hub"
-    # Hijos de playback_hub
+    # Hijos de broadcast_hub
     if key == "radio":
-        return "playback_hub"
+        return "broadcast_hub"
     # Hijos de devices_page
     if key.startswith("dev:") or key in ("devices",):
         return "devices_page"
@@ -261,7 +264,7 @@ def resolve_sidebar_active_key(key: str) -> str:
 NAV_ROUTES: dict[str, str] = {
     "library": "_show_library_hub_page", "albums": "_show_albums",
     "artists": "_show_artists", "genres": "_show_genres",
-    "radio": "_show_radio", "home_audio": "_show_home_audio",
+    "radio": "_show_radio", "broadcast_hub": "_show_broadcast_hub", "home_audio": "_show_home_audio",
     "identifier": "_show_identifier", "discover": "_show_discover",
     "folders": "_show_folders", "playlist_hub": "_show_playlist_hub",
     "metadata_editor": "_show_metadata_editor",
