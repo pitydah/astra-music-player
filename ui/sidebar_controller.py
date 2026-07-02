@@ -48,12 +48,12 @@ class SidebarController(QObject):
         self._sidebar.add_section("hub", "Michi Music", "sidebar_mix")
         self._sidebar.add_item("hub", "home", "Inicio", "sidebar_home")
         self._sidebar.add_item("hub", "library_hub", "Biblioteca", "sidebar_library")
+        self._sidebar.add_item("hub", "genres", "Géneros", "sidebar_genres")
         self._sidebar.add_item("hub", "mix_hub", "Mix", "sidebar_mix")
         self._sidebar.add_item("hub", "playback_hub", "Reproducción", "warm_play")
         self._sidebar.add_item("hub", "connections_hub", "Conexiones", "sidebar_servers")
         self._sidebar.add_item("hub", "ecosystem_hub", "Ecosistema Michi", "sidebar_servers")
         self._sidebar.add_item("hub", "home_audio", "Home Audio", "home_audio")
-        self._sidebar.add_item("hub", "broadcast_hub", "Transmisiones", "sidebar_radio")
         self._sidebar.add_item("hub", "audio_lab", "Audio Lab", "sidebar_mix")
         self._sidebar.add_item("hub", "michi_ai", "Michi AI", "sidebar_assistant")
 

@@ -642,34 +642,6 @@ class UIBuilder:
         w._views.register("empty", placeholder)
         w._views.register("remote", w._remote_placeholder)
         w._views.register("expanded", placeholder_expanded)
-        from streaming.podcast_manager import PodcastManager
-        from streaming.podcast_repository import PodcastRepository
-        from sources.broadcast_source import BroadcastSource
-        from ui.broadcast.broadcast_hub_page import BroadcastHubPage
-        # Create podcast manager and broadcast source
-        _podcast_mgr = PodcastManager(PodcastRepository())
-        w._search_ctrl.register("broadcast", BroadcastSource(w._radio_manager, _podcast_mgr))
-        w._broadcast_hub = BroadcastHubPage(
-            radio_manager=w._radio_manager,
-            podcast_manager=_podcast_mgr,
-        )
-        def _on_broadcast_play(track):
-            w._current_podcast_episode = None
-            if track.source_type == "podcast":
-                # Find matching episode to track progress
-                try:
-                    pm = w._broadcast_hub._podcast_manager
-                    if pm:
-                        episodes = pm.get_recent_episodes(200)
-                        for ep in episodes:
-                            if ep.audio_url == track.uri or ep.local_path == track.uri:
-                                w._current_podcast_episode = ep
-                                break
-                except Exception:
-                    pass
-            w._playback_ctrl.play_trackref(track)
-        w._broadcast_hub.play_track_requested.connect(_on_broadcast_play)
-        w._views.register("broadcast_hub", w._broadcast_hub)
         w._views.register("radio", w._radio_widget)
         w._views.register("discover", w._discover)
         w._views.register("playlist_hub", w._playlist_hub)

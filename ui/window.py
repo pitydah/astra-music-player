@@ -140,8 +140,6 @@ class MainWindow(QMainWindow):
         self._transmit_mgr = None
         self._file_actions = None
         self._expanded_ctrl = None
-        self._current_podcast_episode = None  # PodcastEpisode being played
-        self._podcast_progress_timer = None
         self._album_ctrl = None
         self._cast_ctrl = None
         self._snapcast_ctrl = None
@@ -832,7 +830,6 @@ class MainWindow(QMainWindow):
     def _connect_signals(self):
         pb = self._player_bar
         self._playback.position_changed.connect(pb.set_position)
-        self._playback.position_changed.connect(self._on_position_for_podcast)
         self._playback.duration_changed.connect(pb.set_duration)
         self._playback.state_changed.connect(
             lambda state: self._playback_ctrl.on_state(state))
@@ -940,15 +937,8 @@ class MainWindow(QMainWindow):
     def _show_folders(self, key):
         self._lib_ctrl.show_folders(key)
 
-    def _show_broadcast_hub(self, key):
-        self._views.show("broadcast_hub")
-
     def _show_radio(self, key):
-        """Legacy radio route -> opens broadcast_hub on live tab."""
-        self._views.show("broadcast_hub")
-        hub = getattr(self, '_broadcast_hub', None)
-        if hub and hasattr(hub, 'switch_to'):
-            hub.switch_to("live")
+        self._srv_ctrl.show_radio(key)
     def _show_add_server(self, key):
         self._srv_ctrl.add_server()
 
@@ -1154,26 +1144,6 @@ class MainWindow(QMainWindow):
 
     def _fade_content(self, target: str):
         self._nav.show(target)
-
-    def _on_position_for_podcast(self, pos_sec: float):
-        """Save podcast episode progress periodically."""
-        ep = getattr(self, '_current_podcast_episode', None)
-        if ep is None:
-            return
-        if getattr(self, '_podcast_progress_counter', 0) % 15 != 0:
-            self._podcast_progress_counter = getattr(self, '_podcast_progress_counter', 0) + 1
-            return
-        self._podcast_progress_counter = 0
-        try:
-            broadcast = getattr(self, '_broadcast_hub', None)
-            if broadcast and broadcast._podcast_manager:
-                pm = broadcast._podcast_manager
-                pm.set_episode_position(ep.id, int(pos_sec))
-                # Mark completed at 90%
-                if ep.duration_seconds > 0 and pos_sec >= ep.duration_seconds * 0.9:
-                    pm.mark_episode_played(ep.id, completed=True)
-        except Exception:
-            pass
 
     def _restore_central_opacity(self):
         self._nav.restore_opacity()

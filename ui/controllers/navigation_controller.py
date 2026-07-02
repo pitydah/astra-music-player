@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import logging
 
@@ -32,12 +32,9 @@ SECTION_CONFIG: dict[str, dict] = {
     "folders":    {"title": "Carpetas", "subtitle": "Mantenimiento físico: salud, integridad y organización de tu biblioteca",
                    "icon": "sidebar_folders", "views": ["tree"],
                    "search": True, "default": "tree"},
-     "radio":      {"title": "En vivo", "subtitle": "Emisoras y streams guardados",
-                    "icon": "sidebar_radio", "views": ["grid", "list"],
-                    "search": True, "default": "grid"},
-     "broadcast_hub": {"title": "Transmisiones", "subtitle": "Radio en vivo, podcasts y episodios",
-                       "icon": "sidebar_radio", "views": [],
-                       "search": True, "default": None},
+    "radio":      {"title": "Emisoras", "subtitle": "Radios por URL y mosaicos",
+                   "icon": "sidebar_radio", "views": ["grid", "list"],
+                   "search": True, "default": "grid"},
     "identifier": {"title": "Identificador", "subtitle": "Detección musical",
                    "icon": "sidebar_identifier", "views": [],
                    "search": False, "default": None},
@@ -206,7 +203,7 @@ def resolve_sidebar_active_key(key: str) -> str:
     # Hubs visibles
     if key in ("home", "library_hub", "genres", "mix_hub", "playlist_hub",
                 "playback_hub", "connections_hub", "home_audio",
-                "broadcast_hub", "audio_lab", "assistant", "michi_ai", "devices_page"):
+                "audio_lab", "assistant", "michi_ai", "devices_page"):
         return key
     # Hijos de library_hub (genres ya no está aquí porque tiene item propio)
     if key in ("library", "albums", "artists", "folders", "favs", "recent"):
@@ -222,9 +219,9 @@ def resolve_sidebar_active_key(key: str) -> str:
         return "connections_hub"
     if key == "ecosystem_hub":
         return "connections_hub"
-    # Hijos de broadcast_hub
+    # Hijos de playback_hub
     if key == "radio":
-        return "broadcast_hub"
+        return "playback_hub"
     # Hijos de devices_page
     if key.startswith("dev:") or key in ("devices",):
         return "devices_page"
@@ -264,7 +261,7 @@ def resolve_sidebar_active_key(key: str) -> str:
 NAV_ROUTES: dict[str, str] = {
     "library": "_show_library_hub_page", "albums": "_show_albums",
     "artists": "_show_artists", "genres": "_show_genres",
-    "radio": "_show_radio", "broadcast_hub": "_show_broadcast_hub", "home_audio": "_show_home_audio",
+    "radio": "_show_radio", "home_audio": "_show_home_audio",
     "identifier": "_show_identifier", "discover": "_show_discover",
     "folders": "_show_folders", "playlist_hub": "_show_playlist_hub",
     "metadata_editor": "_show_metadata_editor",
@@ -342,12 +339,12 @@ def resolve_section_config(key: str, extra: dict | None = None) -> dict:
 class NavigationHistory:
     """Back/forward nav stack with button state updates.
 
-    Stores search text and optional library state snapshot alongside
-    each navigation entry so back/forward restores the full context.
+    Stores search text alongside each navigation entry so that
+    pressing back/forward restores the previous search state.
     """
 
     def __init__(self):
-        self._history: list[dict] = []  # {key, search_text, library_state}
+        self._history: list[tuple[str, str]] = []  # (key, search_text)
         self._index: int = -1
         self._restoring: bool = False
 
@@ -366,46 +363,43 @@ class NavigationHistory:
     @property
     def current_key(self) -> str | None:
         entry = self._history[self._index] if 0 <= self._index < len(self._history) else None
-        return entry["key"] if entry else None
+        return entry[0] if entry else None
 
-    def push(self, key: str, search_text: str = "", force: bool = False,
-             library_state: dict | None = None):
+    def push(self, key: str, search_text: str = "", force: bool = False):
         """Add a navigation entry, truncating forward history if not at tip.
 
         When force=True, always creates a new entry even if the key matches
         the current one (used for detail view checkpoints).
 
-        library_state: optional snapshot of LibraryState for restoration.
+        Deduplicates: if key already exists within the last 2 entries,
+        do not add a duplicate (handles rapid tab switching).
         """
         if not force:
             recent = self._history[max(0, self._index - 2):self._index + 1]
-            if any(entry.get("key") == key for entry in recent):
+            if any(entry[0] == key for entry in recent):
                 return
         if self._index < len(self._history) - 1:
             self._history = self._history[:self._index + 1]
-        entry = {"key": key, "search_text": search_text}
-        if library_state is not None:
-            entry["library_state"] = library_state
-        self._history.append(entry)
+        self._history.append((key, search_text))
         self._index = len(self._history) - 1
 
-    def back(self) -> dict | None:
+    def back(self) -> tuple[str, str] | None:
         if not self.can_go_back:
             return None
         self._index -= 1
         return self._history[self._index]
 
-    def forward(self) -> dict | None:
+    def forward(self) -> tuple[str, str] | None:
         if not self.can_go_forward:
             return None
         self._index += 1
         return self._history[self._index]
 
-    def restore_call(self, key: str, navigate_fn, **kwargs):
+    def restore_call(self, key: str, navigate_fn: Callable):
         """Navigate while preserving the restoring flag."""
         self._restoring = True
         try:
-            navigate_fn(key, **kwargs)
+            navigate_fn(key)
         finally:
             self._restoring = False
 
@@ -431,74 +425,52 @@ class NavigationController(QObject):
     def can_go_forward(self) -> bool:
         return self._history.can_go_forward
 
-    def push(self, key: str, search_text: str = "",
-             library_state: dict | None = None):
+    def push(self, key: str, search_text: str = ""):
         if not search_text:
             w = self._win
             search_text = getattr(w, '_search_text', "")
-        self._history.push(key, search_text, library_state=library_state)
+        self._history.push(key, search_text)
 
-    def force_push(self, key: str, search_text: str = "",
-                   library_state: dict | None = None):
+    def force_push(self, key: str, search_text: str = ""):
         """Push a history entry even if the key matches current route.
 
         Used before opening detail views so back/forward can restore the parent view.
         """
-        self._history.push(key, search_text, force=True, library_state=library_state)
+        self._history.push(key, search_text, force=True)
         self._update_buttons()
 
     def checkpoint(self):
         """Bookmark current route before showing a detail/sub-view.
 
         This creates a history restore point so navigate_back returns to the parent view.
-        Captures the current LibraryState snapshot for full restoration.
         """
         w = self._win
         key = getattr(w, '_current_route_key', None) or "home"
         search = getattr(w, '_search_text', "")
-        lib_state = self._capture_library_state()
-        self.force_push(key, search, library_state=lib_state)
-
-    def _capture_library_state(self) -> dict | None:
-        """Capture current LibraryState snapshot from the state controller."""
-        w = self._win
-        state_ctrl = getattr(w, '_library_state_ctrl', None)
-        if state_ctrl:
-            return state_ctrl.snapshot()
-        return None
+        self.force_push(key, search)
 
     def navigate_back(self):
         entry = self._history.back()
         if entry is not None:
-            key = entry.get("key", "")
-            search_text = entry.get("search_text", "")
-            lib_state = entry.get("library_state")
-            self._restore_entry(key, search_text, lib_state)
+            key, search_text = entry
+            self._restore_call(key, self._win._on_sidebar_navigate, search_text)
         self._update_buttons()
 
     def navigate_forward(self):
         entry = self._history.forward()
         if entry is not None:
-            key = entry.get("key", "")
-            search_text = entry.get("search_text", "")
-            lib_state = entry.get("library_state")
-            self._restore_entry(key, search_text, lib_state)
+            key, search_text = entry
+            self._restore_call(key, self._win._on_sidebar_navigate, search_text)
         self._update_buttons()
 
-    def _restore_entry(self, key: str, search_text: str,
-                       lib_state: dict | None = None):
+    def _restore_call(self, key: str, navigate_fn, search_text: str):
         self._history._restoring = True
         try:
-            self._win._on_sidebar_navigate(key)
+            navigate_fn(key)
             w = self._win
             if search_text and hasattr(w, '_search') and w._search:
                 w._search_text = search_text
                 w._search.setText(search_text)
-            # Restore LibraryState if available
-            if lib_state is not None:
-                state_ctrl = getattr(w, '_library_state_ctrl', None)
-                if state_ctrl:
-                    state_ctrl.restore(lib_state)
         except Exception as e:
             _log.warning("Navigation restore failed for %s: %s", key, e)
         finally:
@@ -595,8 +567,7 @@ class NavigationController(QObject):
             w._sidebar_controller.set_active(w._current_sidebar_key)
 
         if not self._history.is_restoring:
-            lib_state = self._capture_library_state()
-            self._history.push(key, previous_search, library_state=lib_state)
+            self._history.push(key, previous_search)
             self._update_buttons()
 
         # Dynamic prefix routes
@@ -645,15 +616,6 @@ class NavigationController(QObject):
             _log.warning("No navigation handler for key: %s", key)
 
     def _build_breadcrumb(self, subtitle: str, section_key: str) -> str:
-        # Try library state breadcrumb for richer context inside Biblioteca
-        w = self._win
-        state_ctrl = getattr(w, '_library_state_ctrl', None)
-        if state_ctrl and section_key in ("library", "albums", "artists", "genres",
-                                           "folders", "library_hub"):
-            parts = state_ctrl.breadcrumb_parts()
-            if len(parts) >= 2:
-                return " / ".join(parts[1:]) if len(parts) > 2 else subtitle
-
         prev_key = self._history.current_key
         if prev_key is None:
             return subtitle

@@ -21,8 +21,6 @@ Item {
             "home_audio": "Home Audio",
             "audio_lab": "Audio Lab",
             "assistant": "Michi AI",
-            "nowplaying": "Reproducción",
-            "metadata_inspector": "Inspector de metadatos",
         }
         header.pageTitle = titles[route] || "Michi"
     }
