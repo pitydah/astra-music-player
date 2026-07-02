@@ -127,7 +127,7 @@ def test_app_shell_titles_match_sidebar_routes():
     sidebar_routes = set(re.findall(r'route: "(\w+)"', sidebar))
     appshell_routes = set(re.findall(r'"(\w+)":\s*"', appshell))
 
-    internal_routes = {"nowplaying", "metadata_inspector", "mix_detail", "settings"}
+    internal_routes = {"nowplaying", "metadata_inspector", "mix_detail", "settings", "devices", "playlist_detail"}
     sidebar_only = sidebar_routes - appshell_routes
     appshell_only = (appshell_routes - sidebar_routes) - internal_routes
 
@@ -745,15 +745,6 @@ class TestRadioComponents:
         assert "RadioPage" in content, "PageStack missing RadioPage"
 
 
-class TestPlaylistsComponents:
-    def test_playlists_page_exists(self):
-        assert (QML_DIR / "pages" / "PlaylistsPage.qml").exists()
-
-    def test_playlists_route_in_pagestack(self):
-        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
-        assert "PlaylistsPage" in content, "PageStack missing PlaylistsPage"
-
-
 class TestSettingsComponents:
     def test_settings_page_exists(self):
         assert (QML_DIR / "pages" / "SettingsPage.qml").exists()
@@ -819,5 +810,41 @@ class TestNowPlayingBar:
             for ch in content:
                 if ord(ch) in set(range(0x1F300, 0x1FAFF)):
                     assert False, f"Emoji U+{ord(ch):04X} found in {name}.qml"
+
+
+class TestDevicesComponents:
+    def test_devices_page_exists(self):
+        assert (QML_DIR / "pages" / "DevicesPage.qml").exists()
+    def test_device_card_exists(self):
+        assert (QML_DIR / "pages" / "devices" / "DeviceCard.qml").exists()
+    def test_sync_status_panel_exists(self):
+        assert (QML_DIR / "pages" / "devices" / "SyncStatusPanel.qml").exists()
+    def test_devices_bridge_importable(self):
+        from ui_qml_bridge.devices_bridge import DevicesBridge
+        assert DevicesBridge is not None
+    def test_devices_route_in_pagestack(self):
+        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
+        assert "DevicesPage" in content
+
+class TestPlaylistsComponents:
+    def test_playlists_page_real_exists(self):
+        assert (QML_DIR / "pages" / "playlists" / "PlaylistsPage.qml").exists()
+    def test_playlist_card_exists(self):
+        assert (QML_DIR / "pages" / "playlists" / "PlaylistCard.qml").exists()
+    def test_playlist_detail_page_exists(self):
+        assert (QML_DIR / "pages" / "playlists" / "PlaylistDetailPage.qml").exists()
+    def test_playlists_bridge_importable(self):
+        from ui_qml_bridge.playlists_bridge import PlaylistsBridge
+        assert PlaylistsBridge is not None
+    def test_playlists_route_in_pagestack(self):
+        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
+        assert "PlaylistsPage" in content
+    def test_playlist_detail_route_in_pagestack(self):
+        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
+        assert "PlaylistDetailPage" in content
+
+class TestContextMenu:
+    def test_song_context_menu_exists(self):
+        assert (QML_DIR / "components" / "SongContextMenu.qml").exists()
 
 

@@ -23,6 +23,8 @@ Item {
             "assistant": "Michi AI",
             "mix_detail": "Mix",
             "settings": "Ajustes",
+            "devices": "Dispositivos",
+            "playlist_detail": "Playlist",
         }
         header.pageTitle = titles[route] || "Michi"
     }

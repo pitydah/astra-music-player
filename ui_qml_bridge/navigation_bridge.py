@@ -15,6 +15,8 @@ VALID_ROUTES = {
     "metadata_inspector",
     "mix_detail",
     "settings",
+    "devices",
+    "playlist_detail",
     "placeholder",
 }
 
