@@ -548,5 +548,25 @@ class TestCoverBridge:
         forbidden = [f for f in files if "broadcast" in f or "podcast" in f]
         assert not forbidden, f"Broadcast/podcast files found in branch: {forbidden}"
 
+    def test_sidebar_no_genres(self):
+        content = (QML_DIR / "shell" / "Sidebar.qml").read_text()
+        assert "genres" not in content, "Sidebar contains 'genres' route"
+        assert "Géneros" not in content, "Sidebar contains 'Géneros' label"
+
+    def test_navigation_bridge_rejects_genres(self):
+        from ui_qml_bridge.navigation_bridge import NavigationBridge
+        bridge = NavigationBridge()
+        bridge.navigate("genres")
+        assert bridge.currentRoute == "placeholder", "genres should fall to placeholder"
+
+    def test_page_stack_no_genres(self):
+        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
+        assert "genres" not in content, "PageStack contains 'genres' case"
+
+    def test_app_shell_no_genres_title(self):
+        content = (QML_DIR / "shell" / "AppShell.qml").read_text()
+        assert "genres" not in content, "AppShell contains 'genres' title"
+        assert "Géneros" not in content, "AppShell contains 'Géneros' title"
+
 
 
