@@ -211,6 +211,12 @@ jobs:
             tests/test_context_suggestion_bar_smoke.py \
             -q --timeout=60
 
+      - name: QML bridge tests (no GUI required)
+        timeout-minutes: 2
+        run: |
+          source .venv/bin/activate
+          python3 -m pytest tests/qml/ -q --timeout=60
+
       - name: Performance tests (optional)
         continue-on-error: true
         timeout-minutes: 3
