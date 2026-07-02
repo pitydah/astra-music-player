@@ -35,7 +35,7 @@ class DownloadsTab(QWidget):
 
         self._empty = QLabel(
             "No hay episodios descargados.\n\n"
-            "Descarga episodios de tus podcasts para escucharlos sin conexion."
+            "Descarga episodios de tus podcasts para escucharlos sin conexión."
         )
         self._empty.setAlignment(Qt.AlignCenter)
         self._empty.setStyleSheet(

@@ -99,10 +99,13 @@ class PodcastRepository:
             from core.paths import app_data_dir
             db_path = os.path.join(app_data_dir(), "podcasts.db")
         self._path = db_path
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(_SCHEMA_SQL)
         self._conn.commit()
 
@@ -172,31 +175,26 @@ class PodcastRepository:
     # ── Episodes ──
 
     def upsert_episode(self, ep: PodcastEpisode) -> int:
-        cur = self._conn.execute(
-            "INSERT OR IGNORE INTO podcast_episodes "
+        self._conn.execute(
+            "INSERT INTO podcast_episodes "
             "(podcast_id, guid, title, description, audio_url, episode_url, image_url, "
             "image_path, published_at, duration_seconds, position_seconds, played, "
             "completed, favorite, downloaded, local_path, file_size, mime_type, "
             "created_at, updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(guid) DO UPDATE SET "
+            "title=excluded.title, description=excluded.description, "
+            "audio_url=excluded.audio_url, episode_url=excluded.episode_url, "
+            "image_url=excluded.image_url, published_at=excluded.published_at, "
+            "duration_seconds=excluded.duration_seconds, "
+            "file_size=excluded.file_size, mime_type=excluded.mime_type, "
+            "updated_at=excluded.updated_at",
             (ep.podcast_id, ep.guid, ep.title, ep.description, ep.audio_url,
              ep.episode_url, ep.image_url, ep.image_path, ep.published_at,
              ep.duration_seconds, ep.position_seconds, int(ep.played),
              int(ep.completed), int(ep.favorite), int(ep.downloaded),
              ep.local_path, ep.file_size, ep.mime_type,
              ep.created_at, ep.updated_at),
-        )
-        self._conn.commit()
-        if cur.lastrowid:
-            return cur.lastrowid
-        # Already exists — update
-        self._conn.execute(
-            "UPDATE podcast_episodes SET title=?, description=?, audio_url=?, "
-            "episode_url=?, image_url=?, published_at=?, duration_seconds=?, "
-            "file_size=?, mime_type=?, updated_at=? WHERE guid=?",
-            (ep.title, ep.description, ep.audio_url, ep.episode_url,
-             ep.image_url, ep.published_at, ep.duration_seconds,
-             ep.file_size, ep.mime_type, ep.updated_at, ep.guid),
         )
         self._conn.commit()
         row = self._conn.execute(
@@ -334,6 +332,103 @@ class PodcastRepository:
     def clear_history(self):
         self._conn.execute("DELETE FROM broadcast_history")
         self._conn.commit()
+
+    def delete_history_item(self, history_id: int):
+        self._conn.execute("DELETE FROM broadcast_history WHERE id=?", (history_id,))
+        self._conn.commit()
+
+    def clear_history_by_type(self, entry_type: str):
+        self._conn.execute("DELETE FROM broadcast_history WHERE entry_type=?", (entry_type,))
+        self._conn.commit()
+
+    def get_episode_by_id(self, episode_id: int) -> PodcastEpisode | None:
+        row = self._conn.execute(
+            "SELECT * FROM podcast_episodes WHERE id=?", (episode_id,)
+        ).fetchone()
+        return _row_to_episode(row) if row else None
+
+    def get_episode_by_guid(self, guid: str) -> PodcastEpisode | None:
+        row = self._conn.execute(
+            "SELECT * FROM podcast_episodes WHERE guid=?", (guid,)
+        ).fetchone()
+        return _row_to_episode(row) if row else None
+
+    def get_favorite_episodes(self, limit: int = 100) -> list[PodcastEpisode]:
+        rows = self._conn.execute(
+            "SELECT * FROM podcast_episodes WHERE favorite=1 "
+            "ORDER BY published_at DESC LIMIT ?", (limit,),
+        ).fetchall()
+        return [_row_to_episode(r) for r in rows]
+
+    def get_episodes_by_status(self, played: int | None = None,
+                                downloaded: int | None = None,
+                                favorite: int | None = None,
+                                limit: int = 100) -> list[PodcastEpisode]:
+        clauses = []
+        params: list = []
+        if played is not None:
+            clauses.append("played=?")
+            params.append(played)
+        if downloaded is not None:
+            clauses.append("downloaded=?")
+            params.append(downloaded)
+        if favorite is not None:
+            clauses.append("favorite=?")
+            params.append(favorite)
+        where = " AND ".join(clauses) if clauses else "1=1"
+        rows = self._conn.execute(
+            f"SELECT * FROM podcast_episodes WHERE {where} "
+            "ORDER BY published_at DESC LIMIT ?",
+            (*params, limit),
+        ).fetchall()
+        return [_row_to_episode(r) for r in rows]
+
+    def get_listened_episodes(self, limit: int = 100) -> list[PodcastEpisode]:
+        rows = self._conn.execute(
+            "SELECT * FROM podcast_episodes WHERE played=1 "
+            "ORDER BY updated_at DESC LIMIT ?", (limit,),
+        ).fetchall()
+        return [_row_to_episode(r) for r in rows]
+
+    def update_show_counts(self, show_id: int):
+        total = self._conn.execute(
+            "SELECT COUNT(*) FROM podcast_episodes WHERE podcast_id=?", (show_id,)
+        ).fetchone()[0]
+        unread = self._conn.execute(
+            "SELECT COUNT(*) FROM podcast_episodes WHERE podcast_id=? AND played=0",
+            (show_id,),
+        ).fetchone()[0]
+        self._conn.execute(
+            "UPDATE podcast_shows SET episode_count=?, unread_count=?, updated_at=? WHERE id=?",
+            (total, unread, _now(), show_id),
+        )
+        self._conn.commit()
+
+    def mark_episode_download_removed(self, episode_id: int):
+        self._conn.execute(
+            "UPDATE podcast_episodes SET downloaded=0, local_path='', "
+            "updated_at=? WHERE id=?",
+            (_now(), episode_id),
+        )
+        self._conn.commit()
+
+    def remove_download_record(self, episode_id: int):
+        self._conn.execute(
+            "DELETE FROM podcast_downloads WHERE episode_id=?", (episode_id,)
+        )
+        self._conn.commit()
+
+    def get_total_download_size(self) -> int:
+        row = self._conn.execute(
+            "SELECT COALESCE(SUM(file_size), 0) FROM podcast_episodes WHERE downloaded=1"
+        ).fetchone()
+        return row[0] if row else 0
+
+    def get_downloaded_count(self) -> int:
+        row = self._conn.execute(
+            "SELECT COUNT(*) FROM podcast_episodes WHERE downloaded=1"
+        ).fetchone()
+        return row[0] if row else 0
 
     def get_counts(self) -> dict[str, int]:
         shows = self._conn.execute("SELECT COUNT(*) FROM podcast_shows").fetchone()[0]

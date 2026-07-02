@@ -37,7 +37,7 @@ class PodcastsTab(QWidget):
 
         self._empty_state = QLabel(
             "No hay podcasts suscritos.\n\n"
-            'Usa el boton "+ Anadir podcast RSS" para suscribirte '
+            'Usa el botón "+ Añadir podcast RSS" para suscribirte '
             "a tu primer programa."
         )
         self._empty_state.setAlignment(Qt.AlignCenter)

@@ -16,7 +16,7 @@ class AddFeedDialog(QDialog):
         super().__init__(parent)
         self._pm = podcast_manager
         self.feed_url: str = ""
-        self.setWindowTitle("Anadir podcast RSS")
+        self.setWindowTitle("Añadir podcast RSS")
         self.setMinimumWidth(480)
         self.setStyleSheet("background: #090B11; border-radius: 12px;")
 
@@ -24,7 +24,7 @@ class AddFeedDialog(QDialog):
         layout.setSpacing(14)
         layout.setContentsMargins(24, 20, 24, 20)
 
-        title = QLabel("Anadir podcast RSS")
+        title = QLabel("Añadir podcast RSS")
         title.setStyleSheet(
             "color: rgba(255,255,255,0.90); font-size: 18px; font-weight: 700; "
             "background: transparent; border: none;"
@@ -70,7 +70,7 @@ class AddFeedDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(cancel_btn)
 
-        self._accept_btn = QPushButton("Anadir podcast")
+        self._accept_btn = QPushButton("Añadir podcast")
         self._accept_btn.setCursor(Qt.PointingHandCursor)
         self._accept_btn.setStyleSheet(self._btn_qss("primary"))
         self._accept_btn.setEnabled(False)

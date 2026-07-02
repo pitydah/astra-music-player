@@ -944,7 +944,11 @@ class MainWindow(QMainWindow):
         self._views.show("broadcast_hub")
 
     def _show_radio(self, key):
-        self._srv_ctrl.show_radio(key)
+        """Legacy radio route -> opens broadcast_hub on live tab."""
+        self._views.show("broadcast_hub")
+        hub = getattr(self, '_broadcast_hub', None)
+        if hub and hasattr(hub, 'switch_to'):
+            hub.switch_to("live")
     def _show_add_server(self, key):
         self._srv_ctrl.add_server()
 

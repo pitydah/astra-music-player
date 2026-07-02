@@ -70,13 +70,13 @@ class BroadcastHubPage(QWidget):
         self._search_input.textChanged.connect(self._on_search)
         action_row.addWidget(self._search_input, 1)
 
-        self._add_radio_btn = QPushButton("+ Anadir emisora")
+        self._add_radio_btn = QPushButton("+ Añadir emisora")
         self._add_radio_btn.setCursor(Qt.PointingHandCursor)
         self._add_radio_btn.setStyleSheet(glass_button_qss("secondary"))
         self._add_radio_btn.clicked.connect(self._add_station)
         action_row.addWidget(self._add_radio_btn)
 
-        self._add_podcast_btn = QPushButton("+ Anadir podcast RSS")
+        self._add_podcast_btn = QPushButton("+ Añadir podcast RSS")
         self._add_podcast_btn.setCursor(Qt.PointingHandCursor)
         self._add_podcast_btn.setStyleSheet(glass_button_qss("secondary"))
         self._add_podcast_btn.clicked.connect(self._add_podcast)
@@ -125,6 +125,7 @@ class BroadcastHubPage(QWidget):
 
         from ui.broadcast.radio_live_tab import RadioLiveTab
         live_tab = RadioLiveTab(self._radio_manager)
+        live_tab.station_selected.connect(self._on_station_selected)
         live_tab.add_station_requested.connect(self._add_station)
         self._tab_widgets["live"] = live_tab
         self._stack.addWidget(live_tab)
@@ -187,6 +188,18 @@ class BroadcastHubPage(QWidget):
             checked = k == tab_key
             btn.setChecked(checked)
             btn.setStyleSheet(self._tab_qss(checked))
+
+    def _on_station_selected(self, url: str, name: str):
+        from sources.base_source import TrackRef
+        track = TrackRef(
+            uri=url, title=name, artist="",
+            source_type="radio", source_label="Radio",
+        )
+        self.play_track_requested.emit(track)
+
+    def switch_to(self, tab_key: str):
+        if tab_key in self._tabs:
+            self._switch_tab(tab_key)
 
     def _on_search(self, text: str):
         tab = self._tab_widgets.get(self._current_tab)
