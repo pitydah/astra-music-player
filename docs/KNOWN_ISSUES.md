@@ -1,10 +1,7 @@
-# Known Issues — Michi Music Player QML
+# Known Issues — Michi Music Player v0.2.0-beta
 
-| Issue | Severidad | Módulo | Workaround | Estado |
-|---|---|---|---|---|
-| NowPlayingBar playbackBridge binding loop (warning no crítico) | Baja | NowPlayingBar QML | Ignorar, no afecta funcionalidad | Conocido |
-| Metadata Inspector solo lectura | Media | MetadataBridge | Usar interfaz clásica para escribir tags | Aceptado |
-| Playlists bridge usa PlaylistStore pero sin DB real en QML | Media | PlaylistsBridge | Inicializar con conexión DB desde qml_main | Pendiente |
-| Devices bridge usa SyncManager pero sin instancia en QML | Media | DevicesBridge | Inicializar con sync_manager desde qml_main | Pendiente |
-| Audio Lab cards dependen de DB connection | Media | AudioLabBridge | Inicializar con db_conn desde qml_main | Pendiente |
-| CI no ejecuta tests QML en PR (solo en push) | Baja | CI | Verificar en push a qml-migration-foundation-clean | Conocido |
+| Issue | Severidad | Módulo | Estado |
+|---|---|---|---|
+| NowPlayingBar playbackBridge binding loop (warning no crítico) | Baja | NowPlayingBar QML | Conocido |
+| smoke_ui_routes.py requiere columna is_smart en DB local | Baja | Schema | Se resuelve con playlists migration |
+| Tests QML no se ejecutan en PR CI (solo en push) | Baja | CI | Mejorar en próxima iteración |
