@@ -49,7 +49,24 @@ Item {
             }
 
             SectionHeader {
-                text: "Herramientas disponibles"
+                text: "Herramientas de inspección"
+                width: parent.width
+            }
+
+            GlassCard {
+                width: parent.width
+                height: 80
+                title: "Inspector de metadatos"
+                subtitle: "Revisa campos, carátulas y consistencia de una pista. Solo lectura."
+                variant: "accent"
+                onClicked: {
+                    if (typeof navigationBridge !== "undefined" && navigationBridge)
+                        navigationBridge.navigate("metadata_inspector")
+                }
+            }
+
+            SectionHeader {
+                text: "Próximamente"
                 width: parent.width
             }
 
@@ -59,35 +76,52 @@ Item {
                 columnSpacing: MichiSpacing.md
                 rowSpacing: MichiSpacing.md
 
-                Repeater {
-                    model: [
-                        { title: "Diagnóstico", desc: "Analiza la calidad de tus archivos de audio" },
-                        { title: "Conversión", desc: "Convierte entre formatos de audio" },
-                        { title: "Identificador", desc: "Reconoce canciones por su huella digital" },
-                        { title: "Vinilo", desc: "Captura y digitaliza desde vinilo" },
-                        { title: "Organizar", desc: "Renombra y organiza archivos" },
-                        { title: "Letras", desc: "Busca y edita letras de canciones" },
-                        { title: "Carátulas", desc: "Gestiona las imágenes de tus álbumes" },
-                        { title: "MusicBrainz", desc: "Busca metadatos en MusicBrainz" },
-                    ]
+                GlassCard {
+                    width: (parent.width - MichiSpacing.md) / 2
+                    height: 80
+                    title: "Salud de biblioteca"
+                    subtitle: "Próximamente"
+                    variant: "base"
+                }
 
-                    GlassCard {
-                        width: (parent.width - MichiSpacing.md) / 2
-                        height: 80
-                        title: modelData.title
-                        subtitle: modelData.desc
-                        variant: "base"
-                        onClicked: {
-                            if (typeof navigationBridge !== "undefined" && navigationBridge)
-                                navigationBridge.navigate("audio_lab")
-                        }
-                    }
+                GlassCard {
+                    width: (parent.width - MichiSpacing.md) / 2
+                    height: 80
+                    title: "Auditoría de carátulas"
+                    subtitle: "Próximamente"
+                    variant: "base"
+                }
+
+                GlassCard {
+                    width: (parent.width - MichiSpacing.md) / 2
+                    height: 80
+                    title: "Formatos y calidad"
+                    subtitle: "Próximamente"
+                    variant: "base"
+                }
+
+                GlassCard {
+                    width: (parent.width - MichiSpacing.md) / 2
+                    height: 80
+                    title: "Acciones avanzadas"
+                    subtitle: "Escritura de metadatos, conversión, ripping"
+                    variant: "base"
                 }
             }
 
-            StatusBadge {
-                text: "Interfaz clásica disponible"
-                kind: "info"
+            GlassMaterial {
+                width: parent.width
+                radius: 12
+                variant: "status"
+
+                Row {
+                    anchors.fill: parent
+                    anchors.margins: MichiSpacing.lg
+                    spacing: MichiSpacing.md
+
+                    StatusBadge { text: "Solo lectura"; kind: "info" }
+                    StatusBadge { text: "Interfaz clásica disponible"; kind: "disconnected" }
+                }
             }
         }
     }
