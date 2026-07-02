@@ -686,3 +686,43 @@ class TestLibraryComponents:
         assert "albumClicked" in content, "AlbumGrid missing albumClicked signal"
 
 
+class TestMixComponents:
+    def test_mix_bridge_importable(self):
+        from ui_qml_bridge.mix_bridge import MixBridge
+        assert MixBridge is not None
+
+    def test_mix_bridge_has_categories(self):
+        from ui_qml_bridge.mix_bridge import MixBridge
+        bridge = MixBridge()
+        cats = bridge.categories
+        assert len(cats) > 0, "MixBridge has no categories"
+        assert any(c["id"] == "daily_mix" for c in cats), "Missing daily_mix"
+
+    def test_mix_bridge_load_mix(self):
+        from ui_qml_bridge.mix_bridge import MixBridge
+        bridge = MixBridge()
+        bridge.loadMix("favorites")
+        assert bridge.currentMixTitle == "Favoritos"
+
+    def test_mix_hub_page_exists(self):
+        assert (QML_DIR / "pages" / "MixHubPage.qml").exists()
+
+    def test_mix_detail_page_exists(self):
+        assert (QML_DIR / "pages" / "MixDetailPage.qml").exists()
+
+    def test_mix_detail_route_in_navigation(self):
+        from ui_qml_bridge.navigation_bridge import NavigationBridge
+        bridge = NavigationBridge()
+        bridge.navigate("mix_detail")
+        assert bridge.currentRoute == "mix_detail", "mix_detail route should be valid"
+
+    def test_mix_detail_route_in_pagestack(self):
+        content = (QML_DIR / "shell" / "PageStack.qml").read_text()
+        assert "mix_detail" in content, "PageStack missing mix_detail case"
+
+    def test_qml_main_registers_mix_bridge(self):
+        content = (QML_DIR.parent / "ui_qml_bridge" / "qml_main.py").read_text()
+        assert "MixBridge" in content, "qml_main missing MixBridge import"
+        assert "mixBridge" in content, "qml_main missing mixBridge context property"
+
+

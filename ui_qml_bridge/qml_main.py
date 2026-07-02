@@ -15,6 +15,7 @@ from ui_qml_bridge.library_bridge import LibraryBridge
 from ui_qml_bridge.michi_ai_bridge import MichiAIBridge
 from ui_qml_bridge.cover_bridge import CoverBridge
 from ui_qml_bridge.metadata_bridge import MetadataBridge
+from ui_qml_bridge.mix_bridge import MixBridge
 
 
 def main():
@@ -31,6 +32,7 @@ def main():
     library_bridge = LibraryBridge()
     michi_ai_bridge = MichiAIBridge()
     metadata_bridge = MetadataBridge()
+    mix_bridge = MixBridge()
 
     engine.rootContext().setContextProperty("appBridge", app_bridge)
     engine.rootContext().setContextProperty("navigationBridge", nav_bridge)
@@ -39,6 +41,7 @@ def main():
     engine.rootContext().setContextProperty("libraryBridge", library_bridge)
     engine.rootContext().setContextProperty("michiAiBridge", michi_ai_bridge)
     engine.rootContext().setContextProperty("metadataBridge", metadata_bridge)
+    engine.rootContext().setContextProperty("mixBridge", mix_bridge)
 
     qmlRegisterType(CoverBridge, "MichiCover", 1, 0, "CoverBridge")
 

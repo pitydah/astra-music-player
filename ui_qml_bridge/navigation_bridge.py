@@ -13,6 +13,7 @@ VALID_ROUTES = {
     "audio_lab",
     "assistant",
     "metadata_inspector",
+    "mix_detail",
     "placeholder",
 }
 

@@ -24,6 +24,7 @@ Item {
             case "radio": return "../pages/PlaceholderPage.qml"
             case "playlists": return "../pages/PlaceholderPage.qml"
             case "metadata_inspector": return "../pages/metadata/MetadataInspectorPage.qml"
+            case "mix_detail": return "../pages/MixDetailPage.qml"
             default: return "../pages/PlaceholderPage.qml"
         }
     }
