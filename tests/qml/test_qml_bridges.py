@@ -614,4 +614,24 @@ class TestMetadataBridge:
         bridge.navigate("metadata_inspector")
         assert bridge.currentRoute == "metadata_inspector"
 
+    def test_navigation_bridge_rejects_nowplaying(self):
+        from ui_qml_bridge.navigation_bridge import NavigationBridge
+        bridge = NavigationBridge()
+        bridge.navigate("nowplaying")
+        assert bridge.currentRoute == "placeholder", "nowplaying should fall to placeholder"
+
+    def test_no_nowplaying_page_in_qml_clean(self):
+        assert not (QML_DIR / "pages" / "NowPlayingPage.qml").exists(), (
+            "NowPlayingPage.qml should not exist in qml-migration-foundation-clean"
+        )
+
+    def test_metadata_bridge_can_apply_false(self):
+        bridge = MetadataBridge()
+        assert bridge.canApply is False
+
+    def test_metadata_inspector_apply_button_disabled(self):
+        content = (QML_DIR / "pages" / "metadata" / "MetadataInspectorPage.qml").read_text()
+        assert "enabled:" in content, "Apply button missing enabled state"
+        assert "canApply" in content, "Apply button must use canApply property"
+
 

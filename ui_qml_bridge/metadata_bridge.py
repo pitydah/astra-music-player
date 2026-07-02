@@ -71,12 +71,28 @@ class MetadataBridge(QObject):
         self._is_loading = True
         self._has_selection = True
         self._error_message = ""
-        self._track_title = "—"
+
+        from pathlib import Path
+        p = Path(filepath)
+        basename = p.stem or p.name or ""
+        ext = p.suffix.lower() if p.suffix else ""
+        self._track_title = basename
         self._track_artist = "—"
         self._track_album = "—"
+
         self._fields = [
-            {"label": "Archivo", "value": filepath},
+            {"label": "Archivo", "value": str(p)},
+            {"label": "Título", "value": basename or "—"},
+            {"label": "Artista", "value": "—"},
+            {"label": "Álbum", "value": "—"},
+            {"label": "Formato", "value": ext.lstrip(".").upper() if ext else "—"},
+            {"label": "Estado", "value": "Solo lectura"},
         ]
+
+        from contextlib import suppress
+        with suppress(Exception):
+            p.resolve().exists()
+
         self._quality_summary = "Sin análisis"
         self._artwork_status = "Sin carátula"
         self._is_loading = False
@@ -102,5 +118,5 @@ class MetadataBridge(QObject):
 
     @Slot()
     def previewSuggestedFixes(self):
-        self._error_message = "Previsualización de sugerencias no disponible en modo solo lectura."
+        self._error_message = "Previsualización disponible en una fase posterior."
         self.dataChanged.emit()
