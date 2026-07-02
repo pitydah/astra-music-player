@@ -7,17 +7,20 @@ import "../materials"
 Item {
     id: root
 
+    property var radioBridge: typeof radioBridge !== "undefined" ? radioBridge : null
+
+    Component.onCompleted: {
+        if (root.radioBridge && typeof root.radioBridge.refresh !== "undefined")
+            root.radioBridge.refresh()
+    }
+
     Flickable {
-        anchors.fill: parent
-        anchors.margins: MichiSpacing.xl
+        anchors.fill: parent; anchors.margins: MichiSpacing.xl
         contentHeight: column.height + MichiSpacing.xxl
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
+        clip: true; boundsBehavior: Flickable.StopAtBounds
 
         Column {
-            id: column
-            width: parent.width
-            spacing: MichiSpacing.lg
+            id: column; width: parent.width; spacing: MichiSpacing.lg
 
             HeroMaterial {
                 width: parent.width; height: 140; radius: 16; showGlow: true
@@ -28,31 +31,53 @@ Item {
                         font.pixelSize: MichiTypography.heroTitleSize; font.weight: MichiTypography.weightBold
                     }
                     Text {
-                        text: "Emisoras, podcasts y transmisiones en vivo."; color: MichiColors.textSecondary
+                        text: "Emisoras de todo el mundo."; color: MichiColors.textSecondary
                         font.pixelSize: MichiTypography.bodySize; width: parent.width * 0.70; wrapMode: Text.WordWrap
                     }
                 }
             }
 
-            GlassCard {
-                width: parent.width; height: 80
-                title: "Radio en vivo"; subtitle: "Escucha emisoras de todo el mundo. Próximamente."
-                variant: "base"
+            SectionHeader { text: "Favoritas"; width: parent.width }
+
+            Repeater {
+                model: root.radioBridge ? root.radioBridge.favorites : []
+
+                GlassCard {
+                    width: parent.width; height: 60
+                    title: modelData.name || ""
+                    subtitle: modelData.codec ? modelData.codec + (modelData.country ? " · " + modelData.country : "") : ""
+                    variant: "base"
+                }
             }
 
-            GlassCard {
-                width: parent.width; height: 80
-                title: "Podcasts"; subtitle: "Suscripción y gestión de episodios. Próximamente."
-                variant: "base"
+            Text {
+                text: "No hay emisoras favoritas."
+                color: MichiColors.textMuted; font.pixelSize: MichiTypography.bodySize
+                width: parent.width; wrapMode: Text.WordWrap
+                visible: root.radioBridge && root.radioBridge.favorites.length === 0
             }
 
-            GlassCard {
-                width: parent.width; height: 80
-                title: "Grabaciones"; subtitle: "Captura y almacena transmisiones. Próximamente."
-                variant: "base"
+            SectionHeader { text: "Todas las emisoras"; width: parent.width }
+
+            Repeater {
+                model: root.radioBridge ? root.radioBridge.stations : []
+
+                GlassCard {
+                    width: parent.width; height: 60
+                    title: modelData.name || ""
+                    subtitle: modelData.url || ""
+                    variant: "base"
+                }
             }
 
-            StatusBadge { text: "Próximamente"; kind: "experimental" }
+            Text {
+                text: "No hay emisoras configuradas. Agrega una URL para comenzar."
+                color: MichiColors.textMuted; font.pixelSize: MichiTypography.bodySize
+                width: parent.width; wrapMode: Text.WordWrap
+                visible: root.radioBridge && root.radioBridge.stations.length === 0
+            }
+
+            StatusBadge { text: "Interfaz clásica disponible"; kind: "info" }
         }
     }
 }

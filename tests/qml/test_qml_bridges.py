@@ -356,7 +356,7 @@ class TestHomeAudioBridge:
         bridge = HomeAudioBridge()
         assert bridge.homeAssistantState == "not_configured"
         assert bridge.streamState == "concept"
-        assert bridge.receiverCount == 0
+        assert len(bridge.devices) == 0
 
     def test_configure_home_assistant(self):
         bridge = HomeAudioBridge()

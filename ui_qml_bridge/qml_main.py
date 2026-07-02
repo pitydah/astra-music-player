@@ -22,6 +22,7 @@ from ui_qml_bridge.devices_bridge import DevicesBridge
 from ui_qml_bridge.playlists_bridge import PlaylistsBridge
 from ui_qml_bridge.audio_lab_bridge import AudioLabBridge
 from ui_qml_bridge.settings_bridge import SettingsBridge
+from ui_qml_bridge.radio_bridge import RadioBridge
 
 
 def main():
@@ -45,6 +46,7 @@ def main():
     playlists_bridge = PlaylistsBridge(db_conn=None)
     audio_lab_bridge = AudioLabBridge(db_conn=None)
     settings_bridge = SettingsBridge()
+    radio_bridge = RadioBridge()
 
     engine.rootContext().setContextProperty("appBridge", app_bridge)
     engine.rootContext().setContextProperty("navigationBridge", nav_bridge)
@@ -60,6 +62,7 @@ def main():
     engine.rootContext().setContextProperty("playlistsBridge", playlists_bridge)
     engine.rootContext().setContextProperty("audioLabBridge", audio_lab_bridge)
     engine.rootContext().setContextProperty("settingsBridge", settings_bridge)
+    engine.rootContext().setContextProperty("radioBridge", radio_bridge)
 
     qmlRegisterType(CoverBridge, "MichiCover", 1, 0, "CoverBridge")
 
