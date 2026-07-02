@@ -620,9 +620,18 @@ class TestMetadataBridge:
             "NowPlayingPage.qml should not exist in qml-migration-foundation-clean"
         )
 
-    def test_metadata_bridge_can_apply_false(self):
+    def test_metadata_bridge_can_apply_false_without_selection(self):
         bridge = MetadataBridge()
         assert bridge.canApply is False
+
+    def test_metadata_bridge_can_apply_true_with_selection(self):
+        bridge = MetadataBridge()
+        bridge.inspectTrack("/tmp/test_fake.flac")
+        assert bridge.canApply is True
+
+    def test_metadata_bridge_apply_changes_has_slot(self):
+        bridge = MetadataBridge()
+        assert hasattr(bridge, 'applyChanges')
 
     def test_metadata_inspector_apply_button_disabled(self):
         content = (QML_DIR / "pages" / "metadata" / "MetadataInspectorPage.qml").read_text()

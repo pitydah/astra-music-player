@@ -127,9 +127,9 @@ class MetadataBridge(QObject):
     def artworkStatus(self):
         return self._artwork_status
 
-    @Property(bool, constant=True)
+    @Property(bool, notify=selectionChanged)
     def canApply(self):
-        return False
+        return self._has_selection and bool(self._current_filepath)
 
     @Slot(str)
     def inspectTrack(self, filepath: str):
@@ -210,3 +210,38 @@ class MetadataBridge(QObject):
     def previewSuggestedFixes(self):
         self._error_message = "Previsualización disponible en una fase posterior."
         self.dataChanged.emit()
+
+    @Slot(str, str, str)
+    def applyChanges(self, new_title: str, new_artist: str, new_album: str):
+        if not self._current_filepath:
+            self._error_message = "No hay archivo seleccionado."
+            self.dataChanged.emit()
+            return
+        from pathlib import Path
+        p = Path(self._current_filepath)
+        if not p.is_file():
+            self._error_message = "Archivo no encontrado."
+            self.dataChanged.emit()
+            return
+        try:
+            from mutagen import File
+            audio = File(self._current_filepath, easy=True)
+            if audio is None:
+                self._error_message = "No se pudo abrir el archivo para escritura."
+                self.dataChanged.emit()
+                return
+            if new_title:
+                audio["title"] = new_title
+            if new_artist:
+                audio["artist"] = new_artist
+            if new_album:
+                audio["album"] = new_album
+            audio.save()
+            self._error_message = ""
+            self._quality_summary = "Metadatos actualizados correctamente."
+            self.dataChanged.emit()
+            self.inspectTrack(self._current_filepath)
+        except Exception:
+            logger.debug("Metadata write failed for %s", self._current_filepath, exc_info=True)
+            self._error_message = "Error al escribir metadatos. El archivo podría estar protegido."
+            self.dataChanged.emit()
