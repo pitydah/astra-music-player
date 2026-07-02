@@ -542,3 +542,78 @@ Commits outside the Audio Lab scope that touch `ui/audio_lab/diagnostics_page.py
 2. Keep `diagnostics_updated = Signal(list)` and `navigate_requested = Signal(str)`
 3. Keep the `# INTEGRITY GUARD` block at the end of the file
 4. If you need to add/remove constructor params, update the guard accordingly and update `AudioLabDiagnosticsPage` in `ui/audio_lab/sub_pages.py`
+
+## 13. QML Migration Rules (for AI assistants)
+
+### Architecture
+- QML does NOT access the database directly
+- QML emits intention; Python executes
+- Bridges (ui_qml_bridge/) are the only communication layer between QML and Python
+- Python remains the brain; QML is the premium skin
+
+### Protected Files — QML Migration
+- `ui_qml/` is the new QML UI layer (experimental, parallel)
+- `ui_qml_bridge/` is the Python bridge layer
+- Do NOT touch `ui/devices_page.py`, `sync/`, `ui/nowplaying_bar.py`, `ui/source_status_badge.py`
+- Do NOT touch playback logic (`audio/player.py`, `audio/player_service.py`, `audio/pipeline_factory.py`, `core/playback_controller.py`)
+- Do NOT touch Android integration or sync protocol
+- Keep fallback QtWidgets intact
+
+### Visual Rules (QML)
+- No `opacity` on parent containers with text
+- No blur on lists/grids/tables
+- No per-item shadows in lists/grids/tables
+- Theme tokens preferred over hardcoded colors
+- No fake data shown as real — use "No configurado", "Demo QML", "Experimental"
+
+### How to run
+```bash
+# QML experimental
+python -m ui_qml_bridge.qml_main
+python main.py --qml
+
+# Classic app
+python main.py
+
+# Tests
+python -m pytest tests/qml/ -q    # 60 tests
+ruff check ./ui_qml ./ui_qml_bridge ./tests/qml
+python scripts/check_no_touch_contract.py
+```
+
+### Current QML Status (Jul 2026)
+- **99+ tests** — bridges, structural, emoji/sidebar prohibition, Library, Michi AI, CoverBridge, MetadataBridge, Audio Lab
+- **0 ruff errors** in QML/bridge/tests
+- **0 compileall errors** in QML/bridge/tests
+- **Sidebar final** (10 items): Inicio, Biblioteca, Mix, Reproducción, Conexiones, Radio, Playlists, Home Audio, Michi AI, Audio Lab
+- **Labels**: No "Settings", no "Ajustes", no "Asistente". "Michi AI" as visible label, "assistant" as internal route
+- **PageStack** with explicit radio/playlists → PlaceholderPage, no settings
+- **NavigationBridge** with VALID_ROUTES, invalid routes → placeholder
+- **Library QML**: LibraryPage with tabs (Songs/Albums), SongTable, AlbumGrid, LibraryBridge
+- **Michi AI real**: ChatBubble, SuggestionCard, AssistantPage with functional chat and contextual suggestions
+- **Placeholders**: Radio ("sección de streaming y emisoras"), Playlists ("gestión editorial de listas")
+- **No backend playlists** in this branch (separated to `playlists-premium-backend`)
+- **No Michi Link** modified in this branch
+- Sidebar with glyph system (no emojis), forbidden routes check
+- Header with glass/smoked background, search field, experimental badge
+- ActionButton with scale 0.985, loading spinner, focus ring, 6 variants, keyboard support
+- MichiGlass 2.0: 30+ color tokens, microinteractions (Behavior on color/border)
+- Home, Connections, HomeAudio pages fully migrated with bridge navigation
+- Context menu without emojis, toggle_favorite_by_filepath secure method
+- SongsPremiumPage.load_data with stale result guard (`_load_counter`)
+
+### QML Directory Structure
+```
+ui_qml/
+├── theme/        → Colors, Typography, Spacing, Motion, Theme
+├── materials/   → Glass, Hero, Popup, Sidebar, Input, Acrylic
+├── components/  → GlassPanel, GlassCard, ActionButton, StatusBadge, ...
+├── shell/       → AppShell, Sidebar, HeaderBar, PageStack, RouteTransition
+├── pages/
+│   ├── home/          → HomePage (fully migrated)
+│   ├── connections/   → ConnectionsPage (fully migrated)
+│   ├── home_audio/    → HomeAudioPage (fully migrated)
+│   ├── assistant/     → Placeholders
+│   └── library/       → Placeholder
+└── effects/     → Reserved for future effects
+```

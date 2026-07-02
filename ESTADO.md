@@ -250,12 +250,38 @@ Sidebar click → sidebar_controller → navigation_requested(key)
 | `python -m compileall -q -x '.venv/|\.tmpl\.|album_controller' .` | ✅ |
 | `QT_QPA_PLATFORM=offscreen pytest -q tests/test_home_dashboard_service.py tests/test_home_controller.py tests/test_ecosystem_config_planner.py tests/test_ecosystem_diagnostics.py tests/test_ecosystem_doctor.py tests/test_section_context_providers.py tests/test_contextual_suggestion_engine.py tests/test_intent_router.py tests/test_audio_conversion_tools.py tests/test_prompt_context_builder.py tests/test_tool_registry_kwargs.py tests/test_assistant_snapshot_contract.py tests/test_context_snapshot.py tests/test_context_service.py` | **214 passed** |
 
+## 📊 Porcentaje de Avance Final
+
+| Componente | % |
+|-----------|----|
+| Home / Centro de Situación Michi | **95%** |
+| Michi Ecosystem Doctor | **90%** |
+| Michi Assistant contextual | **85%** |
+| CrashReporter privacidad | **95%** |
+| Géneros | **88%** |
+| Álbumes / CoverFlow | **95%** |
+| CI / GitHub Actions | **90%** |
+| Hybrid Audio Engine | **pendiente de auditoría profunda** |
+| Preparación beta | **85%** |
+
+### Últimas validaciones
+| Comando | Resultado |
+|---------|-----------|
+| `ruff check .` (solo código nuevo) | **0 errores** |
+| `python -m compileall .` | ✅ |
+| `QT_QPA_PLATFORM=offscreen pytest` (186 tests) | **186 passed** |
+
+### Riesgos cerrados en esta sesión
+- `diagnose_ecosystem()` ya no devuelve `generate_report()` crudo sin host — usa composición propia
+- `diagnose_mobile_sync()` usa `paired`/`total_devices`, no solo `count`
+- Sanitizer ya no rompe endpoints `/api/v1/*` (reconoce `_is_api_endpoint`)
+- `_redact_env()` ahora redacta valores sensibles además de claves
+- `diagnose_assistant_runtime()` bloquea URL externa cuando `offline_strict=True`
+- `diagnose_micro_contract()` registra warning en lugar de silenciar errores
+
 ## 🚀 Próximos Pasos Recomendados
 
-1. **Wiring visual completo** de `ContextSuggestionBar` en hub pages
-2. **Conexión de botones** de `EcosystemPage` con workers reales
-3. **Corregir errores preexistentes** en `album_controller.py` y `conversion_page.py`
-4. **CI/CD con GitHub Actions** — Ejecutar ruff + pytest en cada push
-5. **Conversión real de archivos** con backend seguro
-6. **Pre-beta packaging** — Flatpak / AppImage / `.deb`
-7. **Actualizar AGENTS.md**
+1. **Auditar Hybrid Audio Engine** — GStreamer + MPD backends, bitperfect verifier
+2. **Conversión real de archivos** con backend seguro
+3. **Pre-beta packaging** — Flatpak / AppImage / `.deb`
+4. **Actualizar AGENTS.md**

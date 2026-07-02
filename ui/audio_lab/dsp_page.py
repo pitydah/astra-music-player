@@ -224,54 +224,55 @@ class DSPPage(QWidget):
         except Exception as e:
             logger.warning("Engine status refresh error: %s", e)
 
-    def _update_mpd_buttons(self):
+    def bind_player_service(self, player_service):
+        self._ps = player_service
+
+    def _playback(self):
+        if hasattr(self, '_ps') and self._ps is not None:
+            return self._ps
         from PySide6.QtWidgets import QApplication
         app = QApplication.instance()
         if not app:
-            return
+            return None
         for w in app.topLevelWidgets():
             ctx = getattr(w, '_ctx', None) or getattr(w, '_app_context', None)
             if ctx and hasattr(ctx, 'playback') and ctx.playback:
-                try:
-                    status = ctx.playback.get_mpd_status()
-                    running = status.get("running", False)
-                    installed = status.get("installed", False)
-                    self._mpd_start_btn.setEnabled(installed and not running)
-                    self._mpd_stop_btn.setEnabled(running)
-                    self._mpd_start_btn.setText(
-                        "Iniciar MPD local" if not running else "MPD en ejecución")
-                except Exception:
-                    pass
-                break
+                return ctx.playback
+        return None
+
+    def _update_mpd_buttons(self):
+        pb = self._playback()
+        if not pb:
+            return
+        try:
+            status = pb.get_mpd_status()
+            running = status.get("running", False)
+            installed = status.get("installed", False)
+            self._mpd_start_btn.setEnabled(installed and not running)
+            self._mpd_stop_btn.setEnabled(running)
+            self._mpd_start_btn.setText(
+                "Iniciar MPD local" if not running else "MPD en ejecución")
+        except Exception:
+            pass
 
     def _start_mpd(self):
-        from PySide6.QtWidgets import QApplication
-        app = QApplication.instance()
-        if not app:
+        pb = self._playback()
+        if not pb:
             return
-        for w in app.topLevelWidgets():
-            ctx = getattr(w, '_ctx', None) or getattr(w, '_app_context', None)
-            if ctx and hasattr(ctx, 'playback') and ctx.playback:
-                ok = ctx.playback.start_mpd_service()
-                if ok:
-                    self._mpd_status_label.setText("MPD local iniciado")
-                else:
-                    self._mpd_status_label.setText("Error al iniciar MPD local")
-                self._update_mpd_buttons()
-                break
+        ok = pb.start_mpd_service()
+        if ok:
+            self._mpd_status_label.setText("MPD local iniciado")
+        else:
+            self._mpd_status_label.setText("Error al iniciar MPD local")
+        self._update_mpd_buttons()
 
     def _stop_mpd(self):
-        from PySide6.QtWidgets import QApplication
-        app = QApplication.instance()
-        if not app:
+        pb = self._playback()
+        if not pb:
             return
-        for w in app.topLevelWidgets():
-            ctx = getattr(w, '_ctx', None) or getattr(w, '_app_context', None)
-            if ctx and hasattr(ctx, 'playback') and ctx.playback:
-                ctx.playback.stop_mpd_service()
-                self._mpd_status_label.setText("MPD local detenido")
-                self._update_mpd_buttons()
-                break
+        pb.stop_mpd_service()
+        self._mpd_status_label.setText("MPD local detenido")
+        self._update_mpd_buttons()
 
     def _build_profile_panel(self) -> QWidget:
         w = QWidget()

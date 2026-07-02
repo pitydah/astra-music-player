@@ -1037,6 +1037,39 @@ class MainWindow(QMainWindow):
         if self._genre_ctrl:
             self._genre_ctrl.show_cleanup_page()
 
+    def _show_album_detail_route(self, album_key: str):
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page.set_current_section("albums")
+        w = self
+        if hasattr(w, '_album_ctrl') and w._album_ctrl:
+            from library.album_art import CoverFlowItem
+            repo = getattr(w, '_album_data_repo', None)
+            group = repo.get_group(album_key) if repo else None
+            if group:
+                from PySide6.QtGui import QPixmap
+                fake = CoverFlowItem(
+                    pixmap=QPixmap(1, 1), title=group.identity.display_title,
+                    subtitle=group.identity.display_artist,
+                    data={"album_group": group, "album_key": album_key,
+                          "tracks": group.tracks},
+                )
+                w._album_ctrl.show_album_detail_from_cover_item(fake)
+
+    def _show_artist_detail_route(self, artist_key: str):
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page.set_current_section("artists")
+        if hasattr(self, '_artist_ctrl') and self._artist_ctrl:
+            self._artist_ctrl.open_artist_detail(artist_key)
+
+    def _show_genre_detail_route(self, genre_key: str):
+        self._show_library_hub_page()
+        if self._library_hub_page:
+            self._library_hub_page.set_current_section("genres")
+        if hasattr(self, '_genre_ctrl') and self._genre_ctrl:
+            self._genre_ctrl.open_genre_detail(genre_key)
+
     def _show_home_page(self, key=None):
         self._home_ctrl.show()
 
@@ -1249,8 +1282,11 @@ class MainWindow(QMainWindow):
 
     def _play_file(self, filepath: str, add_to_queue: bool = False):
         self._playback_ctrl.play_file(filepath, add_to_queue)
-<<<<<<< Updated upstream
-=======
+
+    def _toggle_favorite_by_filepath(self, filepath: str, songs_ctrl):
+        from library.library_db import MediaItem
+        item = MediaItem(filepath=filepath)
+        songs_ctrl.toggle_favorite(item)
 
     def _show_song_context_menu(self, filepath: str, pos):
         from PySide6.QtWidgets import QMenu
@@ -1258,13 +1294,13 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         menu.setStyleSheet(menu_qss())
 
-        play_act = menu.addAction("▶ Reproducir")
-        queue_act = menu.addAction("⊕ Añadir a la cola")
+        play_act = menu.addAction("Reproducir")
+        queue_act = menu.addAction("Añadir a la cola")
         menu.addSeparator()
-        locate_act = menu.addAction("📁 Localizar archivo")
+        locate_act = menu.addAction("Localizar archivo")
         menu.addSeparator()
-        fav_act = menu.addAction("★ Favorito / Quitar favorito")
-        metadata_act = menu.addAction("✎ Editar metadatos")
+        fav_act = menu.addAction("Favorito / Quitar favorito")
+        metadata_act = menu.addAction("Editar metadatos")
 
         action = menu.exec(pos)
         if action == play_act:
@@ -1277,11 +1313,9 @@ class MainWindow(QMainWindow):
         elif action == fav_act:
             songs_ctrl = getattr(self, '_songs_ctrl', None)
             if songs_ctrl and hasattr(songs_ctrl, 'toggle_favorite'):
-                from library.library_db import MediaItem
-                songs_ctrl.toggle_favorite(MediaItem(filepath=filepath))
+                self._toggle_favorite_by_filepath(filepath, songs_ctrl)
         elif action == metadata_act and hasattr(self, '_open_metadata_for_files'):
             self._open_metadata_for_files([filepath])
->>>>>>> Stashed changes
     # Streaming/Cast/AudioOutput — now split into focused controllers
     # CastController → unified transmit menu (local + net + snapcast + HA)
     # AudioOutputController → local output device selection

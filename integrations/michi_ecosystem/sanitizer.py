@@ -1,10 +1,12 @@
 """Sanitizer — strip sensitive data from ecosystem diagnostics.
 
 Safe for dicts, lists, dataclasses, and nested structures.
+Preserves API endpoints like /api/v1/status (not sanitized as local paths).
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 SENSITIVE_KEYS = frozenset({
@@ -14,9 +16,18 @@ SENSITIVE_KEYS = frozenset({
     "authorization", "bearer",
 })
 
-_SENSITIVE_PREFIXES = ("/", "/home/", "/Users/", "file://", "C:\\", "c:\\", "\\\\")
+_LOCAL_PATH_RE = re.compile(r"^(/home/|/Users/|file://|C:\\|c:\\|\\\\)")
+_API_ENDPOINT_RE = re.compile(r"^/(api|health|status)(/|$)")
 _MAX_STRING_LENGTH = 240
 _MAX_LIST_ITEMS = 20
+
+
+def _looks_like_local_path(text: str) -> bool:
+    return bool(_LOCAL_PATH_RE.match(text))
+
+
+def _is_api_endpoint(text: str) -> bool:
+    return bool(_API_ENDPOINT_RE.match(text))
 
 
 def sanitize_for_diagnostic(value: Any) -> Any:
@@ -25,9 +36,10 @@ def sanitize_for_diagnostic(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [sanitize_for_diagnostic(v) for v in value[:_MAX_LIST_ITEMS]]
     if isinstance(value, str):
-        for prefix in _SENSITIVE_PREFIXES:
-            if value.startswith(prefix):
-                return value.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+        if _is_api_endpoint(value):
+            return value
+        if _looks_like_local_path(value):
+            return value.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
         if len(value) > _MAX_STRING_LENGTH:
             return value[:_MAX_STRING_LENGTH] + "..."
         return value

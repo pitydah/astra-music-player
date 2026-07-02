@@ -363,7 +363,17 @@ class AlbumController:
             fp = str(getattr(t, "filepath", "") or "")
             if fp:
                 folder = os.path.dirname(fp)
-                subprocess.Popen(["xdg-open", folder])
+                if not os.path.isdir(folder):
+                    self._toast("La carpeta no existe", "error")
+                    return
+                try:
+                    import subprocess
+                    subprocess.Popen(
+                        ["xdg-open", folder],
+                        start_new_session=True,
+                    )
+                except Exception:
+                    self._toast("No se pudo abrir la carpeta", "error")
                 return
         self._toast("No se encontró la carpeta", "error")
 
@@ -397,7 +407,8 @@ class AlbumController:
 
     def show_album_detail_from_cover_item(self, cover_item):
         w = self._win
-        w._nav_ctrl.checkpoint()
+        if not getattr(w._nav_ctrl, 'is_restoring', False):
+            w._nav_ctrl.checkpoint()
         album = getattr(cover_item, 'title', '') or ''
         artist = getattr(cover_item, 'subtitle', '') or ''
         tracks = []
@@ -518,6 +529,9 @@ class AlbumController:
                 search_query="",
             )
         w._count.setText(album)
+
+        if album_key and not getattr(w._nav_ctrl, 'is_restoring', False):
+            w._nav_ctrl.force_push(f"album:{album_key}")
 
     def navigate_to_album_by_title(self, album_title: str):
         w = self._win

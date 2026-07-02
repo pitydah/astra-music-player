@@ -118,7 +118,8 @@ class GenreController:
     # ── Detail navigation ──
 
     def open_genre_detail(self, genre_key: str):
-        self._win._nav_ctrl.checkpoint()
+        if not getattr(self._win._nav_ctrl, 'is_restoring', False):
+            self._win._nav_ctrl.checkpoint()
 
         if self._detail_page and self._stats_svc:
             detail = self._stats_svc.get_genre_detail(genre_key)
@@ -164,6 +165,9 @@ class GenreController:
                 album="", artist="", playlist_id=None,
                 playlist_name="", folder_name="",
                 mix_key="", search_query="")
+
+        if not getattr(self._win._nav_ctrl, 'is_restoring', False):
+            self._win._nav_ctrl.force_push(f"genre:{genre_key}")
 
     def back_to_overview(self):
         if self._genre_repo:

@@ -243,6 +243,14 @@ def resolve_sidebar_active_key(key: str) -> str:
         return "playback_hub"
     # Fallback: extraer prefijo antes de ":"
     prefix = key.split(":")[0] if ":" in key else key
+    if prefix in ("album", "artist", "genre"):
+        return "library_hub"
+    if prefix in ("pl", "playlist"):
+        return "playlist_hub"
+    if prefix == "srv":
+        return "connections_hub"
+    if prefix == "dev":
+        return "devices_page"
     return prefix if prefix in (
         "home", "library_hub", "mix_hub", "playlist_hub",
         "playback_hub", "connections_hub", "home_audio",
@@ -362,9 +370,14 @@ class NavigationHistory:
 
         When force=True, always creates a new entry even if the key matches
         the current one (used for detail view checkpoints).
+
+        Deduplicates: if key already exists within the last 2 entries,
+        do not add a duplicate (handles rapid tab switching).
         """
-        if not force and self._history and self._history[self._index][0] == key:
-            return
+        if not force:
+            recent = self._history[max(0, self._index - 2):self._index + 1]
+            if any(entry[0] == key for entry in recent):
+                return
         if self._index < len(self._history) - 1:
             self._history = self._history[:self._index + 1]
         self._history.append((key, search_text))
@@ -575,6 +588,21 @@ class NavigationController(QObject):
             return
         if key.startswith("mix_") and key != "mix_hub":
             w._show_smart_mix(key)
+            return
+        if key.startswith("album:"):
+            album_key = key.split(":", 1)[1] if ":" in key else ""
+            if album_key and hasattr(w, '_show_album_detail_route'):
+                w._show_album_detail_route(album_key)
+            return
+        if key.startswith("artist:"):
+            artist_key = key.split(":", 1)[1] if ":" in key else ""
+            if artist_key and hasattr(w, '_show_artist_detail_route'):
+                w._show_artist_detail_route(artist_key)
+            return
+        if key.startswith("genre:"):
+            genre_key = key.split(":", 1)[1] if ":" in key else ""
+            if genre_key and hasattr(w, '_show_genre_detail_route'):
+                w._show_genre_detail_route(genre_key)
             return
 
         # Static routes
